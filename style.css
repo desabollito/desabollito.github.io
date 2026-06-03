@@ -375,7 +375,7 @@ input[type="date"]{color-scheme:dark;}
 .detail-price{font-size:22px;font-weight:800;color:var(--price-color);text-align:center;padding:14px;background:rgba(52,211,153,0.08);border:1px solid rgba(52,211,153,0.2);border-radius:var(--radius-md);margin-bottom:14px;}
 .pieces-chips{display:flex;flex-wrap:wrap;gap:4px;}
 .chip{font-size:10px;font-weight:600;color:var(--accent-light);background:rgba(26,115,232,0.12);border:1px solid rgba(26,115,232,0.2);padding:2px 7px;border-radius:20px;}
-.detail-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.detail-actions{display:grid;grid-template-columns:1fr;gap:8px;}
 .btn-detail{display:flex;align-items:center;justify-content:center;gap:6px;padding:11px 8px;border:1px solid;border-radius:var(--radius-sm);font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer;transition:var(--transition);}
 .btn-detail svg{width:14px;height:14px;}
 .btn-detail.photos{background:rgba(139,92,246,0.1);border-color:rgba(139,92,246,0.3);color:#a78bfa;}

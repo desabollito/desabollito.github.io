@@ -645,7 +645,7 @@ function openVehicleDetail(id) {
 
   document.getElementById('detail-content').innerHTML = `
     <div class="detail-header-section">
-      <div class="detail-vehicle-icon" onclick="openDrivePhotos('${id}')" style="cursor:pointer" title="Ver fotos">
+      <div class="detail-vehicle-icon" ${v.firstPhotoUrl ? `onclick="openDrivePhotos('${id}')" style="cursor:pointer" title="Ver fotos"` : ''}>
         ${v.firstPhotoUrl
           ? `<img src="${v.firstPhotoUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;">`
           : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 17H3a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h14l4 4v4a2 2 0 0 1-2 2h-2"/><circle cx="7.5" cy="17.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/><path d="M15 9V7H7L5 9"/></svg>`
@@ -693,7 +693,7 @@ function openVehicleDetail(id) {
       strip.innerHTML = docs.map(d => `
         <a href="${d.data||d.url||'#'}" download="${d.name}" class="detail-doc-strip-row">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
-          <span>Documento adjunto: ${d.name}</span>
+          <span>${d.name}</span>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;flex-shrink:0;opacity:0.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         </a>`).join('');
     } catch(e) { console.warn('docs error:', e); strip.innerHTML = ''; }

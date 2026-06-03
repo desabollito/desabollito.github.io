@@ -382,7 +382,8 @@ const PDFModule = (() => {
         if (images.length > 0) {
           const cols  = 4;
           const gapF  = 2;
-          const cellW = (pageW - margin * 2 - gapF * (cols - 1)) / cols;
+          const marginF = 3; // margen lateral mínimo
+          const cellW = (pageW - marginF * 2 - gapF * (cols - 1)) / cols;
           const cellH = cellW * 0.9;
 
           let row = [];
@@ -397,7 +398,7 @@ const PDFModule = (() => {
               }
               // Centrar la fila si tiene menos de 4 imágenes
               const rowWidth = row.length * cellW + (row.length - 1) * gapF;
-              const rowStartX = margin + ((pageW - margin*2) - rowWidth) / 2;
+              const rowStartX = marginF + ((pageW - marginF*2) - rowWidth) / 2;
               row.forEach((img, c) => {
                 const cellX = rowStartX + c * (cellW + gapF);
                 try {
