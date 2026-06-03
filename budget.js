@@ -598,10 +598,22 @@ function openVehicleDetail(id) {
   const peritadoDate = (v.estados && v.estados.peritado && v.estados.peritado.fecha) ? v.estados.peritado.fecha : null;
   const displayDate = peritadoDate ? peritadoDate.split('-').reverse().join('/') : '';
 
-  // Build estados timeline
-  let estadosHtml = '';
   const estados = v.estados || {};
   const tieneEstados = ESTADOS_ORDER.some(e => estados[e] && estados[e].completado);
+
+  // Estado actual (el último completado)
+  let estadoActualLabel = '';
+  let estadoActualColor = '#60a5fa';
+  for (const e of ['finalizado','reparado','turnado','peritado']) {
+    if (estados[e]?.completado) {
+      estadoActualLabel = ESTADO_CONFIG[e]?.label || e;
+      estadoActualColor = ESTADO_CONFIG[e]?.color || '#60a5fa';
+      break;
+    }
+  }
+
+  // Build estados colapsable
+  let estadosHtml = '';
   if (tieneEstados) {
     const estadoItems = ESTADOS_ORDER.filter(e => estados[e] && estados[e].completado).map(e => {
       const cfg = ESTADO_CONFIG[e];
@@ -610,7 +622,17 @@ function openVehicleDetail(id) {
         <span class="timeline-date">${estados[e].fecha ? estados[e].fecha.split('-').reverse().join('/') : ''}</span>
       </div>`;
     });
-    estadosHtml = `<div class="estados-timeline-grid">${estadoItems.join('')}</div>`;
+    estadosHtml = `
+      <div class="estados-collapse" onclick="this.classList.toggle('open')">
+        <div class="estados-collapse-header">
+          <span class="estados-collapse-badge" style="background:${estadoActualColor}22;color:${estadoActualColor};border-color:${estadoActualColor}55">${estadoActualLabel}</span>
+          <span class="estados-collapse-label">Ver historial de estados</span>
+          <svg class="estados-collapse-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="estados-collapse-body">
+          <div class="estados-timeline-grid">${estadoItems.join('')}</div>
+        </div>
+      </div>`;
   }
 
   const telHtml = tel
@@ -623,7 +645,7 @@ function openVehicleDetail(id) {
 
   document.getElementById('detail-content').innerHTML = `
     <div class="detail-header-section">
-      <div class="detail-vehicle-icon" onclick="openPhotoViewer('${id}')">
+      <div class="detail-vehicle-icon" onclick="openDrivePhotos('${id}')" style="cursor:pointer" title="Ver fotos">
         ${v.firstPhotoUrl
           ? `<img src="${v.firstPhotoUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;">`
           : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 17H3a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h14l4 4v4a2 2 0 0 1-2 2h-2"/><circle cx="7.5" cy="17.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/><path d="M15 9V7H7L5 9"/></svg>`
@@ -649,11 +671,7 @@ function openVehicleDetail(id) {
     <div id="detail-photo-gallery" class="detail-photo-gallery"></div>
     <div id="detail-doc-strip"></div>
     <div class="detail-actions">
-      <button class="btn-detail photos" onclick="openDrivePhotos('${id}')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-        Fotos
-      </button>
-      <button class="btn-detail share" onclick="closeModal('detail-modal');ShareModule.openShareMenu('${id}')">
+      <button class="btn-detail share" style="flex:1" onclick="closeModal('detail-modal');ShareModule.openShareMenu('${id}')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
         Compartir
       </button>
