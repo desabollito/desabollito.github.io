@@ -400,8 +400,25 @@ const PDFModule = (() => {
               row.forEach((img, c) => {
                 const cellX = rowStartX + c * (cellW + gapF);
                 try {
-                  // Llenar la celda completamente (cover): sin espacio vacío lateral
-                  doc.addImage(img.data, 'JPEG', cellX, currentY, cellW, cellH, `img_${i}_${c}`, 'FAST');
+                  const ratio = img.w / img.h;
+                  const cellRatio = cellW / cellH;
+                  let dw, dh, dx, dy;
+                  // Cover: escalar para llenar la celda respetando proporción
+                  if (ratio > cellRatio) {
+                    // Imagen más ancha → ajustar por alto, recortar costados
+                    dh = cellH; dw = cellH * ratio;
+                    dx = cellX - (dw - cellW) / 2; dy = currentY;
+                  } else {
+                    // Imagen más alta → ajustar por ancho, recortar arriba/abajo
+                    dw = cellW; dh = cellW / ratio;
+                    dx = cellX; dy = currentY - (dh - cellH) / 2;
+                  }
+                  // Clip al tamaño de la celda para no desbordar
+                  const pH = doc.internal.pageSize.getHeight();
+                  const pdfY = pH - currentY - cellH; // coordenadas PDF (origen abajo-izq)
+                  doc.internal.write(`q ${cellX} ${pdfY} ${cellW} ${cellH} re W n`);
+                  doc.addImage(img.data, 'JPEG', dx, dy, dw, dh, `img_${i}_${c}`, 'FAST');
+                  doc.internal.write('Q');
                 } catch(e) { console.warn('Error imagen:', e); }
               });
               currentY += cellH + gapF;
