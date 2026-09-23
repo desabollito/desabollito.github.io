@@ -25,6 +25,20 @@ service cloud.firestore {
       allow delete: if signedIn() && resource.data.uid == uid();
     }
 
+    // ── Número de WhatsApp → cuenta (lo usa el bot) ───────────
+    // Cada uno solo ve y maneja su propio número. Si otro ya lo
+    // tiene vinculado, la escritura se rechaza.
+    match /whatsapp/{num} {
+      allow read: if signedIn() && resource.data.uid == uid();
+      allow create: if signedIn() && request.resource.data.uid == uid()
+                    && request.resource.data.keys().hasOnly(['uid'])
+                    && num.matches('^[0-9]{8,15}$');
+      allow update: if signedIn() && resource.data.uid == uid() && request.resource.data.uid == uid();
+      allow delete: if signedIn() && resource.data.uid == uid();
+    }
+
+    // bot_sesiones y bot_mensajes: solo los usa el bot (cuenta de servicio).
+
     // ── Operativos (colección companies) ─────────────────────
     match /companies/{cid} {
       allow read: if signedIn() && uid() in resource.data.members;

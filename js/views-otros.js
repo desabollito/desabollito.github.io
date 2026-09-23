@@ -1,7 +1,7 @@
 import {
   S, activos, papelera, restaurar, eliminarDefinitivo, soyAdmin, miRol, renombrarEmpresa, guardarSello,
   agregarMiembro, cambiarRol, quitarMiembro, guardarEtiquetas, salirDeEmpresa, eliminarEmpresa, crearEmpresa, elegirEmpresa,
-  actualizarPerfil, salir, mensajeError
+  actualizarPerfil, salir, mensajeError, mostrarWhatsApp
 } from "./data.js";
 import { ESTADOS, ESTADO, ROLES, estadoActual } from "./domain.js";
 import {
@@ -12,7 +12,7 @@ import { imagenChica, avatar } from "./media.js";
 import { planillaPDF } from "./pdf.js";
 import { exportarExcel } from "./excel.js";
 import { setTopbar, go, logoOperativo } from "./shell.js";
-import { APP_VERSION } from "./config.js";
+import { APP_VERSION, WHATSAPP_BOT } from "./config.js";
 
 // ═════════════════════════════════════════════════════════════
 //  PLANILLA
@@ -438,6 +438,14 @@ export function vistaAjustes(view) {
     </section>
 
     <section class="card">
+      <h3>Bot de WhatsApp</h3>
+      ${p.whatsapp
+        ? `<p class="small">Vinculado a <strong>${esc(mostrarWhatsApp(p.whatsapp))}</strong>. Mandale al bot la patente y después las fotos: se guardan solas en el vehículo.</p>
+           ${WHATSAPP_BOT ? `<a class="btn btn-ghost btn-block" href="https://wa.me/${WHATSAPP_BOT}?text=ayuda" target="_blank" rel="noopener">${icon("chat")}Abrir chat con el bot</a>` : ""}`
+        : `<p class="muted small">Cargá tu número en <strong>Editar perfil</strong> para mandarle fotos al bot desde WhatsApp.</p>`}
+    </section>
+
+    <section class="card">
       <h3>Apariencia</h3>
       <div class="seg" id="tema">
         <button class="seg-btn ${oscuro ? "" : "on"}" data-t="light">Claro</button>
@@ -475,6 +483,9 @@ function editarPerfil(alTerminar) {
       <label class="field"><span>Usuario</span>
         <input name="usuario" value="${esc(p.username)}" required autocapitalize="none" spellcheck="false">
         <small class="muted">Letras, números, punto o guion. Es el que usan para sumarte a un operativo.</small></label>
+      <label class="field"><span>WhatsApp (para el bot)</span>
+        <input name="whatsapp" type="tel" inputmode="tel" value="${esc(p.whatsapp ? mostrarWhatsApp(p.whatsapp) : "")}" placeholder="351 555 1234">
+        <small class="muted">Código de área sin 0 y número sin 15. Opcional.</small></label>
       <button class="btn btn-primary btn-block btn-lg">Guardar perfil</button>
     </form>`
   });
@@ -487,7 +498,7 @@ function editarPerfil(alTerminar) {
     const b = $("button.btn-primary", e.target);
     busy(b, true, foto ? "Subiendo foto…" : "Guardando…");
     try {
-      await actualizarPerfil({ nombre: e.target.nombre.value, usuario: e.target.usuario.value, foto });
+      await actualizarPerfil({ nombre: e.target.nombre.value, usuario: e.target.usuario.value, foto, whatsapp: e.target.whatsapp.value });
       toast("Perfil actualizado", "success");
       s.close(); alTerminar?.();
     } catch (err) { toast(mensajeError(err), "error"); busy(b, false); }

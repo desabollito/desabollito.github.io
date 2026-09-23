@@ -32,4 +32,8 @@ export const CLOUDINARY = {
 // No lo cambies una vez que haya cuentas creadas.
 export const USER_DOMAIN = "desabollito.app";
 
-export const APP_VERSION = "2.0.6";
+// Número del bot de WhatsApp (solo dígitos, ej: "5493511234567").
+// Con esto la app muestra el botón "Abrir chat con el bot". Vacío = oculto.
+export const WHATSAPP_BOT = "";
+
+export const APP_VERSION = "2.1.0";
