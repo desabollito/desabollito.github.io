@@ -2,7 +2,9 @@
 
 El bot recibe fotos por WhatsApp y las guarda en el vehículo, en la web, al instante.
 
-**Cómo se usa:** el técnico le manda la patente → el bot abre ese vehículo → cada foto que manda después se guarda ahí y el bot la marca con ✅ → "listo" para cerrar.
+El bot es **de toda la app**: nadie tiene que vincular su cuenta. Cualquiera del equipo le escribe, manda la patente y las fotos, y el bot busca esa patente en **todos los operativos** para saber dónde guardarlas.
+
+**Cómo se usa:** mandar la patente → el bot abre ese vehículo → cada foto que llega después se guarda ahí y el bot la marca con ✅ → "listo" para cerrar.
 
 Hay que hacer 5 cosas, en este orden. Vas a ir juntando **10 datos** que al final se pegan en Cloudflare. Anotalos en un bloc de notas a medida que los consigas (y no los subas a GitHub).
 
@@ -18,6 +20,7 @@ Hay que hacer 5 cosas, en este orden. Vas a ir juntando **10 datos** que al fina
 | 8 | `WHATSAPP_PHONE_ID` | Paso 4 |
 | 9 | `WHATSAPP_TOKEN` | Paso 4 |
 | 10 | `WHATSAPP_APP_SECRET` | Paso 4 |
+| 11 | `NUMEROS_PERMITIDOS` | Opcional (ver "Candado") |
 
 ---
 
@@ -89,9 +92,23 @@ Ahora volvé a Cloudflare y cargá los datos 8, 9 y 10 (paso 3.5) → **Deploy**
 
 ## Paso 5 · Probar
 
-1. En la app de Desabollito: **Ajustes → Editar perfil → WhatsApp (para el bot)** → cargá tu número (ej: `351 555 1234`) → Guardar.
-2. Desde ese WhatsApp, escribile **"hola"** al número de prueba de Meta. Tiene que contestarte con las instrucciones.
-3. Mandale una patente que exista en la app, después una foto. La foto tiene que aparecer en el vehículo en la web y el bot la marca con ✅.
+1. Desde tu WhatsApp, escribile **"hola"** al número de prueba de Meta. Tiene que contestarte con las instrucciones.
+2. Mandale una patente que exista en la app, después una foto. La foto tiene que aparecer en el vehículo en la web y el bot la marca con ✅.
+
+### Acelerar la búsqueda (recomendado, 2 min)
+El bot busca la patente en todos los operativos con una sola consulta. Para eso Firebase necesita un índice:
+1. Firebase → **Firestore Database** → **Índices** → pestaña **Campo único** (Single field) → **Agregar exención**.
+2. ID de colección: `vehicles` · Ruta del campo: `patente` → Siguiente.
+3. En **Grupo de colecciones** activá **Ascendente** → **Guardar**. Tarda unos minutos en crearse.
+
+Sin el índice el bot funciona igual: recorre los operativos uno por uno. Con muchos operativos, eso es más lento.
+
+### Candado (opcional)
+Como no hay vinculación de cuentas, cualquiera que conozca el número del bot podría mandarle fotos a una patente. El bot no devuelve datos del cliente (solo modelo, patente y nombre del operativo), pero si querés restringirlo:
+- En Cloudflare agregá el secreto `NUMEROS_PERMITIDOS` con los números del equipo separados por coma, en formato internacional sin `+`.
+  Ej: `5493515551234,5491123456789`.
+- Vacío o sin cargar: el bot acepta a cualquiera.
+- Se puede cambiar cuando quieras sin tocar la app.
 
 Si no contesta: Cloudflare → tu Worker → **Logs** (o "Observability") → **Begin log stream**, mandale un mensaje al bot y mirá qué error aparece.
 
@@ -111,10 +128,11 @@ Si no contesta: Cloudflare → tu Worker → **Logs** (o "Observability") → **
 
 ## Cómo lo usa el equipo
 
-- **Patente** (ej: `AE345KD`, también `ae 345 kd`): abre ese vehículo.
+- **Patente** (ej: `AE345KD`, también `ae 345 kd`): abre ese vehículo, en el operativo que sea.
+- **Patente repetida en dos operativos:** el bot muestra la lista ("1. Granizo Córdoba / 2. Operativo Rosario") y se responde con el número.
 - **Fotos o PDFs**: se guardan en el vehículo abierto; cada una recibe ✅.
 - **Foto con la patente como descripción**: abre ese vehículo y guarda la foto en un solo paso.
 - **listo**: cierra el vehículo. Si no, se cierra solo a las 12 horas.
 - **ayuda**: muestra las instrucciones y qué vehículo está abierto.
 
-El bot solo le responde a números vinculados en la app, y solo encuentra vehículos de los operativos de esa persona.
+En la web, al abrir una foto se ve "por WhatsApp (nombre)" para saber quién la mandó.

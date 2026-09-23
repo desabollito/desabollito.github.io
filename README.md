@@ -123,7 +123,7 @@ Qué hacer, en este orden:
   - Lo que cargues sin conexión se guarda en el teléfono y se sincroniza solo cuando vuelve la señal.
   - Un punto amarillo en la tarjeta indica que ese vehículo todavía está pendiente.
   - Las fotos sí necesitan conexión para subirse.
-- **Bot de WhatsApp:** cada técnico carga su número en Ajustes → Editar perfil y le manda al bot la patente y las fotos. Guía completa en `bot/GUIA-BOT.md`.
+- **Bot de WhatsApp:** cualquiera del equipo le manda la patente y las fotos; el bot busca la patente en todos los operativos y las guarda en ese vehículo. Guía completa en `bot/GUIA-BOT.md`.
 - **Instalar como app:** en el celular, menú del navegador → "Agregar a la pantalla de inicio".
 
 ## Estructura del código

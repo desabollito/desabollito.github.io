@@ -362,7 +362,8 @@ function visor(fotos = [], inicio = 0) {
   });
   const show = () => {
     $("#vw-img", s.el).src = grande(fotos[i].url);
-    $("#vw-n", s.el).textContent = `${i + 1} de ${fotos.length}`;
+    const f = fotos[i];
+    $("#vw-n", s.el).textContent = `${i + 1} de ${fotos.length}` + (f.via === "whatsapp" ? ` · por WhatsApp${f.byName ? " (" + f.byName + ")" : ""}` : "");
     $("#vw-dl", s.el).href = fotos[i].url;
   };
   $("[data-p]", s.el).onclick = () => { i = (i - 1 + fotos.length) % fotos.length; show(); };

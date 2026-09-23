@@ -1,9 +1,12 @@
 // ═══════════════════════════════════════════════════════════════
 //  Desabollito · Bot de WhatsApp (Cloudflare Worker)
 //
+//  El bot es de toda la app: no hace falta vincular cuentas.
+//
 //  Flujo:
-//    1. El técnico manda la patente ("AE345KD").
-//    2. El bot busca el vehículo en sus operativos y lo deja "abierto".
+//    1. Cualquiera del equipo manda la patente ("AE345KD").
+//    2. El bot la busca en TODOS los operativos y deja ese vehículo "abierto".
+//       Si la patente está en más de un operativo, pregunta a cuál.
 //    3. Cada foto o documento que mande después se sube a Cloudinary
 //       y se agrega a ese vehículo en Firebase (se ve al instante en la web).
 //    4. "listo" cierra el vehículo. Otra patente cambia de vehículo.
@@ -19,6 +22,9 @@
 //    CLOUDINARY_CLOUD_NAME   dkfedvsn
 //    CLOUDINARY_API_KEY      API Key de Cloudinary
 //    CLOUDINARY_API_SECRET   API Secret de Cloudinary
+//    NUMEROS_PERMITIDOS      (opcional) números que pueden usar el bot, separados
+//                            por coma, ej: 5493515551234,5491123456789.
+//                            Vacío o sin cargar = cualquiera puede usarlo.
 // ═══════════════════════════════════════════════════════════════
 
 const GRAPH = "https://graph.facebook.com/v21.0";
@@ -52,7 +58,8 @@ export default {
     const mensajes = [];
     for (const entry of body.entry || []) {
       for (const ch of entry.changes || []) {
-        for (const m of ch.value?.messages || []) mensajes.push(m);
+        const nombres = Object.fromEntries((ch.value?.contacts || []).map(c => [c.wa_id, c.profile?.name || ""]));
+        for (const m of ch.value?.messages || []) mensajes.push({ ...m, _nombre: nombres[m.from] || "" });
       }
     }
     // Respondemos 200 enseguida (si no, Meta reintenta) y procesamos en segundo plano
@@ -71,16 +78,16 @@ async function procesar(m, env) {
   if (!(await primeraVez(env, m.id))) return; // Meta a veces reenvía el mismo mensaje
 
   const numero = normalizarNumero(m.from);
-  const vinculo = await fsGet(env, `whatsapp/${numero}`);
-  if (!vinculo?.uid) {
-    return responder(env, m.from,
-      "👋 ¡Hola! Este número no está vinculado a Desabollito.\n\n" +
-      "Abrí la app → *Ajustes* → *Editar perfil* y cargá este número de WhatsApp. Después volvé a escribirme.");
-  }
-  const uid = vinculo.uid;
+  const quien = { numero, nombre: m._nombre || "" };
 
-  if (m.type === "text") return alRecibirTexto(env, m, numero, uid, (m.text?.body || "").trim());
-  if (m.type === "image" || m.type === "document") return alRecibirArchivo(env, m, numero, uid);
+  // Candado opcional: si hay lista de números permitidos, solo ellos usan el bot
+  const permitidos = String(env.NUMEROS_PERMITIDOS || "").split(",").map(normalizarNumero).filter(Boolean);
+  if (permitidos.length && !permitidos.includes(numero)) {
+    return responder(env, m.from, "⛔ Este número no está habilitado para usar el bot de Desabollito.");
+  }
+
+  if (m.type === "text") return alRecibirTexto(env, m, quien, (m.text?.body || "").trim());
+  if (m.type === "image" || m.type === "document") return alRecibirArchivo(env, m, quien);
   if (m.type === "reaction") return;
   return responder(env, m.from, "Por ahora entiendo patentes, fotos y documentos. Escribí *ayuda* para ver cómo usarme.");
 }
@@ -92,51 +99,91 @@ const AYUDA =
   "3. Escribí *listo* cuando termines, o mandá otra patente para cambiar de vehículo.\n\n" +
   "También podés mandar una foto con la patente escrita como descripción.";
 
+const etiqueta = s => `*${s.modelo || "Vehículo"}* (${s.patente})`;
+
 function pareceP(t) {
   const p = t.toUpperCase().replace(/[^A-Z0-9]/g, "");
   return p.length >= 5 && p.length <= 9 && /[A-Z]/.test(p) && /[0-9]/.test(p) ? p : null;
 }
 
-async function alRecibirTexto(env, m, numero, uid, texto) {
+async function alRecibirTexto(env, m, quien, texto) {
   const t = texto.toLowerCase();
+  const numero = quien.numero;
   if (["hola", "ayuda", "menu", "menú", "?", "info", "help"].includes(t)) {
     const s = await sesionVigente(env, numero);
-    return responder(env, m.from, AYUDA + (s ? `\n\n📌 Vehículo abierto: *${s.modelo || s.patente}* (${s.patente})` : ""));
+    return responder(env, m.from, AYUDA + (s?.vid ? `\n\n📌 Vehículo abierto: ${etiqueta(s)} · ${s.operativo}` : ""));
   }
   if (["listo", "fin", "terminé", "termine", "cerrar", "chau", "gracias"].includes(t)) {
     const s = await sesionVigente(env, numero);
     await fsDelete(env, `bot_sesiones/${numero}`);
-    return responder(env, m.from, s ? `👌 Listo, cerré *${s.modelo || s.patente}*. Mandame otra patente cuando quieras.` : "👌 Listo.");
+    return responder(env, m.from, s?.vid ? `👌 Listo, cerré ${etiqueta(s)}. Mandame otra patente cuando quieras.` : "👌 Listo.");
   }
+
+  // Respuesta a "¿en qué operativo?" cuando la patente estaba repetida
+  const s = await sesionVigente(env, numero);
+  if (s?.opciones?.length && /^\d{1,2}$/.test(t)) {
+    const elegido = s.opciones[Number(t) - 1];
+    if (!elegido) return responder(env, m.from, `Elegí un número del 1 al ${s.opciones.length}.`);
+    await abrir(env, numero, elegido);
+    return responder(env, m.from, mensajeAbierto(elegido));
+  }
+
   const patente = pareceP(texto);
   if (!patente) return responder(env, m.from, "No entendí 🤔 Mandame la *patente* del vehículo (ej: AE345KD) o escribí *ayuda*.");
-
-  const r = await abrirVehiculo(env, numero, uid, patente);
+  const r = await elegirVehiculo(env, numero, patente);
   return responder(env, m.from, r.mensaje);
 }
 
-async function abrirVehiculo(env, numero, uid, patente) {
-  const encontrados = await buscarPatente(env, uid, patente);
-  if (!encontrados.length) {
-    return { ok: false, mensaje: `🔎 No encontré la patente *${patente}* en tus operativos.\n\nCargala primero en la app y después mandame las fotos.` };
-  }
-  const perfil = await fsGet(env, `users/${uid}`);
-  const v = encontrados.find(x => x.cid === perfil?.activeCompanyId) || encontrados[0];
+const mensajeAbierto = v =>
+  `📸 ${etiqueta(v)}\nOperativo: ${v.operativo}\n\nMandame las fotos y las guardo acá. Cuando termines escribí *listo*.`;
+
+async function abrir(env, numero, v) {
   await fsSet(env, `bot_sesiones/${numero}`, {
-    uid, cid: v.cid, vid: v.vid, patente: v.patente, modelo: v.modelo || "", operativo: v.operativo || "", ts: Date.now()
+    cid: v.cid, vid: v.vid, patente: v.patente, modelo: v.modelo || "", operativo: v.operativo || "", ts: Date.now()
   });
-  let msg = `📸 *${v.modelo || "Vehículo"}* (${v.patente})\nOperativo: ${v.operativo}\n\nMandame las fotos y las guardo acá. Cuando termines escribí *listo*.`;
-  if (encontrados.length > 1) msg += `\n\nℹ️ Esa patente está en ${encontrados.length} operativos; usé *${v.operativo}*.`;
-  return { ok: true, mensaje: msg, vehiculo: v };
 }
 
-async function buscarPatente(env, uid, patente) {
-  const operativos = await fsQuery(env, "", "companies", { field: "members", op: "ARRAY_CONTAINS", value: uid }, 50);
+// Busca la patente en todos los operativos. Una coincidencia: la abre.
+// Varias: guarda las opciones y pregunta a cuál.
+async function elegirVehiculo(env, numero, patente) {
+  const encontrados = await buscarPatente(env, patente);
+  if (!encontrados.length) {
+    return { ok: false, mensaje: `🔎 No encontré la patente *${patente}* en Desabollito.\n\nCargala primero en la app y después mandame las fotos.` };
+  }
+  if (encontrados.length === 1) {
+    await abrir(env, numero, encontrados[0]);
+    return { ok: true, mensaje: mensajeAbierto(encontrados[0]), vehiculo: encontrados[0] };
+  }
+  await fsSet(env, `bot_sesiones/${numero}`, { opciones: encontrados.slice(0, 9), patente, ts: Date.now() });
+  return {
+    ok: false, pregunta: true,
+    mensaje: `La patente *${patente}* está en más de un operativo. ¿A cuál van las fotos? Respondé con el número:\n\n` +
+      encontrados.slice(0, 9).map((v, i) => `${i + 1}. ${v.operativo} · ${v.modelo || "Vehículo"}`).join("\n")
+  };
+}
+
+async function buscarPatente(env, patente) {
+  let vehiculos;
+  try {
+    // Una sola consulta sobre todos los operativos
+    vehiculos = await fsQuery(env, "", "vehicles", { field: "patente", op: "EQUAL", value: patente }, 20, true);
+  } catch (e) {
+    // Si falta el índice de grupo de colecciones, se recorre operativo por operativo
+    console.warn("Consulta global no disponible, se recorre por operativo:", e.message);
+    vehiculos = [];
+    for (const op of await fsList(env, "companies")) {
+      const vs = await fsQuery(env, `companies/${op.__id}`, "vehicles", { field: "patente", op: "EQUAL", value: patente }, 5);
+      vs.forEach(v => { v.__ruta = `companies/${op.__id}/vehicles/${v.__id}`; });
+      vehiculos.push(...vs);
+    }
+  }
   const res = [];
-  for (const op of operativos) {
-    const cid = op.__id;
-    const vs = await fsQuery(env, `companies/${cid}`, "vehicles", { field: "patente", op: "EQUAL", value: patente }, 5);
-    for (const v of vs) if (!v.deleted) res.push({ cid, vid: v.__id, patente: v.patente, modelo: v.modelo, operativo: op.name });
+  const nombres = {};
+  for (const v of vehiculos) {
+    if (v.deleted) continue;
+    const [, cid, , vid] = v.__ruta.split("/");
+    nombres[cid] ??= (await fsGet(env, `companies/${cid}`))?.name || "Operativo";
+    res.push({ cid, vid, patente: v.patente, modelo: v.modelo, operativo: nombres[cid] });
   }
   return res;
 }
@@ -147,7 +194,8 @@ async function sesionVigente(env, numero) {
   return s;
 }
 
-async function alRecibirArchivo(env, m, numero, uid) {
+async function alRecibirArchivo(env, m, quien) {
+  const numero = quien.numero;
   const media = m.image || m.document;
   const esFoto = m.type === "image";
 
@@ -156,21 +204,19 @@ async function alRecibirArchivo(env, m, numero, uid) {
   let sesion = await sesionVigente(env, numero);
   const pCaption = caption && pareceP(caption);
   if (pCaption && pCaption !== sesion?.patente) {
-    const r = await abrirVehiculo(env, numero, uid, pCaption);
-    if (!r.ok) return responder(env, m.from, r.mensaje);
+    const r = await elegirVehiculo(env, numero, pCaption);
+    if (!r.ok) return responder(env, m.from, r.mensaje + (r.pregunta ? "\n\nDespués reenviame la foto." : ""));
     sesion = await sesionVigente(env, numero);
   }
-  if (!sesion) {
+  if (sesion?.opciones?.length && !sesion.vid) {
+    return responder(env, m.from, "📌 Primero decime a qué operativo van (respondé con el número de la lista). Después reenviame las fotos.");
+  }
+  if (!sesion?.vid) {
     return responder(env, m.from, "📌 Primero mandame la *patente* del vehículo al que van estas fotos (ej: AE345KD). Después reenviámelas.");
   }
 
-  // Sigue siendo miembro del operativo y el vehículo sigue existiendo
-  const op = await fsGet(env, `companies/${sesion.cid}`);
-  if (!op?.members?.includes(uid)) {
-    await fsDelete(env, `bot_sesiones/${numero}`);
-    return responder(env, m.from, "⛔ Ya no formás parte de ese operativo. Mandame otra patente.");
-  }
-  const vehiculo = await fsGet(env, `companies/${sesion.cid}/vehicles/${sesion.vid}`);
+  const ruta = `companies/${sesion.cid}/vehicles/${sesion.vid}`;
+  const vehiculo = await fsGet(env, ruta);
   if (!vehiculo || vehiculo.deleted) {
     await fsDelete(env, `bot_sesiones/${numero}`);
     return responder(env, m.from, `🗑️ El vehículo ${sesion.patente} ya no está disponible. Mandame otra patente.`);
@@ -186,13 +232,13 @@ async function alRecibirArchivo(env, m, numero, uid) {
     `desabollito/${sesion.cid}/${sesion.vid}`, esFoto ? "image" : "auto");
 
   // Agregar al vehículo (la web lo muestra al instante)
-  const quien = op.memberNames?.[uid] || "";
+  const origen = { via: "whatsapp", byWhatsApp: numero, byName: quien.nombre };
   if (esFoto) {
-    await fsAppend(env, `companies/${sesion.cid}/vehicles/${sesion.vid}`, "fotos",
-      { url: subido.secure_url, publicId: subido.public_id, w: subido.width || null, h: subido.height || null, at: Date.now(), by: uid, via: "whatsapp" }, uid);
+    await fsAppend(env, ruta, "fotos",
+      { url: subido.secure_url, publicId: subido.public_id, w: subido.width || null, h: subido.height || null, at: Date.now(), ...origen });
   } else {
-    await fsAppend(env, `companies/${sesion.cid}/vehicles/${sesion.vid}`, "archivos",
-      { url: subido.secure_url, publicId: subido.public_id, name: nombre, bytes: subido.bytes || null, format: subido.format || null, at: Date.now(), via: "whatsapp" }, uid);
+    await fsAppend(env, ruta, "archivos",
+      { url: subido.secure_url, publicId: subido.public_id, name: nombre, bytes: subido.bytes || null, format: subido.format || null, at: Date.now(), ...origen });
   }
   await fsSet(env, `bot_sesiones/${numero}`, { ...sesion, ts: Date.now() }); // renueva las 12 h
   return reaccionar(env, m.from, m.id, "✅");
@@ -359,24 +405,37 @@ async function fsDelete(env, ruta) {
   if (!r.ok && r.status !== 404) throw new Error(`Firestore delete ${ruta}: ${r.status}`);
 }
 
-async function fsQuery(env, padre, coleccion, filtro, limite = 20) {
+async function fsQuery(env, padre, coleccion, filtro, limite = 20, todos = false) {
   const url = padre ? `${base(env)}/${padre}:runQuery` : `${base(env)}:runQuery`;
   const r = await fs(env, url, {
     method: "POST",
     body: JSON.stringify({
       structuredQuery: {
-        from: [{ collectionId: coleccion }],
+        from: [{ collectionId: coleccion, allDescendants: todos }],
         where: { fieldFilter: { field: { fieldPath: filtro.field }, op: filtro.op, value: aValor(filtro.value) } },
         limit: limite
       }
     })
   });
   if (!r.ok) throw new Error(`Firestore query ${coleccion}: ${r.status} ${await r.text()}`);
-  return (await r.json()).filter(x => x.document).map(x => deDoc(x.document));
+  return (await r.json()).filter(x => x.document).map(x => ({ ...deDoc(x.document), __ruta: x.document.name.split("/documents/")[1] }));
+}
+
+async function fsList(env, coleccion) {
+  const out = [];
+  let token = "";
+  do {
+    const r = await fs(env, `${base(env)}/${coleccion}?pageSize=300${token ? "&pageToken=" + token : ""}`);
+    if (!r.ok) throw new Error(`Firestore list ${coleccion}: ${r.status}`);
+    const j = await r.json();
+    out.push(...(j.documents || []).map(deDoc));
+    token = j.nextPageToken || "";
+  } while (token);
+  return out;
 }
 
 // Agrega un elemento a una lista del documento sin pisar lo que haya (seguro con fotos simultáneas)
-async function fsAppend(env, ruta, campo, elemento, uid) {
+async function fsAppend(env, ruta, campo, elemento) {
   const r = await fs(env, `${base(env)}:commit`, {
     method: "POST",
     body: JSON.stringify({
@@ -388,10 +447,6 @@ async function fsAppend(env, ruta, campo, elemento, uid) {
             { fieldPath: "updatedAt", setToServerValue: "REQUEST_TIME" }
           ]
         },
-        currentDocument: { exists: true }
-      }, {
-        update: { name: nombreDoc(env, ruta), fields: { updatedBy: aValor(uid) } },
-        updateMask: { fieldPaths: ["updatedBy"] },
         currentDocument: { exists: true }
       }]
     })

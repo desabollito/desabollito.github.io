@@ -142,45 +142,8 @@ export async function cambiarNombre(nombre) {
 }
 
 // Edita nombre, usuario y foto en un solo paso
-// Número de WhatsApp → formato que usa WhatsApp (Argentina: 549 + 10 dígitos)
-export function normalizarWhatsApp(t) {
-  let d = String(t || "").replace(/\D/g, "");
-  if (!d) return "";
-  if (d.startsWith("00")) d = d.slice(2);
-  if (d.startsWith("54")) d = d.startsWith("549") ? d : "549" + d.slice(2);
-  else if (d.startsWith("0")) d = "549" + d.slice(1);
-  else if (d.length === 10) d = "549" + d;
-  if (d.startsWith("549") && d.length !== 13) throw new Error("Escribí el número con código de área sin 0 y sin 15. Ej: 351 555 1234");
-  if (d.length < 8 || d.length > 15) throw new Error("El número de WhatsApp no parece válido");
-  return d;
-}
-
-export function mostrarWhatsApp(d) {
-  if (!d) return "";
-  if (d.startsWith("549") && d.length === 13) return `+54 9 ${d.slice(3, 6)} ${d.slice(6, 9)}-${d.slice(9)}`;
-  return "+" + d;
-}
-
-async function vincularWhatsApp(texto) {
-  const nuevo = normalizarWhatsApp(texto);
-  const viejo = S.profile.whatsapp || "";
-  if (nuevo === viejo) return;
-  if (nuevo) {
-    try { await setDoc(doc(db, "whatsapp", nuevo), { uid: S.user.uid }); }
-    catch (e) {
-      if (e.code === "permission-denied") throw new Error("Ese número de WhatsApp ya está vinculado a otra cuenta");
-      throw e;
-    }
-  }
-  await updateDoc(doc(db, "users", S.user.uid), { whatsapp: nuevo });
-  if (viejo) await deleteDoc(doc(db, "whatsapp", viejo)).catch(() => {});
-  S.profile.whatsapp = nuevo;
-}
-
-export async function actualizarPerfil({ nombre, usuario, foto, whatsapp }) {
-  if (whatsapp !== undefined) normalizarWhatsApp(whatsapp); // valida antes de tocar nada
+export async function actualizarPerfil({ nombre, usuario, foto }) {
   if (usuario && limpiarUsuario(usuario) !== S.profile.username) await cambiarUsuario(usuario);
-  if (whatsapp !== undefined) await vincularWhatsApp(whatsapp);
   if (nombre && nombre.trim() !== S.profile.name) await cambiarNombre(nombre);
   if (foto) {
     const blob = await recorteCuadrado(foto);
