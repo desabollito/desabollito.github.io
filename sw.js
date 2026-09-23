@@ -1,0 +1,52 @@
+// Service worker: la app abre al instante y funciona sin señal.
+// Subí el número de versión en cada publicación para forzar la actualización.
+const VERSION = "desabollito-v2.0.4";
+const SHELL = [
+  "./", "./index.html", "./manifest.json", "./css/app.css",
+  "./js/app.js", "./js/config.js", "./js/firebase.js", "./js/data.js", "./js/domain.js", "./js/ui.js",
+  "./js/shell.js", "./js/media.js", "./js/carmap.js", "./js/pdf.js",
+  "./js/views-vehiculos.js", "./js/views-otros.js", "./js/views-gastos.js", "./js/excel.js",
+  "./img/app-192.png", "./img/app-512.png", "./img/logo-claro.png", "./img/logo-oscuro.png"
+];
+
+self.addEventListener("install", e => {
+  e.waitUntil(caches.open(VERSION).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
+});
+
+self.addEventListener("activate", e => {
+  e.waitUntil(caches.keys()
+    .then(keys => Promise.all(keys.filter(k => k !== VERSION && k !== VERSION + "-ext").map(k => caches.delete(k))))
+    .then(() => self.clients.claim()));
+});
+
+self.addEventListener("fetch", e => {
+  const req = e.request;
+  if (req.method !== "GET") return;
+  const url = new URL(req.url);
+
+  // Firebase, Google y Cloudinary API: siempre a la red (Firestore maneja su propia caché)
+  if (/googleapis\.com|firebaseio|identitytoolkit|securetoken|api\.cloudinary\.com/.test(url.host)) return;
+
+  // Archivos propios: primero red (para ver cambios nuevos), si no hay señal, caché
+  if (url.origin === location.origin) {
+    e.respondWith(
+      fetch(req).then(res => {
+        const copy = res.clone();
+        caches.open(VERSION).then(c => c.put(req, copy));
+        return res;
+      }).catch(() => caches.match(req).then(r => r || caches.match("./index.html")))
+    );
+    return;
+  }
+
+  // Librerías (SDK de Firebase, jsPDF, fuentes): caché primero.
+  // Las fotos de Cloudinary las cachea el navegador; no se guardan acá para no llenar el teléfono.
+  if (/gstatic\.com|cdnjs\.cloudflare\.com|fonts\.(googleapis|gstatic)\.com/.test(url.host)) {
+    e.respondWith(
+      caches.match(req).then(hit => hit || fetch(req).then(res => {
+        if (res.ok || res.type === "opaque") { const copy = res.clone(); caches.open(VERSION + "-ext").then(c => c.put(req, copy)); }
+        return res;
+      }))
+    );
+  }
+});

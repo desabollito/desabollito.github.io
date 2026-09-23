@@ -1,0 +1,81 @@
+rules_version = '2';
+
+// Desabollito 2 · reglas de Firestore
+// Pegar completo en: Firebase Console → Firestore Database → Reglas → Publicar
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function uid() { return request.auth.uid; }
+    function company(cid) { return get(/databases/$(database)/documents/companies/$(cid)).data; }
+    function isMember(cid) { return signedIn() && uid() in company(cid).members; }
+    function isAdmin(cid) { return isMember(cid) && company(cid).roles[uid()] in ['owner', 'admin']; }
+
+    // ── Perfil propio ────────────────────────────────────────
+    match /users/{userId} {
+      allow read, write: if signedIn() && uid() == userId;
+    }
+
+    // ── Nombres de usuario únicos → { uid, name } ────────────
+    match /usernames/{name} {
+      allow read: if signedIn();
+      allow create: if signedIn() && request.resource.data.uid == uid()
+                    && name.matches('^[a-z0-9._-]{3,64}$');
+      allow update: if signedIn() && resource.data.uid == uid() && request.resource.data.uid == uid();
+      allow delete: if signedIn() && resource.data.uid == uid();
+    }
+
+    // ── Operativos (colección companies) ─────────────────────
+    match /companies/{cid} {
+      allow read: if signedIn() && uid() in resource.data.members;
+
+      // Al crear, quien crea es el único miembro y es el dueño
+      allow create: if signedIn()
+        && request.resource.data.ownerId == uid()
+        && request.resource.data.members == [uid()]
+        && request.resource.data.roles[uid()] == 'owner';
+
+      // Dueño y administradores editan; nadie puede cambiar el dueño
+      // ni quitarle el rol de dueño.
+      allow update: if signedIn()
+        && resource.data.roles[uid()] in ['owner', 'admin']
+        && request.resource.data.ownerId == resource.data.ownerId
+        && resource.data.ownerId in request.resource.data.members
+        && request.resource.data.roles[resource.data.ownerId] == 'owner';
+
+      // Cualquier miembro (que no sea el dueño) puede irse solo
+      allow update: if signedIn()
+        && uid() in resource.data.members
+        && uid() != resource.data.ownerId
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members', 'roles', 'memberNames', 'memberTags'])
+        && !(uid() in request.resource.data.members)
+        && request.resource.data.members.size() == resource.data.members.size() - 1;
+
+      allow delete: if signedIn() && resource.data.ownerId == uid();
+
+      // ── Vehículos del operativo ────────────────────────────
+      match /vehicles/{vid} {
+        allow read: if isMember(cid);
+        allow create: if isMember(cid) && request.resource.data.createdBy == uid();
+        allow update: if isMember(cid)
+          && request.resource.data.createdBy == resource.data.createdBy;
+        allow delete: if isAdmin(cid)
+          || (isMember(cid) && resource.data.createdBy == uid());
+      }
+
+      // ── Gastos del operativo ───────────────────────────────
+      match /gastos/{gid} {
+        allow read: if isMember(cid);
+        allow create: if isMember(cid) && request.resource.data.createdBy == uid()
+          && request.resource.data.monto is number && request.resource.data.monto >= 0;
+        allow update: if isMember(cid)
+          && request.resource.data.createdBy == resource.data.createdBy
+          && (isAdmin(cid) || resource.data.createdBy == uid());
+        allow delete: if isAdmin(cid)
+          || (isMember(cid) && resource.data.createdBy == uid());
+      }
+    }
+
+    // Todo lo que no esté listado arriba queda cerrado.
+  }
+}

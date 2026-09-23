@@ -1,0 +1,35 @@
+// ─────────────────────────────────────────────────────────────
+//  Configuración de Desabollito
+//  Estos valores son públicos por diseño (van al navegador).
+//  La seguridad real la dan las reglas de Firestore y el
+//  "upload preset" de Cloudinary.
+// ─────────────────────────────────────────────────────────────
+
+// Firebase Console → ⚙ Configuración del proyecto → General →
+// "Tus apps" → app web → "Configuración del SDK" → Config.
+export const FIREBASE = {
+  apiKey: "AIzaSyDJL7vPKEkAMBKGM7ULWpphlDkYw1jKcSM",
+  authDomain: "desabollitoorg.firebaseapp.com",
+  projectId: "desabollitoorg",
+  storageBucket: "desabollitoorg.firebasestorage.app",
+  messagingSenderId: "944199223142",
+  appId: "1:944199223142:web:24155d0a0e616a1babeaa7"
+};
+
+// Cloudinary → Settings → Upload → Upload presets → "Add upload preset"
+//   Signing mode: Unsigned
+//   Asset folder: dejalo vacío (la app manda la carpeta)
+//   (Si tu panel no muestra "Return delete token" ni "Allowed formats",
+//   no pasa nada: la app funciona igual sin esas opciones.)
+export const CLOUDINARY = {
+  cloudName: "dkfedvsn",
+  uploadPreset: "desabollito",
+  rootFolder: "desabollito"
+};
+
+// Dominio interno para cuentas con usuario + contraseña
+// (Firebase pide un email; el usuario nunca lo ve).
+// No lo cambies una vez que haya cuentas creadas.
+export const USER_DOMAIN = "desabollito.app";
+
+export const APP_VERSION = "2.0.4";
