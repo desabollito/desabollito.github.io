@@ -6,7 +6,7 @@ import { FIREBASE } from "./config.js";
 import { marcarNav, pintarLateral, esAncho } from "./shell.js";
 import { vistaVehiculos, vistaDetalle, vistaFormulario } from "./views-vehiculos.js";
 import {
-  vistaPlanilla, vistaCalendario, vistaEmpresa, vistaAjustes, vistaPapelera, elegirEmpresaSheet
+  vistaPlanilla, vistaCalendario, calendarioAlEntrar, vistaEmpresa, vistaAjustes, vistaPapelera, elegirEmpresaSheet
 } from "./views-otros.js";
 import { vistaGastos, formGasto } from "./views-gastos.js";
 
@@ -37,8 +37,10 @@ function render({ conservarScroll = false } = {}) {
   const y = conservarScroll && mismaRuta ? scrollY : 0;
   ruta = { nombre: hit[1], arg };
   document.body.dataset.ruta = hit[1];
+  document.body.dataset.detalle = hit[1] === "vehiculos" && arg ? "1" : "";
   marcarNav(["nuevo", "editar", "operativo"].includes(hit[1]) ? "" : hit[1] === "papelera" ? "ajustes" : hit[1]);
   pintarTabPlanilla(hit[1]);
+  if (hit[1] === "calendario" && !mismaRuta) calendarioAlEntrar();
   ctrl = hit[2](arg) || null;
   if (!conservarScroll || !mismaRuta) { scrollTo(0, 0); view.focus({ preventScroll: true }); }
   else scrollTo(0, y);
@@ -52,7 +54,7 @@ function pintarTabPlanilla(r) {
   const gastos = r === "gastos";
   t.classList.toggle("on", r === "planilla" || gastos);
   t.classList.toggle("is-gastos", gastos);
-  $("use", t).setAttribute("href", gastos ? "#i-wallet" : "#i-table");
+  $("use", t).setAttribute("href", gastos ? "#i-money" : "#i-table");
   $(".tab-label", t).textContent = gastos ? "Gastos" : "Planilla";
 }
 $("#tab-planilla").addEventListener("click", e => {

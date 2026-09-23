@@ -6,12 +6,12 @@ import {
 import { ESTADOS, ESTADO, ROLES, estadoActual } from "./domain.js";
 import {
   $, $$, esc, money, fechaCorta, fechaLarga, hoyISO, plate, estadoPill, icon, toast, openSheet, confirmar,
-  pedirTexto, busy, debounce, initials, tsToISO
+  pedirTexto, busy, debounce, initials, tsToISO, elegirDescarga
 } from "./ui.js";
 import { imagenChica, avatar } from "./media.js";
 import { planillaPDF } from "./pdf.js";
 import { exportarExcel } from "./excel.js";
-import { setTopbar, go } from "./shell.js";
+import { setTopbar, go, logoOperativo } from "./shell.js";
 import { APP_VERSION } from "./config.js";
 
 // ═════════════════════════════════════════════════════════════
@@ -44,13 +44,26 @@ function filasPlanilla() {
 export function vistaPlanilla(view) {
   setTopbar({
     title: "Planilla", sub: S.company?.name,
-    actions: `<button class="btn btn-ghost btn-sm" id="csv">${icon("download")}<span class="hide-sm">Excel</span></button>
-              <button class="btn btn-primary btn-sm" id="pdf">${icon("file")}<span class="hide-sm">PDF</span></button>`
+    actions: `<button class="btn btn-ghost btn-sm" id="dl" aria-label="Descargar">${icon("download")}<span class="hide-sm">Descargar</span></button>`
   });
+  const ordenes = [["fecha", "Fecha"], ["patente", "Patente"], ["modelo", "Modelo"], ["asegurado", "Asegurado"], ["estado", "Estado"], ["precio", "Precio"]];
   view.innerHTML = `
   <div class="sheet-page">
     <label class="search">${icon("search")}<input type="search" id="pq" placeholder="Buscar patente, modelo, asegurado, estado…" value="${esc(P.q)}"></label>
-    <div class="table-wrap"><table class="tbl">
+    <div class="p-summary" id="psum"></div>
+
+    <!-- Celular: lista compacta con orden elegible -->
+    <div class="p-mobile">
+      <div class="p-sort">
+        <span class="muted small">Ordenar por</span>
+        <select id="psort" aria-label="Ordenar por">${ordenes.map(([k, t]) => `<option value="${k}" ${P.orden === k ? "selected" : ""}>${t}</option>`).join("")}</select>
+        <button class="icon-btn sm" id="pdir" aria-label="Invertir orden">${icon("sort")}</button>
+      </div>
+      <div class="p-list" id="plist"></div>
+    </div>
+
+    <!-- Tablet y escritorio: tabla completa -->
+    <div class="table-wrap p-desktop"><table class="tbl">
       <thead><tr>${COLS.map(([k, t]) => `<th data-k="${k}" class="${k === "precio" ? "num" : ""}" aria-sort="${P.orden === k ? (P.dir > 0 ? "ascending" : "descending") : "none"}">
         <button>${t}${P.orden === k ? (P.dir > 0 ? " ↑" : " ↓") : ""}</button></th>`).join("")}</tr></thead>
       <tbody id="tb"></tbody><tfoot id="tf"></tfoot></table></div>
@@ -58,19 +71,37 @@ export function vistaPlanilla(view) {
 
   const pintar = () => {
     const filas = filasPlanilla();
+    const total = filas.reduce((s, v) => s + (estadoActual(v) === "anulado" ? 0 : Number(v.precio || 0)), 0);
+    $("#psum", view).innerHTML = `<span><b>${filas.length}</b> ${filas.length === 1 ? "vehículo" : "vehículos"}</span><span>Total <b>${money(total) || "$0"}</b></span>`;
+
+    // Celular
+    $("#plist", view).innerHTML = filas.length ? filas.map(v => `
+      <a class="p-row" href="#/v/${v.id}" style="--c:${ESTADO[estadoActual(v)].color}">
+        <span class="p-l">
+          <span class="p-top">${plate(v.patente, "sm")}<strong>${esc(v.modelo || "Sin modelo")}</strong></span>
+          <small>${esc([fechaCorta(v.fechas?.peritado), v.asegurado, v.compania].filter(Boolean).join(" · "))}</small>
+        </span>
+        <span class="p-r">
+          <strong>${money(v.precio) || "—"}</strong>
+          <small><i class="p-dot"></i>${ESTADO[estadoActual(v)].label}</small>
+        </span>
+      </a>`).join("") : `<div class="empty small"><p>Sin resultados.</p></div>`;
+
+    // Escritorio
     $("#tb", view).innerHTML = filas.length ? filas.map(v => `
       <tr data-id="${v.id}" tabindex="0">
         <td>${plate(v.patente, "sm")}</td><td><strong>${esc(v.modelo || "—")}</strong></td>
         <td>${fechaCorta(v.fechas?.peritado)}</td><td>${esc(v.asegurado || "—")}</td>
         <td>${esc(v.compania || "—")}</td><td>${esc(v.localidad || "—")}</td>
         <td>${estadoPill(v)}</td><td class="num">${money(v.precio) || "—"}</td></tr>`).join("")
-      : `<tr><td colspan="8" class="empty-cell">Sin resultados para estos filtros.</td></tr>`;
-    const total = filas.reduce((s, v) => s + (estadoActual(v) === "anulado" ? 0 : Number(v.precio || 0)), 0);
+      : `<tr><td colspan="8" class="empty-cell">Sin resultados.</td></tr>`;
     $("#tf", view).innerHTML = `<tr><td colspan="7">${filas.length} ${filas.length === 1 ? "vehículo" : "vehículos"}</td><td class="num">${money(total) || "$0"}</td></tr>`;
   };
   pintar();
 
   $("#pq", view).oninput = debounce(e => { P.q = e.target.value; pintar(); }, 120);
+  $("#psort", view).onchange = e => { P.orden = e.target.value; P.dir = ["fecha", "precio"].includes(P.orden) ? -1 : 1; pintar(); };
+  $("#pdir", view).onclick = () => { P.dir *= -1; pintar(); };
   $("thead", view).onclick = e => {
     const th = e.target.closest("[data-k]"); if (!th) return;
     if (P.orden === th.dataset.k) P.dir *= -1; else { P.orden = th.dataset.k; P.dir = 1; }
@@ -79,39 +110,34 @@ export function vistaPlanilla(view) {
   $("#tb", view).onclick = e => { const tr = e.target.closest("[data-id]"); if (tr) go(`#/v/${tr.dataset.id}`); };
   $("#tb", view).onkeydown = e => { if (e.key === "Enter") e.target.closest("[data-id]")?.click(); };
 
-  $("#pdf").onclick = () => {
+  const pdf = () => planillaPDF(filasPlanilla(), S.company, P.q ? `búsqueda “${P.q}”` : "").save(`Planilla_${hoyISO()}.pdf`);
+  const excel = async () => {
     const filas = filasPlanilla();
-    if (!filas.length) return toast("No hay filas para exportar", "warning");
-    planillaPDF(filas, S.company, P.q ? `búsqueda “${P.q}”` : "").save(`Planilla_${hoyISO()}.pdf`);
+    await exportarExcel({
+      archivo: `Planilla_${hoyISO()}.xlsx`, hoja: "Planilla",
+      titulo: `${S.company?.name || "Desabollito"} · Planilla de vehículos`,
+      columnas: [
+        { titulo: "Patente", ancho: 12, valor: v => v.patente },
+        { titulo: "Modelo", ancho: 28, valor: v => v.modelo },
+        { titulo: "Fecha de peritaje", ancho: 17, tipo: "fecha", valor: v => v.fechas?.peritado },
+        { titulo: "Asegurado", ancho: 24, valor: v => v.asegurado },
+        { titulo: "Teléfono", ancho: 16, valor: v => v.telefono },
+        { titulo: "Compañía", ancho: 20, valor: v => v.compania },
+        { titulo: "Localidad", ancho: 18, valor: v => v.localidad },
+        { titulo: "Estado", ancho: 12, valor: v => ESTADO[estadoActual(v)].label },
+        { titulo: "Fecha de turno", ancho: 15, tipo: "fecha", valor: v => v.fechas?.turnado },
+        { titulo: "Fecha de reparación", ancho: 19, tipo: "fecha", valor: v => v.fechas?.reparado },
+        { titulo: "Fecha de facturación", ancho: 20, tipo: "fecha", valor: v => v.fechas?.facturado },
+        { titulo: "Precio", ancho: 14, tipo: "moneda", valor: v => v.precio },
+        { titulo: "Cargado por", ancho: 18, valor: v => v.createdByName }
+      ],
+      filas,
+      total: [{ etiqueta: "Total", valor: filas.reduce((s, v) => s + (estadoActual(v) === "anulado" ? 0 : Number(v.precio || 0)), 0) }]
+    });
   };
-  $("#csv").onclick = async e => {
-    const filas = filasPlanilla();
-    if (!filas.length) return toast("No hay filas para exportar", "warning");
-    const b = e.currentTarget; busy(b, true, "Armando…");
-    try {
-      await exportarExcel({
-        archivo: `Planilla_${hoyISO()}.xlsx`, hoja: "Planilla",
-        titulo: `${S.company?.name || "Desabollito"} · Planilla de vehículos`,
-        columnas: [
-          { titulo: "Patente", ancho: 12, valor: v => v.patente },
-          { titulo: "Modelo", ancho: 28, valor: v => v.modelo },
-          { titulo: "Fecha de peritaje", ancho: 17, tipo: "fecha", valor: v => v.fechas?.peritado },
-          { titulo: "Asegurado", ancho: 24, valor: v => v.asegurado },
-          { titulo: "Teléfono", ancho: 16, valor: v => v.telefono },
-          { titulo: "Compañía", ancho: 20, valor: v => v.compania },
-          { titulo: "Localidad", ancho: 18, valor: v => v.localidad },
-          { titulo: "Estado", ancho: 12, valor: v => ESTADO[estadoActual(v)].label },
-          { titulo: "Fecha de turno", ancho: 15, tipo: "fecha", valor: v => v.fechas?.turnado },
-          { titulo: "Fecha de reparación", ancho: 19, tipo: "fecha", valor: v => v.fechas?.reparado },
-          { titulo: "Fecha de facturación", ancho: 20, tipo: "fecha", valor: v => v.fechas?.facturado },
-          { titulo: "Precio", ancho: 14, tipo: "moneda", valor: v => v.precio },
-          { titulo: "Cargado por", ancho: 18, valor: v => v.createdByName }
-        ],
-        filas,
-        total: [{ etiqueta: "Total", valor: filas.reduce((s, v) => s + (estadoActual(v) === "anulado" ? 0 : Number(v.precio || 0)), 0) }]
-      });
-    } catch (err) { toast(err.message, "error"); }
-    finally { busy(b, false); }
+  $("#dl").onclick = () => {
+    if (!filasPlanilla().length) return toast("No hay vehículos para descargar", "warning");
+    elegirDescarga("Planilla de vehículos", { excel, pdf });
   };
   return { soloLista: pintar };
 }
@@ -119,11 +145,23 @@ export function vistaPlanilla(view) {
 // ═════════════════════════════════════════════════════════════
 //  CALENDARIO
 // ═════════════════════════════════════════════════════════════
-const C = { y: new Date().getFullYear(), m: new Date().getMonth(), campo: "turnado", dia: null };
+const C = { y: new Date().getFullYear(), m: new Date().getMonth(), campo: "turnado", dia: null, auto: true };
+
+// Al entrar: hoy si tiene vehículos; si no, el próximo día con vehículos; si no hay
+// ninguno adelante, el último día anterior que tenga.
+export function calendarioAlEntrar() { C.auto = true; }
+function elegirDiaAuto() {
+  const hoy = hoyISO();
+  const dias = [...new Set(activos().map(v => v.fechas?.[C.campo]).filter(Boolean))].sort();
+  const dia = dias.includes(hoy) ? hoy : (dias.find(d => d > hoy) || dias.filter(d => d < hoy).pop() || hoy);
+  const [y, m] = dia.split("-").map(Number);
+  C.y = y; C.m = m - 1; C.dia = dia;
+}
 const MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
 
 export function vistaCalendario(view) {
   setTopbar({ title: "Calendario", sub: S.company?.name });
+  if (C.auto && !S.loadingVehicles) { C.auto = false; elegirDiaAuto(); }
   const iso = d => `${C.y}-${String(C.m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
   const porDia = {};
   activos().forEach(v => {
@@ -133,7 +171,12 @@ export function vistaCalendario(view) {
   const primero = (new Date(C.y, C.m, 1).getDay() + 6) % 7; // semana arranca lunes
   const dias = new Date(C.y, C.m + 1, 0).getDate();
   const hoy = hoyISO();
-  if (!C.dia || !C.dia.startsWith(`${C.y}-${String(C.m + 1).padStart(2, "0")}`)) C.dia = hoy.slice(0, 7) === iso(1).slice(0, 7) ? hoy : null;
+  const mesActual = `${C.y}-${String(C.m + 1).padStart(2, "0")}`;
+  if (!C.dia || !C.dia.startsWith(mesActual)) {
+    // al cambiar de mes: hoy si cae en ese mes y tiene algo, si no el primer día con vehículos
+    const conAlgo = Object.keys(porDia).filter(d => d.startsWith(mesActual)).sort();
+    C.dia = conAlgo.includes(hoy) ? hoy : (conAlgo[0] || (hoy.startsWith(mesActual) ? hoy : null));
+  }
 
   let celdas = "";
   for (let i = 0; i < primero; i++) celdas += `<div class="cd out"></div>`;
@@ -179,7 +222,7 @@ export function vistaCalendario(view) {
   $("#prev", view).onclick = () => { if (--C.m < 0) { C.m = 11; C.y--; } C.dia = null; vistaCalendario(view); };
   $("#next", view).onclick = () => { if (++C.m > 11) { C.m = 0; C.y++; } C.dia = null; vistaCalendario(view); };
   $("#hoy", view).onclick = () => { const d = new Date(); C.y = d.getFullYear(); C.m = d.getMonth(); C.dia = hoyISO(); vistaCalendario(view); };
-  $("#campo", view).onclick = e => { const b = e.target.closest("[data-c]"); if (b) { C.campo = b.dataset.c; vistaCalendario(view); } };
+  $("#campo", view).onclick = e => { const b = e.target.closest("[data-c]"); if (b) { C.campo = b.dataset.c; C.auto = true; vistaCalendario(view); } };
   $(".cal-grid", view).onclick = e => { const b = e.target.closest("[data-d]"); if (b) { C.dia = b.dataset.d; vistaCalendario(view); } };
 }
 
@@ -351,7 +394,7 @@ export function elegirEmpresaSheet() {
     title: "Tus operativos",
     body: `<ul class="company-list">${S.companies.map(c => `
       <li><button class="company-opt ${c.id === S.company?.id ? "on" : ""}" data-id="${c.id}">
-        <span class="company-avatar">${esc(initials(c.name))}</span>
+        ${logoOperativo()}
         <span><strong>${esc(c.name)}</strong><small>${ROLES[c.roles?.[S.user.uid]]?.label || ""} · ${c.members.length} ${c.members.length === 1 ? "persona" : "personas"}</small></span>
         ${c.id === S.company?.id ? icon("check") : ""}</button></li>`).join("")}</ul>
       <div class="stack-sm full">
@@ -371,15 +414,13 @@ export function elegirEmpresaSheet() {
 // ═════════════════════════════════════════════════════════════
 export function aplicarTema(t) {
   localStorage.setItem("tema", t);
-  if (t === "sistema") document.documentElement.removeAttribute("data-theme");
-  else document.documentElement.setAttribute("data-theme", t);
+  document.documentElement.setAttribute("data-theme", t === "light" ? "light" : "dark");
 }
 
 export function vistaAjustes(view) {
   setTopbar({ title: "Ajustes", back: "#/" });
   const p = S.profile;
-  const oscuro = document.documentElement.getAttribute("data-theme") === "dark"
-    || (!document.documentElement.getAttribute("data-theme") && matchMedia("(prefers-color-scheme: dark)").matches);
+  const oscuro = document.documentElement.getAttribute("data-theme") !== "light";
   const enPapelera = papelera().length;
   view.innerHTML = `
   <div class="page narrow">

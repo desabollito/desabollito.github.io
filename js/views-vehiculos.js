@@ -5,7 +5,7 @@ import {
 import { ESTADOS, ESTADO, SECUENCIA, PIEZA, estadoActual, piezasMarcadas } from "./domain.js";
 import {
   $, $$, esc, money, fechaCorta, fechaLarga, hoyISO, plate, estadoPill, icon, toast, openSheet,
-  confirmar, busy, debounce
+  confirmar, busy, debounce, marcarError
 } from "./ui.js";
 import { carMapSVG, montarMapa } from "./carmap.js";
 import { subir, comprimir, borrarConToken, thumb, grande, cloudinaryListo } from "./media.js";
@@ -159,8 +159,8 @@ function renderDetalle(root, v, embebido) {
 
     <div class="d-actions">
       <button class="btn btn-primary" data-act="pdf">${icon("share")}Compartir</button>
-      ${v.telefono ? `<a class="btn btn-ghost" href="${waLink(v.telefono)}" target="_blank" rel="noopener">${icon("chat")}WhatsApp</a>
-        <a class="btn btn-ghost" href="tel:${esc(v.telefono)}">${icon("phone")}Llamar</a>` : ""}
+      ${v.telefono ? `<a class="btn btn-ghost d-half" href="${waLink(v.telefono)}" target="_blank" rel="noopener">${icon("chat")}WhatsApp</a>
+        <a class="btn btn-ghost d-half" href="tel:${esc(v.telefono)}">${icon("phone")}Llamar</a>` : ""}
       ${embebido ? `<a class="btn btn-ghost btn-icon" href="#/editar/${v.id}" aria-label="Editar" title="Editar">${icon("edit")}</a>` : ""}
     </div>
 
@@ -230,7 +230,7 @@ function renderDetalle(root, v, embebido) {
 
     <footer class="d-foot">
       <span>Cargado por ${esc(v.createdByName || "—")}</span>
-      ${puedeBorrar ? `<button class="link-btn danger" data-act="borrar">${icon("trash")}Mover a la papelera</button>` : ""}
+      ${puedeBorrar ? `<button class="icon-btn danger" data-act="borrar" aria-label="Eliminar vehículo" title="Eliminar">${icon("trash")}</button>` : ""}
     </footer>
   </article>`;
 
@@ -427,35 +427,75 @@ function compartir(v) {
     title: "Compartir presupuesto",
     body: `<div class="stack">
       ${hayFotos ? `<label class="toggle"><input type="checkbox" id="con-fotos" checked><span>Incluir las ${v.fotos.length} fotos</span></label>` : ""}
-      <button class="btn btn-primary btn-block btn-lg" data-m="share">${icon("share")}Compartir PDF</button>
-      <button class="btn btn-ghost btn-block" data-m="wa">${icon("chat")}Enviar por WhatsApp</button>
+      <button class="btn btn-primary btn-block btn-lg" data-m="wa">${icon("chat")}Enviar por WhatsApp</button>
       <button class="btn btn-ghost btn-block" data-m="save">${icon("download")}Descargar PDF</button>
-      <p class="muted small" id="pdf-estado" aria-live="polite"></p></div>`
+      <p class="muted small center" id="pdf-estado" aria-live="polite"></p></div>`
   });
+  const estado = $("#pdf-estado", s.el);
+  const nombre = nombreArchivo(v);
+  const texto = `Presupuesto de granizo${v.modelo ? " · " + v.modelo : ""}${v.patente ? " " + v.patente : ""}${v.precio ? " · Total " + money(v.precio) : ""}`;
+
+  // El PDF se arma apenas se abre la hoja. Así, al tocar "Enviar", el menú de
+  // compartir se abre en el mismo toque (si tarda, el navegador lo bloquea).
+  let listo = null, preparando = null, turno = 0;
+  const preparar = () => {
+    const conFotos = $("#con-fotos", s.el)?.checked || false;
+    const mio = ++turno;
+    listo = null;
+    estado.textContent = "Preparando PDF…";
+    preparando = presupuestoPDF(v, S.company, { conFotos, onProgreso: t => { if (mio === turno) estado.textContent = t; } })
+      .then(doc => {
+        if (mio !== turno) return;
+        const blob = doc.output("blob");
+        listo = { blob, file: new File([blob], nombre, { type: "application/pdf" }) };
+        estado.textContent = "PDF listo";
+      })
+      .catch(err => { console.error(err); if (mio === turno) estado.textContent = "No se pudo armar el PDF: " + err.message; });
+    return preparando;
+  };
+  preparar();
+  $("#con-fotos", s.el)?.addEventListener("change", preparar);
+
+  const descargar = blob => {
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = nombre; a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  };
+
   s.body.addEventListener("click", async e => {
     const b = e.target.closest("[data-m]"); if (!b) return;
-    const conFotos = $("#con-fotos", s.el)?.checked || false;
-    busy(b, true, "Armando PDF…");
-    try {
-      const doc = await presupuestoPDF(v, S.company, { conFotos, onProgreso: t => { $("#pdf-estado", s.el).textContent = t; } });
-      const blob = doc.output("blob"), nombre = nombreArchivo(v);
-      const file = new File([blob], nombre, { type: "application/pdf" });
-      const texto = `Presupuesto de granizo${v.modelo ? " · " + v.modelo : ""}${v.patente ? " " + v.patente : ""}${v.precio ? " · Total " + money(v.precio) : ""}`;
-      const descargar = () => { const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = nombre; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); };
-
-      if (b.dataset.m === "save") { descargar(); toast("PDF descargado", "success"); }
-      else if (navigator.canShare?.({ files: [file] })) {
-        try { await navigator.share({ files: [file], title: nombre, text: texto }); }
-        catch (err) { if (err.name !== "AbortError") throw err; }
-      } else {
-        descargar();
-        if (b.dataset.m === "wa") window.open(waLink(v.telefono, texto + "\n(Te adjunto el PDF)") || `https://wa.me/?text=${encodeURIComponent(texto)}`, "_blank");
-        toast("PDF descargado: adjuntalo en el mensaje", "info");
+    if (!listo) {
+      // Todavía armándose: esperar y pedir un segundo toque para compartir
+      busy(b, true, "Preparando PDF…");
+      await preparando;
+      busy(b, false);
+      if (!listo) return;
+      if (b.dataset.m === "wa" && navigator.canShare?.({ files: [listo.file] })) {
+        estado.textContent = "PDF listo: tocá “Enviar por WhatsApp” de nuevo";
+        return;
       }
+    }
+    if (b.dataset.m === "save") { descargar(listo.blob); toast("PDF descargado", "success"); s.close(); return; }
+
+    // Enviar: menú de compartir del teléfono (ahí aparece WhatsApp)
+    if (navigator.canShare?.({ files: [listo.file] })) {
+      try {
+        await navigator.share({ files: [listo.file], title: nombre, text: texto });
+        s.close();
+      } catch (err) {
+        if (err.name === "AbortError") return;
+        console.warn(err);
+        descargar(listo.blob);
+        window.open(waLink(v.telefono, texto) || `https://wa.me/?text=${encodeURIComponent(texto)}`, "_blank");
+        toast("Se descargó el PDF: adjuntalo en el chat de WhatsApp", "info");
+        s.close();
+      }
+    } else {
+      // Computadora: se descarga el PDF y se abre WhatsApp con el mensaje
+      descargar(listo.blob);
+      window.open(waLink(v.telefono, texto + "\n(Te adjunto el presupuesto en PDF)") || `https://wa.me/?text=${encodeURIComponent(texto)}`, "_blank");
+      toast("PDF descargado: adjuntalo en el chat de WhatsApp", "info");
       s.close();
-    } catch (err) {
-      console.error(err); toast("No se pudo generar el PDF: " + err.message, "error");
-    } finally { busy(b, false); }
+    }
   });
 }
 
@@ -487,7 +527,7 @@ export function vistaFormulario(view, id = null) {
           </div>
         </fieldset>
         <fieldset class="card vform-cli">
-          <legend>Cliente y seguro</legend>
+          <legend>Cliente</legend>
           <div class="grid-2">
             <label class="field"><span>Asegurado</span>
               <input name="asegurado" value="${esc(v?.asegurado)}" placeholder="Nombre y apellido" autocomplete="off"></label>
@@ -544,7 +584,7 @@ export function vistaFormulario(view, id = null) {
     e.preventDefault();
     const f = form;
     if (!f.modelo.value.trim() && !f.patente.value.trim()) {
-      toast("Poné al menos el modelo o la patente", "warning"); f.modelo.focus(); return;
+      toast("Poné al menos el modelo o la patente", "warning"); marcarError(f.modelo); return;
     }
     const data = {
       modelo: f.modelo.value.trim(),
@@ -566,5 +606,4 @@ export function vistaFormulario(view, id = null) {
     go(`#/v/${nuevoId}`);
   });
 
-  if (!v) setTimeout(() => form.modelo.focus(), 50);
 }

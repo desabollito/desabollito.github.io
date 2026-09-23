@@ -7,8 +7,9 @@
     // Tema antes del primer pintado (evita el destello blanco)
     (function () {
       try {
-        var t = localStorage.getItem("tema") || "sistema";
-        if (t !== "sistema") document.documentElement.setAttribute("data-theme", t);
+        // Oscuro por defecto; el usuario lo cambia en Ajustes
+        var t = localStorage.getItem("tema");
+        document.documentElement.setAttribute("data-theme", t === "light" ? "light" : "dark");
       } catch (e) {}
     })();
   </script>
@@ -60,6 +61,7 @@
     <symbol id="i-logout" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></symbol>
     <symbol id="i-swap" viewBox="0 0 24 24"><path d="M7 4 3 8l4 4M3 8h14M17 20l4-4-4-4M21 16H7"/></symbol>
     <symbol id="i-sort" viewBox="0 0 24 24"><path d="m7 15 5 5 5-5M7 9l5-5 5 5"/></symbol>
+    <symbol id="i-money" viewBox="0 0 24 24"><path d="M12 2v20M17 5.5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></symbol>
     <symbol id="i-wallet" viewBox="0 0 24 24"><path d="M19 7V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-3"/><path d="M3 5a2 2 0 0 0 2 2h14a2 2 0 0 1 2 2v3h-4a2 2 0 0 0 0 4h4"/></symbol>
     <symbol id="i-import" viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></symbol>
   </defs>
@@ -107,7 +109,7 @@
       <span>Desabollito</span>
     </div>
     <button class="company-switch" id="company-switch" aria-label="Cambiar de operativo">
-      <span class="company-avatar" id="company-avatar"></span>
+      <span class="company-avatar" id="company-avatar"><img class="logo-on-light" src="img/logo-oscuro.png" alt=""><img class="logo-on-dark" src="img/logo-claro.png" alt=""></span>
       <span class="company-meta"><strong id="company-name">—</strong><small id="company-role"></small></span>
       <svg class="ic"><use href="#i-swap"/></svg>
     </button>
@@ -116,7 +118,7 @@
       <a href="#/" data-nav="vehiculos"><svg class="ic"><use href="#i-car"/></svg>Vehículos</a>
       <a href="#/planilla" data-nav="planilla"><svg class="ic"><use href="#i-table"/></svg>Planilla</a>
       <a href="#/calendario" data-nav="calendario"><svg class="ic"><use href="#i-calendar"/></svg>Calendario</a>
-      <a href="#/gastos" data-nav="gastos"><svg class="ic"><use href="#i-wallet"/></svg>Gastos</a>
+      <a href="#/gastos" data-nav="gastos"><svg class="ic"><use href="#i-money"/></svg>Gastos</a>
     </nav>
     <div class="side-bottom">
       <div class="side-user">
@@ -133,10 +135,10 @@
 
   <nav class="tabbar" aria-label="Navegación">
     <a href="#/" data-nav="vehiculos"><svg class="ic"><use href="#i-car"/></svg><span>Vehículos</span></a>
+    <a href="#/calendario" data-nav="calendario"><svg class="ic"><use href="#i-calendar"/></svg><span>Calendario</span></a>
     <a href="#/planilla" id="tab-planilla" aria-label="Planilla (tocá de nuevo para Gastos)">
       <svg class="ic"><use href="#i-table"/></svg><span class="tab-label">Planilla</span>
       <span class="tab-dots" aria-hidden="true"><i></i><i></i></span></a>
-    <a href="#/calendario" data-nav="calendario"><svg class="ic"><use href="#i-calendar"/></svg><span>Calendario</span></a>
   </nav>
   <a href="#/nuevo" class="fab" aria-label="Nuevo vehículo"><svg class="ic"><use href="#i-plus"/></svg></a>
 </div>

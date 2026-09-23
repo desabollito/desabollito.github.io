@@ -99,7 +99,10 @@ export function openSheet({ title = "", body = "", wide = false, onClose } = {})
   });
   const api = { el: wrap, body: bodyEl, close };
   sheetStack.push(api);
-  setTimeout(() => $("input, textarea, button:not([data-close])", bodyEl)?.focus({ preventScroll: true }), 60);
+  // Foco en la hoja (no en un campo): así el teclado del celular no se abre solo
+  const hoja = $(".sheet", wrap);
+  hoja.tabIndex = -1;
+  setTimeout(() => hoja.focus({ preventScroll: true }), 60);
   return api;
 }
 
@@ -157,4 +160,30 @@ export function busy(btn, on, text = "Guardando…") {
 
 export function debounce(fn, ms = 200) {
   let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); };
+}
+
+// Hoja "¿Excel o PDF?" para los botones de descarga
+export function elegirDescarga(titulo, { excel, pdf }) {
+  const s = openSheet({
+    title: "Descargar",
+    body: `<div class="stack">
+      <p class="muted small">${esc(titulo)}</p>
+      <div class="dl-opts">
+        <button class="dl-opt" data-f="excel"><span class="dl-ico xls">XLS</span><strong>Excel</strong><small>Para editar y filtrar</small></button>
+        <button class="dl-opt" data-f="pdf"><span class="dl-ico pdf">PDF</span><strong>PDF</strong><small>Para enviar o imprimir</small></button>
+      </div></div>`
+  });
+  s.body.addEventListener("click", async e => {
+    const b = e.target.closest("[data-f]"); if (!b) return;
+    busy(b, true, "Armando…");
+    try { await (b.dataset.f === "excel" ? excel() : pdf()); s.close(); }
+    catch (err) { toast(err.message || "No se pudo descargar", "error"); busy(b, false); }
+  });
+}
+
+// Marca un campo con error sin enfocarlo (así no se abre el teclado)
+export function marcarError(input) {
+  input.closest(".field")?.classList.add("invalid");
+  input.scrollIntoView({ block: "center", behavior: "smooth" });
+  input.addEventListener("input", () => input.closest(".field")?.classList.remove("invalid"), { once: true });
 }

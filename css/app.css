@@ -215,11 +215,9 @@ button { cursor: pointer; }
 .tb-actions { display: flex; gap: 6px; align-items: center; }
 .tb-company { border: 0; background: none; padding: 4px; border-radius: 12px; }
 
-.company-avatar {
-  display: inline-grid; place-items: center; width: 40px; height: 40px; border-radius: 11px; flex-shrink: 0;
-  background: var(--ink); color: var(--bg); font-weight: 800; font-size: 14px; font-stretch: 110%;
-}
-.company-avatar.sm { width: 34px; height: 34px; font-size: 13px; border-radius: 10px; }
+.company-avatar { display: inline-grid; place-items: center; width: 40px; height: 40px; flex-shrink: 0; background: none; }
+.company-avatar img { width: 100%; height: 100%; object-fit: contain; }
+.company-avatar.sm { width: 36px; height: 36px; }
 .avatar { display: inline-grid; place-items: center; width: 38px; height: 38px; border-radius: 50%; background: var(--primary-soft); color: var(--primary); font-weight: 700; font-size: 14px; overflow: hidden; flex-shrink: 0; }
 .avatar img { width: 100%; height: 100%; object-fit: cover; }
 .avatar.lg { width: 64px; height: 64px; font-size: 22px; }
@@ -649,3 +647,56 @@ body[data-ruta="vehiculos"] .toasts, body[data-ruta="planilla"] .toasts, body[da
 }
 .update-bar.in { opacity: 1; transform: none; }
 @media (min-width: 900px) { .update-bar { left: auto; right: 24px; top: 16px; width: 420px; } }
+
+/* ── Varios v2.0.6 ────────────────────────────────────────── */
+.sheet:focus { outline: none; }
+.field.invalid input, .field.invalid .money-in { border-color: var(--danger); box-shadow: 0 0 0 3px var(--danger-soft); }
+
+/* Elegir Excel o PDF */
+.dl-opts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.dl-opt { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 18px 10px; border-radius: 14px;
+  border: 1px solid var(--line-2); background: var(--surface); text-align: center; }
+.dl-opt:hover { border-color: var(--primary); }
+.dl-opt small { color: var(--muted); font-size: 12.5px; }
+.dl-ico { display: grid; place-items: center; width: 46px; height: 46px; border-radius: 10px; font-weight: 800; font-size: 13px; color: #fff; font-stretch: 85%; }
+.dl-ico.xls { background: #1f7a4c; }
+.dl-ico.pdf { background: #d93a40; }
+
+/* Planilla: lista en celular, tabla desde tablet */
+.p-summary { display: flex; justify-content: space-between; gap: 10px; padding: 10px 14px; border-radius: 12px;
+  background: var(--surface); border: 1px solid var(--line); font-size: 14px; color: var(--ink-2); }
+.p-summary b { color: var(--ink); font-variant-numeric: tabular-nums; }
+.p-mobile { display: flex; flex-direction: column; gap: 8px; }
+.p-sort { display: flex; align-items: center; gap: 8px; }
+.p-sort select { width: auto; flex: 1; min-height: 38px; padding: 4px 10px; font-size: 15px; }
+.p-list { display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); overflow: hidden; }
+.p-list:has(.empty) { background: none; border: 0; }
+.p-row { display: flex; gap: 10px; align-items: center; padding: 11px 12px; border-bottom: 1px solid var(--line); color: var(--ink);
+  box-shadow: inset 3px 0 0 var(--c); }
+.p-row:last-child { border-bottom: 0; }
+.p-row:active { background: var(--surface-2); }
+.p-l { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+.p-top { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.p-top strong { font-size: 14.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.p-l small, .p-r small { font-size: 12.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.p-r { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; flex-shrink: 0; }
+.p-r strong { font-weight: 750; font-variant-numeric: tabular-nums; }
+.p-r small { display: inline-flex; align-items: center; gap: 5px; }
+.p-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--c); }
+.p-desktop { display: none; }
+@media (min-width: 700px) { .p-mobile { display: none; } .p-desktop { display: block; } .p-summary { display: none; } }
+
+/* Detalle en celular: WhatsApp y Llamar mitad y mitad; paños compactos */
+@media (max-width: 699px) {
+  .d-actions { display: grid; grid-template-columns: 1fr 1fr; }
+  .d-actions .btn-primary { grid-column: 1 / -1; }
+  .d-actions .d-half { width: 100%; }
+  .piezas-view { gap: 14px; align-items: center; }
+  .piezas-view .carmap-sm { max-width: 76px; flex-shrink: 0; }
+  .piezas-list { flex-direction: row; flex-wrap: wrap; gap: 5px; font-weight: 600; }
+  .piezas-list li { font-size: 12.5px; padding: 3px 9px; border-radius: 999px; background: var(--primary-soft); color: var(--primary); }
+  .piezas-list li::before { display: none; }
+  .piezas-list li.muted { background: var(--surface-2); color: var(--muted); }
+}
+body[data-detalle="1"] .fab { display: none !important; }
+.cal-head h2 { white-space: nowrap; font-size: 17px; }

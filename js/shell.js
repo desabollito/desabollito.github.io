@@ -12,7 +12,7 @@ export function setTopbar({ title = "", back = null, actions = "", sub = "" } = 
   const backBtn = back
     ? `<button class="icon-btn" id="tb-back" aria-label="Volver">${icon("back")}</button>`
     : `<button class="tb-company" id="tb-company" aria-label="Cambiar de operativo">
-         <span class="company-avatar sm">${esc(initials(S.company?.name))}</span></button>`;
+         ${logoOperativo("sm")}</button>`;
   tb.innerHTML = `
     ${backBtn}
     <div class="tb-title"><h1>${esc(title)}</h1>${sub ? `<small>${esc(sub)}</small>` : ""}</div>
@@ -32,9 +32,13 @@ export function pintarLateral() {
   const c = S.company;
   $("#company-name").textContent = c?.name || "Sin operativo";
   $("#company-role").textContent = c ? `${ROLES[c.roles?.[S.user.uid]]?.label || "Miembro"} · ${c.members.length} ${c.members.length === 1 ? "persona" : "personas"}` : "";
-  $("#company-avatar").textContent = initials(c?.name);
   const p = S.profile || {};
   $("#side-user").innerHTML = `
     <span class="avatar">${p.photoURL ? `<img src="${esc(avatar(p.photoURL, 80))}" alt="">` : esc(initials(p.name))}</span>
     <span class="side-user-meta"><strong>${esc(p.name || "")}</strong><small>@${esc(p.username || "")}</small></span>`;
+}
+
+// Logo de la app como ícono del operativo (sin fondo, según tema)
+export function logoOperativo(tam = "") {
+  return `<span class="company-avatar ${tam}"><img class="logo-on-light" src="img/logo-oscuro.png" alt=""><img class="logo-on-dark" src="img/logo-claro.png" alt=""></span>`;
 }
