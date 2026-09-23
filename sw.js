@@ -1,6 +1,6 @@
 // Service worker: la app abre al instante y funciona sin señal.
 // Subí el número de versión en cada publicación para forzar la actualización.
-const VERSION = "desabollito-v2.0.4";
+const VERSION = "desabollito-v2.0.5";
 const SHELL = [
   "./", "./index.html", "./manifest.json", "./css/app.css",
   "./js/app.js", "./js/config.js", "./js/firebase.js", "./js/data.js", "./js/domain.js", "./js/ui.js",
@@ -10,7 +10,12 @@ const SHELL = [
 ];
 
 self.addEventListener("install", e => {
-  e.waitUntil(caches.open(VERSION).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
+  // La versión nueva queda en espera: la app muestra "Actualizar" y el usuario decide.
+  e.waitUntil(caches.open(VERSION).then(c => c.addAll(SHELL)));
+});
+
+self.addEventListener("message", e => {
+  if (e.data === "activar") self.skipWaiting();
 });
 
 self.addEventListener("activate", e => {
@@ -27,10 +32,11 @@ self.addEventListener("fetch", e => {
   // Firebase, Google y Cloudinary API: siempre a la red (Firestore maneja su propia caché)
   if (/googleapis\.com|firebaseio|identitytoolkit|securetoken|api\.cloudinary\.com/.test(url.host)) return;
 
-  // Archivos propios: primero red (para ver cambios nuevos), si no hay señal, caché
+  // Archivos propios: siempre se consulta a GitHub si hay algo nuevo (no-cache evita
+  // la demora de ~10 min de GitHub Pages). Sin señal, se usa la copia guardada.
   if (url.origin === location.origin) {
     e.respondWith(
-      fetch(req).then(res => {
+      fetch(req, { cache: "no-cache" }).then(res => {
         const copy = res.clone();
         caches.open(VERSION).then(c => c.put(req, copy));
         return res;

@@ -137,6 +137,47 @@ iniciarSesion((logueado, error) => {
   render();
 });
 
+// ── Actualizaciones ───────────────────────────────────────────
+// Si se publica una versión nueva mientras la app está abierta, aparece un aviso.
 if ("serviceWorker" in navigator) {
-  addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(e => console.warn("SW", e)));
+  // Solo se recarga cuando el usuario tocó "Actualizar" (ni en la primera visita
+  // ni cuando la versión nueva se activa sola al abrir la app).
+  let recargarAlCambiar = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (!recargarAlCambiar) return;
+    recargarAlCambiar = false;
+    location.reload();
+  });
+
+  const avisar = sw => {
+    if ($("#update-bar")) return;
+    const bar = document.createElement("div");
+    bar.id = "update-bar";
+    bar.className = "update-bar";
+    bar.setAttribute("role", "status");
+    bar.innerHTML = `<span>Hay una versión nueva de Desabollito</span><button class="btn btn-primary btn-sm">Actualizar</button>`;
+    bar.querySelector("button").onclick = () => { busy(bar.querySelector("button"), true, "Actualizando…"); recargarAlCambiar = true; sw.postMessage("activar"); };
+    document.body.appendChild(bar);
+    requestAnimationFrame(() => bar.classList.add("in"));
+  };
+
+  addEventListener("load", async () => {
+    try {
+      const reg = await navigator.serviceWorker.register("sw.js", { updateViaCache: "none" });
+      // Al abrir, los archivos ya se bajaron frescos: si quedó una versión en espera, se activa sola.
+      if (reg.waiting && navigator.serviceWorker.controller) reg.waiting.postMessage("activar");
+
+      reg.addEventListener("updatefound", () => {
+        const nuevo = reg.installing;
+        nuevo?.addEventListener("statechange", () => {
+          if (nuevo.state === "installed" && navigator.serviceWorker.controller) avisar(nuevo);
+        });
+      });
+
+      // Buscar versiones nuevas al volver a la app y cada 30 minutos
+      const revisar = () => reg.update().catch(() => {});
+      document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") revisar(); });
+      setInterval(revisar, 30 * 60 * 1000);
+    } catch (e) { console.warn("SW", e); }
+  });
 }

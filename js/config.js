@@ -32,4 +32,4 @@ export const CLOUDINARY = {
 // No lo cambies una vez que haya cuentas creadas.
 export const USER_DOMAIN = "desabollito.app";
 
-export const APP_VERSION = "2.0.4";
+export const APP_VERSION = "2.0.5";
