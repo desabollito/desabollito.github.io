@@ -567,7 +567,27 @@ async function diagnostico(url, env) {
         if (alta?.error) aviso("Intento de suscripción", alta.error.message);
         subs = await (await fetch(`${GRAPH}/${waba}/subscribed_apps`, { headers: auth })).json();
       }
-      if ((subs?.data || []).length) ok("Suscripción de la cuenta de WhatsApp", `Cuenta ${waba} suscripta a la app`);
+      const appIdToken = String(dbg?.data?.app_id || env.WHATSAPP_APP_ID || "");
+      const appsSuscriptas = (subs?.data || []).map(x => ({ id: String(x.whatsapp_business_api_data?.id || x.id || ""), nombre: x.whatsapp_business_api_data?.name || "" }));
+      // ¿El número del bot pertenece a esta cuenta?
+      try {
+        const nums = await (await fetch(`${GRAPH}/${waba}/phone_numbers?fields=id,display_phone_number`, { headers: auth })).json();
+        const lista = (nums?.data || []);
+        if (lista.length && !lista.some(x => String(x.id) === String(env.WHATSAPP_PHONE_ID).trim())) {
+          mal("Número y cuenta", `El WHATSAPP_PHONE_ID no pertenece a la cuenta ${waba}. Números de esa cuenta: ` +
+            lista.map(x => `${x.display_phone_number} (ID ${x.id})`).join(", "));
+        } else if (lista.length) ok("Número y cuenta", `El número del bot pertenece a la cuenta ${waba}`);
+      } catch {}
+      if (appsSuscriptas.length && appIdToken && !appsSuscriptas.some(a => a.id === appIdToken)) {
+        mal("Suscripción de la cuenta de WhatsApp",
+          `La cuenta ${waba} está suscripta a OTRA app (${appsSuscriptas.map(a => `${a.nombre} ${a.id}`).join(", ")}), no a la del bot (${appIdToken}). ` +
+          `Abrí esta página con &arreglar=1 para suscribirla también a la del bot.`);
+        if (url.searchParams.get("arreglar") === "1") {
+          const alta = await (await fetch(`${GRAPH}/${waba}/subscribed_apps`, { method: "POST", headers: auth })).json();
+          if (alta?.error) aviso("Intento de suscripción", alta.error.message);
+          else ok("Suscripción corregida", "Se suscribió la cuenta a la app del bot. Recargá sin &arreglar=1 para confirmar.");
+        }
+      } else if ((subs?.data || []).length) ok("Suscripción de la cuenta de WhatsApp", `Cuenta ${waba} suscripta a la app ${appsSuscriptas.map(a => `${a.nombre} ${a.id}`.trim()).join(", ")}`);
       else if (subs?.error) mal("Suscripción de la cuenta de WhatsApp",
         `No se pudo consultar la cuenta ${waba}: ${subs.error.message}. Si cargaste el token temporal, reemplazalo por el permanente del usuario del sistema.`);
       else mal("Suscripción de la cuenta de WhatsApp",
