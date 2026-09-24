@@ -194,6 +194,7 @@ function renderDetalle(root, v, embebido) {
         ${v.grado ? `<span class="grado-tag g${v.grado}">Grado ${v.grado}</span>` : ""}</div>
       <div class="piezas-view">
         ${carMapSVG(v.piezas || {}, { size: "carmap-sm" })}
+        <p class="piezas-caption" aria-live="polite">${marcadas.length ? "Tocá un paño para ver su nombre" : "Sin paños marcados"}</p>
         <ul class="piezas-list">${marcadas.map(k => `<li>${esc(PIEZA[k].label)}</li>`).join("") || "<li class='muted'>Sin paños marcados</li>"}</ul>
       </div>
     </section>
@@ -256,6 +257,13 @@ function renderDetalle(root, v, embebido) {
         toast("Movido a la papelera");
         go("#/");
       }
+      return;
+    }
+    const pz = t.closest(".d-piezas [data-pieza]");
+    if (pz) {
+      const k = pz.dataset.pieza, cap = $(".piezas-caption", root);
+      $$(".d-piezas .panel", root).forEach(g => g.classList.toggle("tocado", g === pz));
+      if (cap) cap.innerHTML = `<strong>${esc(PIEZA[k].label)}</strong>${v.piezas?.[k] ? " · con granizo" : " · sin daño"}`;
       return;
     }
     const fi = t.closest("[data-foto]");
@@ -548,6 +556,11 @@ export function vistaFormulario(view, id = null) {
               ${[1, 2, 3].map(g => `<button type="button" class="seg-btn ${v?.grado === g ? "on" : ""}" data-g="${g}" role="radio" aria-checked="${v?.grado === g}">Grado ${g}</button>`).join("")}
             </div>
           </div>
+          <div class="form-fotos">
+            <label class="btn btn-ghost btn-block">${icon("camera")}Agregar fotos${v?.fotos?.length ? ` <small class="muted">(ya tiene ${v.fotos.length})</small>` : ""}
+              <input type="file" accept="image/*" multiple hidden id="ff-in"></label>
+            <div class="ff-grid" id="ff-grid"></div>
+          </div>
         </fieldset>
         <fieldset class="card vform-det">
           <legend>Detalle del trabajo</legend>
@@ -586,6 +599,48 @@ export function vistaFormulario(view, id = null) {
   });
   form.patente.addEventListener("input", e => { e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9 ]/g, ""); });
 
+  // Fotos cargadas desde el formulario: se suben mientras completás los datos
+  const vid = v?.id || nuevoIdVehiculo();
+  const nuevas = []; // { key, preview, estado: "subiendo"|"ok"|"error", foto }
+  const pendientes = new Set();
+  const pintarFotos = () => {
+    $("#ff-grid", view).innerHTML = nuevas.map(n => `
+      <figure class="ff ${n.estado}" data-k="${n.key}">
+        <img src="${n.preview}" alt="">
+        ${n.estado === "subiendo" ? `<span class="ff-spin"><span class="spin"></span></span>` : ""}
+        ${n.estado === "error" ? `<span class="ff-err">!</span>` : ""}
+        <button type="button" class="ph-del" data-quitar-nueva="${n.key}" aria-label="Quitar foto">${icon("x")}</button>
+      </figure>`).join("");
+  };
+  $("#ff-in", view).addEventListener("change", e => {
+    const files = [...e.target.files]; e.target.value = "";
+    if (!files.length) return;
+    if (!cloudinaryListo()) { toast("Falta configurar Cloudinary en js/config.js", "error"); return; }
+    for (const file of files) {
+      const n = { key: Math.random().toString(36).slice(2), preview: URL.createObjectURL(file), estado: "subiendo", foto: null };
+      nuevas.push(n);
+      const p = (async () => {
+        try {
+          const r = await subir(await comprimir(file), `${S.company.id}/${vid}`);
+          if (r.deleteToken) tokensBorrado.set(r.publicId, r.deleteToken);
+          n.foto = { url: r.url, publicId: r.publicId, w: r.w, h: r.h, at: Date.now(), by: S.user.uid };
+          n.estado = "ok";
+        } catch (err) { console.error(err); n.estado = "error"; }
+        pintarFotos();
+      })();
+      pendientes.add(p); p.finally(() => pendientes.delete(p));
+    }
+    pintarFotos();
+  });
+  $("#ff-grid", view).addEventListener("click", e => {
+    const b = e.target.closest("[data-quitar-nueva]"); if (!b) return;
+    const i = nuevas.findIndex(n => n.key === b.dataset.quitarNueva);
+    if (i < 0) return;
+    const [n] = nuevas.splice(i, 1);
+    if (n.foto && tokensBorrado.has(n.foto.publicId)) borrarConToken(tokensBorrado.get(n.foto.publicId));
+    pintarFotos();
+  });
+
   form.addEventListener("submit", async e => {
     e.preventDefault();
     const f = form;
@@ -605,11 +660,19 @@ export function vistaFormulario(view, id = null) {
       piezas: Object.fromEntries(Object.entries(piezas).filter(([, on]) => on)),
       grado
     };
-    const nuevoId = v?.id || nuevoIdVehiculo();
+    const nuevoId = vid;
     if (!v) data.fechas = { peritado: f.fecha.value || hoyISO() };
+    if (pendientes.size) {
+      const b = $("button[type=submit]", form);
+      busy(b, true, "Subiendo fotos…");
+      await Promise.allSettled([...pendientes]);
+      busy(b, false);
+    }
+    const listas = nuevas.filter(n => n.foto).map(n => n.foto);
+    if (listas.length) data.fotos = [...(getVehiculo(vid)?.fotos || v?.fotos || []), ...listas];
     // Con la caché offline el cambio se ve al instante; la red sincroniza sola.
     guardarVehiculo(nuevoId, data, !v).catch(err => toast("No se guardó: " + mensajeError(err), "error"));
-    toast(v ? "Cambios guardados" : "Vehículo guardado. Ahora podés sumar fotos.", "success");
+    toast(v ? "Cambios guardados" : "Vehículo guardado", "success");
     go(`#/v/${nuevoId}`);
   });
 

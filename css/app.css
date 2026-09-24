@@ -730,3 +730,28 @@ body[data-detalle="1"] .fab { display: none !important; }
 .d-cover.vacio small { font-size: 11.5px; font-weight: 600; }
 @media (min-width: 900px) { .d-cover { width: 140px; height: 140px; } }
 @media (max-width: 699px) { .d-head { flex-direction: row; align-items: center; } }
+
+/* Paños en el detalle: en celular, dibujo grande y nombre al tocar */
+.piezas-caption { display: none; }
+.carmap .panel.tocado rect { stroke: var(--ink); stroke-width: 3; }
+@media (max-width: 699px) {
+  .piezas-view { flex-direction: column; align-items: center; gap: 8px; }
+  .piezas-view .carmap-sm { max-width: 210px; }
+  .piezas-view .piezas-list { display: none; }
+  .piezas-caption { display: block; text-align: center; font-size: 14px; color: var(--muted); min-height: 20px; }
+  .piezas-caption strong { color: var(--ink); }
+  .d-piezas .panel { cursor: pointer; }
+}
+
+/* Fotos dentro del formulario */
+.form-fotos { display: flex; flex-direction: column; gap: 10px; margin-top: 6px; }
+.form-fotos small { font-weight: 500; }
+.ff-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); gap: 6px; }
+.ff-grid:empty { display: none; }
+.ff { margin: 0; position: relative; aspect-ratio: 1; border-radius: 8px; overflow: hidden; background: var(--surface-2); }
+.ff img { width: 100%; height: 100%; object-fit: cover; }
+.ff.subiendo img { opacity: .45; }
+.ff-spin { position: absolute; inset: 0; display: grid; place-items: center; color: #fff; }
+.ff.error { outline: 2px solid var(--danger); }
+.ff-err { position: absolute; left: 4px; bottom: 4px; width: 20px; height: 20px; border-radius: 50%; background: var(--danger); color: #fff;
+  display: grid; place-items: center; font-weight: 800; font-size: 13px; }
