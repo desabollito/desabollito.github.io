@@ -277,20 +277,37 @@ export function normalizarNumero(n) {
   return d;
 }
 
+// Argentina: WhatsApp informa el celular como 549 + área + número, pero para
+// responder Meta a veces exige otro formato (sin el 9, o con el 15 después del
+// código de área). Se prueban en orden y se recuerda el que funcionó.
+const formatoQueFunciona = new Map();
+
+function variantesAR(to) {
+  if (!/^549\d{10}$/.test(to)) return [to];
+  const resto = to.slice(3); // área + número (10 dígitos)
+  const v = [to, "54" + resto];
+  for (const largoArea of [2, 3, 4]) v.push("54" + resto.slice(0, largoArea) + "15" + resto.slice(largoArea));
+  return v;
+}
+
 async function enviar(env, to, payload) {
   const intentar = dest => fetch(`${GRAPH}/${env.WHATSAPP_PHONE_ID}/messages`, {
     method: "POST",
     headers: { Authorization: `Bearer ${env.WHATSAPP_TOKEN}`, "Content-Type": "application/json" },
     body: JSON.stringify({ messaging_product: "whatsapp", recipient_type: "individual", to: dest, ...payload })
   });
-  let r = await intentar(to);
-  // Particularidad de Argentina: a veces hay que responder al número sin el 9
-  if (!r.ok && to.startsWith("549")) r = await intentar("54" + to.slice(3));
-  if (!r.ok) {
-    const detalle = await r.text();
-    console.error("WhatsApp no aceptó el mensaje:", r.status, detalle);
-    await registrar(env, { ultimoErrorEnvio: `${new Date().toISOString()} · a ${to} · ${r.status} · ${detalle.slice(0, 400)}` }).catch(() => {});
+  const conocido = formatoQueFunciona.get(to);
+  const candidatos = conocido ? [conocido, ...variantesAR(to).filter(x => x !== conocido)] : variantesAR(to);
+  let r, detalle = "";
+  for (const dest of candidatos) {
+    r = await intentar(dest);
+    if (r.ok) { formatoQueFunciona.set(to, dest); return r; }
+    detalle = await r.text();
+    // Solo tiene sentido probar otro formato si el problema es el destinatario
+    if (!detalle.includes("131030") && !detalle.includes("131026") && !detalle.includes("recipient")) break;
   }
+  console.error("WhatsApp no aceptó el mensaje:", r.status, detalle);
+  await registrar(env, { ultimoErrorEnvio: `${new Date().toISOString()} · a ${to} (probé ${candidatos.join(", ")}) · ${r.status} · ${detalle.slice(0, 400)}` }).catch(() => {});
   return r;
 }
 
