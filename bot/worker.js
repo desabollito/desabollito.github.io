@@ -392,8 +392,8 @@ async function alRecibirTexto(env, m, quien, texto) {
   const hora = horaDe(m);
   const s = await leerSesion(env, numero);
 
-  if (esSaludo(texto)) return responder(env, m.from, SALUDO + lineaOperativo(await operativoFijo(env, numero)));
-  if (esAyuda(texto)) return responder(env, m.from, AYUDA + lineaOperativo(await operativoFijo(env, numero)));
+  if (esSaludo(texto)) return responder(env, m.from, SALUDO);
+  if (esAyuda(texto)) return responder(env, m.from, AYUDA);
 
   // Comando: cambiar de operativo
   if (esCambioOperativo(texto)) {
