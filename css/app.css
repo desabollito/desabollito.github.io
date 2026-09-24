@@ -703,3 +703,12 @@ body[data-detalle="1"] .fab { display: none !important; }
 
 /* Modo oscuro: el operativo usa el ícono de la app con fondo blanco */
 .company-avatar img.app-icon { border-radius: 22%; background: #fff; }
+
+/* Grado de daño */
+.grado-pick { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
+.grado-pick > span { font-size: 13px; font-weight: 600; color: var(--ink-2); }
+@media (max-width: 699px) { .grado-pick > span { text-align: center; } }
+.grado-tag { font-size: 12.5px; font-weight: 800; padding: 4px 10px; border-radius: 999px; background: var(--surface-2); color: var(--ink); }
+.grado-tag.g1 { background: color-mix(in srgb, #22b07d 18%, transparent); color: #22b07d; }
+.grado-tag.g2 { background: color-mix(in srgb, #e0a526 20%, transparent); color: #d19613; }
+.grado-tag.g3 { background: color-mix(in srgb, #e5484d 18%, transparent); color: #e5484d; }

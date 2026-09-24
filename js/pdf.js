@@ -108,6 +108,7 @@ export async function presupuestoPDF(v, empresa, { conFotos = false, onProgreso 
     ["Fecha de peritaje", fecha(v.fechas?.peritado)], ["Estado", ESTADO[estadoActual(v)].label]
   ];
   if (v.fechas?.reparado) datos.push(["Fecha de reparación", fecha(v.fechas.reparado)]);
+  if (v.grado) datos.push(["Grado de daño", `Grado ${v.grado}`]);
   const colW = CW / 2;
   datos.forEach(([l, val], i) => {
     const cx = M + (i % 2) * colW, cy = y + Math.floor(i / 2) * 12;

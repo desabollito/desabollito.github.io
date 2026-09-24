@@ -125,6 +125,7 @@ export function vistaPlanilla(view) {
         { titulo: "Compañía", ancho: 20, valor: v => v.compania },
         { titulo: "Localidad", ancho: 18, valor: v => v.localidad },
         { titulo: "Estado", ancho: 12, valor: v => ESTADO[estadoActual(v)].label },
+        { titulo: "Grado", ancho: 9, valor: v => v.grado ? `Grado ${v.grado}` : "" },
         { titulo: "Fecha de turno", ancho: 15, tipo: "fecha", valor: v => v.fechas?.turnado },
         { titulo: "Fecha de reparación", ancho: 19, tipo: "fecha", valor: v => v.fechas?.reparado },
         { titulo: "Fecha de facturación", ancho: 20, tipo: "fecha", valor: v => v.fechas?.facturado },

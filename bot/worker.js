@@ -101,27 +101,195 @@ async function procesar(m, env) {
   if (m.type === "text") return alRecibirTexto(env, m, quien, (m.text?.body || "").trim());
   if (m.type === "image" || m.type === "document") return alRecibirArchivo(env, m, quien);
   if (m.type === "reaction") return;
-  return responder(env, m.from, "Por ahora entiendo patentes, fotos y documentos. Escribí *ayuda* para ver cómo usarme.");
+  return responder(env, m.from, "Por ahora entiendo datos de vehículos, fotos y documentos. Escribí *ayuda* para ver cómo usarme.");
 }
 
+// ═══════════════════════════════════════════════════════════════
+//  Intérprete de datos de vehículos escritos en cualquier orden:
+//  "Corolla AB099BA Riv 1137709755 Monte" → modelo, patente,
+//  compañía, teléfono y localidad.
+// ═══════════════════════════════════════════════════════════════
+const sinTildes = t => t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
+// Compañías de seguro: nombre oficial + formas de escribirlas
+const COMPANIAS = [
+  ["Rivadavia", ["rivadavia"]], ["San Cristóbal", ["san cristobal", "sancristobal", "sc"]], ["Sancor", ["sancor"]],
+  ["Paraná Seguros", ["parana seguros", "parana"]], ["Provincia Seguros", ["provincia seguros", "provincia"]],
+  ["Mapfre", ["mapfre"]], ["La Segunda", ["la segunda", "segunda"]], ["Mercantil Andina", ["mercantil andina", "mercantil"]],
+  ["Federación Patronal", ["federacion patronal", "federacion", "patronal", "fed patronal"]], ["Answer", ["answer"]],
+  ["Allianz", ["allianz"]], ["Zurich", ["zurich"]], ["La Caja", ["la caja"]], ["Galicia Seguros", ["galicia"]],
+  ["Nación Seguros", ["nacion seguros"]], ["Sura", ["sura"]], ["Río Uruguay", ["rio uruguay", "rus"]],
+  ["Orbis", ["orbis"]], ["Meridional", ["meridional"]], ["Integrity", ["integrity"]], ["El Norte", ["el norte"]],
+  ["Triunfo", ["triunfo"]], ["La Holando", ["la holando", "holando"]], ["Libra", ["libra"]], ["Experta", ["experta"]],
+  ["HDI", ["hdi"]], ["Chubb", ["chubb"]], ["ATM", ["atm"]], ["Berkley", ["berkley"]], ["Cooperación Seguros", ["cooperacion"]],
+  ["Victoria", ["victoria"]], ["Boston", ["boston"]], ["Agrosalta", ["agrosalta"]], ["Evolución", ["evolucion"]]
+];
+
+// Localidades y provincias frecuentes (se agregan también las ya cargadas en la app)
+const LOCALIDADES = [
+  "Monte", "Posadas", "Entre Ríos", "Santa Fe", "Córdoba", "Rosario", "Mendoza", "Paraná", "Buenos Aires", "CABA", "La Plata",
+  "Mar del Plata", "Bahía Blanca", "Tucumán", "Salta", "Neuquén", "San Luis", "Río Cuarto", "Rafaela", "Venado Tuerto",
+  "Pergamino", "Junín", "Tandil", "Olavarría", "Azul", "Resistencia", "Corrientes", "Oberá", "Concordia", "Gualeguaychú",
+  "Santiago del Estero", "San Juan", "Jujuy", "Catamarca", "La Rioja", "Villa María", "San Nicolás", "Zárate", "Campana",
+  "Luján", "Pilar", "Mercedes", "San Rafael", "Carlos Paz", "Villa Carlos Paz", "Misiones", "Chaco", "Formosa", "La Pampa",
+  "Santa Rosa", "Río Negro", "Bariloche", "Chubut", "Comodoro Rivadavia", "Trelew", "Santa Cruz", "Río Gallegos",
+  "Tierra del Fuego", "Ushuaia", "San Pedro", "Chivilcoy", "Bragado", "9 de Julio", "Trenque Lauquen", "Tres Arroyos",
+  "Necochea", "Balcarce", "Chascomús", "Cañuelas", "Lobos", "San Miguel", "Morón", "Quilmes", "Lanús", "Avellaneda",
+  "Lomas de Zamora", "Tigre", "Escobar", "San Isidro", "Vicente López", "Ezeiza", "Esteban Echeverría", "Eldorado",
+  "Apóstoles", "Goya", "Paso de los Libres", "Reconquista", "Esperanza", "Sunchales", "Cañada de Gómez", "San Francisco",
+  "Villa Mercedes", "Alta Gracia", "Jesús María", "Bell Ville", "Marcos Juárez", "General Roca", "Cipolletti", "Plottier",
+  "Villa Gesell", "Pinamar", "Gualeguay", "Victoria", "Colón", "Concepción del Uruguay", "Crespo", "Villaguay", "Federal"
+];
+
+// Marcas y modelos (con la forma de escribirlos)
+const MARCAS = ["Toyota", "Volkswagen", "VW", "Ford", "Chevrolet", "Fiat", "Renault", "Peugeot", "Citroën", "Nissan", "Honda",
+  "Hyundai", "Kia", "Jeep", "RAM", "Mercedes-Benz", "Mercedes", "BMW", "Audi", "Chery", "Suzuki", "Mitsubishi", "DS", "Dodge",
+  "BAIC", "Haval", "JAC", "Great Wall", "Geely", "BYD", "Subaru", "Volvo", "Mini", "Porsche", "Iveco", "Isuzu", "Lifan", "Jetour", "Chevy"];
+const MODELOS = ["Gol", "Gol Trend", "Hilux", "Corolla", "Corolla Cross", "Etios", "Yaris", "SW4", "RAV4", "Amarok", "Vento", "Polo",
+  "Virtus", "T-Cross", "Taos", "Nivus", "Saveiro", "Up", "Fox", "Suran", "Voyage", "Tiguan", "Passat", "Golf", "Bora", "Ranger",
+  "Ka", "Fiesta", "Focus", "EcoSport", "Territory", "Maverick", "Kuga", "Mondeo", "Bronco", "Onix", "Cruze", "Tracker", "Prisma",
+  "S10", "Spin", "Montana", "Equinox", "Trailblazer", "Agile", "Corsa", "Classic", "Celta", "Cronos", "Argo", "Toro", "Strada",
+  "Mobi", "Palio", "Siena", "Uno", "Pulse", "Fastback", "Punto", "Fiorino", "Ducato", "Sandero", "Logan", "Kangoo", "Duster",
+  "Stepway", "Kwid", "Alaskan", "Captur", "Oroch", "Clio", "Symbol", "Fluence", "Koleos", "Arkana", "208", "2008", "308", "3008",
+  "408", "5008", "207", "206", "Partner", "Expert", "Boxer", "C3", "C4", "C4 Cactus", "C5", "Berlingo", "Frontier", "Kicks",
+  "Versa", "Sentra", "March", "Note", "X-Trail", "HR-V", "Civic", "City", "Fit", "CR-V", "WR-V", "Tucson", "Creta", "HB20",
+  "i10", "Santa Fe", "Renegade", "Compass", "Wrangler", "Commander", "500", "Mustang", "Tiggo", "QQ", "Vitara", "Swift",
+  "L200", "Outlander", "Sportage", "Cerato", "Rio", "Picanto", "Seltos", "Sprinter", "Clase A", "Hilux SRV", "Hiace", "Innova",
+  "Camry", "Prius", "Tacoma", "Tundra", "Jolion", "H6", "Poer", "Wingle", "Dolphin", "Song", "Yuan", "Forester", "Outback", "XV"];
+
+function indice(lista) {
+  const m = new Map();
+  for (const nombre of lista) m.set(sinTildes(nombre), nombre);
+  return m;
+}
+const IDX_MARCAS = indice(MARCAS);
+const IDX_MODELOS = indice(MODELOS);
+
+// Patentes argentinas: AA000AA (Mercosur) y AAA000 (anterior)
+const RE_PATENTE = /\b([A-Za-z]{2})[\s.-]?(\d{3})[\s.-]?([A-Za-z]{2})\b|\b([A-Za-z]{3})[\s.-]?(\d{3})\b/;
+function buscarPatenteEnTexto(texto) {
+  const m = String(texto).match(RE_PATENTE);
+  if (!m) return null;
+  return { patente: (m[1] ? m[1] + m[2] + m[3] : m[4] + m[5]).toUpperCase(), desde: m.index, largo: m[0].length };
+}
+
+const titulo = t => t.split(/\s+/).map(p => /\d/.test(p) || p.length <= 3 && p === p.toUpperCase() ? p : p.charAt(0).toUpperCase() + p.slice(1).toLowerCase()).join(" ");
+
+/**
+ * @param {string} texto
+ * @param {{ localidades?: string[], companias?: string[] }} extra  valores ya usados en la app
+ */
+function interpretar(texto, extra = {}) {
+  let resto = ` ${String(texto || "")} `;
+  const r = { patente: null, modelo: "", compania: "", telefono: "", localidad: "", grado: null, otros: "" };
+
+  // 1. Patente
+  const p = buscarPatenteEnTexto(resto);
+  if (p) { r.patente = p.patente; resto = resto.slice(0, p.desde) + " " + resto.slice(p.desde + p.largo); }
+
+  // 2. Grado: "grado 2", "g2", "G 3"
+  resto = resto.replace(/\b(?:grado|g)\s*([123])\b/i, (_, g) => { r.grado = Number(g); return " "; });
+
+  // 3. Teléfono: 8 a 13 dígitos (con o sin +54, espacios o guiones)
+  resto = resto.replace(/(?:\+?\s?\d[\d\s-]{6,16}\d)/g, m => {
+    const d = m.replace(/\D/g, "");
+    if (!r.telefono && d.length >= 8 && d.length <= 13) {
+      // Formato local: sin +54 / 9 / 0 adelante (ej: 1137709755)
+      let t = d;
+      if (t.startsWith("549") && t.length === 13) t = t.slice(3);
+      else if (t.startsWith("54") && t.length === 12) t = t.slice(2);
+      else if (t.startsWith("0") && t.length === 11) t = t.slice(1);
+      r.telefono = t; return " ";
+    }
+    return m;
+  });
+
+  // 4. Palabras restantes: compañía, localidad, marca/modelo (buscando primero las frases más largas)
+  const palabras = resto.split(/[\s,;/|]+/).filter(Boolean);
+  const norm = palabras.map(w => sinTildes(w.replace(/[.:]+$/, "")));
+  const tipo = new Array(palabras.length).fill(null);
+  const idxLoc = indice([...LOCALIDADES, ...(extra.localidades || [])]);
+  const compExtra = (extra.companias || []).map(c => [c, [sinTildes(c)]]);
+  const todasComp = [...COMPANIAS, ...compExtra];
+
+  const compDe = frase => {
+    // Coincidencia exacta con un alias, o abreviatura (3+ letras) que solo encaje con una compañía
+    const exacta = todasComp.find(([, al]) => al.includes(frase));
+    if (exacta) return exacta[0];
+    if (frase.length < 3 || frase.includes(" ")) return null;
+    const cand = new Set(todasComp.filter(([, al]) => al.some(a => a.split(" ").some(w => w.startsWith(frase)))).map(([n]) => n));
+    return cand.size === 1 ? [...cand][0] : null;
+  };
+
+  for (const n of [3, 2, 1]) {
+    for (let i = 0; i + n <= palabras.length; i++) {
+      if (tipo.slice(i, i + n).some(Boolean)) continue;
+      const frase = norm.slice(i, i + n).join(" ");
+      if (!frase) continue;
+      let asignado = null;
+      if (!r.compania) { const c = compDe(frase); if (c) { r.compania = c; asignado = "compania"; } }
+      if (!asignado && idxLoc.has(frase) && !((IDX_MODELOS.has(frase) || IDX_MARCAS.has(frase)) && frase !== "santa fe")) {
+        if (!r.localidad) { r.localidad = idxLoc.get(frase); asignado = "localidad"; }
+      }
+      if (!asignado && (IDX_MARCAS.has(frase) || IDX_MODELOS.has(frase))) asignado = "modelo";
+      if (asignado) for (let k = i; k < i + n; k++) tipo[k] = asignado;
+    }
+  }
+
+  // Modelo: marcas/modelos reconocidos + palabras desconocidas pegadas a ellos ("Chery Tiggo 4")
+  const idxModelo = tipo.map((t, i) => t === "modelo" ? i : -1).filter(i => i >= 0);
+  if (idxModelo.length) {
+    let ini = Math.min(...idxModelo), fin = Math.max(...idxModelo);
+    while (fin + 1 < palabras.length && !tipo[fin + 1] && palabras[fin + 1].length <= 12) fin++;
+    for (let k = ini; k <= fin; k++) if (!tipo[k] || tipo[k] === "modelo") tipo[k] = "modelo";
+    r.modelo = palabras.filter((_, k) => tipo[k] === "modelo").map((w, j, arr) => {
+      const n2 = sinTildes(w);
+      return IDX_MARCAS.get(n2) || IDX_MODELOS.get(n2) || titulo(w);
+    }).join(" ");
+  }
+
+  // Lo que no se reconoció: primero completa modelo, después localidad, el resto queda como observación
+  const grupos = [];
+  palabras.forEach((w, i) => {
+    if (tipo[i]) return;
+    if (i > 0 && !tipo[i - 1] && grupos.length) grupos[grupos.length - 1].push(w); else grupos.push([w]);
+  });
+  for (const g of grupos) {
+    const t = g.join(" ");
+    if (!r.modelo) r.modelo = titulo(t);
+    else if (!r.localidad) r.localidad = titulo(t);
+    else r.otros = (r.otros ? r.otros + " " : "") + t;
+  }
+  return r;
+}
+
+const SALUDO =
+  "¡Hola! Soy Desabollito 🚗\n" +
+  "Enviame los datos del vehículo y luego las fotos.\n" +
+  "Para finalizar, continuá con otro vehículo o enviá *OK*.";
+
 const AYUDA =
-  "🚗 *Cómo usarme*\n\n" +
-  "1. Mandame la *patente* del vehículo (ej: AE345KD).\n" +
-  "2. Mandame las *fotos* (o PDFs). Las guardo en ese vehículo y te marco cada una con ✅.\n" +
-  "3. Cuando termines, escribí cualquier cosa (ok, listo, ya…) o mandá otra patente y cierro ese vehículo.\n\n" +
-  "También podés mandar una foto con la patente escrita como descripción.";
+  "🚗 *Cómo usar Desabollito*\n\n" +
+  "*1. Datos del vehículo* en un solo mensaje, en cualquier orden. Solo la patente es obligatoria:\n" +
+  "   _Corolla AB099BA Riv 1137709755 Monte_\n" +
+  "   _FFF000 Federación_\n" +
+  "   Entiendo patente (AA000AA o AAA000), modelo, compañía (vale abreviada: Riv, Fed, Merc…), teléfono, localidad y grado (G1, G2, G3).\n\n" +
+  "*2. Fotos:* mandalas todas juntas. Si el vehículo ya existe, van ahí. Si no existe, lo creo en la web.\n\n" +
+  "*3. Terminar:* mandá otro vehículo o escribí *OK*. Te aviso cuántas fotos guardé.\n\n" +
+  "*Operativo:* los vehículos nuevos se crean en el operativo actual. Para cambiarlo escribí *operativo*.\n" +
+  "*ayuda:* muestra este mensaje.";
 
 const etiqueta = s => s.modelo ? `*${s.modelo}* (${s.patente})` : `*${s.patente}*`;
 const PALABRAS_CIERRE = ["ok", "oka", "okey", "okay", "okk", "listo", "lista", "ya", "ya está", "ya esta", "fin", "terminé", "termine",
   "cerrar", "chau", "gracias", "dale", "perfecto", "joya", "bien", "👍", "👌", "✅"];
-const esCierre = t => PALABRAS_CIERRE.includes(t.replace(/[!.¡\s]+$/g, "").replace(/^[¡\s]+/, ""));
+const limpio = t => t.toLowerCase().trim().replace(/[!.¡¿?\s]+$/g, "").replace(/^[¡¿\s]+/, "");
+const esCierre = t => PALABRAS_CIERRE.includes(limpio(t));
+const esSaludo = t => /^(hola+|buenas|buen d[ií]a|buenas tardes|buenas noches|hey|hi|start|inicio)$/.test(limpio(t));
+const esAyuda = t => /^(ayuda|help|\?|menu|menú|comandos|info)$/.test(limpio(t));
+const esCambioOperativo = t => /^(cambiar\s+(de\s+)?)?operativos?$/.test(limpio(t));
 const resumen = n => `${n} ${n === 1 ? "foto" : "fotos"}`;
 const esperar = ms => new Promise(r => setTimeout(r, ms));
-
-function pareceP(t) {
-  const p = t.toUpperCase().replace(/[^A-Z0-9]/g, "");
-  return p.length >= 5 && p.length <= 9 && /[A-Z]/.test(p) && /[0-9]/.test(p) ? p : null;
-}
+const OTRO = "Mandame otro vehículo cuando quieras.";
 
 // Hora de envío del mensaje (según WhatsApp), en segundos. Se usa para ubicar
 // fotos que llegan desordenadas: toda foto enviada antes del cierre va al vehículo
@@ -136,6 +304,22 @@ async function leerSesion(env, numero) {
 }
 const abierta = s => !!(s?.vid && !s.cerradaEn);
 
+// Operativo "fijo" de cada número: donde se crean los vehículos nuevos
+async function operativoFijo(env, numero) {
+  const o = await fsGet(env, `bot_operativo/${numero}`);
+  if (!o?.cid) return null;
+  const c = await fsGet(env, `companies/${o.cid}`);
+  return c ? { cid: o.cid, operativo: c.name || o.operativo } : null;
+}
+const fijarOperativo = (env, numero, op) => fsSet(env, `bot_operativo/${numero}`, { cid: op.cid, operativo: op.operativo, ts: Date.now() });
+
+async function listaOperativos(env) {
+  return (await fsList(env, "companies"))
+    .map(o => ({ cid: o.__id, operativo: o.name || "Operativo" }))
+    .sort((a, b) => a.operativo.localeCompare(b.operativo)).slice(0, 20);
+}
+const menuOperativos = ops => ops.map((o, i) => `${i + 1}. ${o.operativo}`).join("\n") + "\n\n0. Cancelar";
+
 // Cierra el vehículo abierto. Espera unos segundos para contar también las fotos
 // que todavía se estaban guardando, y devuelve el texto del resumen.
 async function cerrar(env, numero, sesion, hora) {
@@ -146,118 +330,164 @@ async function cerrar(env, numero, sesion, hora) {
   return n ? `✅ Guardé ${resumen(n)} en ${etiqueta(sesion)}.` : `👌 Cerré ${etiqueta(sesion)} sin fotos.`;
 }
 
+// Ficha que muestra el bot al abrir un vehículo
+function fichaVehiculo(v) {
+  const l = [`🚗 *Vehículo:* ${v.modelo || "sin modelo cargado"}`, `🔢 *Patente:* ${v.patente}`, `🏢 *Operativo:* ${v.operativo}`];
+  if (v.compania) l.push(`🛡️ *Compañía:* ${v.compania}`);
+  if (v.telefono) l.push(`📞 *Teléfono:* ${v.telefono}`);
+  if (v.localidad) l.push(`📍 *Localidad:* ${v.localidad}`);
+  if (v.grado) l.push(`🌨️ *Grado:* ${v.grado}`);
+  return l.join("\n");
+}
+const PEDIR_FOTOS = "📸 Mandame las fotos. Para terminar, mandá otro vehículo o escribí *OK*.";
+
 async function alRecibirTexto(env, m, quien, texto) {
   const numero = quien.numero;
-  const t = texto.toLowerCase().trim();
+  const t = limpio(texto);
   const hora = horaDe(m);
   const s = await leerSesion(env, numero);
 
-  if (["hola", "ayuda", "menu", "menú", "?", "info", "help"].includes(t)) {
-    return responder(env, m.from, AYUDA + (abierta(s) ? `\n\n📌 Vehículo abierto: ${etiqueta(s)} · ${s.operativo}` : ""));
+  if (esSaludo(texto)) return responder(env, m.from, SALUDO + (abierta(s) ? `\n\n📌 Tenés abierto ${etiqueta(s)}.` : ""));
+  if (esAyuda(texto)) {
+    const fijo = await operativoFijo(env, numero);
+    return responder(env, m.from, AYUDA + (fijo ? `\n\n🏢 Operativo actual: *${fijo.operativo}*` : "") +
+      (abierta(s) ? `\n📌 Vehículo abierto: ${etiqueta(s)}` : ""));
   }
 
-  // Patente nueva: ¿en qué operativo la creo?
-  if (s?.crear?.patente && (/^\d{1,2}$/.test(t) || ["cancelar", "no", "0"].includes(t))) {
-    if (t === "0" || t === "cancelar" || t === "no") {
-      await fsSet(env, `bot_sesiones/${numero}`, { ts: Date.now(), ...(s.anterior ? { anterior: s.anterior } : {}) });
-      return responder(env, m.from, `👌 No creé ${s.crear.patente}. Mandame otra patente cuando quieras.`);
+  // Comando: cambiar de operativo
+  if (esCambioOperativo(texto)) {
+    const ops = await listaOperativos(env);
+    if (!ops.length) return responder(env, m.from, "No hay operativos creados en la app todavía.");
+    const fijo = await operativoFijo(env, numero);
+    await fsMerge(env, `bot_sesiones/${numero}`, { elegirOperativo: ops, ts: Date.now() });
+    return responder(env, m.from, (fijo ? `🏢 Operativo actual: *${fijo.operativo}*\n\n` : "") +
+      "¿En qué operativo cargo los vehículos nuevos? Respondé con el número:\n\n" + menuOperativos(ops));
+  }
+
+  const numeroElegido = /^\d{1,2}$/.test(t) ? Number(t) : null;
+  const cancela = t === "0" || t === "cancelar" || t === "no";
+
+  // Respuesta al comando "operativo"
+  if (s?.elegirOperativo?.length && (numeroElegido !== null || cancela)) {
+    await fsMerge(env, `bot_sesiones/${numero}`, { elegirOperativo: null });
+    if (cancela) return responder(env, m.from, "👌 Sigo con el mismo operativo.");
+    const op = s.elegirOperativo[numeroElegido - 1];
+    if (!op) return responder(env, m.from, `Elegí un número del 1 al ${s.elegirOperativo.length}.`);
+    await fijarOperativo(env, numero, op);
+    return responder(env, m.from, `🏢 Listo: los vehículos nuevos van a *${op.operativo}*.\n\nEnviame los datos del vehículo.`);
+  }
+
+  // Patente nueva sin operativo elegido: ¿dónde la creo?
+  if (s?.crear?.datos?.patente && (numeroElegido !== null || cancela)) {
+    if (cancela) {
+      await fsMerge(env, `bot_sesiones/${numero}`, { crear: null });
+      return responder(env, m.from, `👌 No creé ${s.crear.datos.patente}. ${OTRO}`);
     }
-    const op = s.crear.operativos[Number(t) - 1];
+    const op = s.crear.operativos[numeroElegido - 1];
     if (!op) return responder(env, m.from, `Elegí un número del 1 al ${s.crear.operativos.length}, o 0 para cancelar.`);
-    const nuevo = await crearVehiculo(env, op, s.crear.patente, quien);
-    await abrir(env, numero, nuevo, hora, s.anterior ? { anterior: s.anterior } : null);
-    return responder(env, m.from, `🆕 Creé el vehículo en la web.\n\n${fichaVehiculo(nuevo)}\n\nCompletá el modelo y los datos del cliente desde la app.\n\n${PEDIR_FOTOS}`);
+    await fijarOperativo(env, numero, op);
+    const nuevo = await crearVehiculo(env, op, s.crear.datos, quien);
+    await abrir(env, numero, nuevo, hora, s);
+    return responder(env, m.from, `🆕 Creé el vehículo en la web.\n\n${fichaVehiculo(nuevo)}\n\n` +
+      `Los próximos vehículos nuevos también van a *${op.operativo}* (para cambiar escribí *operativo*).\n\n${PEDIR_FOTOS}`);
   }
 
-  // Respuesta a "¿en qué operativo?" cuando la patente estaba repetida
-  if (s?.opciones?.length && /^\d{1,2}$/.test(t)) {
-    const elegido = s.opciones[Number(t) - 1];
-    if (!elegido) return responder(env, m.from, `Elegí un número del 1 al ${s.opciones.length}.`);
-    await abrir(env, numero, elegido, hora, s);
-    return responder(env, m.from, mensajeAbierto(elegido));
+  // Patente repetida en varios operativos: ¿cuál?
+  if (s?.opciones?.length && numeroElegido !== null) {
+    const v = s.opciones[numeroElegido - 1];
+    if (!v) return responder(env, m.from, `Elegí un número del 1 al ${s.opciones.length}.`);
+    return responder(env, m.from, await abrirExistente(env, numero, v, s.datos || {}, hora, s));
   }
 
-  // Otra patente: cierra el vehículo anterior y abre el nuevo
-  const patente = pareceP(texto);
-  if (patente) {
+  // Datos de un vehículo (tiene patente)
+  const datos = interpretar(texto);
+  if (datos.patente) {
     let previo = "";
-    if (abierta(s) && s.patente !== patente) previo = (await cerrar(env, numero, s, hora)) + "\n\n";
-    else if (abierta(s) && s.patente === patente) {
-      return responder(env, m.from, `📸 ${etiqueta(s)} ya está abierto. Mandame las fotos.`);
+    if (abierta(s) && s.patente === datos.patente) {
+      const cambios = await actualizarDatos(env, s, datos);
+      return responder(env, m.from, cambios.length
+        ? `✏️ Actualicé ${cambios.join(", ")} de ${etiqueta(s)}.\n\n${PEDIR_FOTOS}`
+        : `📸 ${etiqueta(s)} ya está abierto. ${PEDIR_FOTOS}`);
     }
+    if (abierta(s)) previo = (await cerrar(env, numero, s, hora)) + "\n\n";
     const actual = await leerSesion(env, numero);
-    const r = await elegirVehiculo(env, numero, patente, hora, actual);
-    return responder(env, m.from, previo + r.mensaje);
+    return responder(env, m.from, previo + await prepararVehiculo(env, numero, datos, hora, actual, quien));
   }
 
-  // Cualquier otro texto después de mandar fotos cierra el vehículo
-  if (abierta(s) && (Number(s.archivos || 0) > 0 || esCierre(t))) {
-    return responder(env, m.from, (await cerrar(env, numero, s, hora)) + " Mandame otra patente cuando quieras.");
+  // Texto sin patente
+  if (abierta(s) && (Number(s.archivos || 0) > 0 || esCierre(texto))) {
+    return responder(env, m.from, `${await cerrar(env, numero, s, hora)}\n${OTRO}`);
   }
-  if (s?.crear?.patente) {
-    return responder(env, m.from, `Respondé con el número del operativo donde creo *${s.crear.patente}*, o 0 para cancelar.`);
+  if (s?.crear?.datos?.patente) {
+    return responder(env, m.from, `Respondé con el número del operativo donde creo *${s.crear.datos.patente}*, o 0 para cancelar.`);
   }
-  if (esCierre(t)) return responder(env, m.from, "👌");
-  if (abierta(s)) {
-    return responder(env, m.from, `📸 Tengo abierto ${etiqueta(s)}. Mandame las fotos, u otra patente para cambiar de vehículo.`);
-  }
-  return responder(env, m.from, "No entendí 🤔 Mandame la *patente* del vehículo (ej: AE345KD) o escribí *ayuda*.");
+  if (esCierre(texto)) return responder(env, m.from, "👌 " + OTRO);
+  if (abierta(s)) return responder(env, m.from, `📸 Tengo abierto ${etiqueta(s)}. ${PEDIR_FOTOS}`);
+  return responder(env, m.from, "No encontré una patente en tu mensaje 🤔\n\nEnviame los datos del vehículo, por ejemplo:\n_Corolla AB099BA Riv 1137709755 Monte_\n\nO escribí *ayuda*.");
 }
 
-const fichaVehiculo = v =>
-  `🚗 *Vehículo:* ${v.modelo || "sin modelo cargado"}\n🔢 *Patente:* ${v.patente}\n🏢 *Operativo:* ${v.operativo}`;
-const PEDIR_FOTOS = "📸 Mandame las fotos. Cuando termines escribí cualquier cosa (ok, listo…) o mandá otra patente.";
-const mensajeAbierto = v => `${fichaVehiculo(v)}\n\n${PEDIR_FOTOS}`;
+// Busca la patente: si existe la abre (y completa los datos nuevos); si no, la crea
+// en el operativo fijo, o pregunta en cuál.
+async function prepararVehiculo(env, numero, datos, hora, previa, quien) {
+  const encontrados = await buscarPatente(env, datos.patente);
+  const fijo = await operativoFijo(env, numero);
+
+  if (encontrados.length) {
+    const v = encontrados.length === 1 ? encontrados[0] : encontrados.find(x => x.cid === fijo?.cid);
+    if (!v) {
+      await fsSet(env, `bot_sesiones/${numero}`, { opciones: encontrados.slice(0, 9), datos, ts: Date.now(),
+        ...(anteriorDe(previa, hora) ? { anterior: anteriorDe(previa, hora) } : {}) });
+      return `La patente *${datos.patente}* está en más de un operativo. ¿Cuál es? Respondé con el número:\n\n` +
+        encontrados.slice(0, 9).map((x, i) => `${i + 1}. ${x.operativo} · ${x.modelo || "sin modelo"}`).join("\n");
+    }
+    return abrirExistente(env, numero, v, datos, hora, previa);
+  }
+
+  if (fijo) {
+    const nuevo = await crearVehiculo(env, fijo, datos, quien);
+    await abrir(env, numero, nuevo, hora, previa);
+    return `🆕 Creé el vehículo en la web.\n\n${fichaVehiculo(nuevo)}\n\n${PEDIR_FOTOS}`;
+  }
+
+  const operativos = await listaOperativos(env);
+  if (!operativos.length) return "No hay operativos creados en la app todavía.";
+  await fsSet(env, `bot_sesiones/${numero}`, { crear: { datos, operativos }, ts: Date.now(),
+    ...(anteriorDe(previa, hora) ? { anterior: anteriorDe(previa, hora) } : {}) });
+  return `🔎 La patente *${datos.patente}* no está cargada.\n\n¿En qué operativo la creo? Respondé con el número:\n\n` + menuOperativos(operativos);
+}
+
+async function abrirExistente(env, numero, v, datos, hora, previa) {
+  const cambios = await actualizarDatos(env, v, datos);
+  await abrir(env, numero, v, hora, previa);
+  await fijarOperativo(env, numero, v);
+  return `${fichaVehiculo(v)}` + (cambios.length ? `\n\n✏️ Actualicé ${cambios.join(", ")}.` : "") + `\n\n${PEDIR_FOTOS}`;
+}
+
+// Completa en la web los datos que vinieron en el mensaje (solo los que cambian)
+async function actualizarDatos(env, v, datos) {
+  const campos = { modelo: "modelo", compania: "compañía", telefono: "teléfono", localidad: "localidad", grado: "grado" };
+  const nuevos = {}, nombres = [];
+  for (const [k, nombre] of Object.entries(campos)) {
+    if (datos[k] && datos[k] !== v[k]) { nuevos[k] = datos[k]; nombres.push(nombre); v[k] = datos[k]; }
+  }
+  if (nombres.length) await fsMerge(env, `companies/${v.cid}/vehicles/${v.vid}`, nuevos);
+  return nombres;
+}
+
+function anteriorDe(p, hora) {
+  if (p?.vid) return { cid: p.cid, vid: p.vid, patente: p.patente, modelo: p.modelo || "", operativo: p.operativo || "",
+    desde: p.desde || 0, cerradaEn: p.cerradaEn || hora };
+  return p?.anterior || null;
+}
 
 // Abre un vehículo. El que estaba antes queda guardado como "anterior" para
 // ubicar fotos que se mandaron antes del cambio pero llegan tarde.
 async function abrir(env, numero, v, hora, previa) {
-  let anterior = null;
-  if (previa?.vid && !previa.cerradaEn && previa.vid === v.vid) {
-    anterior = previa.anterior || null;
-  } else if (previa?.vid) {
-    anterior = { cid: previa.cid, vid: previa.vid, patente: previa.patente, modelo: previa.modelo || "",
-      operativo: previa.operativo || "", desde: previa.desde || 0, cerradaEn: previa.cerradaEn || hora };
-  } else if (previa?.anterior) anterior = previa.anterior;
+  const anterior = previa?.vid === v.vid && !previa?.cerradaEn ? (previa.anterior || null) : anteriorDe(previa, hora);
   await fsSet(env, `bot_sesiones/${numero}`, {
     cid: v.cid, vid: v.vid, patente: v.patente, modelo: v.modelo || "", operativo: v.operativo || "",
     desde: hora, archivos: 0, ts: Date.now(), ...(anterior ? { anterior } : {})
   });
-}
-
-// Busca la patente en todos los operativos. Una coincidencia: la abre.
-// Varias: guarda las opciones y pregunta a cuál.
-async function elegirVehiculo(env, numero, patente, hora, previa) {
-  const encontrados = await buscarPatente(env, patente);
-  const anteriorDe = p => p?.vid ? { cid: p.cid, vid: p.vid, patente: p.patente, modelo: p.modelo || "", operativo: p.operativo || "",
-    desde: p.desde || 0, cerradaEn: p.cerradaEn || hora } : (p?.anterior || null);
-  if (!encontrados.length) {
-    const operativos = (await fsList(env, "companies"))
-      .map(o => ({ cid: o.__id, operativo: o.name || "Operativo" }))
-      .sort((a, b) => a.operativo.localeCompare(b.operativo)).slice(0, 20);
-    if (!operativos.length) return { ok: false, mensaje: "No hay operativos creados en la app todavía." };
-    const ant = anteriorDe(previa);
-    await fsSet(env, `bot_sesiones/${numero}`, { crear: { patente, operativos }, ts: Date.now(), ...(ant ? { anterior: ant } : {}) });
-    return {
-      ok: false, pregunta: true,
-      mensaje: `🔎 La patente *${patente}* no está cargada.\n\n¿En qué operativo la creo? Respondé con el número:\n\n` +
-        operativos.map((o, i) => `${i + 1}. ${o.operativo}`).join("\n") + "\n\n0. Cancelar"
-    };
-  }
-  if (encontrados.length === 1) {
-    await abrir(env, numero, encontrados[0], hora, previa);
-    return { ok: true, mensaje: mensajeAbierto(encontrados[0]), vehiculo: encontrados[0] };
-  }
-  await fsSet(env, `bot_sesiones/${numero}`, {
-    opciones: encontrados.slice(0, 9), patente, ts: Date.now(),
-    ...(previa?.vid ? { anterior: { cid: previa.cid, vid: previa.vid, patente: previa.patente, modelo: previa.modelo || "",
-      operativo: previa.operativo || "", desde: previa.desde || 0, cerradaEn: previa.cerradaEn || hora } } : {})
-  });
-  return {
-    ok: false, pregunta: true,
-    mensaje: `La patente *${patente}* está en más de un operativo. ¿A cuál van las fotos? Respondé con el número:\n\n` +
-      encontrados.slice(0, 9).map((v, i) => `${i + 1}. ${v.operativo} · ${v.modelo || "Vehículo"}`).join("\n")
-  };
 }
 
 async function buscarPatente(env, patente) {
@@ -281,20 +511,20 @@ async function buscarPatente(env, patente) {
     if (v.deleted) continue;
     const [, cid, , vid] = v.__ruta.split("/");
     nombres[cid] ??= (await fsGet(env, `companies/${cid}`))?.name || "Operativo";
-    res.push({ cid, vid, patente: v.patente, modelo: v.modelo, operativo: nombres[cid] });
+    res.push({ cid, vid, patente: v.patente, modelo: v.modelo || "", operativo: nombres[cid],
+      compania: v.compania || "", telefono: v.telefono || "", localidad: v.localidad || "", grado: v.grado || null });
   }
   return res;
 }
 
 // Crea el vehículo en la web, con los mismos campos que usa la app
-async function crearVehiculo(env, op, patente, quien) {
+async function crearVehiculo(env, op, d, quien) {
   const vid = [...crypto.getRandomValues(new Uint8Array(15))].map(b => "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"[b % 62]).join("") + "wa";
-  // Fecha de hoy en Argentina (UTC-3)
-  const hoy = new Date(Date.now() - 3 * 3600 * 1000).toISOString().slice(0, 10);
+  const hoy = new Date(Date.now() - 3 * 3600 * 1000).toISOString().slice(0, 10); // fecha de Argentina (UTC-3)
   const datos = {
-    modelo: "", patente, asegurado: "", telefono: "", compania: "", localidad: "",
-    observaciones: "", repuestos: "", precio: 0, piezas: {}, estado: "peritado", fechas: { peritado: hoy },
-    fotos: [], archivos: [], firma: null, deleted: false,
+    modelo: d.modelo || "", patente: d.patente, asegurado: "", telefono: d.telefono || "", compania: d.compania || "",
+    localidad: d.localidad || "", observaciones: d.otros || "", repuestos: "", precio: 0, piezas: {}, grado: d.grado || null,
+    estado: "peritado", fechas: { peritado: hoy }, fotos: [], archivos: [], firma: null, deleted: false,
     createdBy: `whatsapp:${quien.numero}`, createdByName: `${quien.nombre || quien.numero} (WhatsApp)`,
     updatedBy: `whatsapp:${quien.numero}`, via: "whatsapp"
   };
@@ -313,7 +543,7 @@ async function crearVehiculo(env, op, patente, quien) {
     })
   });
   if (!r.ok) throw new Error(`No se pudo crear el vehículo: ${r.status} ${await r.text()}`);
-  return { cid: op.cid, vid, patente, modelo: "", operativo: op.operativo };
+  return { cid: op.cid, vid, operativo: op.operativo, ...datos };
 }
 
 // ¿A qué vehículo va un archivo enviado a la hora "hora"?
@@ -325,40 +555,47 @@ function destinoDe(s, hora) {
   return null;
 }
 
+// Evita repetir el mismo aviso por cada foto de un grupo
+async function avisarUnaVez(env, m, numero, clave, texto) {
+  // Un aviso por tanda de fotos (ventana de 90 s), aunque lleguen varias a la vez
+  if (!(await primeraVez(env, `aviso-${clave}-${numero}-${Math.floor(Date.now() / 90000)}`))) return;
+  return responder(env, m.from, texto);
+}
+
 async function alRecibirArchivo(env, m, quien) {
   const numero = quien.numero;
   const media = m.image || m.document;
   const esFoto = m.type === "image";
   const hora = horaDe(m);
 
-  // Si la foto trae la patente como descripción, se abre ese vehículo
+  // Si la foto trae datos del vehículo como descripción, se procesan primero
   let sesion = await leerSesion(env, numero);
   const caption = (media?.caption || "").trim();
-  const pCaption = caption && pareceP(caption);
-  if (pCaption && !(abierta(sesion) && sesion.patente === pCaption)) {
+  const datos = caption ? interpretar(caption) : null;
+  if (datos?.patente && !(abierta(sesion) && sesion.patente === datos.patente)) {
     let previo = "";
-    if (abierta(sesion)) previo = await cerrar(env, numero, sesion, hora - 1);
-    const r = await elegirVehiculo(env, numero, pCaption, hora, await leerSesion(env, numero));
-    if (previo) await responder(env, m.from, previo);
-    if (!r.ok) return responder(env, m.from, r.mensaje + (r.pregunta ? "\n\nDespués reenviame la foto." : ""));
+    if (abierta(sesion)) previo = (await cerrar(env, numero, sesion, hora - 1)) + "\n\n";
+    await responder(env, m.from, previo + await prepararVehiculo(env, numero, datos, hora, await leerSesion(env, numero), quien));
     sesion = await leerSesion(env, numero);
   }
 
-  if (sesion?.crear?.patente && !destinoDe(sesion, hora)) {
-    return responder(env, m.from, `📌 Primero decime en qué operativo creo *${sesion.crear.patente}* (respondé con el número de la lista). Después reenviame las fotos.`);
-  }
-  if (sesion?.opciones?.length && !sesion.vid && !destinoDe(sesion, hora)) {
-    return responder(env, m.from, "📌 Primero decime a qué operativo van (respondé con el número de la lista). Después reenviame las fotos.");
-  }
   const destino = destinoDe(sesion, hora);
   if (!destino) {
-    return responder(env, m.from, "📌 Primero mandame la *patente* del vehículo al que van estas fotos (ej: AE345KD). Después reenviámelas.");
+    if (sesion?.crear?.datos?.patente) {
+      return avisarUnaVez(env, m, numero, "avisoFotos",
+        `📌 Primero decime en qué operativo creo *${sesion.crear.datos.patente}* (respondé con el número). Después reenviame las fotos.`);
+    }
+    if (sesion?.opciones?.length) {
+      return avisarUnaVez(env, m, numero, "avisoFotos", "📌 Primero decime de qué operativo es (respondé con el número). Después reenviame las fotos.");
+    }
+    return avisarUnaVez(env, m, numero, "avisoFotos",
+      "📌 Primero enviame los datos del vehículo (al menos la patente) y después reenviame las fotos.");
   }
 
   const ruta = `companies/${destino.cid}/vehicles/${destino.vid}`;
   const vehiculo = await fsGet(env, ruta);
   if (!vehiculo || vehiculo.deleted) {
-    return responder(env, m.from, `🗑️ El vehículo ${destino.patente} ya no está disponible. Mandame otra patente.`);
+    return responder(env, m.from, `🗑️ El vehículo ${destino.patente} ya no está disponible. ${OTRO}`);
   }
 
   // Bajar el archivo de WhatsApp
@@ -370,7 +607,7 @@ async function alRecibirArchivo(env, m, quien) {
   const subido = await subirCloudinary(env, new Blob([bytes], { type: mime }), nombre,
     `desabollito/${destino.cid}/${destino.vid}`, esFoto ? "image" : "auto");
 
-  // Agregar al vehículo (la web lo muestra al instante)
+  // Agregar al vehículo (la web lo muestra al instante). Sin ✅ por foto: el resumen llega al cerrar.
   const origen = { via: "whatsapp", byWhatsApp: numero, byName: quien.nombre };
   if (esFoto) {
     await fsAppend(env, ruta, "fotos",
@@ -379,9 +616,7 @@ async function alRecibirArchivo(env, m, quien) {
     await fsAppend(env, ruta, "archivos",
       { url: subido.secure_url, publicId: subido.public_id, name: nombre, bytes: subido.bytes || null, format: subido.format || null, at: Date.now(), ...origen });
   }
-  // Contador para el resumen al cerrar (sumado de forma segura aunque lleguen varias a la vez)
   if (destino.esActual) await fsIncrementar(env, `bot_sesiones/${numero}`, "archivos").catch(() => {});
-  return reaccionar(env, m.from, m.id, "✅");
 }
 
 // ─────────────────────────────────────────────────────────────

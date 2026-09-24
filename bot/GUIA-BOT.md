@@ -135,15 +135,26 @@ Revisa cada pieza (variables, Firebase, WhatsApp, Cloudinary, si Meta está mand
 
 ## Cómo lo usa el equipo
 
-- **Patente** (ej: `AE345KD`, también `ae 345 kd`): el bot responde con Vehículo, Patente y Operativo, y pide las fotos.
-- **Patente que no existe:** el bot pregunta en qué operativo crearla (lista numerada, 0 para cancelar) y la crea en la web en estado Peritado, con fecha de hoy y "creado por WhatsApp". Modelo y datos del cliente se completan después en la app.
-- **Patente repetida en dos operativos:** el bot muestra la lista ("1. Granizo Córdoba / 2. Operativo Rosario") y se responde con el número.
-- **Fotos o PDFs**: se guardan en el vehículo abierto; cada una recibe ✅.
-- **Foto con la patente como descripción**: abre ese vehículo y guarda la foto en un solo paso.
-- **Cualquier texto después de las fotos** (ok, listo, ya, gracias…): cierra el vehículo y el bot responde cuántas fotos guardó.
-- **Otra patente**: cierra el vehículo anterior (con su resumen) y abre el nuevo.
-- Si todavía no mandaste fotos, un texto cualquiera no cierra (solo "ok", "listo" y similares). Si no, se cierra solo a las 12 horas.
+- **hola:** saludo con las instrucciones básicas.
+- **ayuda:** explicación completa, operativo actual y vehículo abierto.
+- **Datos del vehículo** en un mensaje, en cualquier orden. Solo la patente es obligatoria:
+  - `Corolla AB099BA Riv 1137709755 Monte`
+  - `FFF000 FEDERACION`
+  - `ab 123 cd toyota hilux sancor entre rios 3515551234 g2`
+
+  El bot reconoce:
+  - la patente (AA000AA o AAA000, con o sin espacios o guiones),
+  - el teléfono (con o sin +54, 9 o 0),
+  - la compañía, aunque esté abreviada: Riv → Rivadavia, Fed → Federación Patronal, Merc → Mercantil Andina,
+  - la localidad,
+  - la marca o el modelo,
+  - el grado (G1, G2, G3 o "grado 2").
+- **Si la patente existe:** responde con Vehículo, Patente, Operativo y los datos cargados. Si el mensaje trae datos nuevos (por ejemplo la compañía), los completa en la web.
+- **Si la patente no existe:** la crea en la web en el **operativo actual**. La primera vez pregunta en cuál; después sigue usando ese.
+- **operativo:** cambia el operativo donde se crean los vehículos nuevos.
+- **Fotos:** se mandan todas juntas, sin confirmación por foto.
+- **Terminar:** mandar otro vehículo o escribir OK (o cualquier texto después de las fotos). El bot responde "✅ Guardé X fotos en …".
 - Las fotos que llegan desordenadas van igual al vehículo correcto: el bot usa la hora en que se mandó cada una.
-- **ayuda**: muestra las instrucciones y qué vehículo está abierto.
+- Si alguien manda fotos sin haber mandado una patente, el bot avisa una sola vez por tanda.
 
 En la web, al abrir una foto se ve "por WhatsApp (nombre)" para saber quién la mandó.

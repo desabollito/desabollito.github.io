@@ -185,7 +185,8 @@ function renderDetalle(root, v, embebido) {
     </section>
 
     <section class="d-sec d-piezas">
-      <h3>Paños afectados <small>${marcadas.length || "ninguno"}</small></h3>
+      <div class="sec-head"><h3>Paños afectados <small>${marcadas.length || "ninguno"}</small></h3>
+        ${v.grado ? `<span class="grado-tag g${v.grado}">Grado ${v.grado}</span>` : ""}</div>
       <div class="piezas-view">
         ${carMapSVG(v.piezas || {}, { size: "carmap-sm" })}
         <ul class="piezas-list">${marcadas.map(k => `<li>${esc(PIEZA[k].label)}</li>`).join("") || "<li class='muted'>Sin paños marcados</li>"}</ul>
@@ -535,6 +536,12 @@ export function vistaFormulario(view, id = null) {
             <div class="pieza-chips"></div>
           </div>
           <p class="pieza-resumen" aria-live="polite"></p>
+          <div class="grado-pick">
+            <span>Grado de daño</span>
+            <div class="seg seg-sm" id="grado" role="radiogroup" aria-label="Grado de daño">
+              ${[1, 2, 3].map(g => `<button type="button" class="seg-btn ${v?.grado === g ? "on" : ""}" data-g="${g}" role="radio" aria-checked="${v?.grado === g}">Grado ${g}</button>`).join("")}
+            </div>
+          </div>
         </fieldset>
         <fieldset class="card vform-det">
           <legend>Detalle del trabajo</legend>
@@ -559,6 +566,13 @@ export function vistaFormulario(view, id = null) {
 
   const form = $("#vform", view);
   montarMapa($(".vform-map", view), piezas);
+  let grado = v?.grado || null;
+  $("#grado", view).addEventListener("click", e => {
+    const b = e.target.closest("[data-g]"); if (!b) return;
+    const g = Number(b.dataset.g);
+    grado = grado === g ? null : g; // tocar el marcado lo desmarca
+    $$("#grado .seg-btn", view).forEach(x => { const on = Number(x.dataset.g) === grado; x.classList.toggle("on", on); x.setAttribute("aria-checked", on); });
+  });
 
   form.precio.addEventListener("input", e => {
     const d = e.target.value.replace(/\D/g, "");
@@ -582,7 +596,8 @@ export function vistaFormulario(view, id = null) {
       observaciones: f.observaciones.value.trim(),
       repuestos: f.repuestos.value.trim(),
       precio: Number(f.precio.value.replace(/\D/g, "")) || 0,
-      piezas: Object.fromEntries(Object.entries(piezas).filter(([, on]) => on))
+      piezas: Object.fromEntries(Object.entries(piezas).filter(([, on]) => on)),
+      grado
     };
     const nuevoId = v?.id || nuevoIdVehiculo();
     if (!v) data.fechas = { peritado: f.fecha.value || hoyISO() };
