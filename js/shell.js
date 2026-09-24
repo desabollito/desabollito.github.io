@@ -31,6 +31,7 @@ export function marcarNav(nombre) {
 export function pintarLateral() {
   const c = S.company;
   $("#company-name").textContent = c?.name || "Sin operativo";
+  $("#company-avatar").textContent = letraOperativo(c?.name);
   $("#company-role").textContent = c ? `${ROLES[c.roles?.[S.user.uid]]?.label || "Miembro"} · ${c.members.length} ${c.members.length === 1 ? "persona" : "personas"}` : "";
   const p = S.profile || {};
   $("#side-user").innerHTML = `
@@ -38,7 +39,8 @@ export function pintarLateral() {
     <span class="side-user-meta"><strong>${esc(p.name || "")}</strong><small>@${esc(p.username || "")}</small></span>`;
 }
 
-// Logo de la app como ícono del operativo (sin fondo, según tema)
-export function logoOperativo(tam = "") {
-  return `<span class="company-avatar ${tam}"><img class="logo-on-light" src="img/logo-oscuro.png" alt=""><img class="logo-on-dark" src="img/logo-claro.png" alt=""></span>`;
+// Ícono del operativo: primera letra del nombre sobre fondo de color
+export const letraOperativo = nombre => (String(nombre || "").trim()[0] || "?").toUpperCase();
+export function logoOperativo(tam = "", nombre = S.company?.name) {
+  return `<span class="company-avatar ${tam}">${esc(letraOperativo(nombre))}</span>`;
 }

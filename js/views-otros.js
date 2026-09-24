@@ -395,7 +395,7 @@ export function elegirEmpresaSheet() {
     title: "Tus operativos",
     body: `<ul class="company-list">${S.companies.map(c => `
       <li><button class="company-opt ${c.id === S.company?.id ? "on" : ""}" data-id="${c.id}">
-        ${logoOperativo()}
+        ${logoOperativo("", c.name)}
         <span><strong>${esc(c.name)}</strong><small>${ROLES[c.roles?.[S.user.uid]]?.label || ""} · ${c.members.length} ${c.members.length === 1 ? "persona" : "personas"}</small></span>
         ${c.id === S.company?.id ? icon("check") : ""}</button></li>`).join("")}</ul>
       <div class="stack-sm full">
