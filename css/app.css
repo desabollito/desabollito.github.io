@@ -700,3 +700,6 @@ body[data-ruta="vehiculos"] .toasts, body[data-ruta="planilla"] .toasts, body[da
 }
 body[data-detalle="1"] .fab { display: none !important; }
 .cal-head h2 { white-space: nowrap; font-size: 17px; }
+
+/* Modo oscuro: el operativo usa el ícono de la app con fondo blanco */
+.company-avatar img.app-icon { border-radius: 22%; background: #fff; }

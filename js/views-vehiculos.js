@@ -198,10 +198,8 @@ function renderDetalle(root, v, embebido) {
     <section class="d-sec">
       <div class="sec-head"><h3>Fotos <small>${v.fotos?.length || 0}</small></h3>
         <div class="sec-btns">
-          <label class="btn btn-ghost btn-sm only-mobile">${icon("camera")}Cámara
-            <input type="file" accept="image/*" capture="environment" hidden data-up="foto"></label>
-          <label class="btn btn-ghost btn-sm">${icon("plus")}Galería
-            <input type="file" accept="image/*" multiple hidden data-up="foto"></label>
+          <label class="btn btn-ghost btn-sm">${icon("plus")}Agregar fotos
+            <input type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" multiple hidden data-up="foto"></label>
         </div></div>
       <div class="photos" id="photos">
         ${(v.fotos || []).map((f, i) => `
@@ -428,30 +426,26 @@ function compartir(v) {
     title: "Compartir presupuesto",
     body: `<div class="stack">
       ${hayFotos ? `<label class="toggle"><input type="checkbox" id="con-fotos" checked><span>Incluir las ${v.fotos.length} fotos</span></label>` : ""}
-      <button class="btn btn-primary btn-block btn-lg" data-m="wa">${icon("chat")}Enviar por WhatsApp</button>
-      <button class="btn btn-ghost btn-block" data-m="save">${icon("download")}Descargar PDF</button>
-      <p class="muted small center" id="pdf-estado" aria-live="polite"></p></div>`
+      <button class="btn btn-primary btn-block btn-lg" data-m="share">${icon("share")}Compartir PDF</button>
+      <button class="btn btn-ghost btn-block" data-m="save">${icon("download")}Descargar PDF</button></div>`
   });
-  const estado = $("#pdf-estado", s.el);
   const nombre = nombreArchivo(v);
   const texto = `Presupuesto de granizo${v.modelo ? " · " + v.modelo : ""}${v.patente ? " " + v.patente : ""}${v.precio ? " · Total " + money(v.precio) : ""}`;
 
-  // El PDF se arma apenas se abre la hoja. Así, al tocar "Enviar", el menú de
-  // compartir se abre en el mismo toque (si tarda, el navegador lo bloquea).
-  let listo = null, preparando = null, turno = 0;
+  // El PDF se arma apenas se abre la hoja: así, al tocar "Compartir", el menú
+  // del teléfono se abre en el mismo toque (si tarda, el navegador lo bloquea).
+  let listo = null, preparando = null, turno = 0, error = null;
   const preparar = () => {
     const conFotos = $("#con-fotos", s.el)?.checked || false;
     const mio = ++turno;
-    listo = null;
-    estado.textContent = "Preparando PDF…";
-    preparando = presupuestoPDF(v, S.company, { conFotos, onProgreso: t => { if (mio === turno) estado.textContent = t; } })
+    listo = null; error = null;
+    preparando = presupuestoPDF(v, S.company, { conFotos })
       .then(doc => {
         if (mio !== turno) return;
         const blob = doc.output("blob");
         listo = { blob, file: new File([blob], nombre, { type: "application/pdf" }) };
-        estado.textContent = "PDF listo";
       })
-      .catch(err => { console.error(err); if (mio === turno) estado.textContent = "No se pudo armar el PDF: " + err.message; });
+      .catch(err => { console.error(err); if (mio === turno) error = err; });
     return preparando;
   };
   preparar();
@@ -465,37 +459,28 @@ function compartir(v) {
   s.body.addEventListener("click", async e => {
     const b = e.target.closest("[data-m]"); if (!b) return;
     if (!listo) {
-      // Todavía armándose: esperar y pedir un segundo toque para compartir
       busy(b, true, "Preparando PDF…");
       await preparando;
       busy(b, false);
-      if (!listo) return;
-      if (b.dataset.m === "wa" && navigator.canShare?.({ files: [listo.file] })) {
-        estado.textContent = "PDF listo: tocá “Enviar por WhatsApp” de nuevo";
+      if (!listo) { toast("No se pudo armar el PDF" + (error ? ": " + error.message : ""), "error"); return; }
+      // Si tardó, el navegador ya no deja abrir el menú de compartir en este toque
+      if (b.dataset.m === "share" && navigator.canShare?.({ files: [listo.file] })) {
+        toast("PDF listo: tocá “Compartir PDF” de nuevo");
         return;
       }
     }
     if (b.dataset.m === "save") { descargar(listo.blob); toast("PDF descargado", "success"); s.close(); return; }
 
-    // Enviar: menú de compartir del teléfono (ahí aparece WhatsApp)
     if (navigator.canShare?.({ files: [listo.file] })) {
-      try {
-        await navigator.share({ files: [listo.file], title: nombre, text: texto });
-        s.close();
-      } catch (err) {
+      try { await navigator.share({ files: [listo.file], title: nombre, text: texto }); s.close(); }
+      catch (err) {
         if (err.name === "AbortError") return;
         console.warn(err);
-        descargar(listo.blob);
-        window.open(waLink(v.telefono, texto) || `https://wa.me/?text=${encodeURIComponent(texto)}`, "_blank");
-        toast("Se descargó el PDF: adjuntalo en el chat de WhatsApp", "info");
-        s.close();
+        descargar(listo.blob); toast("No se pudo abrir el menú de compartir: se descargó el PDF", "info"); s.close();
       }
     } else {
-      // Computadora: se descarga el PDF y se abre WhatsApp con el mensaje
-      descargar(listo.blob);
-      window.open(waLink(v.telefono, texto + "\n(Te adjunto el presupuesto en PDF)") || `https://wa.me/?text=${encodeURIComponent(texto)}`, "_blank");
-      toast("PDF descargado: adjuntalo en el chat de WhatsApp", "info");
-      s.close();
+      // Navegadores sin "compartir archivos" (la mayoría en computadora): se descarga
+      descargar(listo.blob); toast("PDF descargado", "success"); s.close();
     }
   });
 }
