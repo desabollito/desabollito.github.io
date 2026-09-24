@@ -110,7 +110,14 @@ Como no hay vinculación de cuentas, cualquiera que conozca el número del bot p
 - Vacío o sin cargar: el bot acepta a cualquiera.
 - Se puede cambiar cuando quieras sin tocar la app.
 
-Si no contesta: Cloudflare → tu Worker → **Logs** (o "Observability") → **Begin log stream**, mandale un mensaje al bot y mirá qué error aparece.
+### Si no contesta: diagnóstico
+Abrí en el navegador (cambiando por tus datos):
+
+`https://desabollito-bot.TU-USUARIO.workers.dev/diagnostico?token=TU_WHATSAPP_VERIFY_TOKEN`
+
+Revisa cada pieza (variables, Firebase, WhatsApp, Cloudinary, si Meta está mandando los mensajes) y marca con ❌ la que falla, con el motivo. No muestra ningún secreto.
+- Si dice que la cuenta de WhatsApp **no está suscripta**, abrí la misma dirección agregando `&arreglar=1` al final.
+- Después de cada cambio, mandale "hola" al bot y recargá el diagnóstico.
 
 ---
 

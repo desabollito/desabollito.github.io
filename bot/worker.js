@@ -35,6 +35,7 @@ export default {
   async fetch(req, env, ctx) {
     const url = new URL(req.url);
     if (url.pathname === "/") return new Response("Desabollito bot funcionando ✅");
+    if (url.pathname === "/diagnostico") return diagnostico(url, env);
     if (url.pathname !== "/webhook") return new Response("No encontrado", { status: 404 });
 
     // Verificación del webhook (Meta la hace una sola vez al configurarlo)
@@ -49,7 +50,11 @@ export default {
 
     // Solo aceptamos mensajes firmados por Meta
     const raw = await req.text();
-    if (!(await firmaValida(raw, req.headers.get("x-hub-signature-256"), env.WHATSAPP_APP_SECRET))) {
+    const firmaOk = await firmaValida(raw, req.headers.get("x-hub-signature-256"), env.WHATSAPP_APP_SECRET);
+    // Se registra cada llegada (sirve para el diagnóstico)
+    ctx.waitUntil(registrar(env, { ultimoWebhook: new Date().toISOString(), ultimaFirmaOk: firmaOk, ultimoCuerpo: raw.slice(0, 600) }));
+    if (!firmaOk) {
+      console.error("Firma inválida: revisá WHATSAPP_APP_SECRET");
       return new Response("Firma inválida", { status: 401 });
     }
     let body;
@@ -65,6 +70,7 @@ export default {
     // Respondemos 200 enseguida (si no, Meta reintenta) y procesamos en segundo plano
     ctx.waitUntil(Promise.all(mensajes.map(m => procesar(m, env).catch(e => {
       console.error("Error con mensaje", m.id, e?.stack || e);
+      registrar(env, { ultimoError: `${new Date().toISOString()} · ${String(e?.message || e).slice(0, 500)}` }).catch(() => {});
       return responder(env, m.from, "⚠️ Hubo un error procesando tu mensaje. Probá de nuevo en un rato.").catch(() => {});
     }))));
     return new Response("ok");
@@ -274,7 +280,11 @@ async function enviar(env, to, payload) {
   let r = await intentar(to);
   // Particularidad de Argentina: a veces hay que responder al número sin el 9
   if (!r.ok && to.startsWith("549")) r = await intentar("54" + to.slice(3));
-  if (!r.ok) console.error("WhatsApp no aceptó el mensaje:", r.status, await r.text());
+  if (!r.ok) {
+    const detalle = await r.text();
+    console.error("WhatsApp no aceptó el mensaje:", r.status, detalle);
+    await registrar(env, { ultimoErrorEnvio: `${new Date().toISOString()} · a ${to} · ${r.status} · ${detalle.slice(0, 400)}` }).catch(() => {});
+  }
   return r;
 }
 
@@ -469,4 +479,117 @@ async function primeraVez(env, id) {
   const t = await r.text();
   if (r.status === 409 || t.includes("FAILED_PRECONDITION") || t.includes("ALREADY_EXISTS")) return false;
   throw new Error("Firestore dedupe: " + r.status + " " + t);
+}
+
+// ─────────────────────────────────────────────────────────────
+//  Diagnóstico: https://TU-WORKER.workers.dev/diagnostico?token=TU_VERIFY_TOKEN
+//  Revisa cada pieza sin mostrar ningún secreto.
+// ─────────────────────────────────────────────────────────────
+async function registrar(env, datos) {
+  try { await fsMerge(env, "bot_estado/diagnostico", datos); } catch (e) { console.error("No se pudo registrar estado:", e.message); }
+}
+
+async function fsMerge(env, ruta, data) {
+  const campos = Object.keys(data);
+  const qs = campos.map(c => "updateMask.fieldPaths=" + encodeURIComponent(c)).join("&");
+  const r = await fs(env, `${base(env)}/${ruta}?${qs}`, {
+    method: "PATCH",
+    body: JSON.stringify({ fields: Object.fromEntries(Object.entries(data).map(([k, v]) => [k, aValor(v)])) })
+  });
+  if (!r.ok) throw new Error(`Firestore merge ${ruta}: ${r.status} ${await r.text()}`);
+}
+
+async function diagnostico(url, env) {
+  if (!env.WHATSAPP_VERIFY_TOKEN || url.searchParams.get("token") !== env.WHATSAPP_VERIFY_TOKEN) {
+    return new Response("Agregá ?token=TU_WHATSAPP_VERIFY_TOKEN al final de la dirección.", { status: 403, headers: { "content-type": "text/plain; charset=utf-8" } });
+  }
+  const filas = [];
+  const ok = (t, d = "") => filas.push(["✅", t, d]);
+  const mal = (t, d = "") => filas.push(["❌", t, d]);
+  const aviso = (t, d = "") => filas.push(["⚠️", t, d]);
+
+  // 1. Variables cargadas
+  const nombres = ["WHATSAPP_TOKEN", "WHATSAPP_PHONE_ID", "WHATSAPP_VERIFY_TOKEN", "WHATSAPP_APP_SECRET",
+    "FIREBASE_PROJECT_ID", "FIREBASE_CLIENT_EMAIL", "FIREBASE_PRIVATE_KEY",
+    "CLOUDINARY_CLOUD_NAME", "CLOUDINARY_API_KEY", "CLOUDINARY_API_SECRET"];
+  const faltan = nombres.filter(n => !String(env[n] || "").trim());
+  faltan.length ? mal("Variables en Cloudflare", "Faltan: " + faltan.join(", ")) : ok("Variables en Cloudflare", "Las 10 están cargadas");
+  const conEspacios = nombres.filter(n => env[n] && String(env[n]) !== String(env[n]).trim());
+  if (conEspacios.length) aviso("Espacios de más", "Tienen espacios al principio o al final: " + conEspacios.join(", "));
+  if (env.NUMEROS_PERMITIDOS) aviso("Candado activo", "Solo pueden usar el bot: " + env.NUMEROS_PERMITIDOS);
+
+  // 2. Firebase
+  let estado = null;
+  try {
+    tokenCache = null;
+    await tokenFirebase(env);
+    ok("Firebase: clave de servicio", "Firebase aceptó la cuenta de servicio");
+    try {
+      estado = await fsGet(env, "bot_estado/diagnostico");
+      ok("Firebase: base de datos", "Lectura y escritura funcionando");
+    } catch (e) { mal("Firebase: base de datos", e.message.slice(0, 300)); }
+  } catch (e) { mal("Firebase: clave de servicio", "Revisá FIREBASE_CLIENT_EMAIL y FIREBASE_PRIVATE_KEY · " + e.message.slice(0, 250)); }
+
+  // 3. WhatsApp: token y número
+  try {
+    const r = await fetch(`${GRAPH}/${env.WHATSAPP_PHONE_ID}?fields=display_phone_number,verified_name,quality_rating`, {
+      headers: { Authorization: `Bearer ${env.WHATSAPP_TOKEN}` }
+    });
+    const j = await r.json();
+    if (r.ok) ok("WhatsApp: token y número", `Número ${j.display_phone_number || "?"} · ${j.verified_name || ""}`);
+    else mal("WhatsApp: token y número", "Revisá WHATSAPP_TOKEN y WHATSAPP_PHONE_ID · " + (j?.error?.message || r.status));
+  } catch (e) { mal("WhatsApp: token y número", e.message); }
+
+  // 3b. ¿La cuenta de WhatsApp está suscripta a la app? (si no, Meta no manda los mensajes)
+  try {
+    const dbg = await (await fetch(`${GRAPH}/debug_token?input_token=${encodeURIComponent(env.WHATSAPP_TOKEN)}&access_token=${encodeURIComponent(env.WHATSAPP_TOKEN)}`)).json();
+    const wabas = [...new Set((dbg?.data?.granular_scopes || [])
+      .filter(g => g.scope === "whatsapp_business_management" || g.scope === "whatsapp_business_messaging")
+      .flatMap(g => g.target_ids || []))];
+    if (!wabas.length) {
+      aviso("Suscripción de la cuenta de WhatsApp", "No se pudo leer la cuenta desde el token (revisá que el token tenga asignada la cuenta de WhatsApp).");
+    }
+    for (const waba of wabas) {
+      const auth = { Authorization: `Bearer ${env.WHATSAPP_TOKEN}` };
+      let subs = await (await fetch(`${GRAPH}/${waba}/subscribed_apps`, { headers: auth })).json();
+      if (!(subs?.data || []).length && url.searchParams.get("arreglar") === "1") {
+        await fetch(`${GRAPH}/${waba}/subscribed_apps`, { method: "POST", headers: auth });
+        subs = await (await fetch(`${GRAPH}/${waba}/subscribed_apps`, { headers: auth })).json();
+      }
+      if ((subs?.data || []).length) ok("Suscripción de la cuenta de WhatsApp", `Cuenta ${waba} suscripta a la app`);
+      else mal("Suscripción de la cuenta de WhatsApp",
+        `La cuenta ${waba} NO está suscripta: Meta no le manda los mensajes al bot. ` +
+        `Arreglalo abriendo esta misma página con &arreglar=1 al final.` + (subs?.error ? " · " + subs.error.message : ""));
+    }
+  } catch (e) { aviso("Suscripción de la cuenta de WhatsApp", e.message); }
+
+  // 4. Cloudinary
+  try {
+    const r = await fetch(`https://api.cloudinary.com/v1_1/${env.CLOUDINARY_CLOUD_NAME}/ping`, {
+      headers: { Authorization: "Basic " + btoa(`${env.CLOUDINARY_API_KEY}:${env.CLOUDINARY_API_SECRET}`) }
+    });
+    r.ok ? ok("Cloudinary", "Credenciales correctas") : mal("Cloudinary", "Revisá CLOUDINARY_API_KEY y CLOUDINARY_API_SECRET · " + r.status);
+  } catch (e) { mal("Cloudinary", e.message); }
+
+  // 5. ¿Meta está llamando al bot?
+  if (!estado?.ultimoWebhook) {
+    mal("Mensajes de WhatsApp", "Meta todavía no mandó ningún mensaje al bot. Revisá la URL del webhook y la suscripción a “messages”.");
+  } else if (estado.ultimaFirmaOk === false) {
+    mal("Mensajes de WhatsApp", `Llegó un mensaje (${estado.ultimoWebhook}) pero la firma no coincide: revisá WHATSAPP_APP_SECRET.`);
+  } else {
+    ok("Mensajes de WhatsApp", "Último mensaje recibido: " + estado.ultimoWebhook);
+  }
+  if (estado?.ultimoError) aviso("Último error procesando", estado.ultimoError);
+  if (estado?.ultimoErrorEnvio) aviso("Último error al responder", estado.ultimoErrorEnvio);
+
+  const esc = t => String(t).replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+  const html = `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Diagnóstico del bot</title>
+  <body style="font-family:system-ui;background:#0a1420;color:#e7edf5;padding:20px;max-width:760px;margin:auto">
+  <h1 style="font-size:22px">Diagnóstico · Desabollito bot</h1>
+  ${filas.map(([i, t, d]) => `<div style="background:#111e2f;border:1px solid #213349;border-radius:12px;padding:12px 14px;margin:10px 0">
+    <div style="font-weight:700">${i} ${esc(t)}</div><div style="color:#b5c3d4;font-size:14px;margin-top:4px;word-break:break-word">${esc(d)}</div></div>`).join("")}
+  ${estado?.ultimoCuerpo ? `<details style="margin-top:14px;color:#8395ab"><summary>Último mensaje recibido (técnico)</summary><pre style="white-space:pre-wrap;font-size:12px">${esc(estado.ultimoCuerpo)}</pre></details>` : ""}
+  <p style="color:#8395ab;font-size:13px;margin-top:20px">Recargá esta página después de mandarle un mensaje al bot.</p></body>`;
+  return new Response(html, { headers: { "content-type": "text/html; charset=utf-8" } });
 }
