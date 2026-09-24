@@ -100,8 +100,8 @@ async function procesar(m, env) {
 
   if (m.type === "text") return alRecibirTexto(env, m, quien, (m.text?.body || "").trim());
   if (m.type === "image" || m.type === "document") return alRecibirArchivo(env, m, quien);
-  if (m.type === "reaction") return;
-  return responder(env, m.from, "Por ahora entiendo datos de vehículos, fotos y documentos. Escribí *ayuda* para ver cómo usarme.");
+  // Otros tipos (reacciones, avisos de álbum "unsupported", stickers, etc.): se ignoran en silencio
+  await registrar(env, { ultimoTipoIgnorado: `${new Date().toISOString()} · ${m.type} · ${JSON.stringify(m).slice(0, 300)}` });
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -767,7 +767,8 @@ async function bajarMedia(env, mediaId) {
 // ─────────────────────────────────────────────────────────────
 async function subirCloudinary(env, blob, nombre, carpeta, tipo) {
   const timestamp = Math.floor(Date.now() / 1000);
-  const firmar = `folder=${carpeta}&timestamp=${timestamp}${env.CLOUDINARY_API_SECRET}`;
+  const transformation = tipo === "image" ? "c_limit,w_1920,h_1920,q_auto:good" : "";
+  const firmar = `folder=${carpeta}&timestamp=${timestamp}${transformation ? `&transformation=${transformation}` : ""}${env.CLOUDINARY_API_SECRET}`;
   const hash = await crypto.subtle.digest("SHA-1", new TextEncoder().encode(firmar));
   const signature = [...new Uint8Array(hash)].map(b => b.toString(16).padStart(2, "0")).join("");
 
@@ -777,6 +778,7 @@ async function subirCloudinary(env, blob, nombre, carpeta, tipo) {
   fd.append("timestamp", String(timestamp));
   fd.append("api_key", env.CLOUDINARY_API_KEY);
   fd.append("signature", signature);
+  if (transformation) fd.append("transformation", transformation);
   const r = await fetch(`https://api.cloudinary.com/v1_1/${env.CLOUDINARY_CLOUD_NAME}/${tipo}/upload`, { method: "POST", body: fd });
   const data = await r.json();
   if (!r.ok) throw new Error("Cloudinary: " + (data?.error?.message || r.status));
@@ -1128,6 +1130,7 @@ async function diagnostico(url, env) {
   }
   if (estado?.ultimoError) aviso("Último error procesando", estado.ultimoError);
   if (estado?.ultimoErrorEnvio) aviso("Último error al responder", estado.ultimoErrorEnvio);
+  if (estado?.ultimoTipoIgnorado) aviso("Último mensaje ignorado", estado.ultimoTipoIgnorado);
 
   const esc = t => String(t).replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
   const html = `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
