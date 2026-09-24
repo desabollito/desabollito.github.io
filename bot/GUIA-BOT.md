@@ -139,7 +139,10 @@ Revisa cada pieza (variables, Firebase, WhatsApp, Cloudinary, si Meta está mand
 - **Patente repetida en dos operativos:** el bot muestra la lista ("1. Granizo Córdoba / 2. Operativo Rosario") y se responde con el número.
 - **Fotos o PDFs**: se guardan en el vehículo abierto; cada una recibe ✅.
 - **Foto con la patente como descripción**: abre ese vehículo y guarda la foto en un solo paso.
-- **listo**: cierra el vehículo. Si no, se cierra solo a las 12 horas.
+- **Cualquier texto después de las fotos** (ok, listo, ya, gracias…): cierra el vehículo y el bot responde cuántas fotos guardó.
+- **Otra patente**: cierra el vehículo anterior (con su resumen) y abre el nuevo.
+- Si todavía no mandaste fotos, un texto cualquiera no cierra (solo "ok", "listo" y similares). Si no, se cierra solo a las 12 horas.
+- Las fotos que llegan desordenadas van igual al vehículo correcto: el bot usa la hora en que se mandó cada una.
 - **ayuda**: muestra las instrucciones y qué vehículo está abierto.
 
 En la web, al abrir una foto se ve "por WhatsApp (nombre)" para saber quién la mandó.

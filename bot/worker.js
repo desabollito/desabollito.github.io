@@ -108,65 +108,119 @@ const AYUDA =
   "🚗 *Cómo usarme*\n\n" +
   "1. Mandame la *patente* del vehículo (ej: AE345KD).\n" +
   "2. Mandame las *fotos* (o PDFs). Las guardo en ese vehículo y te marco cada una con ✅.\n" +
-  "3. Escribí *listo* cuando termines, o mandá otra patente para cambiar de vehículo.\n\n" +
+  "3. Cuando termines, escribí cualquier cosa (ok, listo, ya…) o mandá otra patente y cierro ese vehículo.\n\n" +
   "También podés mandar una foto con la patente escrita como descripción.";
 
 const etiqueta = s => `*${s.modelo || "Vehículo"}* (${s.patente})`;
+const PALABRAS_CIERRE = ["ok", "oka", "okey", "okay", "okk", "listo", "lista", "ya", "ya está", "ya esta", "fin", "terminé", "termine",
+  "cerrar", "chau", "gracias", "dale", "perfecto", "joya", "bien", "👍", "👌", "✅"];
+const esCierre = t => PALABRAS_CIERRE.includes(t.replace(/[!.¡\s]+$/g, "").replace(/^[¡\s]+/, ""));
+const resumen = n => `${n} ${n === 1 ? "foto" : "fotos"}`;
+const esperar = ms => new Promise(r => setTimeout(r, ms));
 
 function pareceP(t) {
   const p = t.toUpperCase().replace(/[^A-Z0-9]/g, "");
   return p.length >= 5 && p.length <= 9 && /[A-Z]/.test(p) && /[0-9]/.test(p) ? p : null;
 }
 
+// Hora de envío del mensaje (según WhatsApp), en segundos. Se usa para ubicar
+// fotos que llegan desordenadas: toda foto enviada antes del cierre va al vehículo
+// que estaba abierto en ese momento, aunque el bot la reciba después.
+const horaDe = m => Number(m.timestamp || Math.floor(Date.now() / 1000));
+
+async function leerSesion(env, numero) {
+  const s = await fsGet(env, `bot_sesiones/${numero}`);
+  if (!s) return null;
+  if (Date.now() - Number(s.ts || 0) > SESION_HORAS * 3600 * 1000) return null;
+  return s;
+}
+const abierta = s => !!(s?.vid && !s.cerradaEn);
+
+// Cierra el vehículo abierto. Espera unos segundos para contar también las fotos
+// que todavía se estaban guardando, y devuelve el texto del resumen.
+async function cerrar(env, numero, sesion, hora) {
+  await fsMerge(env, `bot_sesiones/${numero}`, { cerradaEn: hora, ts: Date.now() });
+  await esperar(Number(env.ESPERA_CIERRE_MS ?? 4000));
+  const final = (await fsGet(env, `bot_sesiones/${numero}`)) || sesion;
+  const n = Number(final.archivos || 0);
+  return n ? `✅ Guardé ${resumen(n)} en ${etiqueta(sesion)}.` : `👌 Cerré ${etiqueta(sesion)} sin fotos.`;
+}
+
 async function alRecibirTexto(env, m, quien, texto) {
-  const t = texto.toLowerCase();
   const numero = quien.numero;
+  const t = texto.toLowerCase().trim();
+  const hora = horaDe(m);
+  const s = await leerSesion(env, numero);
+
   if (["hola", "ayuda", "menu", "menú", "?", "info", "help"].includes(t)) {
-    const s = await sesionVigente(env, numero);
-    return responder(env, m.from, AYUDA + (s?.vid ? `\n\n📌 Vehículo abierto: ${etiqueta(s)} · ${s.operativo}` : ""));
-  }
-  if (["listo", "fin", "terminé", "termine", "cerrar", "chau", "gracias"].includes(t)) {
-    const s = await sesionVigente(env, numero);
-    await fsDelete(env, `bot_sesiones/${numero}`);
-    return responder(env, m.from, s?.vid ? `👌 Listo, cerré ${etiqueta(s)}. Mandame otra patente cuando quieras.` : "👌 Listo.");
+    return responder(env, m.from, AYUDA + (abierta(s) ? `\n\n📌 Vehículo abierto: ${etiqueta(s)} · ${s.operativo}` : ""));
   }
 
   // Respuesta a "¿en qué operativo?" cuando la patente estaba repetida
-  const s = await sesionVigente(env, numero);
   if (s?.opciones?.length && /^\d{1,2}$/.test(t)) {
     const elegido = s.opciones[Number(t) - 1];
     if (!elegido) return responder(env, m.from, `Elegí un número del 1 al ${s.opciones.length}.`);
-    await abrir(env, numero, elegido);
+    await abrir(env, numero, elegido, hora, s);
     return responder(env, m.from, mensajeAbierto(elegido));
   }
 
+  // Otra patente: cierra el vehículo anterior y abre el nuevo
   const patente = pareceP(texto);
-  if (!patente) return responder(env, m.from, "No entendí 🤔 Mandame la *patente* del vehículo (ej: AE345KD) o escribí *ayuda*.");
-  const r = await elegirVehiculo(env, numero, patente);
-  return responder(env, m.from, r.mensaje);
+  if (patente) {
+    let previo = "";
+    if (abierta(s) && s.patente !== patente) previo = (await cerrar(env, numero, s, hora)) + "\n\n";
+    else if (abierta(s) && s.patente === patente) {
+      return responder(env, m.from, `📸 ${etiqueta(s)} ya está abierto. Mandame las fotos.`);
+    }
+    const actual = await leerSesion(env, numero);
+    const r = await elegirVehiculo(env, numero, patente, hora, actual);
+    return responder(env, m.from, previo + r.mensaje);
+  }
+
+  // Cualquier otro texto después de mandar fotos cierra el vehículo
+  if (abierta(s) && (Number(s.archivos || 0) > 0 || esCierre(t))) {
+    return responder(env, m.from, (await cerrar(env, numero, s, hora)) + " Mandame otra patente cuando quieras.");
+  }
+  if (esCierre(t)) return responder(env, m.from, "👌");
+  if (abierta(s)) {
+    return responder(env, m.from, `📸 Tengo abierto ${etiqueta(s)}. Mandame las fotos, u otra patente para cambiar de vehículo.`);
+  }
+  return responder(env, m.from, "No entendí 🤔 Mandame la *patente* del vehículo (ej: AE345KD) o escribí *ayuda*.");
 }
 
 const mensajeAbierto = v =>
-  `📸 ${etiqueta(v)}\nOperativo: ${v.operativo}\n\nMandame las fotos y las guardo acá. Cuando termines escribí *listo*.`;
+  `📸 ${etiqueta(v)}\nOperativo: ${v.operativo}\n\nMandame las fotos y las guardo acá. Cuando termines escribí cualquier cosa (ok, listo…) o mandá otra patente.`;
 
-async function abrir(env, numero, v) {
+// Abre un vehículo. El que estaba antes queda guardado como "anterior" para
+// ubicar fotos que se mandaron antes del cambio pero llegan tarde.
+async function abrir(env, numero, v, hora, previa) {
+  let anterior = null;
+  if (previa?.vid) {
+    anterior = { cid: previa.cid, vid: previa.vid, patente: previa.patente, modelo: previa.modelo || "",
+      operativo: previa.operativo || "", desde: previa.desde || 0, cerradaEn: previa.cerradaEn || hora };
+  } else if (previa?.anterior) anterior = previa.anterior;
   await fsSet(env, `bot_sesiones/${numero}`, {
-    cid: v.cid, vid: v.vid, patente: v.patente, modelo: v.modelo || "", operativo: v.operativo || "", ts: Date.now()
+    cid: v.cid, vid: v.vid, patente: v.patente, modelo: v.modelo || "", operativo: v.operativo || "",
+    desde: hora, archivos: 0, ts: Date.now(), ...(anterior ? { anterior } : {})
   });
 }
 
 // Busca la patente en todos los operativos. Una coincidencia: la abre.
 // Varias: guarda las opciones y pregunta a cuál.
-async function elegirVehiculo(env, numero, patente) {
+async function elegirVehiculo(env, numero, patente, hora, previa) {
   const encontrados = await buscarPatente(env, patente);
   if (!encontrados.length) {
     return { ok: false, mensaje: `🔎 No encontré la patente *${patente}* en Desabollito.\n\nCargala primero en la app y después mandame las fotos.` };
   }
   if (encontrados.length === 1) {
-    await abrir(env, numero, encontrados[0]);
+    await abrir(env, numero, encontrados[0], hora, previa);
     return { ok: true, mensaje: mensajeAbierto(encontrados[0]), vehiculo: encontrados[0] };
   }
-  await fsSet(env, `bot_sesiones/${numero}`, { opciones: encontrados.slice(0, 9), patente, ts: Date.now() });
+  await fsSet(env, `bot_sesiones/${numero}`, {
+    opciones: encontrados.slice(0, 9), patente, ts: Date.now(),
+    ...(previa?.vid ? { anterior: { cid: previa.cid, vid: previa.vid, patente: previa.patente, modelo: previa.modelo || "",
+      operativo: previa.operativo || "", desde: previa.desde || 0, cerradaEn: previa.cerradaEn || hora } } : {})
+  });
   return {
     ok: false, pregunta: true,
     mensaje: `La patente *${patente}* está en más de un operativo. ¿A cuál van las fotos? Respondé con el número:\n\n` +
@@ -200,38 +254,46 @@ async function buscarPatente(env, patente) {
   return res;
 }
 
-async function sesionVigente(env, numero) {
-  const s = await fsGet(env, `bot_sesiones/${numero}`);
-  if (!s || Date.now() - Number(s.ts || 0) > SESION_HORAS * 3600 * 1000) return null;
-  return s;
+// ¿A qué vehículo va un archivo enviado a la hora "hora"?
+function destinoDe(s, hora) {
+  if (!s) return null;
+  if (s.vid && hora >= Number(s.desde || 0) && (!s.cerradaEn || hora <= Number(s.cerradaEn))) return { ...s, esActual: true };
+  const a = s.anterior;
+  if (a?.vid && hora >= Number(a.desde || 0) && hora <= Number(a.cerradaEn || 0)) return { ...a, esActual: false };
+  return null;
 }
 
 async function alRecibirArchivo(env, m, quien) {
   const numero = quien.numero;
   const media = m.image || m.document;
   const esFoto = m.type === "image";
+  const hora = horaDe(m);
 
   // Si la foto trae la patente como descripción, se abre ese vehículo
+  let sesion = await leerSesion(env, numero);
   const caption = (media?.caption || "").trim();
-  let sesion = await sesionVigente(env, numero);
   const pCaption = caption && pareceP(caption);
-  if (pCaption && pCaption !== sesion?.patente) {
-    const r = await elegirVehiculo(env, numero, pCaption);
+  if (pCaption && !(abierta(sesion) && sesion.patente === pCaption)) {
+    let previo = "";
+    if (abierta(sesion)) previo = await cerrar(env, numero, sesion, hora - 1);
+    const r = await elegirVehiculo(env, numero, pCaption, hora, await leerSesion(env, numero));
+    if (previo) await responder(env, m.from, previo);
     if (!r.ok) return responder(env, m.from, r.mensaje + (r.pregunta ? "\n\nDespués reenviame la foto." : ""));
-    sesion = await sesionVigente(env, numero);
+    sesion = await leerSesion(env, numero);
   }
-  if (sesion?.opciones?.length && !sesion.vid) {
+
+  if (sesion?.opciones?.length && !sesion.vid && !destinoDe(sesion, hora)) {
     return responder(env, m.from, "📌 Primero decime a qué operativo van (respondé con el número de la lista). Después reenviame las fotos.");
   }
-  if (!sesion?.vid) {
+  const destino = destinoDe(sesion, hora);
+  if (!destino) {
     return responder(env, m.from, "📌 Primero mandame la *patente* del vehículo al que van estas fotos (ej: AE345KD). Después reenviámelas.");
   }
 
-  const ruta = `companies/${sesion.cid}/vehicles/${sesion.vid}`;
+  const ruta = `companies/${destino.cid}/vehicles/${destino.vid}`;
   const vehiculo = await fsGet(env, ruta);
   if (!vehiculo || vehiculo.deleted) {
-    await fsDelete(env, `bot_sesiones/${numero}`);
-    return responder(env, m.from, `🗑️ El vehículo ${sesion.patente} ya no está disponible. Mandame otra patente.`);
+    return responder(env, m.from, `🗑️ El vehículo ${destino.patente} ya no está disponible. Mandame otra patente.`);
   }
 
   // Bajar el archivo de WhatsApp
@@ -241,7 +303,7 @@ async function alRecibirArchivo(env, m, quien) {
   // Subir a Cloudinary (misma carpeta que usa la app)
   const nombre = media.filename || (esFoto ? "foto.jpg" : "archivo");
   const subido = await subirCloudinary(env, new Blob([bytes], { type: mime }), nombre,
-    `desabollito/${sesion.cid}/${sesion.vid}`, esFoto ? "image" : "auto");
+    `desabollito/${destino.cid}/${destino.vid}`, esFoto ? "image" : "auto");
 
   // Agregar al vehículo (la web lo muestra al instante)
   const origen = { via: "whatsapp", byWhatsApp: numero, byName: quien.nombre };
@@ -252,7 +314,8 @@ async function alRecibirArchivo(env, m, quien) {
     await fsAppend(env, ruta, "archivos",
       { url: subido.secure_url, publicId: subido.public_id, name: nombre, bytes: subido.bytes || null, format: subido.format || null, at: Date.now(), ...origen });
   }
-  await fsSet(env, `bot_sesiones/${numero}`, { ...sesion, ts: Date.now() }); // renueva las 12 h
+  // Contador para el resumen al cerrar (sumado de forma segura aunque lleguen varias a la vez)
+  if (destino.esActual) await fsIncrementar(env, `bot_sesiones/${numero}`, "archivos").catch(() => {});
   return reaccionar(env, m.from, m.id, "✅");
 }
 
@@ -468,6 +531,22 @@ async function fsList(env, coleccion) {
 }
 
 // Agrega un elemento a una lista del documento sin pisar lo que haya (seguro con fotos simultáneas)
+async function fsIncrementar(env, ruta, campo) {
+  const r = await fs(env, `${base(env)}:commit`, {
+    method: "POST",
+    body: JSON.stringify({
+      writes: [{
+        transform: {
+          document: nombreDoc(env, ruta),
+          fieldTransforms: [{ fieldPath: campo, increment: { integerValue: "1" } }]
+        },
+        currentDocument: { exists: true }
+      }]
+    })
+  });
+  if (!r.ok) throw new Error(`Firestore increment ${ruta}: ${r.status}`);
+}
+
 async function fsAppend(env, ruta, campo, elemento) {
   const r = await fs(env, `${base(env)}:commit`, {
     method: "POST",
