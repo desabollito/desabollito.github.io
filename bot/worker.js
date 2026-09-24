@@ -28,6 +28,8 @@
 // ═══════════════════════════════════════════════════════════════
 
 const GRAPH = "https://graph.facebook.com/v21.0";
+// A dónde responder: al número (bot oficial) o al chat/grupo (número vinculado con Evolution API)
+const dest = m => m._to || m.from;
 const APP_URL = "https://desabollito.github.io";
 const SESION_HORAS = 12;
 const MAX_BYTES = 15 * 1024 * 1024;
@@ -37,6 +39,7 @@ export default {
     const url = new URL(req.url);
     if (url.pathname === "/") return new Response("Desabollito bot funcionando ✅");
     if (url.pathname === "/diagnostico") return diagnostico(url, env);
+    if (url.pathname === "/evolution") return webhookEvolution(req, url, env, ctx);
     if (url.pathname !== "/webhook") return new Response("No encontrado", { status: 404 });
 
     // Verificación del webhook (Meta la hace una sola vez al configurarlo)
@@ -78,7 +81,7 @@ export default {
     ctx.waitUntil(Promise.all(mensajes.map(m => procesar(m, env).catch(e => {
       console.error("Error con mensaje", m.id, e?.stack || e);
       registrar(env, { ultimoError: `${new Date().toISOString()} · ${String(e?.message || e).slice(0, 500)}` }).catch(() => {});
-      return responder(env, m.from, "⚠️ Hubo un error procesando tu mensaje. Probá de nuevo en un rato.").catch(() => {});
+      return responder(env, dest(m), "⚠️ Hubo un error procesando tu mensaje. Probá de nuevo en un rato.").catch(() => {});
     }))));
     return new Response("ok");
   }
@@ -96,7 +99,7 @@ async function procesar(m, env) {
   // Candado opcional: si hay lista de números permitidos, solo ellos usan el bot
   const permitidos = String(env.NUMEROS_PERMITIDOS || "").split(",").map(normalizarNumero).filter(Boolean);
   if (permitidos.length && !permitidos.includes(numero)) {
-    return responder(env, m.from, "⛔ Este número no está habilitado para usar el bot de Desabollito.");
+    return m._grupo ? null : responder(env, dest(m), "⛔ Este número no está habilitado para usar el bot de Desabollito.");
   }
 
   if (m.type === "text") return alRecibirTexto(env, m, quien, (m.text?.body || "").trim());
@@ -386,7 +389,7 @@ function fichaVehiculo(v) {
 }
 
 // Confirmación silenciosa: tilde en el mensaje del usuario
-const tilde = (env, m) => reaccionar(env, m.from, m.id, "✅");
+const tilde = (env, m) => reaccionar(env, dest(m), m.id, "✅", m._key);
 
 async function alRecibirTexto(env, m, quien, texto) {
   const numero = quien.numero;
@@ -394,16 +397,16 @@ async function alRecibirTexto(env, m, quien, texto) {
   const hora = horaDe(m);
   const s = await leerSesion(env, numero);
 
-  if (esSaludo(texto)) return responder(env, m.from, SALUDO);
-  if (esAyuda(texto)) return responder(env, m.from, AYUDA);
+  if (esSaludo(texto)) return responder(env, dest(m), SALUDO);
+  if (esAyuda(texto)) return responder(env, dest(m), AYUDA);
 
   // Comando: cambiar de operativo
   if (esCambioOperativo(texto)) {
     const ops = await listaOperativos(env);
-    if (!ops.length) return responder(env, m.from, "No hay operativos creados en la app todavía.");
+    if (!ops.length) return responder(env, dest(m), "No hay operativos creados en la app todavía.");
     const fijo = await operativoFijo(env, numero);
     await fsMerge(env, `bot_sesiones/${numero}`, { elegirOperativo: ops, ts: Date.now() });
-    return responder(env, m.from, (fijo ? `🏢 Operativo actual: *${fijo.operativo}*\n\n` : "") +
+    return responder(env, dest(m), (fijo ? `🏢 Operativo actual: *${fijo.operativo}*\n\n` : "") +
       "¿En qué operativo cargo los vehículos nuevos? Respondé con el número:\n\n" + menuOperativos(ops));
   }
 
@@ -413,21 +416,21 @@ async function alRecibirTexto(env, m, quien, texto) {
   // Respuesta al comando "operativo"
   if (s?.elegirOperativo?.length && (numeroElegido !== null || cancela)) {
     await fsMerge(env, `bot_sesiones/${numero}`, { elegirOperativo: null });
-    if (cancela) return responder(env, m.from, "👌 Sigo con el mismo operativo.");
+    if (cancela) return responder(env, dest(m), "👌 Sigo con el mismo operativo.");
     const op = s.elegirOperativo[numeroElegido - 1];
-    if (!op) return responder(env, m.from, `Elegí un número del 1 al ${s.elegirOperativo.length}.`);
+    if (!op) return responder(env, dest(m), `Elegí un número del 1 al ${s.elegirOperativo.length}.`);
     await fijarOperativo(env, numero, op);
-    return responder(env, m.from, `🏢 Listo: los vehículos nuevos van a *${op.operativo}*.\n\nEnviame los datos del vehículo.`);
+    return responder(env, dest(m), `🏢 Listo: los vehículos nuevos van a *${op.operativo}*.\n\nEnviame los datos del vehículo.`);
   }
 
   // Patente nueva sin operativo elegido: ¿dónde la creo?
   if (s?.crear?.datos?.patente && (numeroElegido !== null || cancela)) {
     if (cancela) {
       await fsMerge(env, `bot_sesiones/${numero}`, { crear: null });
-      return responder(env, m.from, `👌 No creé ${s.crear.datos.patente}. ${OTRO}`);
+      return responder(env, dest(m), `👌 No creé ${s.crear.datos.patente}. ${OTRO}`);
     }
     const op = s.crear.operativos[numeroElegido - 1];
-    if (!op) return responder(env, m.from, `Elegí un número del 1 al ${s.crear.operativos.length}, o 0 para cancelar.`);
+    if (!op) return responder(env, dest(m), `Elegí un número del 1 al ${s.crear.operativos.length}, o 0 para cancelar.`);
     await fijarOperativo(env, numero, op);
     const nuevo = await crearVehiculo(env, op, s.crear.datos, quien);
     await abrir(env, numero, nuevo, hora, s, true);
@@ -437,17 +440,17 @@ async function alRecibirTexto(env, m, quien, texto) {
   // Patente repetida en varios operativos: ¿cuál?
   if (s?.opciones?.length && numeroElegido !== null) {
     const v = s.opciones[numeroElegido - 1];
-    if (!v) return responder(env, m.from, `Elegí un número del 1 al ${s.opciones.length}.`);
+    if (!v) return responder(env, dest(m), `Elegí un número del 1 al ${s.opciones.length}.`);
     await abrirExistente(env, numero, v, s.datos || {}, hora, s);
-    return v.fotos ? responder(env, m.from, `⚠️ ${etiqueta(v)} ya tiene ${resumen(v.fotos)} subidas. Si mandás más, se suman a esas.`) : tilde(env, m);
+    return v.fotos ? responder(env, dest(m), `⚠️ ${etiqueta(v)} ya tiene ${resumen(v.fotos)} subidas. Si mandás más, se suman a esas.`) : tilde(env, m);
   }
 
   // Localizar: "Ubicame NTK100" → link al vehículo en la app
   if (esLocalizar(texto) && buscarPatenteEnTexto(texto)) {
     const patente = buscarPatenteEnTexto(texto).patente;
     const encontrados = await buscarPatente(env, patente);
-    if (!encontrados.length) return responder(env, m.from, `🔎 No encontré la patente *${patente}*.`);
-    return responder(env, m.from, encontrados.map(v =>
+    if (!encontrados.length) return responder(env, dest(m), `🔎 No encontré la patente *${patente}*.`);
+    return responder(env, dest(m), encontrados.map(v =>
       `📍 ${etiqueta(v)} · ${v.operativo}\n${APP_URL}/#/o/${v.cid}/v/${v.vid}`).join("\n\n"));
   }
 
@@ -467,20 +470,21 @@ async function alRecibirTexto(env, m, quien, texto) {
     }
     if (abierta(s)) await cerrarEnSilencio(env, numero, hora);
     const pregunta = await prepararVehiculo(env, numero, datos, hora, await leerSesion(env, numero), quien);
-    return pregunta ? responder(env, m.from, pregunta) : tilde(env, m);
+    return pregunta ? responder(env, dest(m), pregunta) : tilde(env, m);
   }
 
   // Texto sin patente: OK (o cualquier texto después de mandar fotos) → resumen de la tanda
   const fotosDelActual = abierta(s) ? Number(s[campoConteo(s.vid)] || 0) : 0;
   if ((s?.tanda?.length && esCierre(texto)) || fotosDelActual > 0) {
-    return responder(env, m.from, await resumenDeTanda(env, numero, s, hora));
+    return responder(env, dest(m), await resumenDeTanda(env, numero, s, hora));
   }
   if (s?.crear?.datos?.patente) {
-    return responder(env, m.from, `Respondé con el número del operativo donde creo *${s.crear.datos.patente}*, o 0 para cancelar.`);
+    return responder(env, dest(m), `Respondé con el número del operativo donde creo *${s.crear.datos.patente}*, o 0 para cancelar.`);
   }
   if (abierta(s)) return; // vehículo abierto, todavía sin fotos: el bot espera en silencio
-  if (esCierre(texto)) return responder(env, m.from, "👌 " + OTRO);
-  return responder(env, m.from, "No encontré una patente en tu mensaje 🤔\n\nEnviame los datos del vehículo, por ejemplo:\n_Corolla AB099BA Riv 1137709755 Monte_\n\nO escribí *ayuda*.");
+  if (m._grupo) return; // en grupos solo se responde a patentes, fotos, OK y comandos
+  if (esCierre(texto)) return responder(env, dest(m), "👌 " + OTRO);
+  return responder(env, dest(m), "No encontré una patente en tu mensaje 🤔\n\nEnviame los datos del vehículo, por ejemplo:\n_Corolla AB099BA Riv 1137709755 Monte_\n\nO escribí *ayuda*.");
 }
 
 // Busca la patente: si existe la abre (y completa los datos nuevos); si no, la crea
@@ -624,9 +628,10 @@ function destinoDe(s, hora) {
 
 // Evita repetir el mismo aviso por cada foto de un grupo
 async function avisarUnaVez(env, m, numero, clave, texto) {
+  if (m._grupo) return; // en grupos, fotos sin patente se ignoran en silencio
   // Un aviso por tanda de fotos (ventana de 90 s), aunque lleguen varias a la vez
   if (!(await primeraVez(env, `aviso-${clave}-${numero}-${Math.floor(Date.now() / 90000)}`))) return;
-  return responder(env, m.from, texto);
+  return responder(env, dest(m), texto);
 }
 
 async function alRecibirArchivo(env, m, quien) {
@@ -647,7 +652,7 @@ async function alRecibirArchivo(env, m, quien) {
   if (datos?.patente && !(abierta(sesion) && sesion.patente === datos.patente)) {
     if (abierta(sesion)) await cerrarEnSilencio(env, numero, hora - 1);
     const pregunta = await prepararVehiculo(env, numero, datos, hora, await leerSesion(env, numero), quien);
-    if (pregunta) await responder(env, m.from, pregunta);
+    if (pregunta) await responder(env, dest(m), pregunta);
     sesion = await leerSesion(env, numero);
   }
 
@@ -667,12 +672,12 @@ async function alRecibirArchivo(env, m, quien) {
   const ruta = `companies/${destino.cid}/vehicles/${destino.vid}`;
   const vehiculo = await fsGet(env, ruta);
   if (!vehiculo || vehiculo.deleted) {
-    return responder(env, m.from, `🗑️ El vehículo ${destino.patente} ya no está disponible. ${OTRO}`);
+    return responder(env, dest(m), `🗑️ El vehículo ${destino.patente} ya no está disponible. ${OTRO}`);
   }
 
   // Bajar el archivo de WhatsApp
-  const { bytes, mime } = await bajarMedia(env, media.id);
-  if (bytes.byteLength > MAX_BYTES) return responder(env, m.from, "📦 Ese archivo pesa más de 15 MB, no lo puedo guardar.");
+  const { bytes, mime } = m._key ? await bajarMediaEvolution(env, m) : await bajarMedia(env, media.id);
+  if (bytes.byteLength > MAX_BYTES) return responder(env, dest(m), "📦 Ese archivo pesa más de 15 MB, no lo puedo guardar.");
 
   // Subir a Cloudinary (misma carpeta que usa la app)
   const nombre = media.filename || (esFoto ? "foto.jpg" : "archivo");
@@ -725,7 +730,27 @@ function variantesAR(to) {
   return v;
 }
 
+async function enviarEvolution(env, to, payload) {
+  const chat = to.slice(4);
+  const base = String(env.EVOLUTION_URL || "").replace(/\/+$/, "");
+  const inst = env.EVOLUTION_INSTANCE || "desabollito";
+  const h = { apikey: env.EVOLUTION_APIKEY, "Content-Type": "application/json" };
+  const r = payload.type === "reaction"
+    ? await fetch(`${base}/message/sendReaction/${inst}`, { method: "POST", headers: h,
+        body: JSON.stringify({ key: payload._key, reaction: payload.reaction.emoji }) })
+    : await fetch(`${base}/message/sendText/${inst}`, { method: "POST", headers: h,
+        body: JSON.stringify({ number: chat, text: payload.text.body }) });
+  if (!r.ok) {
+    const d = await r.text();
+    console.error("Evolution no aceptó el mensaje:", r.status, d);
+    await registrar(env, { ultimoErrorEnvio: `${new Date().toISOString()} · Evolution · ${r.status} · ${d.slice(0, 300)}` }).catch(() => {});
+  }
+  return r;
+}
+
 async function enviar(env, to, payload) {
+  if (String(to).startsWith("evo:")) return enviarEvolution(env, to, payload);
+  delete payload._key;
   const intentar = dest => fetch(`${GRAPH}/${env.WHATSAPP_PHONE_ID}/messages`, {
     method: "POST",
     headers: { Authorization: `Bearer ${env.WHATSAPP_TOKEN}`, "Content-Type": "application/json" },
@@ -747,7 +772,24 @@ async function enviar(env, to, payload) {
 }
 
 const responder = (env, to, texto) => enviar(env, to, { type: "text", text: { body: texto, preview_url: false } });
-const reaccionar = (env, to, messageId, emoji) => enviar(env, to, { type: "reaction", reaction: { message_id: messageId, emoji } });
+const reaccionar = (env, to, messageId, emoji, key) => enviar(env, to, { type: "reaction", reaction: { message_id: messageId, emoji }, _key: key });
+
+async function bajarMediaEvolution(env, m) {
+  let b64 = m._base64, mime = m._mime || "image/jpeg";
+  if (!b64) {
+    const base = String(env.EVOLUTION_URL || "").replace(/\/+$/, "");
+    const r = await fetch(`${base}/chat/getBase64FromMediaMessage/${env.EVOLUTION_INSTANCE || "desabollito"}`, {
+      method: "POST", headers: { apikey: env.EVOLUTION_APIKEY, "Content-Type": "application/json" },
+      body: JSON.stringify({ message: { key: m._key }, convertToMp4: false })
+    });
+    if (!r.ok) throw new Error("Evolution no devolvió el archivo: " + r.status);
+    const j = await r.json(); b64 = j.base64; mime = j.mimetype || mime;
+  }
+  const bin = atob(String(b64).replace(/^data:[^,]+,/, ""));
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return { bytes: bytes.buffer, mime };
+}
 
 async function bajarMedia(env, mediaId) {
   const auth = { Authorization: `Bearer ${env.WHATSAPP_TOKEN}` };
@@ -1106,6 +1148,18 @@ async function diagnostico(url, env) {
     }
   } catch (e) { aviso("Webhook de la app", e.message); }
 
+  // 3d. Número propio (Evolution API), si está configurado
+  if (env.EVOLUTION_URL) {
+    try {
+      const base = String(env.EVOLUTION_URL).replace(/\/+$/, "");
+      const r = await fetch(`${base}/instance/connectionState/${env.EVOLUTION_INSTANCE || "desabollito"}`, { headers: { apikey: env.EVOLUTION_APIKEY } });
+      const j = await r.json().catch(() => ({}));
+      const estadoEvo = j?.instance?.state || j?.state;
+      if (estadoEvo === "open") ok("Número propio (Evolution)", "Conectado a WhatsApp");
+      else mal("Número propio (Evolution)", `Estado: ${estadoEvo || r.status}. Escaneá el QR en ${base}/manager`);
+    } catch (e) { mal("Número propio (Evolution)", "No responde el servidor: " + e.message); }
+  }
+
   // 4. Cloudinary
   try {
     const r = await fetch(`https://api.cloudinary.com/v1_1/${env.CLOUDINARY_CLOUD_NAME}/ping`, {
@@ -1139,4 +1193,55 @@ async function diagnostico(url, env) {
   ${estado?.ultimoCuerpo ? `<details style="margin-top:14px;color:#8395ab"><summary>Último mensaje recibido (técnico)</summary><pre style="white-space:pre-wrap;font-size:12px">${esc(estado.ultimoCuerpo)}</pre></details>` : ""}
   <p style="color:#8395ab;font-size:13px;margin-top:20px">Recargá esta página después de mandarle un mensaje al bot.</p></body>`;
   return new Response(html, { headers: { "content-type": "text/html; charset=utf-8" } });
+}
+
+// ─────────────────────────────────────────────────────────────
+//  Evolution API: número propio vinculado (sirve en grupos)
+//  Webhook: https://TU-WORKER.workers.dev/evolution?token=EVOLUTION_APIKEY
+// ─────────────────────────────────────────────────────────────
+async function webhookEvolution(req, url, env, ctx) {
+  if (req.method !== "POST") return new Response("Método no permitido", { status: 405 });
+  if (!env.EVOLUTION_APIKEY || url.searchParams.get("token") !== env.EVOLUTION_APIKEY) return new Response("No autorizado", { status: 403 });
+  let body;
+  try { body = await req.json(); } catch { return new Response("ok"); }
+  const evento = String(body.event || "").toLowerCase().replace("_", ".");
+  if (evento !== "messages.upsert") return new Response("ok");
+  const lista = Array.isArray(body.data) ? body.data : [body.data];
+  const mensajes = lista.map(deEvolution).filter(Boolean);
+  ctx.waitUntil(registrar(env, { ultimoEvolution: `${new Date().toISOString()} · ${mensajes.length} mensaje(s)` }));
+  ctx.waitUntil(Promise.all(mensajes.map(m => procesar(m, env).catch(e => {
+    console.error("Error con mensaje de Evolution", m.id, e?.stack || e);
+    registrar(env, { ultimoError: `${new Date().toISOString()} · Evolution · ${String(e?.message || e).slice(0, 400)}` }).catch(() => {});
+  }))));
+  return new Response("ok");
+}
+
+export function deEvolution(d) {
+  const key = d?.key;
+  if (!key || key.fromMe) return null;
+  const chat = String(key.remoteJid || "");
+  if (!chat || chat === "status@broadcast" || chat.endsWith("@newsletter")) return null;
+  const grupo = chat.endsWith("@g.us");
+  // Quién escribió: en grupos es el participante; se prefiere el número real al identificador interno
+  const autor = grupo
+    ? [key.participantAlt, key.participantPn, d.participant, key.participant].find(x => String(x || "").includes("@s.whatsapp.net")) || key.participant || d.participant || ""
+    : [key.remoteJidAlt, chat].find(x => String(x || "").includes("@s.whatsapp.net")) || chat;
+  let msg = d.message || {};
+  msg = msg.ephemeralMessage?.message || msg.viewOnceMessage?.message || msg.viewOnceMessageV2?.message || msg.documentWithCaptionMessage?.message || msg;
+  const base = {
+    id: "evo_" + String(key.id || "").replace(/[^A-Za-z0-9_-]/g, ""),
+    from: String(autor).split("@")[0].replace(/\D/g, ""),
+    timestamp: String(Number(d.messageTimestamp?.low ?? d.messageTimestamp ?? Math.floor(Date.now() / 1000))),
+    _to: "evo:" + chat, _grupo: grupo, _nombre: d.pushName || "",
+    _key: { remoteJid: chat, fromMe: false, id: key.id, ...(key.participant ? { participant: key.participant } : {}) },
+    _base64: d.message?.base64 || msg.base64 || d.base64 || null
+  };
+  const texto = msg.conversation || msg.extendedTextMessage?.text;
+  if (texto) return { ...base, type: "text", text: { body: texto } };
+  if (msg.imageMessage) return { ...base, type: "image", image: { id: key.id, caption: msg.imageMessage.caption || "" }, _mime: msg.imageMessage.mimetype };
+  if (msg.documentMessage) {
+    const doc = msg.documentMessage;
+    return { ...base, type: "document", document: { id: key.id, caption: doc.caption || "", filename: doc.fileName || "archivo" }, _mime: doc.mimetype };
+  }
+  return { ...base, type: "unsupported" };
 }
