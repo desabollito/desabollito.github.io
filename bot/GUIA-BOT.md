@@ -150,8 +150,11 @@ Revisa cada pieza (variables, Firebase, WhatsApp, Cloudinary, si Meta está mand
   - la marca o el modelo,
   - el grado (G1, G2, G3 o "grado 2").
 - **Si la patente existe:** responde con Vehículo, Patente, Operativo y los datos cargados. Si el mensaje trae datos nuevos (por ejemplo la compañía), los completa en la web.
-- **Si la patente no existe:** la crea en la web en el **operativo actual**. La primera vez pregunta en cuál; después sigue usando ese.
-- **operativo:** cambia el operativo donde se crean los vehículos nuevos.
+- **Si la patente no existe:** la crea en la web sin preguntar:
+  1. En el operativo que se **nombre en el mensaje** (ej: `AB099BA Corolla Rosario` → operativo "Rosario"). Sirve el nombre completo o sin palabras como "Operativo" o "Granizo".
+  2. Si no se nombra ninguno, en el **último operativo usado** (el último nombrado, elegido o el del último vehículo abierto).
+  3. Solo si no hay ninguno de los dos, pregunta en cuál.
+- **operativo:** cambia el operativo actual sin cargar ningún vehículo.
 - **Fotos:** se mandan todas juntas, sin confirmación por foto.
 - **Terminar:** mandar otro vehículo o escribir OK (o cualquier texto después de las fotos). El bot responde "✅ Guardé X fotos en …".
 - Las fotos que llegan desordenadas van igual al vehículo correcto: el bot usa la hora en que se mandó cada una.

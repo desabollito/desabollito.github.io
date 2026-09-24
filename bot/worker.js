@@ -263,6 +263,37 @@ function interpretar(texto, extra = {}) {
   return r;
 }
 
+// ¿El texto nombra algún operativo? Compara con el nombre completo y con el nombre
+// sin palabras genéricas ("Operativo Rosario" → "rosario"). Devuelve el más largo.
+const GENERICAS = new Set(["operativo", "operativos", "granizo", "taller", "equipo", "de", "del", "la", "el", "los", "las", "en"]);
+const soloPalabras = t => sinTildes(t).replace(/[^a-z0-9ñ]+/g, " ").trim();
+
+function operativoMencionado(texto, operativos) {
+  const t = ` ${soloPalabras(texto)} `;
+  let mejor = null;
+  for (const op of operativos) {
+    const completo = soloPalabras(op.operativo);
+    const corto = completo.split(" ").filter(w => !GENERICAS.has(w)).join(" ");
+    for (const frase of new Set([completo, corto])) {
+      if (frase.length >= 3 && t.includes(` ${frase} `) && (!mejor || frase.length > mejor.frase.length)) mejor = { op, frase };
+    }
+  }
+  return mejor;
+}
+
+// Quita del texto las palabras del nombre del operativo (para que no se tomen como
+// modelo), salvo que también sean una localidad conocida.
+function quitarFrase(texto, frase) {
+  if (!frase || indice(LOCALIDADES).has(frase)) return texto;
+  const objetivo = frase.split(" ");
+  const palabras = String(texto).split(/\s+/);
+  const norm = palabras.map(w => soloPalabras(w));
+  for (let i = 0; i + objetivo.length <= palabras.length; i++) {
+    if (objetivo.every((w, k) => norm[i + k] === w)) { palabras.splice(i, objetivo.length); break; }
+  }
+  return palabras.join(" ");
+}
+
 const SALUDO =
   "¡Hola! Soy Desabollito 🚗\n" +
   "Enviame los datos del vehículo y luego las fotos.\n" +
@@ -276,7 +307,7 @@ const AYUDA =
   "   Entiendo patente (AA000AA o AAA000), modelo, compañía (vale abreviada: Riv, Fed, Merc…), teléfono, localidad y grado (G1, G2, G3).\n\n" +
   "*2. Fotos:* mandalas todas juntas. Si el vehículo ya existe, van ahí. Si no existe, lo creo en la web.\n\n" +
   "*3. Terminar:* mandá otro vehículo o escribí *OK*. Te aviso cuántas fotos guardé.\n\n" +
-  "*Operativo:* los vehículos nuevos se crean en el operativo actual. Para cambiarlo escribí *operativo*.\n" +
+  "*Operativo:* si nombrás el operativo en el mensaje, el vehículo nuevo va ahí (ej: _AB099BA Corolla Rosario_). Si no, va al último que usaste. Para cambiarlo sin cargar nada escribí *operativo*.\n" +
   "*ayuda:* muestra este mensaje.";
 
 const etiqueta = s => s.modelo ? `*${s.modelo}* (${s.patente})` : `*${s.patente}*`;
@@ -399,8 +430,15 @@ async function alRecibirTexto(env, m, quien, texto) {
     return responder(env, m.from, await abrirExistente(env, numero, v, s.datos || {}, hora, s));
   }
 
-  // Datos de un vehículo (tiene patente)
-  const datos = interpretar(texto);
+  // Datos de un vehículo (tiene patente). Si nombra un operativo, se usa ese.
+  const patenteEnTexto = buscarPatenteEnTexto(texto);
+  let mencion = null, textoDatos = texto;
+  if (patenteEnTexto) {
+    mencion = operativoMencionado(texto, await listaOperativos(env));
+    if (mencion) textoDatos = quitarFrase(texto, mencion.frase);
+  }
+  const datos = interpretar(textoDatos);
+  if (mencion) datos.operativo = mencion.op;
   if (datos.patente) {
     let previo = "";
     if (abierta(s) && s.patente === datos.patente) {
@@ -430,23 +468,33 @@ async function alRecibirTexto(env, m, quien, texto) {
 // en el operativo fijo, o pregunta en cuál.
 async function prepararVehiculo(env, numero, datos, hora, previa, quien) {
   const encontrados = await buscarPatente(env, datos.patente);
-  const fijo = await operativoFijo(env, numero);
+  // Prioridad: operativo nombrado en el mensaje → último operativo usado → preguntar
+  const mencionado = datos.operativo || null;
+  if (mencionado) await fijarOperativo(env, numero, mencionado);
+  const fijo = mencionado || await operativoFijo(env, numero);
+  delete datos.operativo;
 
   if (encontrados.length) {
     const v = encontrados.length === 1 ? encontrados[0] : encontrados.find(x => x.cid === fijo?.cid);
+    if (v && mencionado && v.cid !== mencionado.cid) {
+      // La patente ya existe en otro operativo: se usa esa (no se duplica)
+      const r = await abrirExistente(env, numero, v, datos, hora, previa, false);
+      return `ℹ️ Esa patente ya estaba cargada en *${v.operativo}*, así que la abrí ahí.\n\n` + r;
+    }
     if (!v) {
       await fsSet(env, `bot_sesiones/${numero}`, { opciones: encontrados.slice(0, 9), datos, ts: Date.now(),
         ...(anteriorDe(previa, hora) ? { anterior: anteriorDe(previa, hora) } : {}) });
       return `La patente *${datos.patente}* está en más de un operativo. ¿Cuál es? Respondé con el número:\n\n` +
         encontrados.slice(0, 9).map((x, i) => `${i + 1}. ${x.operativo} · ${x.modelo || "sin modelo"}`).join("\n");
     }
-    return abrirExistente(env, numero, v, datos, hora, previa);
+    return abrirExistente(env, numero, v, datos, hora, previa, !mencionado);
   }
 
   if (fijo) {
     const nuevo = await crearVehiculo(env, fijo, datos, quien);
     await abrir(env, numero, nuevo, hora, previa);
-    return `🆕 Creé el vehículo en la web.\n\n${fichaVehiculo(nuevo)}\n\n${PEDIR_FOTOS}`;
+    return `🆕 Creé el vehículo en la web.\n\n${fichaVehiculo(nuevo)}\n\n` +
+      (mencionado ? `Los próximos vehículos nuevos también van a *${fijo.operativo}*.\n\n` : "") + PEDIR_FOTOS;
   }
 
   const operativos = await listaOperativos(env);
@@ -456,10 +504,11 @@ async function prepararVehiculo(env, numero, datos, hora, previa, quien) {
   return `🔎 La patente *${datos.patente}* no está cargada.\n\n¿En qué operativo la creo? Respondé con el número:\n\n` + menuOperativos(operativos);
 }
 
-async function abrirExistente(env, numero, v, datos, hora, previa) {
+async function abrirExistente(env, numero, v, datos, hora, previa, fijar = true) {
   const cambios = await actualizarDatos(env, v, datos);
   await abrir(env, numero, v, hora, previa);
-  await fijarOperativo(env, numero, v);
+  // El operativo del vehículo abierto pasa a ser el actual (salvo que se haya nombrado otro)
+  if (fijar) await fijarOperativo(env, numero, v);
   return `${fichaVehiculo(v)}` + (cambios.length ? `\n\n✏️ Actualicé ${cambios.join(", ")}.` : "") + `\n\n${PEDIR_FOTOS}`;
 }
 
@@ -571,7 +620,12 @@ async function alRecibirArchivo(env, m, quien) {
   // Si la foto trae datos del vehículo como descripción, se procesan primero
   let sesion = await leerSesion(env, numero);
   const caption = (media?.caption || "").trim();
-  const datos = caption ? interpretar(caption) : null;
+  let datos = null;
+  if (caption && buscarPatenteEnTexto(caption)) {
+    const mencion = operativoMencionado(caption, await listaOperativos(env));
+    datos = interpretar(mencion ? quitarFrase(caption, mencion.frase) : caption);
+    if (mencion) datos.operativo = mencion.op;
+  }
   if (datos?.patente && !(abierta(sesion) && sesion.patente === datos.patente)) {
     let previo = "";
     if (abierta(sesion)) previo = (await cerrar(env, numero, sesion, hora - 1)) + "\n\n";
