@@ -295,21 +295,20 @@ function quitarFrase(texto, frase) {
 }
 
 const SALUDO =
-  "¡Hola! Soy Desabollito 🚗\n" +
-  "Enviame los datos del vehículo y luego las fotos.\n" +
-  "Para finalizar, continuá con otro vehículo o enviá *OK*.";
+  "¡Hola, soy Desabollito 🚘!\n\n" +
+  "Enviame los datos del vehículo y luego las fotos.\n\n" +
+  "Para finalizar, enviá *OK* o continuá con otro vehículo.";
 
 const AYUDA =
   "🚗 *Cómo usar Desabollito*\n\n" +
-  "*1. Datos del vehículo* en un solo mensaje, en cualquier orden. Solo la patente es obligatoria:\n" +
-  "   _Corolla AB099BA Riv 1137709755 Monte_\n" +
-  "   _FFF000 Federación_\n" +
-  "   Entiendo patente (AA000AA o AAA000), modelo, compañía (vale abreviada: Riv, Fed, Merc…), teléfono, localidad y grado (G1, G2, G3).\n\n" +
-  "Te marco el mensaje con ✅ cuando lo tengo. Si el vehículo no existe, lo creo en la web.\n\n" +
-  "*2. Fotos:* mandalas todas juntas. No respondo nada mientras tanto.\n\n" +
-  "*3. Seguí con otro vehículo* (mandá sus datos) o escribí *OK* para terminar: ahí te mando el resumen de todo lo que guardé.\n\n" +
-  "*Operativo:* si nombrás el operativo en el mensaje, el vehículo nuevo va ahí (ej: _AB099BA Corolla Rosario_). Si no, va al último que usaste. Para cambiarlo sin cargar nada escribí *operativo*.\n" +
-  "*ayuda:* muestra este mensaje.";
+  "*1. Datos del vehículo* en un solo mensaje, en cualquier orden. Solo la patente es obligatoria.\n" +
+  "   Entiendo Marcas, Modelos, Patentes, Compañías, Teléfonos, Grados 1-3, y más.\n\n" +
+  "*2. Fotos:* envialas todas juntas o separadas. No respondo nada mientras tanto.\n\n" +
+  "*3. Seguí con otro vehículo* o enviá *OK* para finalizar: ahí te envío el resumen.\n\n" +
+  "*Operativo:* si nombrás el operativo en el mensaje, el vehículo nuevo va ahí. Si no, va al último que usaste. Para cambiarlo escribí *operativo*.\n" +
+  "*Ayuda:* muestra este mensaje.";
+
+const lineaOperativo = fijo => `\n\n> Operativo actual: ${fijo ? fijo.operativo : "ninguno (escribí *operativo* para elegirlo)"}`;
 
 const etiqueta = s => s.modelo ? `*${s.modelo}* (${s.patente})` : `*${s.patente}*`;
 const PALABRAS_CIERRE = ["ok", "oka", "okey", "okay", "okk", "listo", "lista", "ya", "ya está", "ya esta", "fin", "terminé", "termine",
@@ -367,12 +366,7 @@ async function resumenDeTanda(env, numero, sesion, hora) {
   await esperar(Number(env.ESPERA_CIERRE_MS ?? 4000));
   const s = (await fsGet(env, `bot_sesiones/${numero}`)) || sesion || {};
   const tanda = s.tanda || [];
-  const lineas = tanda.map(v => {
-    const n = Number(s[campoConteo(v.vid)] || 0);
-    const icono = v.nuevo ? "🆕" : "✅";
-    return n ? `${icono} Guardé ${resumen(n)} en ${v.etiqueta}${v.nuevo ? " (nuevo)" : ""}`
-             : `${icono} ${v.etiqueta}${v.nuevo ? " (nuevo)" : ""}: sin fotos`;
-  });
+  const lineas = tanda.map(v => `✅ Listo ${v.etiqueta}${v.operativo ? ` → ${v.operativo}` : ""}`);
   // Nueva tanda. Se conserva el último vehículo como "anterior" para fotos que lleguen tarde.
   const ant = anteriorDe({ ...s, cerradaEn: s.cerradaEn || hora }, hora);
   await fsSet(env, `bot_sesiones/${numero}`, { ts: Date.now(), ...(ant ? { anterior: ant } : {}) });
@@ -398,17 +392,8 @@ async function alRecibirTexto(env, m, quien, texto) {
   const hora = horaDe(m);
   const s = await leerSesion(env, numero);
 
-  if (esSaludo(texto)) {
-    const fijo = await operativoFijo(env, numero);
-    return responder(env, m.from, SALUDO +
-      `\n\n🏢 *Operativo actual:* ${fijo ? fijo.operativo : "ninguno todavía (escribí *operativo* para elegirlo)"}` +
-      (abierta(s) ? `\n📌 Tenés abierto ${etiqueta(s)}.` : ""));
-  }
-  if (esAyuda(texto)) {
-    const fijo = await operativoFijo(env, numero);
-    return responder(env, m.from, AYUDA + (fijo ? `\n\n🏢 Operativo actual: *${fijo.operativo}*` : "") +
-      (abierta(s) ? `\n📌 Vehículo abierto: ${etiqueta(s)}` : ""));
-  }
+  if (esSaludo(texto)) return responder(env, m.from, SALUDO + lineaOperativo(await operativoFijo(env, numero)));
+  if (esAyuda(texto)) return responder(env, m.from, AYUDA + lineaOperativo(await operativoFijo(env, numero)));
 
   // Comando: cambiar de operativo
   if (esCambioOperativo(texto)) {
@@ -552,7 +537,7 @@ function anteriorDe(p, hora) {
 async function abrir(env, numero, v, hora, previa, nuevo = false) {
   const anterior = previa?.vid === v.vid && !previa?.cerradaEn ? (previa.anterior || null) : anteriorDe(previa, hora);
   const tanda = [...(previa?.tanda || [])];
-  if (!tanda.some(x => x.vid === v.vid)) tanda.push({ vid: v.vid, etiqueta: etiqueta(v), nuevo });
+  if (!tanda.some(x => x.vid === v.vid)) tanda.push({ vid: v.vid, etiqueta: etiqueta(v), operativo: v.operativo || "", nuevo });
   await fsMerge(env, `bot_sesiones/${numero}`, {
     cid: v.cid, vid: v.vid, patente: v.patente, modelo: v.modelo || "", operativo: v.operativo || "",
     desde: hora, ts: Date.now(), cerradaEn: null, crear: null, opciones: null, datos: null, elegirOperativo: null,
@@ -593,7 +578,7 @@ async function crearVehiculo(env, op, d, quien) {
   const hoy = new Date(Date.now() - 3 * 3600 * 1000).toISOString().slice(0, 10); // fecha de Argentina (UTC-3)
   const datos = {
     modelo: d.modelo || "", patente: d.patente, asegurado: "", telefono: d.telefono || "", compania: d.compania || "",
-    localidad: d.localidad || "", observaciones: d.otros || "", repuestos: "", precio: 0, piezas: {}, grado: d.grado || null,
+    localidad: d.localidad || op.operativo || "", observaciones: d.otros || "", repuestos: "", precio: 0, piezas: {}, grado: d.grado || null,
     estado: "peritado", fechas: { peritado: hoy }, fotos: [], archivos: [], firma: null, deleted: false,
     createdBy: `whatsapp:${quien.numero}`, createdByName: `${quien.nombre || quien.numero} (WhatsApp)`,
     updatedBy: `whatsapp:${quien.numero}`, via: "whatsapp"

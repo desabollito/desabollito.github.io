@@ -523,7 +523,7 @@ export function vistaFormulario(view, id = null) {
             <label class="field"><span>Compañía de seguro</span>
               <input name="compania" value="${esc(v?.compania)}" list="dl-comp" placeholder="Ej: La Segunda" autocomplete="off"></label>
             <label class="field"><span>Localidad</span>
-              <input name="localidad" value="${esc(v?.localidad)}" list="dl-loc" placeholder="Ej: Córdoba" autocomplete="off"></label>
+              <input name="localidad" value="${esc(v ? v.localidad : (S.company?.name || ""))}" list="dl-loc" placeholder="Ej: Córdoba" autocomplete="off"></label>
           </div>
           <datalist id="dl-comp">${opciones("compania")}</datalist>
           <datalist id="dl-loc">${opciones("localidad")}</datalist>
@@ -592,7 +592,7 @@ export function vistaFormulario(view, id = null) {
       asegurado: f.asegurado.value.trim(),
       telefono: f.telefono.value.trim(),
       compania: f.compania.value.trim(),
-      localidad: f.localidad.value.trim(),
+      localidad: f.localidad.value.trim() || (v ? "" : S.company?.name || ""),
       observaciones: f.observaciones.value.trim(),
       repuestos: f.repuestos.value.trim(),
       precio: Number(f.precio.value.replace(/\D/g, "")) || 0,
