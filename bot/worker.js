@@ -378,7 +378,12 @@ async function alRecibirTexto(env, m, quien, texto) {
   const hora = horaDe(m);
   const s = await leerSesion(env, numero);
 
-  if (esSaludo(texto)) return responder(env, m.from, SALUDO + (abierta(s) ? `\n\n📌 Tenés abierto ${etiqueta(s)}.` : ""));
+  if (esSaludo(texto)) {
+    const fijo = await operativoFijo(env, numero);
+    return responder(env, m.from, SALUDO +
+      `\n\n🏢 *Operativo actual:* ${fijo ? fijo.operativo : "ninguno todavía (escribí *operativo* para elegirlo)"}` +
+      (abierta(s) ? `\n📌 Tenés abierto ${etiqueta(s)}.` : ""));
+  }
   if (esAyuda(texto)) {
     const fijo = await operativoFijo(env, numero);
     return responder(env, m.from, AYUDA + (fijo ? `\n\n🏢 Operativo actual: *${fijo.operativo}*` : "") +
