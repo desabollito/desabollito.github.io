@@ -1,0 +1,6 @@
+# Despliegue automático del bot (lo usa GitHub Actions)
+name = "desabollito-bot"
+main = "worker.js"
+compatibility_date = "2024-09-23"
+workers_dev = true
+# Las variables secretas se cargan en Cloudflare y no se tocan al desplegar.
