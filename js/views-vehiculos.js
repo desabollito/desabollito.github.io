@@ -150,11 +150,16 @@ function renderDetalle(root, v, embebido) {
   root.innerHTML = `
   <article class="detail">
     <header class="d-head">
+      ${v.fotos?.length
+        ? `<button class="d-cover" data-act="galeria" aria-label="Ver las ${v.fotos.length} fotos">
+             <img src="${esc(thumb(v.fotos[0].url, 240))}" alt=""><span class="d-cover-n">${icon("camera")}${v.fotos.length}</span></button>`
+        : `<label class="d-cover vacio" aria-label="Agregar fotos">${icon("camera")}<small>Agregar fotos</small>
+             <input type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" multiple hidden data-up="foto"></label>`}
       <div class="d-title">
         <h2>${esc(v.modelo || "Sin modelo")}</h2>
-        <div class="d-plate">${plate(v.patente, "lg")}${estadoPill(v)}</div>
+        <div class="d-plate">${plate(v.patente, "lg")}</div>
+        ${v.precio ? `<div class="d-price"><small>Presupuesto</small><strong>${money(v.precio)}</strong></div>` : ""}
       </div>
-      ${v.precio ? `<div class="d-price"><small>Presupuesto</small><strong>${money(v.precio)}</strong></div>` : ""}
     </header>
 
     <div class="d-actions">
@@ -202,13 +207,7 @@ function renderDetalle(root, v, embebido) {
           <label class="btn btn-ghost btn-sm">${icon("plus")}Agregar fotos
             <input type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" multiple hidden data-up="foto"></label>
         </div></div>
-      <div class="photos" id="photos">
-        ${(v.fotos || []).map((f, i) => `
-          <figure class="ph"><button class="ph-open" data-foto="${i}" aria-label="Ver foto ${i + 1}">
-            <img src="${esc(thumb(f.url))}" alt="" loading="lazy"></button>
-            <button class="ph-del" data-del-foto="${i}" aria-label="Quitar foto">${icon("x")}</button></figure>`).join("")}
-      </div>
-      ${!v.fotos?.length ? `<p class="muted small">Sacá fotos del daño desde el celular; se guardan en la nube y van al PDF.</p>` : ""}
+      <p class="muted small" id="fotos-estado">${v.fotos?.length ? "Tocá la foto de arriba para verlas todas." : "Todavía no hay fotos."}</p>
     </section>
 
     <section class="d-sec">
@@ -240,6 +239,7 @@ function renderDetalle(root, v, embebido) {
     if (step) return elegirFechaEstado(v, step.dataset.estado);
     const act = t.closest("[data-act]")?.dataset.act;
     if (act === "pdf") return compartir(v);
+    if (act === "galeria") return visor(v.fotos, 0, v);
     if (act === "firma") return firmar(v);
     if (act === "anular") {
       if (anulado) {
@@ -291,13 +291,9 @@ function elegirFechaEstado(v, estado) {
 
 async function subirAdjuntos(v, files, tipo, root) {
   if (!cloudinaryListo()) { toast("Falta configurar Cloudinary en js/config.js", "error"); return; }
-  const grid = tipo === "foto" ? $("#photos", root) : null;
-  const holders = files.map(() => {
-    if (!grid) return null;
-    const f = document.createElement("figure");
-    f.className = "ph uploading"; f.innerHTML = `<span class="spin"></span>`;
-    grid.appendChild(f); return f;
-  });
+  const holders = files.map(() => null);
+  const est = $("#fotos-estado", root);
+  if (est && tipo === "foto") est.innerHTML = `<span class="spin"></span> Subiendo ${files.length} ${files.length === 1 ? "foto" : "fotos"}…`;
   toast(`Subiendo ${files.length} ${tipo === "foto" ? (files.length === 1 ? "foto" : "fotos") : (files.length === 1 ? "archivo" : "archivos")}…`);
   const nuevos = [];
   const carpeta = `${S.company.id}/${v.id}`;
@@ -346,7 +342,8 @@ async function quitarAdjunto(v, campo, idx) {
   if (tokensBorrado.has(item.publicId)) borrarConToken(tokensBorrado.get(item.publicId));
 }
 
-function visor(fotos = [], inicio = 0) {
+function visor(fotos = [], inicio = 0, v = null) {
+  if (!fotos.length) return;
   let i = inicio;
   const s = openSheet({
     wide: true,
@@ -356,6 +353,7 @@ function visor(fotos = [], inicio = 0) {
         <button class="icon-btn" data-p aria-label="Anterior">${icon("back")}</button>
         <span id="vw-n"></span>
         <a class="icon-btn" id="vw-dl" target="_blank" rel="noopener" aria-label="Abrir original">${icon("download")}</a>
+        ${v ? `<button class="icon-btn danger" id="vw-del" aria-label="Quitar esta foto">${icon("trash")}</button>` : ""}
         <button class="icon-btn" data-n aria-label="Siguiente">${icon("next")}</button>
       </div></div>`
   });
@@ -374,6 +372,12 @@ function visor(fotos = [], inicio = 0) {
     if (x0 === null) return;
     const dx = e.changedTouches[0].clientX - x0; x0 = null;
     if (Math.abs(dx) > 40) { i = (i + (dx < 0 ? 1 : -1) + fotos.length) % fotos.length; show(); }
+  });
+  $("#vw-del", s.el)?.addEventListener("click", async () => {
+    const f = fotos[i];
+    const idx = (getVehiculo(v.id)?.fotos || []).findIndex(x => x.url === f.url);
+    s.close();
+    if (idx >= 0) await quitarAdjunto(getVehiculo(v.id), "fotos", idx);
   });
   s.el.addEventListener("keydown", e => {
     if (e.key === "ArrowRight") $("[data-n]", s.el).click();

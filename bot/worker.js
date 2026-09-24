@@ -28,6 +28,7 @@
 // ═══════════════════════════════════════════════════════════════
 
 const GRAPH = "https://graph.facebook.com/v21.0";
+const APP_URL = "https://desabollito.github.io";
 const SESION_HORAS = 12;
 const MAX_BYTES = 15 * 1024 * 1024;
 
@@ -317,6 +318,7 @@ const limpio = t => t.toLowerCase().trim().replace(/[!.¡¿?\s]+$/g, "").replace
 const esCierre = t => PALABRAS_CIERRE.includes(limpio(t));
 const esSaludo = t => /^(hola+|buenas|buen d[ií]a|buenas tardes|buenas noches|hey|hi|start|inicio)$/.test(limpio(t));
 const esAyuda = t => /^(ayuda|help|\?|menu|menú|comandos|info)$/.test(limpio(t));
+const esLocalizar = t => /^(localiz|ubic|encontr|busc|d[oó]nde\s+est|mostr|pas[aá]me\s+el\s+link|link)/i.test(limpio(t));
 const esCambioOperativo = t => /^(cambiar\s+(de\s+)?)?operativos?$/.test(limpio(t));
 const resumen = n => `${n} ${n === 1 ? "foto" : "fotos"}`;
 const esperar = ms => new Promise(r => setTimeout(r, ms));
@@ -437,7 +439,16 @@ async function alRecibirTexto(env, m, quien, texto) {
     const v = s.opciones[numeroElegido - 1];
     if (!v) return responder(env, m.from, `Elegí un número del 1 al ${s.opciones.length}.`);
     await abrirExistente(env, numero, v, s.datos || {}, hora, s);
-    return tilde(env, m);
+    return v.fotos ? responder(env, m.from, `⚠️ ${etiqueta(v)} ya tiene ${resumen(v.fotos)} subidas. Si mandás más, se suman a esas.`) : tilde(env, m);
+  }
+
+  // Localizar: "Ubicame NTK100" → link al vehículo en la app
+  if (esLocalizar(texto) && buscarPatenteEnTexto(texto)) {
+    const patente = buscarPatenteEnTexto(texto).patente;
+    const encontrados = await buscarPatente(env, patente);
+    if (!encontrados.length) return responder(env, m.from, `🔎 No encontré la patente *${patente}*.`);
+    return responder(env, m.from, encontrados.map(v =>
+      `📍 ${etiqueta(v)} · ${v.operativo}\n${APP_URL}/#/o/${v.cid}/v/${v.vid}`).join("\n\n"));
   }
 
   // Datos de un vehículo (tiene patente). Si nombra un operativo, se usa ese.
@@ -492,7 +503,7 @@ async function prepararVehiculo(env, numero, datos, hora, previa, quien) {
     }
     // Si la patente ya existe en otro operativo distinto del nombrado, se usa esa (no se duplica)
     await abrirExistente(env, numero, v, datos, hora, previa, !mencionado);
-    return null;
+    return v.fotos ? `⚠️ ${etiqueta(v)} ya tiene ${resumen(v.fotos)} subidas. Si mandás más, se suman a esas.` : null;
   }
 
   if (fijo) {
@@ -567,7 +578,8 @@ async function buscarPatente(env, patente) {
     const [, cid, , vid] = v.__ruta.split("/");
     nombres[cid] ??= (await fsGet(env, `companies/${cid}`))?.name || "Operativo";
     res.push({ cid, vid, patente: v.patente, modelo: v.modelo || "", operativo: nombres[cid],
-      compania: v.compania || "", telefono: v.telefono || "", localidad: v.localidad || "", grado: v.grado || null });
+      compania: v.compania || "", telefono: v.telefono || "", localidad: v.localidad || "", grado: v.grado || null,
+      fotos: (v.fotos || []).length });
   }
   return res;
 }

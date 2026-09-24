@@ -1,5 +1,5 @@
 import {
-  S, onChange, iniciarSesion, ingresar, crearCuenta, ingresarConGoogle, mensajeError
+  S, onChange, iniciarSesion, ingresar, crearCuenta, ingresarConGoogle, mensajeError, elegirEmpresa
 } from "./data.js";
 import { $, $$, toast, busy } from "./ui.js";
 import { FIREBASE } from "./config.js";
@@ -15,9 +15,23 @@ let ruta = { nombre: "", arg: null };
 let ctrl = null;
 
 // ── Rutas ─────────────────────────────────────────────────────
+// Link directo desde el bot: #/o/<operativo>/v/<vehículo>
+function irAVehiculo(arg) {
+  const [cid, vid] = arg.split("|");
+  if (!S.companies.length) { view.innerHTML = `<div class="skeleton tall"></div>`; return; }
+  if (!S.companies.some(c => c.id === cid)) {
+    view.innerHTML = `<div class="empty"><h2>No tenés acceso a ese operativo</h2><p>Pedile a un administrador que te sume.</p>
+      <a class="btn btn-primary" href="#/">Ver vehículos</a></div>`;
+    return;
+  }
+  if (S.company?.id !== cid) elegirEmpresa(cid);
+  location.replace(`#/v/${vid}`);
+}
+
 const RUTAS = [
   [/^#?\/?$/,               "vehiculos",  () => vistaVehiculos(view)],
   [/^#\/v\/([\w-]+)$/,      "vehiculos",  id => esAncho() ? vistaVehiculos(view, id) : vistaDetalle(view, id)],
+  [/^#\/o\/([\w-]+\/v\/[\w-]+)$/, "link", a => irAVehiculo(a.replace("/v/", "|"))],
   [/^#\/nuevo$/,            "nuevo",      () => vistaFormulario(view)],
   [/^#\/editar\/([\w-]+)$/, "editar",     id => vistaFormulario(view, id)],
   [/^#\/planilla$/,         "planilla",   () => vistaPlanilla(view)],
