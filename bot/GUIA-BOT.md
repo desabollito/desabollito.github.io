@@ -135,7 +135,8 @@ Revisa cada pieza (variables, Firebase, WhatsApp, Cloudinary, si Meta está mand
 
 ## Cómo lo usa el equipo
 
-- **Patente** (ej: `AE345KD`, también `ae 345 kd`): abre ese vehículo, en el operativo que sea.
+- **Patente** (ej: `AE345KD`, también `ae 345 kd`): el bot responde con Vehículo, Patente y Operativo, y pide las fotos.
+- **Patente que no existe:** el bot pregunta en qué operativo crearla (lista numerada, 0 para cancelar) y la crea en la web en estado Peritado, con fecha de hoy y "creado por WhatsApp". Modelo y datos del cliente se completan después en la app.
 - **Patente repetida en dos operativos:** el bot muestra la lista ("1. Granizo Córdoba / 2. Operativo Rosario") y se responde con el número.
 - **Fotos o PDFs**: se guardan en el vehículo abierto; cada una recibe ✅.
 - **Foto con la patente como descripción**: abre ese vehículo y guarda la foto en un solo paso.

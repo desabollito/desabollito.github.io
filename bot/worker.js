@@ -111,7 +111,7 @@ const AYUDA =
   "3. Cuando termines, escribí cualquier cosa (ok, listo, ya…) o mandá otra patente y cierro ese vehículo.\n\n" +
   "También podés mandar una foto con la patente escrita como descripción.";
 
-const etiqueta = s => `*${s.modelo || "Vehículo"}* (${s.patente})`;
+const etiqueta = s => s.modelo ? `*${s.modelo}* (${s.patente})` : `*${s.patente}*`;
 const PALABRAS_CIERRE = ["ok", "oka", "okey", "okay", "okk", "listo", "lista", "ya", "ya está", "ya esta", "fin", "terminé", "termine",
   "cerrar", "chau", "gracias", "dale", "perfecto", "joya", "bien", "👍", "👌", "✅"];
 const esCierre = t => PALABRAS_CIERRE.includes(t.replace(/[!.¡\s]+$/g, "").replace(/^[¡\s]+/, ""));
@@ -156,6 +156,19 @@ async function alRecibirTexto(env, m, quien, texto) {
     return responder(env, m.from, AYUDA + (abierta(s) ? `\n\n📌 Vehículo abierto: ${etiqueta(s)} · ${s.operativo}` : ""));
   }
 
+  // Patente nueva: ¿en qué operativo la creo?
+  if (s?.crear?.patente && (/^\d{1,2}$/.test(t) || ["cancelar", "no", "0"].includes(t))) {
+    if (t === "0" || t === "cancelar" || t === "no") {
+      await fsSet(env, `bot_sesiones/${numero}`, { ts: Date.now(), ...(s.anterior ? { anterior: s.anterior } : {}) });
+      return responder(env, m.from, `👌 No creé ${s.crear.patente}. Mandame otra patente cuando quieras.`);
+    }
+    const op = s.crear.operativos[Number(t) - 1];
+    if (!op) return responder(env, m.from, `Elegí un número del 1 al ${s.crear.operativos.length}, o 0 para cancelar.`);
+    const nuevo = await crearVehiculo(env, op, s.crear.patente, quien);
+    await abrir(env, numero, nuevo, hora, s.anterior ? { anterior: s.anterior } : null);
+    return responder(env, m.from, `🆕 Creé el vehículo en la web.\n\n${fichaVehiculo(nuevo)}\n\nCompletá el modelo y los datos del cliente desde la app.\n\n${PEDIR_FOTOS}`);
+  }
+
   // Respuesta a "¿en qué operativo?" cuando la patente estaba repetida
   if (s?.opciones?.length && /^\d{1,2}$/.test(t)) {
     const elegido = s.opciones[Number(t) - 1];
@@ -181,6 +194,9 @@ async function alRecibirTexto(env, m, quien, texto) {
   if (abierta(s) && (Number(s.archivos || 0) > 0 || esCierre(t))) {
     return responder(env, m.from, (await cerrar(env, numero, s, hora)) + " Mandame otra patente cuando quieras.");
   }
+  if (s?.crear?.patente) {
+    return responder(env, m.from, `Respondé con el número del operativo donde creo *${s.crear.patente}*, o 0 para cancelar.`);
+  }
   if (esCierre(t)) return responder(env, m.from, "👌");
   if (abierta(s)) {
     return responder(env, m.from, `📸 Tengo abierto ${etiqueta(s)}. Mandame las fotos, u otra patente para cambiar de vehículo.`);
@@ -188,14 +204,18 @@ async function alRecibirTexto(env, m, quien, texto) {
   return responder(env, m.from, "No entendí 🤔 Mandame la *patente* del vehículo (ej: AE345KD) o escribí *ayuda*.");
 }
 
-const mensajeAbierto = v =>
-  `📸 ${etiqueta(v)}\nOperativo: ${v.operativo}\n\nMandame las fotos y las guardo acá. Cuando termines escribí cualquier cosa (ok, listo…) o mandá otra patente.`;
+const fichaVehiculo = v =>
+  `🚗 *Vehículo:* ${v.modelo || "sin modelo cargado"}\n🔢 *Patente:* ${v.patente}\n🏢 *Operativo:* ${v.operativo}`;
+const PEDIR_FOTOS = "📸 Mandame las fotos. Cuando termines escribí cualquier cosa (ok, listo…) o mandá otra patente.";
+const mensajeAbierto = v => `${fichaVehiculo(v)}\n\n${PEDIR_FOTOS}`;
 
 // Abre un vehículo. El que estaba antes queda guardado como "anterior" para
 // ubicar fotos que se mandaron antes del cambio pero llegan tarde.
 async function abrir(env, numero, v, hora, previa) {
   let anterior = null;
-  if (previa?.vid) {
+  if (previa?.vid && !previa.cerradaEn && previa.vid === v.vid) {
+    anterior = previa.anterior || null;
+  } else if (previa?.vid) {
     anterior = { cid: previa.cid, vid: previa.vid, patente: previa.patente, modelo: previa.modelo || "",
       operativo: previa.operativo || "", desde: previa.desde || 0, cerradaEn: previa.cerradaEn || hora };
   } else if (previa?.anterior) anterior = previa.anterior;
@@ -209,8 +229,20 @@ async function abrir(env, numero, v, hora, previa) {
 // Varias: guarda las opciones y pregunta a cuál.
 async function elegirVehiculo(env, numero, patente, hora, previa) {
   const encontrados = await buscarPatente(env, patente);
+  const anteriorDe = p => p?.vid ? { cid: p.cid, vid: p.vid, patente: p.patente, modelo: p.modelo || "", operativo: p.operativo || "",
+    desde: p.desde || 0, cerradaEn: p.cerradaEn || hora } : (p?.anterior || null);
   if (!encontrados.length) {
-    return { ok: false, mensaje: `🔎 No encontré la patente *${patente}* en Desabollito.\n\nCargala primero en la app y después mandame las fotos.` };
+    const operativos = (await fsList(env, "companies"))
+      .map(o => ({ cid: o.__id, operativo: o.name || "Operativo" }))
+      .sort((a, b) => a.operativo.localeCompare(b.operativo)).slice(0, 20);
+    if (!operativos.length) return { ok: false, mensaje: "No hay operativos creados en la app todavía." };
+    const ant = anteriorDe(previa);
+    await fsSet(env, `bot_sesiones/${numero}`, { crear: { patente, operativos }, ts: Date.now(), ...(ant ? { anterior: ant } : {}) });
+    return {
+      ok: false, pregunta: true,
+      mensaje: `🔎 La patente *${patente}* no está cargada.\n\n¿En qué operativo la creo? Respondé con el número:\n\n` +
+        operativos.map((o, i) => `${i + 1}. ${o.operativo}`).join("\n") + "\n\n0. Cancelar"
+    };
   }
   if (encontrados.length === 1) {
     await abrir(env, numero, encontrados[0], hora, previa);
@@ -254,6 +286,36 @@ async function buscarPatente(env, patente) {
   return res;
 }
 
+// Crea el vehículo en la web, con los mismos campos que usa la app
+async function crearVehiculo(env, op, patente, quien) {
+  const vid = [...crypto.getRandomValues(new Uint8Array(15))].map(b => "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"[b % 62]).join("") + "wa";
+  // Fecha de hoy en Argentina (UTC-3)
+  const hoy = new Date(Date.now() - 3 * 3600 * 1000).toISOString().slice(0, 10);
+  const datos = {
+    modelo: "", patente, asegurado: "", telefono: "", compania: "", localidad: "",
+    observaciones: "", repuestos: "", precio: 0, piezas: {}, estado: "peritado", fechas: { peritado: hoy },
+    fotos: [], archivos: [], firma: null, deleted: false,
+    createdBy: `whatsapp:${quien.numero}`, createdByName: `${quien.nombre || quien.numero} (WhatsApp)`,
+    updatedBy: `whatsapp:${quien.numero}`, via: "whatsapp"
+  };
+  const ruta = `companies/${op.cid}/vehicles/${vid}`;
+  const r = await fs(env, `${base(env)}:commit`, {
+    method: "POST",
+    body: JSON.stringify({
+      writes: [{
+        update: { name: nombreDoc(env, ruta), fields: Object.fromEntries(Object.entries(datos).map(([k, v]) => [k, aValor(v)])) },
+        updateTransforms: [
+          { fieldPath: "createdAt", setToServerValue: "REQUEST_TIME" },
+          { fieldPath: "updatedAt", setToServerValue: "REQUEST_TIME" }
+        ],
+        currentDocument: { exists: false }
+      }]
+    })
+  });
+  if (!r.ok) throw new Error(`No se pudo crear el vehículo: ${r.status} ${await r.text()}`);
+  return { cid: op.cid, vid, patente, modelo: "", operativo: op.operativo };
+}
+
 // ¿A qué vehículo va un archivo enviado a la hora "hora"?
 function destinoDe(s, hora) {
   if (!s) return null;
@@ -282,6 +344,9 @@ async function alRecibirArchivo(env, m, quien) {
     sesion = await leerSesion(env, numero);
   }
 
+  if (sesion?.crear?.patente && !destinoDe(sesion, hora)) {
+    return responder(env, m.from, `📌 Primero decime en qué operativo creo *${sesion.crear.patente}* (respondé con el número de la lista). Después reenviame las fotos.`);
+  }
   if (sesion?.opciones?.length && !sesion.vid && !destinoDe(sesion, hora)) {
     return responder(env, m.from, "📌 Primero decime a qué operativo van (respondé con el número de la lista). Después reenviame las fotos.");
   }
