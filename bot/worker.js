@@ -549,23 +549,30 @@ async function diagnostico(url, env) {
   // 3b. ¿La cuenta de WhatsApp está suscripta a la app? (si no, Meta no manda los mensajes)
   try {
     const dbg = await (await fetch(`${GRAPH}/debug_token?input_token=${encodeURIComponent(env.WHATSAPP_TOKEN)}&access_token=${encodeURIComponent(env.WHATSAPP_TOKEN)}`)).json();
-    const wabas = [...new Set((dbg?.data?.granular_scopes || [])
+    // El ID de la cuenta se puede pasar a mano: &waba=ID (o cargarlo como WHATSAPP_WABA_ID)
+    const manual = String(url.searchParams.get("waba") || env.WHATSAPP_WABA_ID || "").replace(/\D/g, "");
+    const wabas = manual ? [manual] : [...new Set((dbg?.data?.granular_scopes || [])
       .filter(g => g.scope === "whatsapp_business_management" || g.scope === "whatsapp_business_messaging")
       .flatMap(g => g.target_ids || []))];
     if (!wabas.length) {
-      aviso("Suscripción de la cuenta de WhatsApp", "No se pudo leer la cuenta desde el token (revisá que el token tenga asignada la cuenta de WhatsApp).");
+      aviso("Suscripción de la cuenta de WhatsApp",
+        "No se pudo leer la cuenta desde el token. Agregá al final de esta dirección &waba=ID_DE_TU_CUENTA&arreglar=1 " +
+        "(el ID está en Meta → WhatsApp → Configuración de la API, debajo del Phone number ID).");
     }
     for (const waba of wabas) {
       const auth = { Authorization: `Bearer ${env.WHATSAPP_TOKEN}` };
       let subs = await (await fetch(`${GRAPH}/${waba}/subscribed_apps`, { headers: auth })).json();
       if (!(subs?.data || []).length && url.searchParams.get("arreglar") === "1") {
-        await fetch(`${GRAPH}/${waba}/subscribed_apps`, { method: "POST", headers: auth });
+        const alta = await (await fetch(`${GRAPH}/${waba}/subscribed_apps`, { method: "POST", headers: auth })).json();
+        if (alta?.error) aviso("Intento de suscripción", alta.error.message);
         subs = await (await fetch(`${GRAPH}/${waba}/subscribed_apps`, { headers: auth })).json();
       }
       if ((subs?.data || []).length) ok("Suscripción de la cuenta de WhatsApp", `Cuenta ${waba} suscripta a la app`);
+      else if (subs?.error) mal("Suscripción de la cuenta de WhatsApp",
+        `No se pudo consultar la cuenta ${waba}: ${subs.error.message}. Si cargaste el token temporal, reemplazalo por el permanente del usuario del sistema.`);
       else mal("Suscripción de la cuenta de WhatsApp",
         `La cuenta ${waba} NO está suscripta: Meta no le manda los mensajes al bot. ` +
-        `Arreglalo abriendo esta misma página con &arreglar=1 al final.` + (subs?.error ? " · " + subs.error.message : ""));
+        `Arreglalo abriendo esta misma página con &arreglar=1 al final.`);
     }
   } catch (e) { aviso("Suscripción de la cuenta de WhatsApp", e.message); }
 
