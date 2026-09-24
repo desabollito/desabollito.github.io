@@ -576,6 +576,46 @@ async function diagnostico(url, env) {
     }
   } catch (e) { aviso("Suscripción de la cuenta de WhatsApp", e.message); }
 
+  // 3c. Webhook de la app: URL correcta y campo "messages" suscripto
+  try {
+    const dbg2 = await (await fetch(`${GRAPH}/debug_token?input_token=${encodeURIComponent(env.WHATSAPP_TOKEN)}&access_token=${encodeURIComponent(env.WHATSAPP_TOKEN)}`)).json();
+    const appId = String(dbg2?.data?.app_id || env.WHATSAPP_APP_ID || "");
+    if (!appId) {
+      aviso("Webhook de la app", "No se pudo saber el ID de la app desde el token.");
+    } else {
+      const appToken = `${appId}|${String(env.WHATSAPP_APP_SECRET).trim()}`;
+      const urlWebhook = `${url.origin}/webhook`;
+      const leer = async () => (await (await fetch(`${GRAPH}/${appId}/subscriptions?access_token=${encodeURIComponent(appToken)}`)).json());
+      let subs = await leer();
+      const revisar = sx => {
+        const w = (sx?.data || []).find(x => x.object === "whatsapp_business_account");
+        return { w, bien: !!w && w.active !== false && w.callback_url === urlWebhook && (w.fields || []).some(f => (f.name || f) === "messages") };
+      };
+      let { w, bien } = revisar(subs);
+      if (!bien && url.searchParams.get("arreglar") === "1" && !subs?.error) {
+        const fd = new URLSearchParams({
+          object: "whatsapp_business_account", callback_url: urlWebhook,
+          verify_token: String(env.WHATSAPP_VERIFY_TOKEN).trim(), fields: "messages", access_token: appToken
+        });
+        const alta = await (await fetch(`${GRAPH}/${appId}/subscriptions`, { method: "POST", body: fd })).json();
+        if (alta?.error) aviso("Intento de configurar el webhook", alta.error.message);
+        subs = await leer(); ({ w, bien } = revisar(subs));
+      }
+      if (subs?.error) mal("Webhook de la app", "No se pudo leer: " + subs.error.message + " (revisá WHATSAPP_APP_SECRET)");
+      else if (bien) ok("Webhook de la app", `URL correcta y campo “messages” suscripto (app ${appId})`);
+      else {
+        const problemas = [];
+        if (!w) problemas.push("no hay webhook de WhatsApp configurado");
+        else {
+          if (w.callback_url !== urlWebhook) problemas.push(`la URL es “${w.callback_url}” y debería ser “${urlWebhook}”`);
+          if (!(w.fields || []).some(f => (f.name || f) === "messages")) problemas.push("el campo “messages” no está suscripto");
+          if (w.active === false) problemas.push("está inactivo");
+        }
+        mal("Webhook de la app", problemas.join("; ") + ". Arreglalo abriendo esta página con &arreglar=1 al final.");
+      }
+    }
+  } catch (e) { aviso("Webhook de la app", e.message); }
+
   // 4. Cloudinary
   try {
     const r = await fetch(`https://api.cloudinary.com/v1_1/${env.CLOUDINARY_CLOUD_NAME}/ping`, {
@@ -590,7 +630,10 @@ async function diagnostico(url, env) {
   } else if (estado.ultimaFirmaOk === false) {
     mal("Mensajes de WhatsApp", `Llegó un mensaje (${estado.ultimoWebhook}) pero la firma no coincide: revisá WHATSAPP_APP_SECRET.`);
   } else {
-    ok("Mensajes de WhatsApp", "Último mensaje recibido: " + estado.ultimoWebhook);
+    const de = (String(estado.ultimoCuerpo || "").match(/"from":"(\d+)"/) || [])[1];
+    const esPrueba = de === "16315551181";
+    (esPrueba ? aviso : ok)("Mensajes de WhatsApp", `Último mensaje recibido: ${estado.ultimoWebhook}` +
+      (de ? ` · de ${de}${esPrueba ? " (es la prueba del panel de Meta, todavía no llegó ningún mensaje real)" : ""}` : ""));
   }
   if (estado?.ultimoError) aviso("Último error procesando", estado.ultimoError);
   if (estado?.ultimoErrorEnvio) aviso("Último error al responder", estado.ultimoErrorEnvio);
