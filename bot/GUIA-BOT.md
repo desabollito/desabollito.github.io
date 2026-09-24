@@ -149,14 +149,17 @@ Revisa cada pieza (variables, Firebase, WhatsApp, Cloudinary, si Meta está mand
   - la localidad,
   - la marca o el modelo,
   - el grado (G1, G2, G3 o "grado 2").
-- **Si la patente existe:** responde con Vehículo, Patente, Operativo y los datos cargados. Si el mensaje trae datos nuevos (por ejemplo la compañía), los completa en la web.
+- **Al recibir los datos**, el bot no escribe: marca el mensaje con ✅ para indicar que lo tomó.
+- **Si la patente existe:** abre ese vehículo. Si el mensaje trae datos nuevos (por ejemplo la compañía), los completa en la web.
 - **Si la patente no existe:** la crea en la web sin preguntar:
   1. En el operativo que se **nombre en el mensaje** (ej: `AB099BA Corolla Rosario` → operativo "Rosario"). Sirve el nombre completo o sin palabras como "Operativo" o "Granizo".
   2. Si no se nombra ninguno, en el **último operativo usado** (el último nombrado, elegido o el del último vehículo abierto).
   3. Solo si no hay ninguno de los dos, pregunta en cuál.
 - **operativo:** cambia el operativo actual sin cargar ningún vehículo.
-- **Fotos:** se mandan todas juntas, sin confirmación por foto.
-- **Terminar:** mandar otro vehículo o escribir OK (o cualquier texto después de las fotos). El bot responde "✅ Guardé X fotos en …".
+- **Fotos:** se mandan todas juntas. El bot no responde nada.
+- **Otro vehículo:** mandar sus datos. El anterior se cierra en silencio.
+- **OK** (o cualquier texto después de las fotos): el bot manda un solo resumen con todos los vehículos cargados desde el último OK: "✅ Guardé X fotos en …", y 🆕 en los que creó.
+- El bot solo escribe cuando tiene que preguntar algo (por ejemplo, en qué operativo cargar si todavía no hay ninguno).
 - Las fotos que llegan desordenadas van igual al vehículo correcto: el bot usa la hora en que se mandó cada una.
 - Si alguien manda fotos sin haber mandado una patente, el bot avisa una sola vez por tanda.
 

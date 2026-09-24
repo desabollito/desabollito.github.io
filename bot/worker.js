@@ -305,8 +305,9 @@ const AYUDA =
   "   _Corolla AB099BA Riv 1137709755 Monte_\n" +
   "   _FFF000 Federación_\n" +
   "   Entiendo patente (AA000AA o AAA000), modelo, compañía (vale abreviada: Riv, Fed, Merc…), teléfono, localidad y grado (G1, G2, G3).\n\n" +
-  "*2. Fotos:* mandalas todas juntas. Si el vehículo ya existe, van ahí. Si no existe, lo creo en la web.\n\n" +
-  "*3. Terminar:* mandá otro vehículo o escribí *OK*. Te aviso cuántas fotos guardé.\n\n" +
+  "Te marco el mensaje con ✅ cuando lo tengo. Si el vehículo no existe, lo creo en la web.\n\n" +
+  "*2. Fotos:* mandalas todas juntas. No respondo nada mientras tanto.\n\n" +
+  "*3. Seguí con otro vehículo* (mandá sus datos) o escribí *OK* para terminar: ahí te mando el resumen de todo lo que guardé.\n\n" +
   "*Operativo:* si nombrás el operativo en el mensaje, el vehículo nuevo va ahí (ej: _AB099BA Corolla Rosario_). Si no, va al último que usaste. Para cambiarlo sin cargar nada escribí *operativo*.\n" +
   "*ayuda:* muestra este mensaje.";
 
@@ -351,17 +352,34 @@ async function listaOperativos(env) {
 }
 const menuOperativos = ops => ops.map((o, i) => `${i + 1}. ${o.operativo}`).join("\n") + "\n\n0. Cancelar";
 
-// Cierra el vehículo abierto. Espera unos segundos para contar también las fotos
-// que todavía se estaban guardando, y devuelve el texto del resumen.
-async function cerrar(env, numero, sesion, hora) {
-  await fsMerge(env, `bot_sesiones/${numero}`, { cerradaEn: hora, ts: Date.now() });
+// ── Tanda: vehículos cargados desde el último OK ──────────────
+// La sesión guarda la lista de vehículos de la tanda y un contador de fotos por
+// vehículo (campo n_<id>). El bot no responde nada hasta el OK: ahí manda un
+// resumen de todos.
+const campoConteo = vid => `n_${vid}`;
+
+// Cierra el vehículo abierto sin avisar (al pasar a otro vehículo)
+const cerrarEnSilencio = (env, numero, hora) => fsMerge(env, `bot_sesiones/${numero}`, { cerradaEn: hora, ts: Date.now() });
+
+// OK: cierra, espera a que terminen de guardarse las últimas fotos y arma el resumen
+async function resumenDeTanda(env, numero, sesion, hora) {
+  if (abierta(sesion)) await cerrarEnSilencio(env, numero, hora);
   await esperar(Number(env.ESPERA_CIERRE_MS ?? 4000));
-  const final = (await fsGet(env, `bot_sesiones/${numero}`)) || sesion;
-  const n = Number(final.archivos || 0);
-  return n ? `✅ Guardé ${resumen(n)} en ${etiqueta(sesion)}.` : `👌 Cerré ${etiqueta(sesion)} sin fotos.`;
+  const s = (await fsGet(env, `bot_sesiones/${numero}`)) || sesion || {};
+  const tanda = s.tanda || [];
+  const lineas = tanda.map(v => {
+    const n = Number(s[campoConteo(v.vid)] || 0);
+    const icono = v.nuevo ? "🆕" : "✅";
+    return n ? `${icono} Guardé ${resumen(n)} en ${v.etiqueta}${v.nuevo ? " (nuevo)" : ""}`
+             : `${icono} ${v.etiqueta}${v.nuevo ? " (nuevo)" : ""}: sin fotos`;
+  });
+  // Nueva tanda. Se conserva el último vehículo como "anterior" para fotos que lleguen tarde.
+  const ant = anteriorDe({ ...s, cerradaEn: s.cerradaEn || hora }, hora);
+  await fsSet(env, `bot_sesiones/${numero}`, { ts: Date.now(), ...(ant ? { anterior: ant } : {}) });
+  return (lineas.length ? lineas.join("\n") : "👌 No había vehículos abiertos.") + `\n\n${OTRO}`;
 }
 
-// Ficha que muestra el bot al abrir un vehículo
+// Ficha del vehículo (se usa en la ayuda)
 function fichaVehiculo(v) {
   const l = [`🚗 *Vehículo:* ${v.modelo || "sin modelo cargado"}`, `🔢 *Patente:* ${v.patente}`, `🏢 *Operativo:* ${v.operativo}`];
   if (v.compania) l.push(`🛡️ *Compañía:* ${v.compania}`);
@@ -370,7 +388,9 @@ function fichaVehiculo(v) {
   if (v.grado) l.push(`🌨️ *Grado:* ${v.grado}`);
   return l.join("\n");
 }
-const PEDIR_FOTOS = "📸 Mandame las fotos. Para terminar, mandá otro vehículo o escribí *OK*.";
+
+// Confirmación silenciosa: tilde en el mensaje del usuario
+const tilde = (env, m) => reaccionar(env, m.from, m.id, "✅");
 
 async function alRecibirTexto(env, m, quien, texto) {
   const numero = quien.numero;
@@ -423,16 +443,16 @@ async function alRecibirTexto(env, m, quien, texto) {
     if (!op) return responder(env, m.from, `Elegí un número del 1 al ${s.crear.operativos.length}, o 0 para cancelar.`);
     await fijarOperativo(env, numero, op);
     const nuevo = await crearVehiculo(env, op, s.crear.datos, quien);
-    await abrir(env, numero, nuevo, hora, s);
-    return responder(env, m.from, `🆕 Creé el vehículo en la web.\n\n${fichaVehiculo(nuevo)}\n\n` +
-      `Los próximos vehículos nuevos también van a *${op.operativo}* (para cambiar escribí *operativo*).\n\n${PEDIR_FOTOS}`);
+    await abrir(env, numero, nuevo, hora, s, true);
+    return tilde(env, m);
   }
 
   // Patente repetida en varios operativos: ¿cuál?
   if (s?.opciones?.length && numeroElegido !== null) {
     const v = s.opciones[numeroElegido - 1];
     if (!v) return responder(env, m.from, `Elegí un número del 1 al ${s.opciones.length}.`);
-    return responder(env, m.from, await abrirExistente(env, numero, v, s.datos || {}, hora, s));
+    await abrirExistente(env, numero, v, s.datos || {}, hora, s);
+    return tilde(env, m);
   }
 
   // Datos de un vehículo (tiene patente). Si nombra un operativo, se usa ese.
@@ -445,32 +465,31 @@ async function alRecibirTexto(env, m, quien, texto) {
   const datos = interpretar(textoDatos);
   if (mencion) datos.operativo = mencion.op;
   if (datos.patente) {
-    let previo = "";
     if (abierta(s) && s.patente === datos.patente) {
-      const cambios = await actualizarDatos(env, s, datos);
-      return responder(env, m.from, cambios.length
-        ? `✏️ Actualicé ${cambios.join(", ")} de ${etiqueta(s)}.\n\n${PEDIR_FOTOS}`
-        : `📸 ${etiqueta(s)} ya está abierto. ${PEDIR_FOTOS}`);
+      await actualizarDatos(env, s, datos);
+      return tilde(env, m);
     }
-    if (abierta(s)) previo = (await cerrar(env, numero, s, hora)) + "\n\n";
-    const actual = await leerSesion(env, numero);
-    return responder(env, m.from, previo + await prepararVehiculo(env, numero, datos, hora, actual, quien));
+    if (abierta(s)) await cerrarEnSilencio(env, numero, hora);
+    const pregunta = await prepararVehiculo(env, numero, datos, hora, await leerSesion(env, numero), quien);
+    return pregunta ? responder(env, m.from, pregunta) : tilde(env, m);
   }
 
-  // Texto sin patente
-  if (abierta(s) && (Number(s.archivos || 0) > 0 || esCierre(texto))) {
-    return responder(env, m.from, `${await cerrar(env, numero, s, hora)}\n${OTRO}`);
+  // Texto sin patente: OK (o cualquier texto después de mandar fotos) → resumen de la tanda
+  const fotosDelActual = abierta(s) ? Number(s[campoConteo(s.vid)] || 0) : 0;
+  if ((s?.tanda?.length && esCierre(texto)) || fotosDelActual > 0) {
+    return responder(env, m.from, await resumenDeTanda(env, numero, s, hora));
   }
   if (s?.crear?.datos?.patente) {
     return responder(env, m.from, `Respondé con el número del operativo donde creo *${s.crear.datos.patente}*, o 0 para cancelar.`);
   }
+  if (abierta(s)) return; // vehículo abierto, todavía sin fotos: el bot espera en silencio
   if (esCierre(texto)) return responder(env, m.from, "👌 " + OTRO);
-  if (abierta(s)) return responder(env, m.from, `📸 Tengo abierto ${etiqueta(s)}. ${PEDIR_FOTOS}`);
   return responder(env, m.from, "No encontré una patente en tu mensaje 🤔\n\nEnviame los datos del vehículo, por ejemplo:\n_Corolla AB099BA Riv 1137709755 Monte_\n\nO escribí *ayuda*.");
 }
 
 // Busca la patente: si existe la abre (y completa los datos nuevos); si no, la crea
-// en el operativo fijo, o pregunta en cuál.
+// en el operativo nombrado o en el último usado. Devuelve un texto solo si hay que
+// preguntarle algo al usuario; si no, null (el bot solo marca la tilde).
 async function prepararVehiculo(env, numero, datos, hora, previa, quien) {
   const encontrados = await buscarPatente(env, datos.patente);
   // Prioridad: operativo nombrado en el mensaje → último operativo usado → preguntar
@@ -481,40 +500,33 @@ async function prepararVehiculo(env, numero, datos, hora, previa, quien) {
 
   if (encontrados.length) {
     const v = encontrados.length === 1 ? encontrados[0] : encontrados.find(x => x.cid === fijo?.cid);
-    if (v && mencionado && v.cid !== mencionado.cid) {
-      // La patente ya existe en otro operativo: se usa esa (no se duplica)
-      const r = await abrirExistente(env, numero, v, datos, hora, previa, false);
-      return `ℹ️ Esa patente ya estaba cargada en *${v.operativo}*, así que la abrí ahí.\n\n` + r;
-    }
     if (!v) {
-      await fsSet(env, `bot_sesiones/${numero}`, { opciones: encontrados.slice(0, 9), datos, ts: Date.now(),
-        ...(anteriorDe(previa, hora) ? { anterior: anteriorDe(previa, hora) } : {}) });
+      await fsMerge(env, `bot_sesiones/${numero}`, { opciones: encontrados.slice(0, 9), datos, ts: Date.now() });
       return `La patente *${datos.patente}* está en más de un operativo. ¿Cuál es? Respondé con el número:\n\n` +
         encontrados.slice(0, 9).map((x, i) => `${i + 1}. ${x.operativo} · ${x.modelo || "sin modelo"}`).join("\n");
     }
-    return abrirExistente(env, numero, v, datos, hora, previa, !mencionado);
+    // Si la patente ya existe en otro operativo distinto del nombrado, se usa esa (no se duplica)
+    await abrirExistente(env, numero, v, datos, hora, previa, !mencionado);
+    return null;
   }
 
   if (fijo) {
     const nuevo = await crearVehiculo(env, fijo, datos, quien);
-    await abrir(env, numero, nuevo, hora, previa);
-    return `🆕 Creé el vehículo en la web.\n\n${fichaVehiculo(nuevo)}\n\n` +
-      (mencionado ? `Los próximos vehículos nuevos también van a *${fijo.operativo}*.\n\n` : "") + PEDIR_FOTOS;
+    await abrir(env, numero, nuevo, hora, previa, true);
+    return null;
   }
 
   const operativos = await listaOperativos(env);
   if (!operativos.length) return "No hay operativos creados en la app todavía.";
-  await fsSet(env, `bot_sesiones/${numero}`, { crear: { datos, operativos }, ts: Date.now(),
-    ...(anteriorDe(previa, hora) ? { anterior: anteriorDe(previa, hora) } : {}) });
+  await fsMerge(env, `bot_sesiones/${numero}`, { crear: { datos, operativos }, ts: Date.now() });
   return `🔎 La patente *${datos.patente}* no está cargada.\n\n¿En qué operativo la creo? Respondé con el número:\n\n` + menuOperativos(operativos);
 }
 
 async function abrirExistente(env, numero, v, datos, hora, previa, fijar = true) {
-  const cambios = await actualizarDatos(env, v, datos);
-  await abrir(env, numero, v, hora, previa);
+  await actualizarDatos(env, v, datos);
+  await abrir(env, numero, v, hora, previa, false);
   // El operativo del vehículo abierto pasa a ser el actual (salvo que se haya nombrado otro)
   if (fijar) await fijarOperativo(env, numero, v);
-  return `${fichaVehiculo(v)}` + (cambios.length ? `\n\n✏️ Actualicé ${cambios.join(", ")}.` : "") + `\n\n${PEDIR_FOTOS}`;
 }
 
 // Completa en la web los datos que vinieron en el mensaje (solo los que cambian)
@@ -534,13 +546,17 @@ function anteriorDe(p, hora) {
   return p?.anterior || null;
 }
 
-// Abre un vehículo. El que estaba antes queda guardado como "anterior" para
-// ubicar fotos que se mandaron antes del cambio pero llegan tarde.
-async function abrir(env, numero, v, hora, previa) {
+// Abre un vehículo y lo suma a la tanda. El que estaba antes queda como "anterior"
+// para ubicar fotos que se mandaron antes del cambio pero llegan tarde.
+// Se usa merge para no borrar los contadores de fotos de la tanda.
+async function abrir(env, numero, v, hora, previa, nuevo = false) {
   const anterior = previa?.vid === v.vid && !previa?.cerradaEn ? (previa.anterior || null) : anteriorDe(previa, hora);
-  await fsSet(env, `bot_sesiones/${numero}`, {
+  const tanda = [...(previa?.tanda || [])];
+  if (!tanda.some(x => x.vid === v.vid)) tanda.push({ vid: v.vid, etiqueta: etiqueta(v), nuevo });
+  await fsMerge(env, `bot_sesiones/${numero}`, {
     cid: v.cid, vid: v.vid, patente: v.patente, modelo: v.modelo || "", operativo: v.operativo || "",
-    desde: hora, archivos: 0, ts: Date.now(), ...(anterior ? { anterior } : {})
+    desde: hora, ts: Date.now(), cerradaEn: null, crear: null, opciones: null, datos: null, elegirOperativo: null,
+    anterior: anterior || null, tanda
   });
 }
 
@@ -632,9 +648,9 @@ async function alRecibirArchivo(env, m, quien) {
     if (mencion) datos.operativo = mencion.op;
   }
   if (datos?.patente && !(abierta(sesion) && sesion.patente === datos.patente)) {
-    let previo = "";
-    if (abierta(sesion)) previo = (await cerrar(env, numero, sesion, hora - 1)) + "\n\n";
-    await responder(env, m.from, previo + await prepararVehiculo(env, numero, datos, hora, await leerSesion(env, numero), quien));
+    if (abierta(sesion)) await cerrarEnSilencio(env, numero, hora - 1);
+    const pregunta = await prepararVehiculo(env, numero, datos, hora, await leerSesion(env, numero), quien);
+    if (pregunta) await responder(env, m.from, pregunta);
     sesion = await leerSesion(env, numero);
   }
 
@@ -675,7 +691,7 @@ async function alRecibirArchivo(env, m, quien) {
     await fsAppend(env, ruta, "archivos",
       { url: subido.secure_url, publicId: subido.public_id, name: nombre, bytes: subido.bytes || null, format: subido.format || null, at: Date.now(), ...origen });
   }
-  if (destino.esActual) await fsIncrementar(env, `bot_sesiones/${numero}`, "archivos").catch(() => {});
+  await fsIncrementar(env, `bot_sesiones/${numero}`, campoConteo(destino.vid)).catch(() => {});
 }
 
 // ─────────────────────────────────────────────────────────────
