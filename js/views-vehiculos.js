@@ -154,7 +154,7 @@ function renderDetalle(root, v, embebido) {
         ? `<button class="d-cover" data-act="galeria" aria-label="Ver las ${v.fotos.length} fotos">
              <img src="${esc(thumb(v.fotos[0].url, 240))}" alt=""><span class="d-cover-n">${icon("camera")}${v.fotos.length}</span></button>`
         : `<label class="d-cover vacio" aria-label="Agregar fotos">${icon("camera")}<small>Agregar fotos</small>
-             <input type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" multiple hidden data-up="foto"></label>`}
+             <input type="file" accept="image/*" multiple hidden data-up="foto"></label>`}
       <div class="d-title">
         <h2>${esc(v.modelo || "Sin modelo")}</h2>
         <div class="d-plate">${plate(v.patente, "lg")}</div>
@@ -205,7 +205,7 @@ function renderDetalle(root, v, embebido) {
       <div class="sec-head"><h3>Fotos <small>${v.fotos?.length || 0}</small></h3>
         <div class="sec-btns">
           <label class="btn btn-ghost btn-sm">${icon("plus")}Agregar fotos
-            <input type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" multiple hidden data-up="foto"></label>
+            <input type="file" accept="image/*" multiple hidden data-up="foto"></label>
         </div></div>
       <p class="muted small" id="fotos-estado">${v.fotos?.length ? "Tocá la foto de arriba para verlas todas." : "Todavía no hay fotos."}</p>
     </section>
