@@ -41,10 +41,16 @@ export default {
     // Verificación del webhook (Meta la hace una sola vez al configurarlo)
     if (req.method === "GET") {
       const p = url.searchParams;
-      if (p.get("hub.mode") === "subscribe" && p.get("hub.verify_token") === env.WHATSAPP_VERIFY_TOKEN) {
-        return new Response(p.get("hub.challenge") || "");
+      const txt = (t, st = 200) => new Response(t, { status: st, headers: { "content-type": "text/plain; charset=utf-8" } });
+      if (!p.has("hub.mode")) {
+        return txt("✅ Esta es la dirección del webhook. Está bien: se pega en Meta como “URL de devolución de llamada”; no hace falta abrirla en el navegador.");
       }
-      return new Response("Token de verificación incorrecto", { status: 403 });
+      const recibido = String(p.get("hub.verify_token") || "").trim();
+      const esperado = String(env.WHATSAPP_VERIFY_TOKEN || "").trim();
+      if (!esperado) return txt("❌ Falta cargar WHATSAPP_VERIFY_TOKEN en Cloudflare (y tocar Deploy).", 403);
+      if (p.get("hub.mode") === "subscribe" && recibido === esperado) return txt(p.get("hub.challenge") || "");
+      console.error(`Verificación rechazada: Meta mandó un token de ${recibido.length} caracteres; en Cloudflare hay uno de ${esperado.length}.`);
+      return txt(`❌ El token de verificación no coincide (Meta mandó ${recibido.length} caracteres, Cloudflare tiene ${esperado.length}).`, 403);
     }
     if (req.method !== "POST") return new Response("Método no permitido", { status: 405 });
 
@@ -500,7 +506,7 @@ async function fsMerge(env, ruta, data) {
 }
 
 async function diagnostico(url, env) {
-  if (!env.WHATSAPP_VERIFY_TOKEN || url.searchParams.get("token") !== env.WHATSAPP_VERIFY_TOKEN) {
+  if (!env.WHATSAPP_VERIFY_TOKEN || String(url.searchParams.get("token") || "").trim() !== String(env.WHATSAPP_VERIFY_TOKEN).trim()) {
     return new Response("Agregá ?token=TU_WHATSAPP_VERIFY_TOKEN al final de la dirección.", { status: 403, headers: { "content-type": "text/plain; charset=utf-8" } });
   }
   const filas = [];
