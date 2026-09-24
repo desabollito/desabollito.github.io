@@ -301,12 +301,12 @@ const SALUDO =
 
 const AYUDA =
   "🚗 *Cómo usar Desabollito*\n\n" +
-  "*1. Datos del vehículo* en un solo mensaje, en cualquier orden. Solo la patente es obligatoria.\n" +
-  "   Entiendo Marcas, Modelos, Patentes, Compañías, Teléfonos, Grados 1-3, y más.\n\n" +
-  "*2. Fotos:* envialas todas juntas o separadas. No respondo nada mientras tanto.\n\n" +
-  "*3. Seguí con otro vehículo* o enviá *OK* para finalizar: ahí te envío el resumen.\n\n" +
-  "*Operativo:* si nombrás el operativo en el mensaje, el vehículo nuevo va ahí. Si no, va al último que usaste. Para cambiarlo escribí *operativo*.\n" +
-  "*Ayuda:* muestra este mensaje.";
+  "- Envia los datos del vehiculo en un solo mensaje, no importa el orden.\n\n" +
+  "- Luego envia las fotos\n\n" +
+  "- Listo! Seguí con otro o enviá *OK* para finalizar.\n\n" +
+  "🚨 *Operativo*\n\n" +
+  "Si nombrás la localidad del operativo en el mensaje, se asignarán los vehiculos a ese operativo.\n\n" +
+  "Para cambiarlo escribí *operativo*.";
 
 const lineaOperativo = fijo => `\n\n> Operativo actual: ${fijo ? fijo.operativo : "ninguno (escribí *operativo* para elegirlo)"}`;
 
