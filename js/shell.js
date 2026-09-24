@@ -40,5 +40,5 @@ export function pintarLateral() {
 
 // Logo de la app como ícono del operativo (sin fondo, según tema)
 export function logoOperativo(tam = "") {
-  return `<span class="company-avatar ${tam}"><img class="logo-on-light" src="img/logo-oscuro.png" alt=""><img class="logo-on-dark app-icon" src="img/app-192.png" alt=""></span>`;
+  return `<span class="company-avatar ${tam}"><img class="logo-on-light" src="img/logo-oscuro.png" alt=""><img class="logo-on-dark" src="img/logo-claro.png" alt=""></span>`;
 }

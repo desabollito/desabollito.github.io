@@ -425,14 +425,20 @@ function firmar(v) {
   };
 }
 
+// ¿El navegador puede compartir archivos? (celulares sí; la mayoría de las computadoras no)
+function puedeCompartirArchivos() {
+  try { return !!navigator.canShare?.({ files: [new File(["x"], "x.pdf", { type: "application/pdf" })] }); }
+  catch { return false; }
+}
+
 function compartir(v) {
   const hayFotos = v.fotos?.length > 0;
   const s = openSheet({
     title: "Compartir presupuesto",
     body: `<div class="stack">
       ${hayFotos ? `<label class="toggle"><input type="checkbox" id="con-fotos" checked><span>Incluir las ${v.fotos.length} fotos</span></label>` : ""}
-      <button class="btn btn-primary btn-block btn-lg" data-m="share">${icon("share")}Compartir PDF</button>
-      <button class="btn btn-ghost btn-block" data-m="save">${icon("download")}Descargar PDF</button></div>`
+      ${puedeCompartirArchivos() ? `<button class="btn btn-primary btn-block btn-lg" data-m="share">${icon("share")}Compartir PDF</button>` : ""}
+      <button class="btn ${puedeCompartirArchivos() ? "btn-ghost" : "btn-primary btn-lg"} btn-block" data-m="save">${icon("download")}Descargar PDF</button></div>`
   });
   const nombre = nombreArchivo(v);
   const texto = `Presupuesto de granizo${v.modelo ? " · " + v.modelo : ""}${v.patente ? " " + v.patente : ""}${v.precio ? " · Total " + money(v.precio) : ""}`;
@@ -476,16 +482,12 @@ function compartir(v) {
     }
     if (b.dataset.m === "save") { descargar(listo.blob); toast("PDF descargado", "success"); s.close(); return; }
 
-    if (navigator.canShare?.({ files: [listo.file] })) {
-      try { await navigator.share({ files: [listo.file], title: nombre, text: texto }); s.close(); }
-      catch (err) {
-        if (err.name === "AbortError") return;
-        console.warn(err);
-        descargar(listo.blob); toast("No se pudo abrir el menú de compartir: se descargó el PDF", "info"); s.close();
-      }
-    } else {
-      // Navegadores sin "compartir archivos" (la mayoría en computadora): se descarga
-      descargar(listo.blob); toast("PDF descargado", "success"); s.close();
+    try { await navigator.share({ files: [listo.file], title: nombre }); s.close(); }
+    catch (err) {
+      if (err.name === "AbortError") return;
+      console.warn(err);
+      // El navegador pide un toque "fresco": el PDF ya está listo, se vuelve a tocar
+      toast("Tocá “Compartir PDF” de nuevo", "info");
     }
   });
 }
