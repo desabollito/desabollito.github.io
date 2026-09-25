@@ -263,9 +263,10 @@ export function vistaEmpresa(view) {
           </span>
           ${admin && m.rol !== "owner" && m.uid !== S.user.uid ? `
             <span class="m-actions">
-              <select data-rol="${m.uid}" aria-label="Rol de ${esc(m.name)}">
-                <option value="tecnico" ${m.rol === "tecnico" ? "selected" : ""}>Técnico</option>
-                <option value="admin" ${m.rol === "admin" ? "selected" : ""}>Administrador</option></select>
+              <div class="seg seg-sm seg-rol" data-rol="${m.uid}" role="radiogroup" aria-label="Rol de ${esc(m.name)}">
+                <button type="button" class="seg-btn ${m.rol === "tecnico" ? "on" : ""}" data-v="tecnico">Técnico</button>
+                <button type="button" class="seg-btn ${m.rol === "admin" ? "on" : ""}" data-v="admin">Admin</button>
+              </div>
               <button class="icon-btn sm" data-quitar="${m.uid}" aria-label="Quitar a ${esc(m.name)}">${icon("x")}</button>
             </span>` : ""}
         </li>`).join("")}</ul>
@@ -273,7 +274,11 @@ export function vistaEmpresa(view) {
       <form class="add-member" id="add">
         <label class="field">
           <input name="u" placeholder="Usuario a sumar" aria-label="Usuario a sumar" autocapitalize="none" spellcheck="false" required></label>
-        <select name="rol" aria-label="Rol"><option value="tecnico">Técnico</option><option value="admin">Administrador</option></select>
+        <input type="hidden" name="rol" value="tecnico">
+        <div class="seg seg-sm seg-rol" data-rol-nuevo role="radiogroup" aria-label="Rol">
+          <button type="button" class="seg-btn on" data-v="tecnico">Técnico</button>
+          <button type="button" class="seg-btn" data-v="admin">Admin</button>
+        </div>
         <button class="btn btn-primary">${icon("plus")}Sumar</button>
       </form>
 ` : ""}
@@ -313,7 +318,16 @@ export function vistaEmpresa(view) {
     catch (err) { toast(mensajeError(err), "error"); }
     finally { busy(b, false); }
   });
-  $$("[data-rol]", view).forEach(s => s.onchange = () => cambiarRol(s.dataset.rol, s.value).then(() => toast("Rol actualizado", "success")).catch(e => toast(mensajeError(e), "error")));
+  $$("[data-rol]", view).forEach(g => g.onclick = e => {
+    const b = e.target.closest("[data-v]"); if (!b || b.classList.contains("on")) return;
+    $$(".seg-btn", g).forEach(x => x.classList.toggle("on", x === b));
+    cambiarRol(g.dataset.rol, b.dataset.v).then(() => toast("Rol actualizado", "success")).catch(err => toast(mensajeError(err), "error"));
+  });
+  $("[data-rol-nuevo]", view)?.addEventListener("click", e => {
+    const b = e.target.closest("[data-v]"); if (!b) return;
+    $$("[data-rol-nuevo] .seg-btn", view).forEach(x => x.classList.toggle("on", x === b));
+    $("#add", view).rol.value = b.dataset.v;
+  });
   $$("[data-tags]", view).forEach(b => b.onclick = () => editarEtiquetas(b.dataset.tags));
   $$("[data-quitar]", view).forEach(b => b.onclick = async () => {
     const n = c.memberNames?.[b.dataset.quitar] || "esta persona";

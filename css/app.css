@@ -765,3 +765,10 @@ body[data-detalle="1"] .fab { display: none !important; }
 .plegable[open] > summary > .ic:last-child { transform: rotate(90deg); }
 .plegable > form { padding: 0 18px 18px; }
 .danger-zone .btn { width: 100%; white-space: normal; }
+
+.seg-rol { width: auto; flex: 0 0 auto; }
+.seg-rol .seg-btn { padding: 0 12px; min-height: 32px; }
+@media (max-width: 560px) { .m-actions .seg-rol { flex: 1; } }
+.add-member .seg-rol { align-self: end; min-height: 46px; }
+.add-member .seg-rol .seg-btn { min-height: 36px; }
+.seg-rol .seg-btn.on { background: var(--primary); color: #fff; }
