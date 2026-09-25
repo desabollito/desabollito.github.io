@@ -21,30 +21,44 @@ async function cargarImagen(url) {
   return { data, ...dims };
 }
 
+// Encabezado: nombre a la izquierda; logo del sello a la derecha y su texto al lado del logo.
+// El alto crece si el texto del sello o el logo lo necesitan. Devuelve el alto del encabezado.
 function encabezado(doc, empresa, subtitulo) {
   const W = doc.internal.pageSize.getWidth(), M = 16;
-  doc.setFillColor(...INK); doc.rect(0, 0, W, 34, "F");
-  doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); doc.setFontSize(15);
-  doc.text(empresa?.name || "Desabollito", M, 15);
-  doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(175, 192, 215);
-  doc.text(subtitulo, M, 22);
-
   const sello = empresa?.seal || {};
-  let ty = 10;
+  // medir logo y texto antes de pintar el fondo
+  let logo = null;
   if (sello.logo) {
     try {
       const p = doc.getImageProperties(sello.logo);
-      let w = 36, h = p.height / p.width * w;
-      if (h > 14) { h = 14; w = p.width / p.height * h; }
-      doc.addImage(sello.logo, p.fileType || "PNG", W - M - w, 5, w, h, undefined, "FAST");
-      ty = 5 + h + 4;
+      let w = 46, h = p.height / p.width * w;
+      if (h > 24) { h = 24; w = p.width / p.height * h; }
+      logo = { p, w, h };
     } catch (e) { console.warn("logo del sello", e); }
   }
-  if (sello.texto) {
-    doc.setFontSize(7.5); doc.setTextColor(175, 192, 215);
-    const lineas = doc.splitTextToSize(sello.texto, 62).slice(0, Math.max(1, Math.floor((32 - ty) / 3.6) + 1));
-    lineas.forEach((l, i) => doc.text(l, W - M, ty + i * 3.6, { align: "right" }));
+  doc.setFont("helvetica", "normal"); doc.setFontSize(7.5);
+  const lineas = sello.texto ? doc.splitTextToSize(sello.texto, 64) : [];
+  const LH = 3.5;
+  const alto = Math.max(34, logo ? logo.h + 12 : 0, lineas.length ? 9 + lineas.length * LH + 4 : 0);
+
+  doc.setFillColor(...INK); doc.rect(0, 0, W, alto, "F");
+  doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); doc.setFontSize(15);
+  doc.text(empresa?.name || "Desabollito", M, alto / 2 - 2);
+  doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(175, 192, 215);
+  doc.text(subtitulo, M, alto / 2 + 5);
+
+  let xTexto = W - M;
+  if (logo) {
+    try { doc.addImage(sello.logo, logo.p.fileType || "PNG", W - M - logo.w, (alto - logo.h) / 2, logo.w, logo.h, undefined, "FAST"); }
+    catch (e) { console.warn("logo del sello", e); }
+    xTexto = W - M - logo.w - 5;
   }
+  if (lineas.length) {
+    doc.setFont("helvetica", "normal"); doc.setFontSize(7.5); doc.setTextColor(175, 192, 215);
+    const y0 = (alto - lineas.length * LH) / 2 + 2.6;
+    lineas.forEach((l, i) => doc.text(l, xTexto, y0 + i * LH, { align: "right" }));
+  }
+  return alto;
 }
 
 function pie(doc, texto) {
@@ -92,10 +106,10 @@ function titulo(doc, txt, x, y, w) {
 export async function presupuestoPDF(v, empresa, { conFotos = false, onProgreso } = {}) {
   const doc = nuevoDoc();
   const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), M = 16, CW = W - M * 2;
-  encabezado(doc, empresa, `Presupuesto de reparación de granizo · ${fecha(v.fechas?.peritado)}`);
+  const hh = encabezado(doc, empresa, `Presupuesto de reparación de granizo · ${fecha(v.fechas?.peritado)}`);
 
   // Vehículo
-  let y = 48;
+  let y = hh + 14;
   doc.setTextColor(...INK); doc.setFont("helvetica", "bold"); doc.setFontSize(18);
   doc.text(doc.splitTextToSize(v.modelo || "Vehículo", CW - 50)[0], M, y);
   if (v.patente) patente(doc, v.patente, W - M, y - 8);
@@ -191,9 +205,9 @@ export async function presupuestoPDF(v, empresa, { conFotos = false, onProgreso 
     }
     if (imgs.length) {
       doc.addPage();
-      encabezado(doc, empresa, `Registro fotográfico · ${v.modelo || ""} ${v.patente || ""}`);
+      const hf = encabezado(doc, empresa, `Registro fotográfico · ${v.modelo || ""} ${v.patente || ""}`);
       const cols = 3, gap = 4, cw = (CW - gap * (cols - 1)) / cols, ch = cw * 0.75;
-      let fy = 44, c = 0;
+      let fy = hf + 10, c = 0;
       for (const im of imgs) {
         if (fy + ch > H - 16) { doc.addPage(); fy = 20; c = 0; }
         const cx = M + c * (cw + gap);
@@ -214,7 +228,7 @@ export async function presupuestoPDF(v, empresa, { conFotos = false, onProgreso 
 export function planillaPDF(lista, empresa, filtroTexto = "") {
   const doc = nuevoDoc("landscape");
   const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), M = 12;
-  encabezado(doc, empresa, `Planilla de vehículos${filtroTexto ? " · " + filtroTexto : ""} · ${new Date().toLocaleDateString("es-AR")}`);
+  const hp = encabezado(doc, empresa, `Planilla de vehículos${filtroTexto ? " · " + filtroTexto : ""} · ${new Date().toLocaleDateString("es-AR")}`);
   const cols = [
     ["Fecha", 20, v => fechaCorta(v.fechas?.peritado)],
     ["Modelo", 52, v => v.modelo], ["Patente", 24, v => v.patente],
@@ -223,7 +237,7 @@ export function planillaPDF(lista, empresa, filtroTexto = "") {
     ["Precio", 27, v => money(v.precio)]
   ];
   const tw = cols.reduce((s, c) => s + c[1], 0), x0 = (W - tw) / 2, rh = 7.5;
-  let y = 42;
+  let y = hp + 8;
   const cabecera = () => {
     doc.setFillColor(...AZUL); doc.rect(x0, y, tw, rh, "F");
     doc.setFont("helvetica", "bold"); doc.setFontSize(8); doc.setTextColor(255, 255, 255);
@@ -258,10 +272,10 @@ export function gastosPDF(lista, empresa, periodo, CAT) {
   const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), M = 16, CW = W - M * 2;
   const usd = g => g.moneda === "USD";
   const txt = g => usd(g) ? "US$ " + Number(g.monto || 0).toLocaleString("es-AR") : money(g.monto) || "$0";
-  encabezado(doc, empresa, `Rendición de gastos · ${periodo}`);
+  const hg = encabezado(doc, empresa, `Rendición de gastos · ${periodo}`);
   const total = lista.filter(g => !usd(g)).reduce((s, g) => s + Number(g.monto || 0), 0);
   const totalUSD = lista.filter(usd).reduce((s, g) => s + Number(g.monto || 0), 0);
-  let y = 46;
+  let y = hg + 12;
   const alto = totalUSD ? 24 : 18;
   doc.setFillColor(...INK); doc.roundedRect(M, y, CW, alto, 2.5, 2.5, "F");
   doc.setFont("helvetica", "normal"); doc.setFontSize(9.5); doc.setTextColor(175, 192, 215);
