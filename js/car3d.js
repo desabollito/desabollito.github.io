@@ -172,7 +172,11 @@ export async function montar3D(contenedor, piezas = {}, opciones = {}) {
     const u = hit.object.userData;
     if (u.pieza) return u.pieza;
     if (u.rueda) return u.rueda;
-    if (u.vidrio) return null; // los vidrios no dejan tocar lo que está detrás
+    if (u.vidrio) {
+      // Ventanas laterales → parante de ese lado; parabrisas y luneta no marcan nada
+      const q = auto.worldToLocal(hit.point.clone());
+      return Math.abs(q.x) > 0.6 ? `parante_${q.x > 0 ? "izq" : "der"}` : null;
+    }
     if (!u.cuerpo) return null;
     const p = auto.worldToLocal(hit.point.clone());
     const lado = p.x > 0 ? "izq" : "der";

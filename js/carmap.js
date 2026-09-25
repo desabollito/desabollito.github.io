@@ -57,7 +57,7 @@ export function montarMapa(root, piezas, onToggle) {
     navigator.vibrate?.(8);
   };
 
-  // Mantener apretado el techo 1,5 s marca todos los paños
+  // Mantener apretado el techo 0,75 s marca todos los paños (o los desmarca si ya estaban todos)
   let timer = null, largo = false;
   const cancelar = () => { clearTimeout(timer); timer = null; };
   svg.addEventListener("pointerdown", e => {
@@ -65,14 +65,16 @@ export function montarMapa(root, piezas, onToggle) {
     if (!e.target.closest('[data-pieza="techo"]')) return;
     timer = setTimeout(() => {
       largo = true; timer = null;
+      // Si ya estaban todos marcados, se desmarcan todos; si no, se marcan todos
+      const marcar = !ORDEN_PIEZAS.every(k => piezas[k]);
       ORDEN_PIEZAS.forEach(k => {
-        piezas[k] = true;
+        piezas[k] = marcar;
         const g = svg.querySelector(`[data-pieza="${k}"]`);
-        g.classList.add("on"); g.setAttribute("aria-checked", "true");
+        g.classList.toggle("on", marcar); g.setAttribute("aria-checked", marcar);
       });
       pintarLista(); onToggle?.(piezas);
-      navigator.vibrate?.([20, 40, 20]);
-    }, 1500);
+      navigator.vibrate?.(marcar ? [20, 40, 20] : 30);
+    }, 750);
   });
   ["pointerup", "pointerleave", "pointercancel"].forEach(ev => svg.addEventListener(ev, cancelar));
   svg.addEventListener("contextmenu", e => e.preventDefault());
