@@ -425,10 +425,6 @@ export function vistaAjustes(view) {
   const enPapelera = papelera().length;
   view.innerHTML = `
   <div class="page narrow">
-    <nav class="card menu">
-      <a href="#/papelera">${icon("trash")}<span><strong>Papelera</strong><small>${enPapelera ? `${enPapelera} ${enPapelera === 1 ? "vehículo" : "vehículos"}` : "Vacía"}</small></span>${icon("next")}</a>
-    </nav>
-
     <section class="card profile">
       <div class="profile-row">
         <span class="avatar lg">${p.photoURL ? `<img src="${esc(avatar(p.photoURL, 160))}" alt="">` : esc(initials(p.name))}</span>
@@ -451,6 +447,10 @@ export function vistaAjustes(view) {
         <button class="seg-btn ${oscuro ? "on" : ""}" data-t="dark">Oscuro</button>
       </div>
     </section>
+
+    <nav class="card menu">
+      <a href="#/papelera">${icon("trash")}<span><strong>Papelera</strong><small>${enPapelera ? `${enPapelera} ${enPapelera === 1 ? "vehículo" : "vehículos"}` : "Vacía"}</small></span>${icon("next")}</a>
+    </nav>
 
     <section class="card">
       <button class="btn btn-danger-ghost btn-block" id="salir">${icon("logout")}Cerrar sesión</button>

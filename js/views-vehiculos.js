@@ -158,7 +158,7 @@ function renderDetalle(root, v, embebido) {
       <div class="d-title">
         <h2>${esc(v.modelo || "Sin modelo")}</h2>
         <div class="d-plate">${plate(v.patente, "lg")}</div>
-        ${v.precio ? `<div class="d-price"><small>Presupuesto</small><strong>${money(v.precio)}</strong></div>` : ""}
+        ${v.precio ? `<div class="d-price"><strong>${money(v.precio)}</strong></div>` : ""}
       </div>
     </header>
 
@@ -263,7 +263,7 @@ function renderDetalle(root, v, embebido) {
     if (pz) {
       const k = pz.dataset.pieza, cap = $(".piezas-caption", root);
       $$(".d-piezas .panel", root).forEach(g => g.classList.toggle("tocado", g === pz));
-      if (cap) cap.innerHTML = `<strong>${esc(PIEZA[k].label)}</strong>${v.piezas?.[k] ? " · con granizo" : " · sin daño"}`;
+      if (cap) cap.innerHTML = `<strong>${esc(PIEZA[k].label)}</strong>`;
       return;
     }
     const fi = t.closest("[data-foto]");
