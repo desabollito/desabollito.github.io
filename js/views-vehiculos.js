@@ -38,7 +38,7 @@ function tarjeta(v, sel) {
       <span class="vtop"><strong class="vmodel">${esc(v.modelo || "Sin modelo")}</strong>
 </span>
       <span class="vmid">${plate(v.patente, "sm")}${estadoPill(v)}${v._pending ? `<span class="sync" title="Pendiente de sincronizar"></span>` : ""}</span>
-      <span class="vsub"><span class="vcli">${esc([v.compania, v.localidad].filter(Boolean).join(", "))}</span>
+      <span class="vsub"><span class="vcli">${esc(v.compania || "")}</span>
         ${autor ? `<em>${esc(autor.split(" ")[0])}</em>` : ""}<time>${fechaCorta(v.fechas?.peritado)}</time></span>
     </span>
   </a>`;
