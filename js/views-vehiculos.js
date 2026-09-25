@@ -8,6 +8,7 @@ import {
   confirmar, busy, debounce, marcarError
 } from "./ui.js";
 import { carMapSVG, montarMapa } from "./carmap.js";
+import { montar3D } from "./car3d.js";
 import { subir, comprimir, borrarConToken, thumb, grande, cloudinaryListo } from "./media.js";
 import { presupuestoPDF, nombreArchivo } from "./pdf.js";
 import { setTopbar, go, esAncho } from "./shell.js";
@@ -133,6 +134,15 @@ export function vistaDetalle(view, id) {
   renderDetalle($(".detail-page", view), v, false);
 }
 
+// Vista 3D (se recuerda mientras la app está abierta)
+let modo3D = false;
+function iniciar3D(root, v) {
+  const caja = $(".vista-3d", root), cap = $(".caption-3d", root);
+  caja.innerHTML = `<div class="skeleton" style="height:280px"></div>`;
+  montar3D(caja, v.piezas || {}, (k, nombre) => { if (cap) cap.innerHTML = `<strong>${esc(nombre || k)}</strong>`; })
+    .catch(err => { caja.innerHTML = `<p class="muted small center">${esc(err.message)}</p>`; });
+}
+
 function waLink(tel, texto = "") {
   let d = (tel || "").replace(/\D/g, "");
   if (!d) return "";
@@ -191,13 +201,16 @@ function renderDetalle(root, v, embebido) {
     </section>
 
     <section class="d-sec d-piezas">
-      <div class="sec-head"><h3>Paños afectados <small>${todos ? "todos" : (marcadas.length || "ninguno")}</small></h3>
-        ${v.grado ? `<span class="grado-tag g${v.grado}">Grado ${v.grado}</span>` : ""}</div>
-      <div class="piezas-view">
+      <div class="sec-head"><h3>Paños afectados ${todos ? "<small>todos</small>" : marcadas.length ? `<small>${marcadas.length}</small>` : ""}</h3>
+        <button class="btn btn-ghost btn-sm vista-btn" data-act="vista3d">${modo3D ? "2D" : "3D"}</button></div>
+      <div class="vista-3d" ${modo3D ? "" : "hidden"}></div>
+      <div class="piezas-view" ${modo3D ? "hidden" : ""}>
         ${carMapSVG(v.piezas || {}, { size: "carmap-sm" })}
         <p class="piezas-caption" aria-live="polite">${todos ? "<strong>Todos</strong>" : marcadas.length ? "Tocá un paño para ver su nombre" : "Sin paños marcados"}</p>
         <ul class="piezas-list">${todos ? "<li>Todos</li>" : marcadas.map(k => `<li>${esc(PIEZA[k].label)}</li>`).join("") || "<li class='muted'>Sin paños marcados</li>"}</ul>
       </div>
+      <p class="piezas-caption caption-3d" ${modo3D ? "" : "hidden"}>Arrastrá para girar · tocá un paño</p>
+      ${v.grado ? `<div class="grado-fila"><span class="grado-tag g${v.grado}">Grado ${v.grado}</span></div>` : ""}
     </section>
 
     ${v.observaciones ? `<section class="d-sec"><h3>Observaciones</h3><p class="prose">${esc(v.observaciones)}</p></section>` : ""}
@@ -225,6 +238,8 @@ function renderDetalle(root, v, embebido) {
     </footer>
   </article>`;
 
+  if (modo3D) iniciar3D(root, v);
+
   // Acciones
   root.addEventListener("click", async e => {
     const t = e.target;
@@ -233,6 +248,15 @@ function renderDetalle(root, v, embebido) {
     const act = t.closest("[data-act]")?.dataset.act;
     if (act === "pdf") return compartir(v);
     if (act === "galeria") return visor(v.fotos, 0, v);
+    if (act === "vista3d") {
+      modo3D = !modo3D;
+      t.closest("[data-act]").textContent = modo3D ? "2D" : "3D";
+      $(".vista-3d", root).hidden = !modo3D;
+      $(".d-piezas .piezas-view", root).hidden = modo3D;
+      $(".caption-3d", root).hidden = !modo3D;
+      if (modo3D) iniciar3D(root, v);
+      return;
+    }
     if (act === "firma") return firmar(v);
     if (act === "anular") {
       if (anulado) {

@@ -775,3 +775,11 @@ body[data-detalle="1"] .fab { display: none !important; }
 .seg-rol .seg-btn.on { background: var(--primary); color: #fff; }
 .viewer-add { margin-top: 10px; }
 .carmap.editable { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; touch-action: manipulation; }
+
+/* Paños: grado abajo y vista 3D */
+.grado-fila { display: flex; justify-content: center; margin-top: 4px; }
+.vista-3d { width: 100%; min-height: 280px; border-radius: 12px; overflow: hidden; background: var(--surface-2); }
+.vista-3d canvas { display: block; width: 100% !important; }
+.caption-3d { display: block !important; text-align: center; font-size: 13.5px; color: var(--muted); }
+.caption-3d[hidden] { display: none !important; }
+.vista-btn { min-width: 52px; font-weight: 800; }

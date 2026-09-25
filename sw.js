@@ -1,11 +1,11 @@
 // Service worker: la app abre al instante y funciona sin señal.
 // Subí el número de versión en cada publicación para forzar la actualización.
-const VERSION = "desabollito-v2.5.0";
+const VERSION = "desabollito-v2.5.1";
 const SHELL = [
   "./", "./index.html", "./manifest.json", "./css/app.css",
   "./js/app.js", "./js/config.js", "./js/firebase.js", "./js/data.js", "./js/domain.js", "./js/ui.js",
   "./js/shell.js", "./js/media.js", "./js/carmap.js", "./js/pdf.js",
-  "./js/views-vehiculos.js", "./js/views-otros.js", "./js/views-gastos.js", "./js/excel.js",
+  "./js/views-vehiculos.js", "./js/views-otros.js", "./js/views-gastos.js", "./js/car3d.js", "./js/excel.js",
   "./img/app-192.png", "./img/app-512.png", "./img/logo-claro.png", "./img/logo-oscuro.png"
 ];
 

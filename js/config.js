@@ -36,4 +36,4 @@ export const USER_DOMAIN = "desabollito.app";
 // Con esto la app muestra el botón "Abrir chat con el bot". Vacío = oculto.
 export const WHATSAPP_BOT = "";
 
-export const APP_VERSION = "2.5.0";
+export const APP_VERSION = "2.5.1";
