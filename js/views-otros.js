@@ -251,7 +251,6 @@ export function vistaEmpresa(view) {
 
     <section class="card">
       <h3>Equipo <small class="muted">${miembros.length}</small></h3>
-      <p class="muted small">Todos ven y cargan los vehículos de este operativo. Los administradores además gestionan el equipo, las etiquetas y el sello.</p>
       <ul class="members">${miembros.map(m => `
         <li>
           <span class="avatar">${esc(initials(m.name))}</span>
@@ -271,8 +270,8 @@ export function vistaEmpresa(view) {
         </li>`).join("")}</ul>
       ${admin ? `
       <form class="add-member" id="add">
-        <label class="field"><span>Sumar a alguien por su usuario</span>
-          <input name="u" placeholder="usuario" autocapitalize="none" spellcheck="false" required></label>
+        <label class="field">
+          <input name="u" placeholder="Usuario a sumar" aria-label="Usuario a sumar" autocapitalize="none" spellcheck="false" required></label>
         <select name="rol" aria-label="Rol"><option value="tecnico">Técnico</option><option value="admin">Administrador</option></select>
         <button class="btn btn-primary">${icon("plus")}Sumar</button>
       </form>
@@ -280,11 +279,10 @@ export function vistaEmpresa(view) {
     </section>
 
     <section class="card">
-      <h3>Sello del presupuesto</h3>
-      <p class="muted small">Aparece arriba a la derecha en cada PDF.</p>
+      <h3>Sello del presupuesto (por operativo)</h3>
       <form id="sello" class="stack">
-        <label class="field"><span>Texto</span>
-          <textarea name="texto" rows="4" ${admin ? "" : "disabled"} placeholder="Juan Pérez · Desabollador&#10;CUIT 20-12345678-9&#10;11 2345 6789">${esc(sello.texto)}</textarea></label>
+        <label class="field">
+          <textarea name="texto" aria-label="Texto del sello" rows="4" ${admin ? "" : "disabled"} placeholder="Juan Pérez · Desabollador&#10;CUIT 20-12345678-9&#10;11 2345 6789">${esc(sello.texto)}</textarea></label>
         <div class="logo-row">
           <div class="logo-prev ${sello.logo ? "" : "vacio"}">${sello.logo ? `<img src="${esc(sello.logo)}" alt="Logo">` : "Sin logo"}</div>
           ${admin ? `<div class="stack-sm">
