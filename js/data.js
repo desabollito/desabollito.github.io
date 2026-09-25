@@ -287,11 +287,13 @@ export async function salirDeEmpresa() {
 
 export async function eliminarEmpresa() {
   const cid = S.company.id;
-  const snap = await getDocs(collection(db, "companies", cid, "vehicles"));
-  for (let i = 0; i < snap.docs.length; i += 400) {
-    const b = writeBatch(db);
-    snap.docs.slice(i, i + 400).forEach(d => b.delete(d.ref));
-    await b.commit();
+  for (const sub of ["vehicles", "gastos"]) {
+    const snap = await getDocs(collection(db, "companies", cid, sub));
+    for (let i = 0; i < snap.docs.length; i += 400) {
+      const b = writeBatch(db);
+      snap.docs.slice(i, i + 400).forEach(d => b.delete(d.ref));
+      await b.commit();
+    }
   }
   await deleteDoc(doc(db, "companies", cid));
   localStorage.removeItem("empresaActiva");

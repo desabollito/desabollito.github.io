@@ -271,16 +271,7 @@ export function vistaEmpresa(view) {
             </span>` : ""}
         </li>`).join("")}</ul>
       ${admin ? `
-      <form class="add-member" id="add">
-        <label class="field">
-          <input name="u" placeholder="Usuario a sumar" aria-label="Usuario a sumar" autocapitalize="none" spellcheck="false" required></label>
-        <input type="hidden" name="rol" value="tecnico">
-        <div class="seg seg-sm seg-rol" data-rol-nuevo role="radiogroup" aria-label="Rol">
-          <button type="button" class="seg-btn on" data-v="tecnico">Técnico</button>
-          <button type="button" class="seg-btn" data-v="admin">Admin</button>
-        </div>
-        <button class="btn btn-primary">${icon("plus")}Sumar</button>
-      </form>
+      <button class="btn btn-ghost btn-block" id="agregar-usuario">${icon("plus")}Agregar usuario</button>
 ` : ""}
     </section>
 
@@ -301,7 +292,7 @@ export function vistaEmpresa(view) {
 
     <section class="card danger-zone">
       ${duenio
-        ? `<button class="btn btn-danger-ghost" id="borrar-emp">${icon("trash")}Eliminar el operativo y sus vehículos</button>`
+        ? `<button class="btn btn-danger-ghost" id="borrar-emp">${icon("trash")}Eliminar operativo</button>`
         : `<button class="btn btn-danger-ghost" id="salir-emp">${icon("logout")}Salir de este operativo</button>`}
     </section>
   </div>`;
@@ -311,22 +302,36 @@ export function vistaEmpresa(view) {
     const n = await pedirTexto({ title: "Renombrar operativo", label: "Nombre", value: c.name });
     if (n) renombrarEmpresa(n).catch(e => toast(mensajeError(e), "error"));
   });
-  $("#add", view)?.addEventListener("submit", async e => {
-    e.preventDefault();
-    const b = $("button", e.target); busy(b, true, "Buscando…");
-    try { const n = await agregarMiembro(e.target.u.value, e.target.rol.value); toast(`${n} se sumó al operativo`, "success"); }
-    catch (err) { toast(mensajeError(err), "error"); }
-    finally { busy(b, false); }
+  $("#agregar-usuario", view)?.addEventListener("click", () => {
+    let rol = "tecnico";
+    const sh = openSheet({
+      title: "Agregar usuario",
+      body: `<form class="stack" id="add">
+        <label class="field"><span>Nombre de usuario</span>
+          <input name="u" placeholder="usuario" autocapitalize="none" spellcheck="false" required></label>
+        <div class="field"><span>Rol</span>
+          <div class="seg seg-rol" id="rol-nuevo">
+            <button type="button" class="seg-btn on" data-v="tecnico">Técnico</button>
+            <button type="button" class="seg-btn" data-v="admin">Admin</button>
+          </div></div>
+        <button class="btn btn-primary btn-block btn-lg">${icon("plus")}Agregar</button>
+      </form>`
+    });
+    $("#rol-nuevo", sh.el).onclick = e => {
+      const b = e.target.closest("[data-v]"); if (!b) return;
+      rol = b.dataset.v; $$("#rol-nuevo .seg-btn", sh.el).forEach(x => x.classList.toggle("on", x === b));
+    };
+    $("#add", sh.el).onsubmit = async e => {
+      e.preventDefault();
+      const b = $("button.btn-primary", e.target); busy(b, true, "Buscando…");
+      try { const n = await agregarMiembro(e.target.u.value, rol); toast(`${n} se sumó al operativo`, "success"); sh.close(); }
+      catch (err) { toast(mensajeError(err), "error"); busy(b, false); }
+    };
   });
   $$("[data-rol]", view).forEach(g => g.onclick = e => {
     const b = e.target.closest("[data-v]"); if (!b || b.classList.contains("on")) return;
     $$(".seg-btn", g).forEach(x => x.classList.toggle("on", x === b));
     cambiarRol(g.dataset.rol, b.dataset.v).then(() => toast("Rol actualizado", "success")).catch(err => toast(mensajeError(err), "error"));
-  });
-  $("[data-rol-nuevo]", view)?.addEventListener("click", e => {
-    const b = e.target.closest("[data-v]"); if (!b) return;
-    $$("[data-rol-nuevo] .seg-btn", view).forEach(x => x.classList.toggle("on", x === b));
-    $("#add", view).rol.value = b.dataset.v;
   });
   $$("[data-tags]", view).forEach(b => b.onclick = () => editarEtiquetas(b.dataset.tags));
   $$("[data-quitar]", view).forEach(b => b.onclick = async () => {
@@ -350,8 +355,12 @@ export function vistaEmpresa(view) {
       salirDeEmpresa().then(() => go("#/")).catch(e => toast(mensajeError(e), "error"));
   });
   $("#borrar-emp", view)?.addEventListener("click", async () => {
-    const n = await pedirTexto({ title: "Eliminar operativo", label: `Escribí “${c.name}” para confirmar`, ok: "Eliminar para siempre" });
-    if (n !== c.name) { if (n !== null) toast("El nombre no coincide", "warning"); return; }
+    const uno = await confirmar({ title: `¿Eliminar el operativo “${c.name}”?`,
+      message: "Se va a perder todo: vehículos, fotos, documentos y gastos de este operativo.", ok: "Sí, eliminar", danger: true });
+    if (!uno) return;
+    const dos = await confirmar({ title: "¿Estás completamente seguro?",
+      message: `Se borra “${c.name}” con todo su contenido. No se puede deshacer.`, ok: "Eliminar definitivamente", danger: true });
+    if (!dos) return;
     try { await eliminarEmpresa(); toast("Operativo eliminado"); go("#/"); } catch (e) { toast(mensajeError(e), "error"); }
   });
 }
