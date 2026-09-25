@@ -1,4 +1,4 @@
-import { botonesFotos, conectarFotos } from "./camara.js";
+import { botonesFotos, conectarFotos, buscarPatenteEnFoto } from "./camara.js";
 import {
   S, activos, getVehiculo, guardarVehiculo, actualizarVehiculo, cambiarEstado, moverAPapelera,
   solicitarEliminacion, cargadoPor, esDeWhatsApp,
@@ -32,15 +32,14 @@ function filtrar(lista) {
 }
 
 function tarjeta(v, sel) {
-  const foto = v.fotos?.[0]?.url;
-  const autor = esDeWhatsApp(v) ? "Bot" : (S.company?.members?.length > 1 && v.createdBy !== S.user.uid ? v.createdByName : "");
+  const foto = v.fotos?.[0]?.url, rot0 = v.fotos?.[0]?.rot;
+  const autor = !esDeWhatsApp(v) && S.company?.members?.length > 1 && v.createdBy !== S.user.uid ? v.createdByName : "";
   return `
   <a class="vcard ${sel ? "sel" : ""}" href="#/v/${v.id}" style="--c:${ESTADO[estadoActual(v)].color}">
-    <span class="vthumb">${foto ? `<img src="${esc(thumb(foto, 160))}" alt="" loading="lazy">` : icon("car")}</span>
+    <span class="vthumb">${foto ? `<img src="${esc(thumb(foto, 160, rot0))}" alt="" loading="lazy">` : icon("car")}</span>
     <span class="vbody">
-      <span class="vtop"><strong class="vmodel">${esc(v.modelo || "Sin modelo")}</strong>
-</span>
-      <span class="vmid">${plate(v.patente, "sm")}${estadoPill(v)}${v._pending ? `<span class="sync" title="Pendiente de sincronizar"></span>` : ""}</span>
+      <span class="vtop"><strong class="vmodel">${esc(v.modelo || "Sin modelo")}</strong>${estadoPill(v)}</span>
+      <span class="vmid">${plate(v.patente, "sm")}${v._pending ? `<span class="sync" title="Pendiente de sincronizar"></span>` : ""}</span>
       <span class="vsub"><span class="vcli">${esc(v.compania || "")}</span>
         ${autor ? `<em>${esc(autor.split(" ")[0])}</em>` : ""}<time>${fechaCorta(v.fechas?.peritado)}</time></span>
     </span>
@@ -167,10 +166,10 @@ function renderDetalle(root, v, embebido) {
     <header class="d-head">
       ${v.fotos?.length
         ? `<button class="d-cover" data-act="galeria" aria-label="Ver las ${v.fotos.length} fotos">
-             <img src="${esc(thumb(v.fotos[0].url, 240))}" alt=""><span class="d-cover-n">${icon("camera")}${v.fotos.length}</span></button>`
+             <img src="${esc(thumb(v.fotos[0].url, 240, v.fotos[0].rot))}" alt=""><span class="d-cover-n">${icon("camera")}${v.fotos.length}</span></button>`
         : `<div class="d-cover vacio" id="d-cover-cam">
              <button type="button" class="d-cover-cam" data-camara aria-label="Abrir la cámara">${icon("camera")}<small>Cámara</small></button>
-             <label class="d-cover-gal" aria-label="Elegir de la galería">${icon("image")}<input type="file" accept="image/*" multiple hidden data-galeria></label>
+             <label class="d-cover-gal" aria-label="Agregar fotos de la galería">${icon("image")}<span class="gal-plus">+</span><input type="file" accept="image/*" multiple hidden data-galeria></label>
            </div>`}
       <div class="d-title">
         <h2>${esc(v.modelo || "Sin modelo")}</h2>
@@ -393,6 +392,7 @@ function visor(fotos = [], inicio = 0, v = null) {
         <button class="icon-btn" data-p aria-label="Anterior">${icon("back")}</button>
         <span id="vw-n"></span>
         <a class="icon-btn" id="vw-dl" target="_blank" rel="noopener" aria-label="Abrir original">${icon("download")}</a>
+        ${v ? `<button class="icon-btn" id="vw-rot" aria-label="Girar foto" title="Girar">${icon("rotate")}</button>` : ""}
         ${v ? `<button class="icon-btn danger" id="vw-del" aria-label="Quitar esta foto">${icon("trash")}</button>` : ""}
         <button class="icon-btn" data-n aria-label="Siguiente">${icon("next")}</button>
       </div>
@@ -400,7 +400,7 @@ function visor(fotos = [], inicio = 0, v = null) {
       </div>`
   });
   const show = () => {
-    $("#vw-img", s.el).src = grande(fotos[i].url);
+    $("#vw-img", s.el).src = grande(fotos[i].url, 1600, fotos[i].rot);
     const f = fotos[i];
     $("#vw-n", s.el).textContent = `${i + 1} de ${fotos.length}` + (f.via === "whatsapp" ? ` · por WhatsApp${f.byName ? " (" + f.byName + ")" : ""}` : "");
     $("#vw-dl", s.el).href = fotos[i].url;
@@ -420,6 +420,18 @@ function visor(fotos = [], inicio = 0, v = null) {
     if (!files.length) return;
     s.close();
     subirAdjuntos(getVehiculo(v.id) || v, files, "foto", document);
+  });
+  // Girar 90°: queda guardado en el vehículo y se aplica en la app y en el PDF
+  $("#vw-rot", s.el)?.addEventListener("click", () => {
+    const f = fotos[i];
+    const lista = [...(getVehiculo(v.id)?.fotos || [])];
+    const idx = lista.findIndex(x => x.url === f.url);
+    if (idx < 0) return;
+    const rot = ((f.rot || 0) + 90) % 360;
+    fotos[i] = { ...f, rot };
+    lista[idx] = { ...lista[idx], rot };
+    show();
+    actualizarVehiculo(v.id, { fotos: lista }).catch(e => toast(mensajeError(e), "error"));
   });
   $("#vw-del", s.el)?.addEventListener("click", async () => {
     const f = fotos[i];
@@ -481,6 +493,7 @@ function puedeCompartirArchivos() {
 
 function compartir(v) {
   const hayFotos = v.fotos?.length > 0;
+  const puedeCompartirArchivos = () => false;   // solo "Descargar PDF", igual en celular y computadora
   const s = openSheet({
     title: "Compartir presupuesto",
     body: `<div class="stack">
@@ -683,13 +696,22 @@ export function vistaFormulario(view, id = null) {
         <button type="button" class="ph-del" data-quitar-nueva="${n.key}" aria-label="Quitar foto">${icon("x")}</button>
       </figure>`).join("");
   };
-  conectarFotos($("#ff-in", view), (files, patenteLeida) => {
-    if (patenteLeida && !form.patente.value.trim()) {
-      form.patente.value = patenteLeida;
-      form.patente.dispatchEvent(new Event("input", { bubbles: true }));
-      toast(`Patente ${patenteLeida} cargada`, "success");
-    }
+  conectarFotos($("#ff-in", view), files => {
     if (!files.length) return;
+    // Vehículo nuevo sin patente: se busca en la primera foto (en segundo plano)
+    if (!v && !form.patente.value.trim()) {
+      const aviso = $("#aviso-ocr", view) || Object.assign(document.createElement("p"), { id: "aviso-ocr", className: "aviso-ocr" });
+      aviso.textContent = "Buscando la patente en la primera foto…";
+      $("#f-patente", view).appendChild(aviso);
+      buscarPatenteEnFoto(files[0]).then(p => {
+        aviso.remove();
+        if (!p) { toast("No encontré la patente en la foto; cargala a mano", "info"); return; }
+        if (form.patente.value.trim()) return;
+        form.patente.value = p;
+        form.patente.dispatchEvent(new Event("input", { bubbles: true }));
+        toast(`Patente ${p} detectada: revisala`, "success");
+      }).catch(e => { aviso.remove(); console.warn("ocr", e); });
+    }
     if (!cloudinaryListo()) { toast("Falta configurar Cloudinary en js/config.js", "error"); return; }
     for (const file of files) {
       const n = { key: Math.random().toString(36).slice(2), preview: URL.createObjectURL(file), estado: "subiendo", foto: null };
@@ -706,7 +728,7 @@ export function vistaFormulario(view, id = null) {
       pendientes.add(p); p.finally(() => pendientes.delete(p));
     }
     pintarFotos();
-  }, { patente: () => !v && !form.patente.value.trim() });
+  });
   $("#ff-grid", view).addEventListener("click", e => {
     const b = e.target.closest("[data-quitar-nueva]"); if (!b) return;
     const i = nuevas.findIndex(n => n.key === b.dataset.quitarNueva);

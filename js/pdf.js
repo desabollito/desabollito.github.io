@@ -71,7 +71,7 @@ function mapaPiezas(doc, piezas, x, y, alto) {
   const k = alto / 400;
   const R = (p, estilo) => doc.roundedRect(x + p.x * k, y + p.y * k, p.w * k, p.h * k, p.r * k, p.r * k, estilo);
   doc.setFillColor(...SUAVE); doc.setDrawColor(...LINEA); doc.setLineWidth(0.4);
-  doc.roundedRect(x + 20 * k, y + 8 * k, 160 * k, 384 * k, 34 * k, 34 * k, "FD");
+  doc.roundedRect(x + 22 * k, y + 8 * k, 196 * k, 384 * k, 38 * k, 38 * k, "FD");
   doc.setFillColor(226, 232, 240);
   VIDRIOS.forEach(v => R(v, "F"));
   PIEZAS.forEach(p => {
@@ -80,7 +80,7 @@ function mapaPiezas(doc, piezas, x, y, alto) {
     doc.setLineWidth(0.3); R(p, "FD");
   });
   doc.setFontSize(6); doc.setTextColor(...GRIS);
-  doc.text("FRENTE", x + 100 * k, y + 5 * k - 1, { align: "center" });
+  doc.text("FRENTE", x + 120 * k, y + 5 * k - 1, { align: "center" });
 }
 
 function titulo(doc, txt, x, y, w) {
@@ -108,7 +108,8 @@ export async function presupuestoPDF(v, empresa, { conFotos = false, onProgreso 
     ["Fecha de peritaje", fecha(v.fechas?.peritado)], ["Estado", ESTADO[estadoActual(v)].label]
   ];
   if (v.fechas?.reparado) datos.push(["Fecha de reparación", fecha(v.fechas.reparado)]);
-  if (v.grado) datos.push(["Grado de daño", `Grado ${v.grado}`]);
+  const marcadas = piezasMarcadas(v);
+  if (v.grado && !marcadas.length) datos.push(["Grado de daño", `Grado ${v.grado}`]);
   const colW = CW / 2;
   datos.forEach(([l, val], i) => {
     const cx = M + (i % 2) * colW, cy = y + Math.floor(i / 2) * 12;
@@ -119,12 +120,11 @@ export async function presupuestoPDF(v, empresa, { conFotos = false, onProgreso 
   y += Math.ceil(datos.length / 2) * 12 + 4;
 
   // Piezas: mapa + lista
-  const marcadas = piezasMarcadas(v);
   if (marcadas.length) {
     titulo(doc, "Paños afectados", M, y, CW); y += 7;
     const altoMapa = 74;
     mapaPiezas(doc, v.piezas, M, y, altoMapa);
-    const lx = M + altoMapa / 2 + 10;
+    const lx = M + altoMapa * 0.6 + 10;
     doc.setFont("helvetica", "normal"); doc.setFontSize(9.5); doc.setTextColor(...INK);
     const col2 = marcadas.length > 7;
     marcadas.forEach((k, i) => {
@@ -135,6 +135,11 @@ export async function presupuestoPDF(v, empresa, { conFotos = false, onProgreso 
     });
     doc.setFontSize(8); doc.setTextColor(...GRIS);
     doc.text(`${marcadas.length} ${marcadas.length === 1 ? "paño" : "paños"}`, lx, y + altoMapa - 2);
+    if (v.grado) {
+      const tx = lx + doc.getTextWidth(`${marcadas.length} paños`) + 6;
+      doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(...INK);
+      doc.text(`Grado de daño: ${v.grado}`, tx, y + altoMapa - 2);
+    }
     y += altoMapa + 8;
   }
 
@@ -182,7 +187,7 @@ export async function presupuestoPDF(v, empresa, { conFotos = false, onProgreso 
     const imgs = [];
     for (let i = 0; i < fotos.length; i++) {
       onProgreso?.(`Descargando fotos ${i + 1}/${fotos.length}`);
-      try { imgs.push(await cargarImagen(paraPDF(fotos[i].url))); } catch (e) { console.warn(e); }
+      try { imgs.push(await cargarImagen(paraPDF(fotos[i].url, fotos[i].rot))); } catch (e) { console.warn(e); }
     }
     if (imgs.length) {
       doc.addPage();

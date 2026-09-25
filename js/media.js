@@ -63,17 +63,18 @@ export async function borrarConToken(token) {
 }
 
 // Variantes servidas por Cloudinary (formato y calidad automáticos)
-export function thumb(url, lado = 320) {
+const giro = rot => (rot ? `a_${rot}/` : "");
+export function thumb(url, lado = 320, rot = 0) {
   if (!url || !url.includes("/upload/")) return url;
-  return url.replace("/upload/", `/upload/c_fill,g_auto,w_${lado},h_${lado},q_auto,f_auto/`);
+  return url.replace("/upload/", `/upload/${giro(rot)}c_fill,g_auto,w_${lado},h_${lado},q_auto,f_auto/`);
 }
-export function grande(url, ancho = 1600) {
+export function grande(url, ancho = 1600, rot = 0) {
   if (!url || !url.includes("/upload/")) return url;
-  return url.replace("/upload/", `/upload/c_limit,w_${ancho},q_auto,f_auto/`);
+  return url.replace("/upload/", `/upload/${giro(rot)}c_limit,w_${ancho},q_auto,f_auto/`);
 }
-export function paraPDF(url) {
+export function paraPDF(url, rot = 0) {
   if (!url || !url.includes("/upload/")) return url;
-  return url.replace("/upload/", "/upload/c_limit,w_1000,q_70,f_jpg/");
+  return url.replace("/upload/", `/upload/${giro(rot)}c_limit,w_1000,q_70,f_jpg/`);
 }
 
 export function blobADataURL(blob) {

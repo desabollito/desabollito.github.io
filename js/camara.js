@@ -113,50 +113,65 @@ export async function abrirCamara(op = {}) {
   abriendo = true;
   try { return await abrirCamara_(op); } finally { abriendo = false; }
 }
-async function abrirCamara_({ patente = false } = {}) {
+
+// Formato 4:3 (el de la cámara del celular), con la mayor resolución disponible
+const VIDEO_4x3 = { width: { ideal: 4032 }, height: { ideal: 3024 }, aspectRatio: { ideal: 4 / 3 } };
+
+// Lentes: zoom nativo si el celular lo expone; si no, cámaras traseras separadas (ultra gran angular, etc.)
+async function opcionesDeLente(track) {
+  const caps = track.getCapabilities?.() || {};
+  if (caps.zoom && caps.zoom.max > caps.zoom.min) {
+    const { min, max } = caps.zoom, ops = [];
+    if (min < 0.95) ops.push({ t: (Math.round(min * 10) / 10).toString().replace(".", ",") + "x", zoom: min });
+    ops.push({ t: "1x", zoom: Math.max(min, 1) });
+    if (max >= 2) ops.push({ t: "2x", zoom: 2 });
+    if (max >= 3) ops.push({ t: "3x", zoom: 3 });
+    return ops.length > 1 ? ops : [];
+  }
+  const devs = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === "videoinput");
+  const traseras = devs.filter(d => !/front|frontal|delanter|user|facetime/i.test(d.label));
+  if (traseras.length < 2) return [];
+  const rol = d => /ultra|gran angular|0[.,]5/i.test(d.label) ? 0 : /tele/i.test(d.label) ? 2 : /dual|triple/i.test(d.label) ? 9 : 1;
+  const conRol = traseras.map(d => ({ d, r: rol(d) })).filter(x => x.r !== 9);
+  const conocidos = conRol.some(x => x.r !== 1);
+  if (conocidos) {
+    const ops = [];
+    const ultra = conRol.find(x => x.r === 0), normal = conRol.find(x => x.r === 1), tele = conRol.find(x => x.r === 2);
+    if (ultra) ops.push({ t: "0,5x", id: ultra.d.deviceId });
+    if (normal) ops.push({ t: "1x", id: normal.d.deviceId });
+    if (tele) ops.push({ t: "2x", id: tele.d.deviceId });
+    return ops.length > 1 ? ops : [];
+  }
+  return conRol.map((x, i) => ({ t: `Lente ${i + 1}`, id: x.d.deviceId }));
+}
+
+async function abrirCamara_() {
   if (!navigator.mediaDevices?.getUserMedia) return null;
   let stream;
-  try {
-    stream = await navigator.mediaDevices.getUserMedia({
-      audio: false,
-      video: { facingMode: { ideal: "environment" }, width: { ideal: 3840 }, height: { ideal: 2160 } }
-    });
-  } catch (e) {
+  const pedir = extra => navigator.mediaDevices.getUserMedia({ audio: false, video: { ...VIDEO_4x3, ...extra } });
+  try { stream = await pedir({ facingMode: { ideal: "environment" } }); }
+  catch (e) {
     console.warn("cámara", e);
     toast(e?.name === "NotAllowedError" ? "La cámara está bloqueada. Habilitala en los permisos del navegador." : "No se pudo abrir la cámara", "error");
     return null;
   }
-  const track = stream.getVideoTracks()[0];
-  const puedeFlash = !!track.getCapabilities?.().torch;
+  let track = stream.getVideoTracks()[0];
 
   return new Promise(resolve => {
     const fotos = [];          // { file, url }
-    let leida = null, modo = patente ? "patente" : "fotos", flash = false, cerrado = false;
+    let flash = false, cerrado = false, lentes = [], lente = 0;
 
     const el = document.createElement("div");
     el.className = "cam";
     el.innerHTML = `
-      <video playsinline muted autoplay></video>
-      <div class="cam-flashfx"></div>
+      <div class="cam-visor"><video playsinline muted autoplay></video><div class="cam-flashfx"></div></div>
       <header class="cam-top">
         <button class="cam-ic" data-cerrar aria-label="Cerrar">${icon("x")}</button>
-        <span class="cam-titulo"></span>
-        ${puedeFlash ? `<button class="cam-ic" data-flash aria-label="Linterna">${icon("flash")}</button>` : `<span class="cam-ic vacio"></span>`}
+        <span class="cam-titulo">Fotos</span>
+        <button class="cam-ic" data-flash aria-label="Linterna" hidden>${icon("flash")}</button><span class="cam-ic vacio"></span>
       </header>
-      <div class="cam-pat">
-        <p class="cam-ayuda">Apuntá a la patente</p>
-        <div class="cam-marco"></div>
-        <p class="cam-vista"></p>
-        <div class="cam-leida" hidden>
-          <div class="cam-plate"></div>
-          <div class="cam-leida-btns">
-            <button class="btn btn-ghost" data-otra>Leer de nuevo</button>
-            <button class="btn btn-primary" data-usar>Usar</button>
-          </div>
-        </div>
-        <button class="cam-saltar" data-saltar>Saltar la patente</button>
-      </div>
       <footer class="cam-bot">
+        <div class="cam-lentes"></div>
         <div class="cam-tiras"></div>
         <div class="cam-ctrl">
           <span class="cam-n"></span>
@@ -168,11 +183,30 @@ async function abrirCamara_({ patente = false } = {}) {
     document.documentElement.classList.add("cam-abierta");
     const $ = s => el.querySelector(s);
     const video = $("video"); video.srcObject = stream;
-    const lienzo = document.createElement("canvas");
+
+    const prepararControles = async () => {
+      const puedeFlash = !!track.getCapabilities?.().torch;
+      $("[data-flash]").hidden = !puedeFlash; $(".cam-ic.vacio").hidden = puedeFlash;
+      if (!lentes.length) {
+        lentes = await opcionesDeLente(track).catch(() => []);
+        lente = Math.max(0, lentes.findIndex(o => o.t === "1x"));
+      }
+      $(".cam-lentes").innerHTML = lentes.map((o, i) => `<button class="${i === lente ? "on" : ""}" data-lente="${i}">${o.t}</button>`).join("");
+    };
+    const usarLente = async i => {
+      const o = lentes[i]; if (!o) return;
+      lente = i; prepararControles();
+      if (o.zoom != null) { track.applyConstraints({ advanced: [{ zoom: o.zoom }] }).catch(() => {}); return; }
+      try {
+        stream.getTracks().forEach(t => t.stop());
+        stream = await pedir({ deviceId: { exact: o.id } });
+        track = stream.getVideoTracks()[0]; video.srcObject = stream; flash = false;
+        $("[data-flash]").classList.remove("on");
+        prepararControles();
+      } catch (e) { console.warn("lente", e); toast("No se pudo cambiar de lente", "error"); }
+    };
 
     const pintar = () => {
-      el.dataset.modo = modo;
-      $(".cam-titulo").textContent = modo === "patente" ? "Escanear patente" : (leida ? leida : "Fotos");
       $(".cam-n").textContent = fotos.length ? `${fotos.length} ${fotos.length === 1 ? "foto" : "fotos"}` : "";
       $(".cam-ok").disabled = !fotos.length;
       $(".cam-tiras").innerHTML = fotos.map((f, i) => `
@@ -188,57 +222,8 @@ async function abrirCamara_({ patente = false } = {}) {
       el.remove();
       resolve(res);
     };
-    const alNavegar = () => terminar(fotos.length ? { fotos: fotos.map(f => f.file), patente: leida } : { fotos: [], patente: leida });
+    const alNavegar = () => terminar({ fotos: fotos.map(f => f.file), patente: null });
     addEventListener("hashchange", alNavegar);
-
-    // ── Lectura de la patente: continua sobre el video, y a fondo sobre la foto al tocar el disparador.
-    // Se acepta con confianza alta, o si la misma patente aparece 2 veces en las últimas 6 lecturas.
-    let ultimas = [], intento = 0, ocupado = false;
-    const mostrarLeida = p => {
-      leida = p; navigator.vibrate?.(40);
-      $(".cam-plate").innerHTML = plate(p, "lg");
-      $(".cam-leida").hidden = false; $(".cam-ayuda").hidden = true; $(".cam-vista").textContent = "";
-    };
-    const leer = async (src, z, v) => {
-      const w = await cargarOCR();
-      const { data } = await w.recognize(preparar(src, z, lienzo, v));
-      const p = data.confidence >= 35 ? patenteDeTexto(data.text) : null;
-      if (!cerrado && modo === "patente") $(".cam-vista").textContent = limpio(data.text);
-      return { p, conf: data.confidence };
-    };
-    const escanear = async () => {
-      if (cerrado || modo !== "patente" || !$(".cam-leida").hidden) return;
-      try {
-        if (!ocupado && video.readyState >= 2) {
-          await cargarOCR();
-          $(".cam-ayuda").textContent = "Apuntá a la patente o tocá el botón";
-          const v = VARIANTES[intento++ % VARIANTES.length];
-          const { p, conf } = await leer(video, zona(video, $(".cam-marco"), v.margen), v);
-          ultimas = [...ultimas, p].slice(-6);
-          if (p && modo === "patente" && $(".cam-leida").hidden && (conf >= 80 || ultimas.filter(x => x === p).length >= 2)) { mostrarLeida(p); return; }
-        }
-      } catch (e) {
-        console.warn("ocr", e);
-        $(".cam-ayuda").textContent = "No se pudo cargar el lector. Podés saltar este paso.";
-        return;
-      }
-      setTimeout(escanear, 80);
-    };
-    // Foto de la patente: se guarda como primera foto y se lee con todas las variantes
-    const leerFoto = async (foto, zonas) => {
-      ocupado = true;
-      $(".cam-ayuda").textContent = "Leyendo la patente…";
-      try {
-        for (const v of VARIANTES) {
-          if (cerrado || modo !== "patente") return;
-          const { p } = await leer(foto, zonas[v.margen], v);
-          if (p) { mostrarLeida(p); return; }
-        }
-        $(".cam-ayuda").textContent = "No la pude leer. Acercate hasta que llene el recuadro y probá de nuevo.";
-      } catch (e) { console.warn("ocr", e); }
-      finally { ocupado = false; if (!cerrado && modo === "patente" && $(".cam-leida").hidden) escanear(); }
-    };
-    const aFotos = () => { modo = "fotos"; pintar(); };
 
     el.addEventListener("click", async e => {
       const t = e.target.closest("button"); if (!t) return;
@@ -247,11 +232,6 @@ async function abrirCamara_({ patente = false } = {}) {
         const c = document.createElement("canvas");
         c.width = video.videoWidth; c.height = video.videoHeight;
         c.getContext("2d").drawImage(video, 0, 0);
-        if (modo === "patente" && $(".cam-leida").hidden) {
-          const marco = $(".cam-marco"), zonas = {};
-          for (const v of VARIANTES) zonas[v.margen] ??= zona(video, marco, v.margen);
-          leerFoto(c, zonas);
-        }
         $(".cam-flashfx").classList.remove("on"); void el.offsetWidth; $(".cam-flashfx").classList.add("on");
         navigator.vibrate?.(25);
         c.toBlob(b => {
@@ -260,11 +240,9 @@ async function abrirCamara_({ patente = false } = {}) {
           fotos.push({ file, url: URL.createObjectURL(b) }); pintar();
         }, "image/jpeg", 0.92);
       }
+      else if (t.matches("[data-lente]")) usarLente(+t.dataset.lente);
       else if (t.matches("[data-quitar]")) { const [f] = fotos.splice(+t.dataset.quitar, 1); URL.revokeObjectURL(f.url); pintar(); }
-      else if (t.matches("[data-ok]")) terminar({ fotos: fotos.map(f => f.file), patente: leida });
-      else if (t.matches("[data-usar]")) aFotos();
-      else if (t.matches("[data-otra]")) { leida = null; ultimas = []; $(".cam-leida").hidden = true; $(".cam-ayuda").hidden = false; if (!ocupado) escanear(); }
-      else if (t.matches("[data-saltar]")) { leida = null; aFotos(); }
+      else if (t.matches("[data-ok]")) terminar({ fotos: fotos.map(f => f.file), patente: null });
       else if (t.matches("[data-flash]")) {
         flash = !flash; t.classList.toggle("on", flash);
         track.applyConstraints({ advanced: [{ torch: flash }] }).catch(() => {});
@@ -276,29 +254,57 @@ async function abrirCamara_({ patente = false } = {}) {
       }
     });
 
-    pintar();
+    pintar(); prepararControles();
     video.play?.().catch(() => {});
-    if (modo === "patente") { $(".cam-ayuda").textContent = "Preparando el lector…"; video.addEventListener("loadeddata", escanear, { once: true }); }
   });
+}
+
+/**
+ * Busca la patente en una foto (la primera que se sacó). Gratis, en el celular.
+ * Prueba varias zonas (la patente suele estar abajo al centro) y variantes de contraste.
+ */
+export async function buscarPatenteEnFoto(file) {
+  const bmp = await createImageBitmap(file);
+  const W = bmp.width, H = bmp.height;
+  const zonas = [
+    [0.18, 0.45, 0.82, 0.95], [0.1, 0.3, 0.9, 1], [0.25, 0.55, 0.75, 0.9], [0, 0, 1, 1]
+  ];
+  const w = await cargarOCR();
+  await w.setParameters({ tessedit_pageseg_mode: "11" });
+  const lienzo = document.createElement("canvas");
+  try {
+    for (const [x0, y0, x1, y1] of zonas) {
+      const z = { sx: x0 * W, sy: y0 * H, sw: (x1 - x0) * W, sh: (y1 - y0) * H };
+      for (const v of [{ ancho: 1400 }, { ancho: 1400, invertir: true }, { ancho: 1000, bn: true }]) {
+        const { data } = await w.recognize(preparar(bmp, z, lienzo, v));
+        const p = patenteDeTexto(data.text);
+        if (p) return p;
+      }
+    }
+    return null;
+  } finally {
+    await w.setParameters({ tessedit_pageseg_mode: "6" });
+    bmp.close?.();
+  }
 }
 
 /** Botón "Cámara" grande + botón chico de galería. */
 export function botonesFotos({ id, extra = "" } = {}) {
   return `<div class="foto-btns" ${id ? `id="${id}"` : ""}>
     <button type="button" class="btn btn-primary" data-camara>${icon("camera")}Cámara${extra}</button>
-    <label class="btn btn-ghost foto-gal" aria-label="Elegir de la galería" title="Galería">${icon("image")}
+    <label class="btn btn-ghost foto-gal" aria-label="Agregar fotos de la galería" title="Agregar de la galería">${icon("image")}<span class="gal-plus">+</span>
       <input type="file" accept="image/*" multiple hidden data-galeria></label>
   </div>`;
 }
 
 /** Conecta los botones: onFotos(files, patenteLeida) */
-export function conectarFotos(cont, onFotos, { patente = () => false } = {}) {
+export function conectarFotos(cont, onFotos) {
   cont.querySelector("[data-galeria]").addEventListener("change", e => {
     const files = [...e.target.files]; e.target.value = "";
     if (files.length) onFotos(files, null);
   });
   cont.querySelector("[data-camara]").addEventListener("click", async () => {
-    const r = await abrirCamara({ patente: patente() });
+    const r = await abrirCamara();
     if (r === null) { cont.querySelector("[data-galeria]").click(); return; }
     if (r && (r.fotos.length || r.patente)) onFotos(r.fotos, r.patente);
   });
