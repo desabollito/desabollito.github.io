@@ -120,7 +120,7 @@ const COMPANIAS = [
   ["Rivadavia", ["rivadavia"]], ["San Cristóbal", ["san cristobal", "sancristobal", "sc"]], ["Sancor", ["sancor"]],
   ["Paraná Seguros", ["parana seguros", "parana"]], ["Provincia Seguros", ["provincia seguros", "provincia"]],
   ["Mapfre", ["mapfre"]], ["La Segunda", ["la segunda", "segunda"]], ["Mercantil Andina", ["mercantil andina", "mercantil"]],
-  ["Federación Patronal", ["federacion patronal", "federacion", "patronal", "fed patronal"]], ["Answer", ["answer"]],
+  ["Federación", ["federacion patronal", "federacion", "patronal", "fed patronal"]], ["Answer", ["answer"]],
   ["Allianz", ["allianz"]], ["Zurich", ["zurich"]], ["La Caja", ["la caja"]], ["Galicia Seguros", ["galicia"]],
   ["Nación Seguros", ["nacion seguros"]], ["Sura", ["sura"]], ["Río Uruguay", ["rio uruguay", "rus"]],
   ["Orbis", ["orbis"]], ["Meridional", ["meridional"]], ["Integrity", ["integrity"]], ["El Norte", ["el norte"]],
