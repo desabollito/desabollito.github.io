@@ -871,3 +871,8 @@ html.cam-abierta, html.cam-abierta body { overflow: hidden; }
   .grado-fila { width: 144px; justify-content: center; }
 }
 @media (max-width: 699px) { .piezas-view .piezas-grupos { display: none; } }
+
+/* Visor: alto fijo para que los botones no se muevan al pasar fotos de distinto formato */
+.viewer img { height: min(72dvh, 640px); max-height: none; display: block; }
+.viewer-bar #vw-n { flex: 1; text-align: center; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 699px) { .viewer img { height: min(62dvh, 560px); } }
