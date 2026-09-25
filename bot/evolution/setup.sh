@@ -23,6 +23,14 @@ iptables -C INPUT -p tcp --dport 80 -j ACCEPT 2>/dev/null || iptables -I INPUT 1
 iptables -C INPUT -p tcp --dport 443 -j ACCEPT 2>/dev/null || iptables -I INPUT 1 -p tcp --dport 443 -j ACCEPT
 ( apt-get install -y -qq iptables-persistent >/dev/null 2>&1 && netfilter-persistent save >/dev/null 2>&1 ) || true
 
+# Servidores chicos (1 GB, ej. E2.1.Micro): 2 GB de memoria virtual para que no se quede sin RAM
+if [ "$(awk '/MemTotal/{print $2}' /proc/meminfo)" -lt 2000000 ] && ! swapon --show | grep -q .; then
+  echo "▶ Agregando 2 GB de memoria virtual (servidor chico)"
+  fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile >/dev/null && swapon /swapfile
+  grep -q /swapfile /etc/fstab || echo "/swapfile none swap sw 0 0" >> /etc/fstab
+  sysctl -q vm.swappiness=20; echo "vm.swappiness=20" > /etc/sysctl.d/99-desabollito.conf
+fi
+
 echo "▶ 3/6 Instalando Docker"
 command -v docker >/dev/null || curl -fsSL https://get.docker.com | sh
 
@@ -43,6 +51,7 @@ cat > docker-compose.yml <<YML
 services:
   postgres:
     image: postgres:16-alpine
+    command: [ "postgres", "-c", "shared_buffers=32MB", "-c", "max_connections=30", "-c", "work_mem=2MB" ]
     restart: always
     environment:
       POSTGRES_USER: evolution
@@ -64,6 +73,7 @@ services:
       DEL_INSTANCE: "false"
       CONFIG_SESSION_PHONE_CLIENT: Desabollito
       CONFIG_SESSION_PHONE_NAME: Chrome
+      NODE_OPTIONS: --max-old-space-size=512
     volumes: [ "instancias:/evolution/instances" ]
   caddy:
     image: caddy:2-alpine
