@@ -31,11 +31,11 @@ function filtrar(lista) {
       .some(x => (x || "").toLowerCase().includes(q))));
 }
 
-// Paños agrupados para el detalle en escritorio: centro, lateral izquierdo, lateral derecho
+// Paños agrupados para el detalle en escritorio: centro y parantes, lateral izquierdo, lateral derecho
 const GRUPOS_PIEZAS = [
-  ["capot", "techo", "baul"],
-  ["gf_izq", "pd_izq", "pt_izq", "gt_izq", "parante_izq"],
-  ["gf_der", "pd_der", "pt_der", "gt_der", "parante_der"]
+  ["capot", "techo", "baul", "parante_izq", "parante_der"],
+  ["gf_izq", "pd_izq", "pt_izq", "gt_izq"],
+  ["gf_der", "pd_der", "pt_der", "gt_der"]
 ];
 
 function tarjeta(v, sel) {
