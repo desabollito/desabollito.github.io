@@ -203,15 +203,6 @@ function renderDetalle(root, v, embebido) {
     ${v.repuestos ? `<section class="d-sec"><h3>Repuestos</h3><p class="prose">${esc(v.repuestos)}</p></section>` : ""}
 
     <section class="d-sec">
-      <div class="sec-head"><h3>Fotos <small>${v.fotos?.length || 0}</small></h3>
-        <div class="sec-btns">
-          <label class="btn btn-ghost btn-sm">${icon("plus")}Agregar fotos
-            <input type="file" accept="image/*" multiple hidden data-up="foto"></label>
-        </div></div>
-      <p class="muted small" id="fotos-estado">${v.fotos?.length ? "Tocá la foto de arriba para verlas todas." : "Todavía no hay fotos."}</p>
-    </section>
-
-    <section class="d-sec">
       <div class="sec-head"><h3>Documentos <small>${v.archivos?.length || 0}</small></h3>
         <label class="btn btn-ghost btn-sm">${icon("file")}Adjuntar
           <input type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,image/*" multiple hidden data-up="doc"></label></div>
@@ -363,7 +354,10 @@ function visor(fotos = [], inicio = 0, v = null) {
         <a class="icon-btn" id="vw-dl" target="_blank" rel="noopener" aria-label="Abrir original">${icon("download")}</a>
         ${v ? `<button class="icon-btn danger" id="vw-del" aria-label="Quitar esta foto">${icon("trash")}</button>` : ""}
         <button class="icon-btn" data-n aria-label="Siguiente">${icon("next")}</button>
-      </div></div>`
+      </div>
+      ${v ? `<label class="btn btn-ghost btn-block viewer-add">${icon("camera")}Agregar fotos
+        <input type="file" accept="image/*" multiple hidden id="vw-add"></label>` : ""}
+      </div>`
   });
   const show = () => {
     $("#vw-img", s.el).src = grande(fotos[i].url);
@@ -380,6 +374,12 @@ function visor(fotos = [], inicio = 0, v = null) {
     if (x0 === null) return;
     const dx = e.changedTouches[0].clientX - x0; x0 = null;
     if (Math.abs(dx) > 40) { i = (i + (dx < 0 ? 1 : -1) + fotos.length) % fotos.length; show(); }
+  });
+  $("#vw-add", s.el)?.addEventListener("change", e => {
+    const files = [...e.target.files]; e.target.value = "";
+    if (!files.length) return;
+    s.close();
+    subirAdjuntos(getVehiculo(v.id) || v, files, "foto", document);
   });
   $("#vw-del", s.el)?.addEventListener("click", async () => {
     const f = fotos[i];

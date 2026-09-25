@@ -773,3 +773,4 @@ body[data-detalle="1"] .fab { display: none !important; }
 .add-member .seg-rol { align-self: end; min-height: 46px; }
 .add-member .seg-rol .seg-btn { min-height: 36px; }
 .seg-rol .seg-btn.on { background: var(--primary); color: #fff; }
+.viewer-add { margin-top: 10px; }
