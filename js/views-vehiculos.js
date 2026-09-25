@@ -134,8 +134,9 @@ export function vistaDetalle(view, id) {
   renderDetalle($(".detail-page", view), v, false);
 }
 
-// Vista 3D (se recuerda mientras la app está abierta)
-let modo3D = false;
+// Vista 3D: siempre arranca en 2D al abrir un vehículo
+let modo3D = false, vid3D = null;
+export const reiniciarVista3D = () => { modo3D = false; };
 function iniciar3D(root, v) {
   const caja = $(".vista-3d", root), cap = $(".caption-3d", root);
   caja.innerHTML = `<div class="skeleton" style="height:280px"></div>`;
@@ -152,6 +153,7 @@ function waLink(tel, texto = "") {
 }
 
 function renderDetalle(root, v, embebido) {
+  if (vid3D !== v.id) { vid3D = v.id; modo3D = false; } // al abrir otro vehículo, arranca en 2D
   const est = estadoActual(v);
   const anulado = est === "anulado";
   const marcadas = piezasMarcadas(v);

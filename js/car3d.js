@@ -75,11 +75,13 @@ export async function montar3D(contenedor, piezas = {}, opciones = {}) {
   cuerpo.lineTo(...P(-2.22, 0.94));
   cuerpo.lineTo(...P(-2.3, 0.6));
   cuerpo.closePath();
-  extruir(cuerpo, X_LADO * 2 - 0.06, pintura(COLOR_BASE), 0, 0.03);
+  const carroceria = extruir(cuerpo, X_LADO * 2 - 0.06, pintura(COLOR_BASE), 0, 0.03);
+  carroceria.userData.cuerpo = true;
 
   // ── Cabina de vidrio
   const vidrio = new THREE.MeshStandardMaterial({ color: 0x223044, metalness: 0.6, roughness: 0.12, transparent: true, opacity: 0.88 });
-  extruir(poligono([[-1.3, CINTURA], [-0.72, 1.43], [0.34, 1.45], [1.06, CINTURA]]), 1.44, vidrio, 0, 0.02);
+  const cabina = extruir(poligono([[-1.3, CINTURA], [-0.72, 1.43], [0.34, 1.45], [1.06, CINTURA]]), 1.44, vidrio, 0, 0.02);
+  cabina.userData.vidrio = true;
 
   // ── Paños
   const mallas = {};
@@ -87,6 +89,8 @@ export async function montar3D(contenedor, piezas = {}, opciones = {}) {
   registrar("capot", extruir(poligono([[1.1, CINTURA + 0.005], [2.16, 0.865], [2.16, 0.9], [1.1, CINTURA + 0.04]]), 1.6, pintura(COLOR_BASE), 0, 0.015));
   registrar("techo", extruir(poligono([[-0.74, 1.435], [0.36, 1.455], [0.36, 1.49], [-0.74, 1.47]]), 1.36, pintura(COLOR_BASE), 0, 0.015));
   registrar("baul", extruir(poligono([[-2.22, 0.945], [-1.35, CINTURA + 0.005], [-1.35, CINTURA + 0.04], [-2.22, 0.98]]), 1.6, pintura(COLOR_BASE), 0, 0.015));
+  registrar("capot", extruir(poligono([[2.1, PISO + 0.04], [2.3, 0.58], [2.18, 0.885], [2.12, 0.885], [2.24, 0.58], [2.05, PISO + 0.04]]), 1.62, pintura(COLOR_BASE), 0, 0.012));
+  registrar("baul", extruir(poligono([[-2.18, PISO + 0.04], [-2.33, 0.6], [-2.24, 0.965], [-2.18, 0.965], [-2.27, 0.6], [-2.12, PISO + 0.04]]), 1.62, pintura(COLOR_BASE), 0, 0.012));
   const borde = [[-1.33, CINTURA], [-0.73, 1.44], [0.35, 1.46], [1.08, CINTURA]];
   const franja = [...borde, ...borde.slice().reverse().map(([z, y]) => [z, y - 0.075])];
   registrar("parante_izq", extruir(poligono(franja), 0.08, pintura(COLOR_BASE), 0.7, 0.01));
@@ -119,18 +123,19 @@ export async function montar3D(contenedor, piezas = {}, opciones = {}) {
   const cubierta = new THREE.MeshStandardMaterial({ color: 0x14171c, roughness: 0.9 });
   const llanta = new THREE.MeshStandardMaterial({ color: 0xb8c0cc, metalness: 0.8, roughness: 0.25 });
   for (const z of [EJE_T, EJE_D]) for (const x of [0.8, -0.8]) {
+    const zona = `${z > 0 ? "gf" : "gt"}_${x > 0 ? "izq" : "der"}`;
     const r = new THREE.Mesh(new THREE.CylinderGeometry(RUEDA_R, RUEDA_R, 0.26, 32), cubierta);
-    r.rotation.z = Math.PI / 2; r.position.set(x, RUEDA_R, z); auto.add(r);
+    r.rotation.z = Math.PI / 2; r.position.set(x, RUEDA_R, z); r.userData.rueda = zona; auto.add(r);
     const l = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.27, 24), llanta);
-    l.rotation.z = Math.PI / 2; l.position.set(x * 1.01, RUEDA_R, z); auto.add(l);
+    l.rotation.z = Math.PI / 2; l.position.set(x * 1.01, RUEDA_R, z); l.userData.rueda = zona; auto.add(l);
   }
   const optica = (color, emis, x, y, z, w, h) => {
     const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.05), new THREE.MeshStandardMaterial({ color, emissive: emis, emissiveIntensity: 0.6 }));
     m.position.set(x, y, z); auto.add(m);
   };
   for (const x of [0.58, -0.58]) {
-    optica(0xf4f7ff, 0x8899bb, x, 0.72, 2.24, 0.42, 0.1);
-    optica(0xc0182a, 0x7a0010, x, 0.8, -2.29, 0.45, 0.1);
+    optica(0xdfe6f0, 0x556070, x, 0.72, 2.3, 0.42, 0.1);
+    optica(0xdfe6f0, 0x556070, x, 0.8, -2.34, 0.45, 0.1);
   }
   for (const x of [0.95, -0.95]) {
     const e = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.09, 0.16), pintura(COLOR_BASE));
@@ -162,15 +167,34 @@ export async function montar3D(contenedor, piezas = {}, opciones = {}) {
 
   // ── Tocar un paño
   const ray = new THREE.Raycaster(), punto = new THREE.Vector2();
-  const todas = () => Object.values(mallas).flat();
+  const tocables = auto.children;
+  const panoDe = hit => {
+    const u = hit.object.userData;
+    if (u.pieza) return u.pieza;
+    if (u.rueda) return u.rueda;
+    if (u.vidrio) return null; // los vidrios no dejan tocar lo que está detrás
+    if (!u.cuerpo) return null;
+    const p = auto.worldToLocal(hit.point.clone());
+    const lado = p.x > 0 ? "izq" : "der";
+    if (p.z > 1.9 || (p.y > CINTURA - 0.08 && p.z > 1.05)) return "capot";
+    if (p.z < -2.05 || (p.y > CINTURA - 0.12 && p.z < -1.3)) return "baul";
+    if (Math.abs(p.x) > 0.6) {
+      if (p.z > EJE_D - ARCO_R) return `gf_${lado}`;
+      if (p.z > -0.04) return `pd_${lado}`;
+      if (p.z > EJE_T + ARCO_R) return `pt_${lado}`;
+      return `gt_${lado}`;
+    }
+    return null;
+  };
   lienzo.addEventListener("click", e => {
     if (movio) return;
     const r = lienzo.getBoundingClientRect();
     punto.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
     ray.setFromCamera(punto, camara);
-    const hit = ray.intersectObjects(todas())[0];
+    const hit = ray.intersectObjects(tocables, true)[0];
     if (!hit) return;
-    const k = hit.object.userData.pieza;
+    const k = panoDe(hit);
+    if (!k) return;
     if (editable) navigator.vibrate?.(8);
     alTocar?.(k, PIEZA[k]?.label);
   });

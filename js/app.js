@@ -4,7 +4,7 @@ import {
 import { $, $$, toast, busy } from "./ui.js";
 import { FIREBASE } from "./config.js";
 import { marcarNav, pintarLateral, esAncho } from "./shell.js";
-import { vistaVehiculos, vistaDetalle, vistaFormulario } from "./views-vehiculos.js";
+import { vistaVehiculos, vistaDetalle, vistaFormulario, reiniciarVista3D } from "./views-vehiculos.js";
 import {
   vistaPlanilla, vistaCalendario, calendarioAlEntrar, vistaEmpresa, vistaAjustes, vistaPapelera, elegirEmpresaSheet
 } from "./views-otros.js";
@@ -55,6 +55,7 @@ function render({ conservarScroll = false } = {}) {
   marcarNav(["nuevo", "editar", "operativo"].includes(hit[1]) ? "" : hit[1] === "papelera" ? "ajustes" : hit[1]);
   pintarTabPlanilla(hit[1]);
   if (hit[1] === "calendario" && !mismaRuta) calendarioAlEntrar();
+  if (!mismaRuta) reiniciarVista3D(); // cada vez que se abre un vehículo, arranca en 2D
   ctrl = hit[2](arg) || null;
   if (!conservarScroll || !mismaRuta) { scrollTo(0, 0); view.focus({ preventScroll: true }); }
   else scrollTo(0, y);
