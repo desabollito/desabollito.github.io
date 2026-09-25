@@ -90,4 +90,14 @@ export function montarMapa(root, piezas, onToggle) {
     if (b) toggle(b.dataset.pieza);
   });
   pintarLista();
+  // Sincroniza el dibujo con "piezas" (cuando se cambian desde la vista 3D)
+  return {
+    refrescar() {
+      svg.querySelectorAll("[data-pieza]").forEach(g => {
+        const on = !!piezas[g.dataset.pieza];
+        g.classList.toggle("on", on); g.setAttribute("aria-checked", on);
+      });
+      pintarLista();
+    }
+  };
 }

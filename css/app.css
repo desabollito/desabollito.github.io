@@ -783,3 +783,6 @@ body[data-detalle="1"] .fab { display: none !important; }
 .caption-3d { display: block !important; text-align: center; font-size: 13.5px; color: var(--muted); }
 .caption-3d[hidden] { display: none !important; }
 .vista-btn { min-width: 52px; font-weight: 800; }
+
+.map-cab { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.vform-map .vista-3d { margin-bottom: 4px; }

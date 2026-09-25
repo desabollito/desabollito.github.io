@@ -574,7 +574,11 @@ export function vistaFormulario(view, id = null) {
         </fieldset>
         <fieldset class="card vform-map">
           <legend>Paños afectados</legend>
-          <p class="muted small">Tocá los paños en el dibujo del auto.</p>
+          <div class="map-cab">
+            <p class="muted small">Tocá los paños en el dibujo del auto.</p>
+            <button type="button" class="btn btn-ghost btn-sm vista-btn" id="f-vista">3D</button>
+          </div>
+          <div class="vista-3d" id="f-3d" hidden></div>
           <div class="map-wrap">
             ${carMapSVG(piezas, { editable: true })}
             <div class="pieza-chips"></div>
@@ -609,7 +613,23 @@ export function vistaFormulario(view, id = null) {
   </form>`;
 
   const form = $("#vform", view);
-  montarMapa($(".vform-map", view), piezas);
+  const mapa = montarMapa($(".vform-map", view), piezas);
+  let vista3d = null;
+  $("#f-vista", view).addEventListener("click", async e => {
+    const b = e.currentTarget, caja = $("#f-3d", view), en3d = caja.hidden;
+    caja.hidden = !en3d;
+    $(".vform-map .carmap", view).style.display = en3d ? "none" : "";
+    b.textContent = en3d ? "2D" : "3D";
+    if (en3d) {
+      caja.innerHTML = `<div class="skeleton" style="height:280px"></div>`;
+      try {
+        vista3d = await montar3D(caja, piezas, {
+          editable: true,
+          alTocar: k => { piezas[k] = !piezas[k]; vista3d?.pintar(piezas); mapa.refrescar(); }
+        });
+      } catch (err) { caja.innerHTML = `<p class="muted small center">${esc(err.message)}</p>`; }
+    }
+  });
   let grado = v?.grado || null;
   $("#grado", view).addEventListener("click", e => {
     const b = e.target.closest("[data-g]"); if (!b) return;
