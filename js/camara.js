@@ -292,7 +292,7 @@ export async function buscarPatenteEnFoto(file) {
 export function botonesFotos({ id, extra = "" } = {}) {
   return `<div class="foto-btns" ${id ? `id="${id}"` : ""}>
     <button type="button" class="btn btn-primary" data-camara>${icon("camera")}Cámara${extra}</button>
-    <label class="btn btn-ghost foto-gal" aria-label="Agregar fotos de la galería" title="Agregar de la galería">${icon("image")}<span class="gal-plus">+</span>
+    <label class="btn btn-ghost foto-gal" aria-label="Agregar fotos de la galería" title="Agregar de la galería"><span class="gal-ic">${icon("image")}<span class="gal-plus">+</span></span><span class="gal-txt">Galería</span>
       <input type="file" accept="image/*" multiple hidden data-galeria></label>
   </div>`;
 }

@@ -876,3 +876,13 @@ html.cam-abierta, html.cam-abierta body { overflow: hidden; }
 .viewer img { height: min(72dvh, 640px); max-height: none; display: block; }
 .viewer-bar #vw-n { flex: 1; text-align: center; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (max-width: 699px) { .viewer img { height: min(62dvh, 560px); } }
+
+/* Botón de galería: ícono con + ; en escritorio, Cámara y Galería mitad y mitad */
+.foto-gal .gal-ic { position: relative; display: inline-grid; place-items: center; }
+.foto-gal .gal-plus { right: -8px; bottom: -7px; }
+.foto-gal .gal-txt { display: none; }
+@media (min-width: 900px) {
+  .foto-btns .foto-gal { flex: 1 1 0; padding: 0 16px; gap: 10px; }
+  .foto-btns [data-camara] { flex: 1 1 0; }
+  .foto-gal .gal-txt { display: inline; }
+}
