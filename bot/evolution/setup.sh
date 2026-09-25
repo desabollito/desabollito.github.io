@@ -59,7 +59,7 @@ services:
       POSTGRES_DB: evolution
     volumes: [ "pgdata:/var/lib/postgresql/data" ]
   evolution:
-    image: atendai/evolution-api:v2.2.3
+    image: evoapicloud/evolution-api:v2.3.7
     restart: always
     depends_on: [ postgres ]
     environment:
