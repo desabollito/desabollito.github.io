@@ -279,8 +279,8 @@ export function vistaEmpresa(view) {
 ` : ""}
     </section>
 
-    <section class="card">
-      <h3>Sello del presupuesto (por operativo)</h3>
+    ${admin ? `<details class="card plegable">
+      <summary><span>${icon("file")}Sello</span>${icon("next")}</summary>
       <form id="sello" class="stack">
         <label class="field">
           <textarea name="texto" aria-label="Texto del sello" rows="4" ${admin ? "" : "disabled"} placeholder="Juan Pérez · Desabollador&#10;CUIT 20-12345678-9&#10;11 2345 6789">${esc(sello.texto)}</textarea></label>
@@ -292,7 +292,7 @@ export function vistaEmpresa(view) {
         </div>
         ${admin ? `<button class="btn btn-primary">Guardar sello</button>` : ""}
       </form>
-    </section>
+    </details>` : ""}
 
     <section class="card danger-zone">
       ${duenio
@@ -326,7 +326,7 @@ export function vistaEmpresa(view) {
     catch { toast("No se pudo leer la imagen", "error"); }
   });
   $("#logo-del", view)?.addEventListener("click", () => { logo = ""; $(".logo-prev", view).classList.add("vacio"); $(".logo-prev", view).textContent = "Sin logo"; });
-  $("#sello", view).onsubmit = async e => {
+  if ($("#sello", view)) $("#sello", view).onsubmit = async e => {
     e.preventDefault(); if (!admin) return;
     try { await guardarSello({ texto: e.target.texto.value.trim(), logo }); toast("Sello guardado", "success"); }
     catch (err) { toast(mensajeError(err), "error"); }
