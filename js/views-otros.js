@@ -476,7 +476,8 @@ export function vistaAjustes(view) {
 
     <section class="card">
       <button class="btn btn-danger-ghost btn-block" id="salir">${icon("logout")}Cerrar sesión</button>
-      <p class="muted small center">Desabollito ${APP_VERSION}</p>
+      <p class="center"><button type="button" class="version-btn" onclick="window.dispatchEvent(new Event('forzar-actualizacion'))"
+        title="Tocá para forzar la actualización">Desabollito ${APP_VERSION} ${icon("rotate")}</button></p>
     </section>
   </div>`;
 

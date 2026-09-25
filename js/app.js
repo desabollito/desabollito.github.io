@@ -156,6 +156,19 @@ iniciarSesion((logueado, error) => {
 });
 
 // ── Actualizaciones ───────────────────────────────────────────
+// Tocar la versión en Ajustes fuerza la actualización: borra la copia guardada de la app y recarga desde el servidor.
+if (/[?&]act=\d+/.test(location.search)) history.replaceState(null, "", location.pathname + location.hash);
+addEventListener("forzar-actualizacion", async () => {
+  toast("Actualizando a la última versión…");
+  try {
+    const keys = await caches.keys();
+    await Promise.all(keys.filter(k => !k.endsWith("-ext")).map(k => caches.delete(k)));   // el lector de patentes se conserva
+    const regs = await navigator.serviceWorker?.getRegistrations() || [];
+    await Promise.all(regs.map(r => r.unregister()));
+  } catch (e) { console.warn("actualizar", e); }
+  location.replace(location.pathname + "?act=" + Date.now() + location.hash);
+});
+
 // Si se publica una versión nueva mientras la app está abierta, aparece un aviso.
 if ("serviceWorker" in navigator) {
   // Solo se recarga cuando el usuario tocó "Actualizar" (ni en la primera visita

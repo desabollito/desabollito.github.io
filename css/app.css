@@ -886,3 +886,8 @@ html.cam-abierta, html.cam-abierta body { overflow: hidden; }
   .foto-btns [data-camara] { flex: 1 1 0; }
   .foto-gal .gal-txt { display: inline; }
 }
+
+.version-btn { all: unset; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 99px;
+  font-size: 13px; color: var(--muted); }
+.version-btn .ic { width: 14px; height: 14px; }
+.version-btn:hover, .version-btn:focus-visible { background: var(--surface-2); color: var(--ink); }
