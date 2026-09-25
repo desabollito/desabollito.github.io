@@ -2,7 +2,7 @@ import {
   S, activos, getVehiculo, guardarVehiculo, actualizarVehiculo, cambiarEstado, moverAPapelera,
   nuevoIdVehiculo, soyAdmin, mensajeError
 } from "./data.js";
-import { ESTADOS, ESTADO, SECUENCIA, PIEZA, estadoActual, piezasMarcadas } from "./domain.js";
+import { ESTADOS, ESTADO, SECUENCIA, PIEZA, ORDEN_PIEZAS, estadoActual, piezasMarcadas } from "./domain.js";
 import {
   $, $$, esc, money, fechaCorta, fechaLarga, hoyISO, plate, estadoPill, icon, toast, openSheet,
   confirmar, busy, debounce, marcarError
@@ -145,6 +145,7 @@ function renderDetalle(root, v, embebido) {
   const est = estadoActual(v);
   const anulado = est === "anulado";
   const marcadas = piezasMarcadas(v);
+  const todos = marcadas.length === ORDEN_PIEZAS.length;
   const puedeBorrar = soyAdmin() || v.createdBy === S.user.uid;
 
   root.innerHTML = `
@@ -190,12 +191,12 @@ function renderDetalle(root, v, embebido) {
     </section>
 
     <section class="d-sec d-piezas">
-      <div class="sec-head"><h3>Paños afectados <small>${marcadas.length || "ninguno"}</small></h3>
+      <div class="sec-head"><h3>Paños afectados <small>${todos ? "todos" : (marcadas.length || "ninguno")}</small></h3>
         ${v.grado ? `<span class="grado-tag g${v.grado}">Grado ${v.grado}</span>` : ""}</div>
       <div class="piezas-view">
         ${carMapSVG(v.piezas || {}, { size: "carmap-sm" })}
-        <p class="piezas-caption" aria-live="polite">${marcadas.length ? "Tocá un paño para ver su nombre" : "Sin paños marcados"}</p>
-        <ul class="piezas-list">${marcadas.map(k => `<li>${esc(PIEZA[k].label)}</li>`).join("") || "<li class='muted'>Sin paños marcados</li>"}</ul>
+        <p class="piezas-caption" aria-live="polite">${todos ? "<strong>Todos</strong>" : marcadas.length ? "Tocá un paño para ver su nombre" : "Sin paños marcados"}</p>
+        <ul class="piezas-list">${todos ? "<li>Todos</li>" : marcadas.map(k => `<li>${esc(PIEZA[k].label)}</li>`).join("") || "<li class='muted'>Sin paños marcados</li>"}</ul>
       </div>
     </section>
 

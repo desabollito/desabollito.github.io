@@ -38,7 +38,8 @@ export function montarMapa(root, piezas, onToggle) {
   const pintarLista = () => {
     if (resumen) {
       const sel = ORDEN_PIEZAS.filter(k => piezas[k]).map(k => PIEZA[k].label);
-      resumen.textContent = sel.length ? `${sel.length} ${sel.length === 1 ? "paño" : "paños"}: ${sel.join(", ")}` : "Ningún paño marcado todavía.";
+      resumen.textContent = sel.length === ORDEN_PIEZAS.length ? "Todos los paños"
+        : sel.length ? `${sel.length} ${sel.length === 1 ? "paño" : "paños"}: ${sel.join(", ")}` : "Ningún paño marcado todavía.";
     }
     if (!lista) return;
     lista.innerHTML = ORDEN_PIEZAS.map(k => `
@@ -56,7 +57,27 @@ export function montarMapa(root, piezas, onToggle) {
     navigator.vibrate?.(8);
   };
 
+  // Mantener apretado el techo 1,5 s marca todos los paños
+  let timer = null, largo = false;
+  const cancelar = () => { clearTimeout(timer); timer = null; };
+  svg.addEventListener("pointerdown", e => {
+    largo = false;
+    if (!e.target.closest('[data-pieza="techo"]')) return;
+    timer = setTimeout(() => {
+      largo = true; timer = null;
+      ORDEN_PIEZAS.forEach(k => {
+        piezas[k] = true;
+        const g = svg.querySelector(`[data-pieza="${k}"]`);
+        g.classList.add("on"); g.setAttribute("aria-checked", "true");
+      });
+      pintarLista(); onToggle?.(piezas);
+      navigator.vibrate?.([20, 40, 20]);
+    }, 1500);
+  });
+  ["pointerup", "pointerleave", "pointercancel"].forEach(ev => svg.addEventListener(ev, cancelar));
+  svg.addEventListener("contextmenu", e => e.preventDefault());
   svg.addEventListener("click", e => {
+    if (largo) { largo = false; return; } // no desmarcar el techo después del toque largo
     const g = e.target.closest("[data-pieza]");
     if (g) toggle(g.dataset.pieza);
   });

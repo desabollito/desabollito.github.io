@@ -182,7 +182,9 @@ const LADO = "(izq(?:uierd[oa]s?)?|der(?:ech[oa]s?)?)";
 const POS = "(del(?:anter[oa]s?)?|tras(?:er[oa]s?)?)";
 const lados = l => !l ? ["izq", "der"] : [l.startsWith("izq") ? "izq" : "der"];
 const posiciones = p => !p ? ["d", "t"] : [p.startsWith("del") ? "d" : "t"];
+const TODOS_LOS_PANOS = ["capot", "techo", "baul", "parante_izq", "parante_der", "gf_izq", "pd_izq", "pt_izq", "gt_izq", "gf_der", "pd_der", "pt_der", "gt_der"];
 const REGLAS_PANOS = [
+  [/\b(?:todos(?:\s+los\s+panos)?|todo\s+el\s+auto|completo)\b/g, () => TODOS_LOS_PANOS],
   [/\bcap(?:o|ó|ot)\b/g, () => ["capot"]],
   [/\btecho\b/g, () => ["techo"]],
   [/\b(?:tapa\s+(?:de\s+)?)?(?:baul|baúl|porton|portón|compuerta)\b/g, () => ["baul"]],
