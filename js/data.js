@@ -151,8 +151,21 @@ export async function actualizarPerfil({ nombre, usuario, foto }) {
     await updateDoc(doc(db, "users", S.user.uid), { photoURL: r.url });
     await updateProfile(S.user, { photoURL: r.url }).catch(() => {});
     S.profile.photoURL = r.url;
+    await sincronizarFoto(true);
   }
   emit("profile");
+}
+
+// La foto de perfil se copia en cada operativo (memberPhotos) para que la vea el equipo
+const fotoSincronizada = new Set();
+export async function sincronizarFoto(forzar = false) {
+  const uid = S.user?.uid, url = S.profile?.photoURL || "";
+  if (!uid || !url) return;
+  for (const c of S.companies) {
+    if (c.memberPhotos?.[uid] === url || (!forzar && fotoSincronizada.has(c.id))) continue;
+    fotoSincronizada.add(c.id);
+    await updateDoc(doc(db, "companies", c.id), { [`memberPhotos.${uid}`]: url }).catch(e => console.warn("foto en operativo", e));
+  }
 }
 
 // ── Empresas ──────────────────────────────────────────────────
@@ -173,10 +186,11 @@ function escucharEmpresas() {
     const cambio = actual?.id !== S.company?.id;
     S.company = actual;
     // Solo avisar si algo cambió de verdad (evita repintar por metadatos)
-    const firma = JSON.stringify(S.companies.map(c => [c.id, c.name, c.members, c.roles, c.memberNames, c.memberTags, c.seal?.texto, (c.seal?.logo || "").length]));
+    const firma = JSON.stringify(S.companies.map(c => [c.id, c.name, c.members, c.roles, c.memberNames, c.memberTags, c.memberPhotos, c.seal?.texto, (c.seal?.logo || "").length]));
     if (firma === ultimaFirma && !cambio) return;
     ultimaFirma = firma;
     emit("companies");
+    sincronizarFoto();
     if (cambio) { escucharVehiculos(); escucharGastos(); }
   }, e => { console.error(e); emit("error"); });
 }

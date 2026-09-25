@@ -238,7 +238,8 @@ export function vistaEmpresa(view) {
   if (!c) { view.innerHTML = `<div class="skeleton tall"></div>`; return; }
   const admin = soyAdmin(), duenio = miRol() === "owner";
   const miembros = c.members.map(uid => ({
-    uid, name: c.memberNames?.[uid] || "Usuario", rol: c.roles?.[uid] || "tecnico", tags: c.memberTags?.[uid] || []
+    uid, name: c.memberNames?.[uid] || "Usuario", rol: c.roles?.[uid] || "tecnico", tags: c.memberTags?.[uid] || [],
+    foto: c.memberPhotos?.[uid] || (uid === S.user.uid ? S.profile?.photoURL : "")
   })).sort((a, b) => (a.rol === "owner" ? -1 : b.rol === "owner" ? 1 : a.name.localeCompare(b.name)));
   const sello = c.seal || {};
 
@@ -253,7 +254,7 @@ export function vistaEmpresa(view) {
       <h3>Equipo <small class="muted">${miembros.length}</small></h3>
       <ul class="members">${miembros.map(m => `
         <li>
-          <span class="avatar">${esc(initials(m.name))}</span>
+          <span class="avatar">${m.foto ? `<img src="${esc(avatar(m.foto, 80))}" alt="">` : esc(initials(m.name))}</span>
           <span class="m-meta">
             <strong>${esc(m.name)}${m.uid === S.user.uid ? " (vos)" : ""}</strong>
             <small>${ROLES[m.rol]?.label || m.rol}</small>
@@ -275,7 +276,7 @@ export function vistaEmpresa(view) {
         <select name="rol" aria-label="Rol"><option value="tecnico">Técnico</option><option value="admin">Administrador</option></select>
         <button class="btn btn-primary">${icon("plus")}Sumar</button>
       </form>
-      <p class="muted small">Tu usuario es <strong>@${esc(S.profile.username)}</strong>. La otra persona ve el suyo en Ajustes.</p>` : ""}
+` : ""}
     </section>
 
     <section class="card">
