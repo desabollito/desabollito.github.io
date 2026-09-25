@@ -1,11 +1,11 @@
 // Service worker: la app abre al instante y funciona sin señal.
 // Subí el número de versión en cada publicación para forzar la actualización.
-const VERSION = "desabollito-v2.6.0";
+const VERSION = "desabollito-v2.7.0";
 const SHELL = [
   "./", "./index.html", "./manifest.json", "./css/app.css",
   "./js/app.js", "./js/config.js", "./js/firebase.js", "./js/data.js", "./js/domain.js", "./js/ui.js",
   "./js/shell.js", "./js/media.js", "./js/carmap.js", "./js/pdf.js",
-  "./js/views-vehiculos.js", "./js/views-otros.js", "./js/views-gastos.js", "./js/car3d.js", "./js/excel.js",
+  "./js/views-vehiculos.js", "./js/views-otros.js", "./js/views-gastos.js", "./js/car3d.js", "./js/excel.js", "./js/camara.js",
   "./img/app-192.png", "./img/app-512.png", "./img/logo-claro.png", "./img/logo-oscuro.png"
 ];
 
@@ -34,6 +34,15 @@ self.addEventListener("fetch", e => {
 
   // Archivos propios: siempre se consulta a GitHub si hay algo nuevo (no-cache evita
   // la demora de ~10 min de GitHub Pages). Sin señal, se usa la copia guardada.
+  // Lector de patentes (archivos grandes que no cambian): primero la copia guardada
+  if (url.origin === location.origin && url.pathname.includes("/vendor/")) {
+    e.respondWith(caches.open(VERSION + "-ext").then(c => c.match(req).then(hit => hit || fetch(req).then(res => {
+      if (res.ok) c.put(req, res.clone());
+      return res;
+    }))));
+    return;
+  }
+
   if (url.origin === location.origin) {
     e.respondWith(
       fetch(req, { cache: "no-cache" }).then(res => {

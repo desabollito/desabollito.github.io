@@ -1,3 +1,4 @@
+import { botonesFotos, conectarFotos } from "./camara.js";
 import {
   S, activos, getVehiculo, guardarVehiculo, actualizarVehiculo, cambiarEstado, moverAPapelera,
   solicitarEliminacion, cargadoPor, esDeWhatsApp,
@@ -167,8 +168,10 @@ function renderDetalle(root, v, embebido) {
       ${v.fotos?.length
         ? `<button class="d-cover" data-act="galeria" aria-label="Ver las ${v.fotos.length} fotos">
              <img src="${esc(thumb(v.fotos[0].url, 240))}" alt=""><span class="d-cover-n">${icon("camera")}${v.fotos.length}</span></button>`
-        : `<label class="d-cover vacio" aria-label="Agregar fotos">${icon("camera")}<small>Agregar fotos</small>
-             <input type="file" accept="image/*" multiple hidden data-up="foto"></label>`}
+        : `<div class="d-cover vacio" id="d-cover-cam">
+             <button type="button" class="d-cover-cam" data-camara aria-label="Abrir la cámara">${icon("camera")}<small>Cámara</small></button>
+             <label class="d-cover-gal" aria-label="Elegir de la galería">${icon("image")}<input type="file" accept="image/*" multiple hidden data-galeria></label>
+           </div>`}
       <div class="d-title">
         <h2>${esc(v.modelo || "Sin modelo")}</h2>
         <div class="d-plate">${plate(v.patente, "lg")}</div>
@@ -300,6 +303,8 @@ function renderDetalle(root, v, embebido) {
     const dd = t.closest("[data-del-doc]");
     if (dd) return quitarAdjunto(v, "archivos", +dd.dataset.delDoc);
   });
+  const cov = $("#d-cover-cam", root);
+  if (cov) conectarFotos(cov, files => files.length && subirAdjuntos(v, files, "foto", root));
   $$("[data-up]", root).forEach(inp => inp.addEventListener("change", e => {
     const files = [...e.target.files]; e.target.value = "";
     if (files.length) subirAdjuntos(v, files, inp.dataset.up, root);
@@ -391,8 +396,7 @@ function visor(fotos = [], inicio = 0, v = null) {
         ${v ? `<button class="icon-btn danger" id="vw-del" aria-label="Quitar esta foto">${icon("trash")}</button>` : ""}
         <button class="icon-btn" data-n aria-label="Siguiente">${icon("next")}</button>
       </div>
-      ${v ? `<label class="btn btn-ghost btn-block viewer-add">${icon("camera")}Agregar fotos
-        <input type="file" accept="image/*" multiple hidden id="vw-add"></label>` : ""}
+      ${v ? `<div class="viewer-add">${botonesFotos({ id: "vw-add" })}</div>` : ""}
       </div>`
   });
   const show = () => {
@@ -411,8 +415,8 @@ function visor(fotos = [], inicio = 0, v = null) {
     const dx = e.changedTouches[0].clientX - x0; x0 = null;
     if (Math.abs(dx) > 40) { i = (i + (dx < 0 ? 1 : -1) + fotos.length) % fotos.length; show(); }
   });
-  $("#vw-add", s.el)?.addEventListener("change", e => {
-    const files = [...e.target.files]; e.target.value = "";
+  const vwAdd = $("#vw-add", s.el);
+  if (vwAdd) conectarFotos(vwAdd, files => {
     if (!files.length) return;
     s.close();
     subirAdjuntos(getVehiculo(v.id) || v, files, "foto", document);
@@ -555,8 +559,7 @@ export function vistaFormulario(view, id = null) {
   <form class="vform" id="vform" novalidate>
     <div class="vform-cols">
           <div class="card form-fotos vform-fotos">
-            <label class="btn btn-ghost btn-block">${icon("camera")}Agregar fotos${v?.fotos?.length ? ` <small class="muted">(ya tiene ${v.fotos.length})</small>` : ""}
-              <input type="file" accept="image/*" multiple hidden id="ff-in"></label>
+            ${botonesFotos({ id: "ff-in", extra: v?.fotos?.length ? ` <small class="cam-ya">(ya tiene ${v.fotos.length})</small>` : "" })}
             <div class="ff-grid" id="ff-grid"></div>
           </div>
         <fieldset class="card vform-veh">
@@ -680,8 +683,12 @@ export function vistaFormulario(view, id = null) {
         <button type="button" class="ph-del" data-quitar-nueva="${n.key}" aria-label="Quitar foto">${icon("x")}</button>
       </figure>`).join("");
   };
-  $("#ff-in", view).addEventListener("change", e => {
-    const files = [...e.target.files]; e.target.value = "";
+  conectarFotos($("#ff-in", view), (files, patenteLeida) => {
+    if (patenteLeida && !form.patente.value.trim()) {
+      form.patente.value = patenteLeida;
+      form.patente.dispatchEvent(new Event("input", { bubbles: true }));
+      toast(`Patente ${patenteLeida} cargada`, "success");
+    }
     if (!files.length) return;
     if (!cloudinaryListo()) { toast("Falta configurar Cloudinary en js/config.js", "error"); return; }
     for (const file of files) {
@@ -699,7 +706,7 @@ export function vistaFormulario(view, id = null) {
       pendientes.add(p); p.finally(() => pendientes.delete(p));
     }
     pintarFotos();
-  });
+  }, { patente: () => !v && !form.patente.value.trim() });
   $("#ff-grid", view).addEventListener("click", e => {
     const b = e.target.closest("[data-quitar-nueva]"); if (!b) return;
     const i = nuevas.findIndex(n => n.key === b.dataset.quitarNueva);
