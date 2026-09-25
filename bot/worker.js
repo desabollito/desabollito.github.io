@@ -177,6 +177,41 @@ function buscarPatenteEnTexto(texto) {
   return { patente: (m[1] ? m[1] + m[2] + m[3] : m[4] + m[5]).toUpperCase(), desde: m.index, largo: m[0].length };
 }
 
+// ── Paños afectados ──────────────────────────────────────────
+const LADO = "(izq(?:uierd[oa]s?)?|der(?:ech[oa]s?)?)";
+const POS = "(del(?:anter[oa]s?)?|tras(?:er[oa]s?)?)";
+const lados = l => !l ? ["izq", "der"] : [l.startsWith("izq") ? "izq" : "der"];
+const posiciones = p => !p ? ["d", "t"] : [p.startsWith("del") ? "d" : "t"];
+const REGLAS_PANOS = [
+  [/\bcap(?:o|ó|ot)\b/g, () => ["capot"]],
+  [/\btecho\b/g, () => ["techo"]],
+  [/\b(?:tapa\s+(?:de\s+)?)?(?:baul|baúl|porton|portón|compuerta)\b/g, () => ["baul"]],
+  [new RegExp(`\\bparantes?(?:\\s+${LADO})?\\b`, "g"), m => lados(m[1]).map(l => `parante_${l}`)],
+  [new RegExp(`\\bguardabarros?(?:\\s+${POS})?(?:\\s+${LADO})?\\b`, "g"), m => posiciones(m[1]).flatMap(p => lados(m[2]).map(l => `g${p === "d" ? "f" : "t"}_${l}`))],
+  [new RegExp(`\\bpuertas?(?:\\s+${POS})?(?:\\s+${LADO})?\\b`, "g"), m => posiciones(m[1]).flatMap(p => lados(m[2]).map(l => `p${p}_${l}`))],
+  [new RegExp(`\\blateral(?:es)?(?:\\s+${LADO})?\\b`, "g"), m => lados(m[1]).flatMap(l => [`gf_${l}`, `pd_${l}`, `pt_${l}`, `gt_${l}`])]
+];
+function sacarPanos(texto) {
+  let original = String(texto);
+  let norm = sinTildes(original);
+  if (norm.length !== original.length) original = norm; // por seguridad, si cambió el largo
+  const piezas = {};
+  for (const [re, fn] of REGLAS_PANOS) {
+    re.lastIndex = 0;
+    let m;
+    while ((m = re.exec(norm))) {
+      fn(m).forEach(k => { piezas[k] = true; });
+      const blanco = " ".repeat(m[0].length);
+      norm = norm.slice(0, m.index) + blanco + norm.slice(m.index + m[0].length);
+      original = original.slice(0, m.index) + blanco + original.slice(m.index + m[0].length);
+    }
+  }
+  return { piezas, resto: original };
+}
+
+// ── Nombre del cliente: "cliente Juan Pérez", "asegurado: Ana Ruiz", "titular …"
+const RE_CLIENTE = /\b(?:cliente|asegurad[oa]|titular|nombre|sr\.?|sra\.?)\s*:?\s+([A-Za-zÁÉÍÓÚÑÜáéíóúñü'´]+(?:\s+[A-Za-zÁÉÍÓÚÑÜáéíóúñü'´]+){0,3})/i;
+
 const titulo = t => t.split(/\s+/).map(p => /\d/.test(p) || p.length <= 3 && p === p.toUpperCase() ? p : p.charAt(0).toUpperCase() + p.slice(1).toLowerCase()).join(" ");
 
 /**
@@ -185,7 +220,7 @@ const titulo = t => t.split(/\s+/).map(p => /\d/.test(p) || p.length <= 3 && p =
  */
 function interpretar(texto, extra = {}) {
   let resto = ` ${String(texto || "")} `;
-  const r = { patente: null, modelo: "", compania: "", telefono: "", localidad: "", grado: null, otros: "" };
+  const r = { patente: null, modelo: "", compania: "", telefono: "", localidad: "", grado: null, otros: "", asegurado: "", piezas: {} };
 
   // 1. Patente
   const p = buscarPatenteEnTexto(resto);
@@ -207,6 +242,22 @@ function interpretar(texto, extra = {}) {
     }
     return m;
   });
+
+  // 3c. Paños afectados (capot, techo, puerta del izq, guardabarro tras der, lateral izquierdo…)
+  const pz = sacarPanos(resto);
+  r.piezas = pz.piezas;
+  resto = pz.resto;
+
+  // 3b. Cliente (con palabra clave). Se cortan al final las palabras que son compañía, localidad o modelo.
+  const mc = resto.match(RE_CLIENTE);
+  if (mc) {
+    const palabrasC = mc[1].split(/\s+/);
+    const conocida = w => { const n = sinTildes(w); return indice([...LOCALIDADES, ...(extra.localidades || [])]).has(n) || IDX_MARCAS.has(n) || IDX_MODELOS.has(n) ||
+      COMPANIAS.some(([, al]) => al.some(a => a === n || (n.length >= 3 && a.split(" ").some(x => x.startsWith(n))))); };
+    while (palabrasC.length > 1 && conocida(palabrasC[palabrasC.length - 1])) palabrasC.pop();
+    r.asegurado = titulo(palabrasC.join(" "));
+    resto = resto.replace(mc[0].split(/\s+/).slice(0, 1 + palabrasC.length).join(" "), " ");
+  }
 
   // 4. Palabras restantes: compañía, localidad, marca/modelo (buscando primero las frases más largas)
   const palabras = resto.split(/[\s,;/|]+/).filter(Boolean);
@@ -244,7 +295,17 @@ function interpretar(texto, extra = {}) {
   const idxModelo = tipo.map((t, i) => t === "modelo" ? i : -1).filter(i => i >= 0);
   if (idxModelo.length) {
     let ini = Math.min(...idxModelo), fin = Math.max(...idxModelo);
-    while (fin + 1 < palabras.length && !tipo[fin + 1] && palabras[fin + 1].length <= 12) fin++;
+    // Suma palabras desconocidas pegadas ("Chery Tiggo 4"), salvo que parezcan un nombre ("Carlos Méndez")
+    const esNombre = w => /^[A-ZÁÉÍÓÚÑ][a-záéíóúñü']+$/.test(w);
+    let libres = 0;
+    while (fin + 1 + libres < palabras.length && !tipo[fin + 1 + libres]) libres++;
+    const grupo = palabras.slice(fin + 1, fin + 1 + libres);
+    const pareceNombre = grupo.length >= 2 && grupo.slice(0, 2).every(esNombre);
+    if (!pareceNombre) {
+      let sum = 0;
+      while (sum < Math.min(2, grupo.length) && grupo[sum].length <= 12) sum++;
+      fin += sum;
+    }
     for (let k = ini; k <= fin; k++) if (!tipo[k] || tipo[k] === "modelo") tipo[k] = "modelo";
     r.modelo = palabras.filter((_, k) => tipo[k] === "modelo").map((w, j, arr) => {
       const n2 = sinTildes(w);
@@ -260,6 +321,8 @@ function interpretar(texto, extra = {}) {
   });
   for (const g of grupos) {
     const t = g.join(" ");
+    const pareceNombre = g.length >= 2 && g.length <= 4 && g.every(w => /^[A-ZÁÉÍÓÚÑ][a-záéíóúñü']+$/.test(w));
+    if (!r.asegurado && pareceNombre && r.modelo) { r.asegurado = t; continue; }
     if (!r.modelo) r.modelo = titulo(t);
     else if (!r.localidad) r.localidad = titulo(t);
     else r.otros = (r.otros ? r.otros + " " : "") + t;
@@ -531,10 +594,21 @@ async function abrirExistente(env, numero, v, datos, hora, previa, fijar = true)
 
 // Completa en la web los datos que vinieron en el mensaje (solo los que cambian)
 async function actualizarDatos(env, v, datos) {
-  const campos = { modelo: "modelo", compania: "compañía", telefono: "teléfono", localidad: "localidad", grado: "grado" };
+  const campos = { modelo: "modelo", compania: "compañía", telefono: "teléfono", localidad: "localidad", grado: "grado", asegurado: "cliente" };
   const nuevos = {}, nombres = [];
   for (const [k, nombre] of Object.entries(campos)) {
     if (datos[k] && datos[k] !== v[k]) { nuevos[k] = datos[k]; nombres.push(nombre); v[k] = datos[k]; }
+  }
+  // Paños: se suman a los que ya estaban marcados
+  if (Object.keys(datos.piezas || {}).length) {
+    // Se leen los paños actuales del vehículo (la sesión no los guarda)
+    const actual = await fsGet(env, `companies/${v.cid}/vehicles/${v.vid}`);
+    v.piezas = actual?.piezas || {};
+  }
+  const panosNuevos = Object.keys(datos.piezas || {}).filter(k => !v.piezas?.[k]);
+  if (panosNuevos.length) {
+    nuevos.piezas = { ...(v.piezas || {}), ...Object.fromEntries(panosNuevos.map(k => [k, true])) };
+    v.piezas = nuevos.piezas; nombres.push("paños");
   }
   if (nombres.length) await fsMerge(env, `companies/${v.cid}/vehicles/${v.vid}`, nuevos);
   return nombres;
@@ -583,6 +657,7 @@ async function buscarPatente(env, patente) {
     nombres[cid] ??= (await fsGet(env, `companies/${cid}`))?.name || "Operativo";
     res.push({ cid, vid, patente: v.patente, modelo: v.modelo || "", operativo: nombres[cid],
       compania: v.compania || "", telefono: v.telefono || "", localidad: v.localidad || "", grado: v.grado || null,
+      asegurado: v.asegurado || "", piezas: v.piezas || {},
       fotos: (v.fotos || []).length });
   }
   return res;
@@ -593,8 +668,8 @@ async function crearVehiculo(env, op, d, quien) {
   const vid = [...crypto.getRandomValues(new Uint8Array(15))].map(b => "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"[b % 62]).join("") + "wa";
   const hoy = new Date(Date.now() - 3 * 3600 * 1000).toISOString().slice(0, 10); // fecha de Argentina (UTC-3)
   const datos = {
-    modelo: d.modelo || "", patente: d.patente, asegurado: "", telefono: d.telefono || "", compania: d.compania || "",
-    localidad: d.localidad || op.operativo || "", observaciones: d.otros || "", repuestos: "", precio: 0, piezas: {}, grado: d.grado || null,
+    modelo: d.modelo || "", patente: d.patente, asegurado: d.asegurado || "", telefono: d.telefono || "", compania: d.compania || "",
+    localidad: d.localidad || op.operativo || "", observaciones: d.otros || "", repuestos: "", precio: 0, piezas: d.piezas || {}, grado: d.grado || null,
     estado: "peritado", fechas: { peritado: hoy }, fotos: [], archivos: [], firma: null, deleted: false,
     createdBy: `whatsapp:${quien.numero}`, createdByName: `${quien.nombre || quien.numero} (WhatsApp)`,
     updatedBy: `whatsapp:${quien.numero}`, via: "whatsapp"
