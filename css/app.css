@@ -862,3 +862,12 @@ html.cam-abierta, html.cam-abierta body { overflow: hidden; }
 .cam-lentes button { all: unset; min-width: 38px; height: 38px; padding: 0 8px; box-sizing: border-box; border-radius: 99px; background: #0009;
   color: #fff; font: 700 13px/38px var(--font); text-align: center; cursor: pointer; }
 .cam-lentes button.on { background: #fff; color: #000; }
+
+/* Paños en el detalle (escritorio): grupos en filas al costado del dibujo; grado debajo del auto */
+.carmap-sm { max-width: 144px; }
+.piezas-grupos { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+@media (min-width: 700px) {
+  .piezas-grupos .piezas-list { flex-direction: row; flex-wrap: wrap; gap: 8px 18px; }
+  .grado-fila { width: 144px; justify-content: center; }
+}
+@media (max-width: 699px) { .piezas-view .piezas-grupos { display: none; } }

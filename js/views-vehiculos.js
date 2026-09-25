@@ -31,6 +31,13 @@ function filtrar(lista) {
       .some(x => (x || "").toLowerCase().includes(q))));
 }
 
+// Paños agrupados para el detalle en escritorio: centro, lateral izquierdo, lateral derecho
+const GRUPOS_PIEZAS = [
+  ["capot", "techo", "baul"],
+  ["gf_izq", "pd_izq", "pt_izq", "gt_izq", "parante_izq"],
+  ["gf_der", "pd_der", "pt_der", "gt_der", "parante_der"]
+];
+
 function tarjeta(v, sel) {
   const foto = v.fotos?.[0]?.url, rot0 = v.fotos?.[0]?.rot;
   const autor = !esDeWhatsApp(v) && S.company?.members?.length > 1 && v.createdBy !== S.user.uid ? v.createdByName : "";
@@ -212,7 +219,10 @@ function renderDetalle(root, v, embebido) {
       <div class="piezas-view" ${modo3D ? "hidden" : ""}>
         ${carMapSVG(v.piezas || {}, { size: "carmap-sm" })}
         <p class="piezas-caption" aria-live="polite">${todos ? "<strong>Todos</strong>" : marcadas.length ? "Tocá un paño para ver su nombre" : "Sin paños marcados"}</p>
-        <ul class="piezas-list">${todos ? "<li>Todos</li>" : marcadas.map(k => `<li>${esc(PIEZA[k].label)}</li>`).join("") || "<li class='muted'>Sin paños marcados</li>"}</ul>
+        <div class="piezas-grupos">${todos ? `<ul class="piezas-list"><li>Todos</li></ul>`
+          : !marcadas.length ? `<ul class="piezas-list"><li class="muted">Sin paños marcados</li></ul>`
+          : GRUPOS_PIEZAS.map(g => g.filter(k => v.piezas?.[k])).filter(g => g.length)
+              .map(g => `<ul class="piezas-list">${g.map(k => `<li>${esc(PIEZA[k].label)}</li>`).join("")}</ul>`).join("")}</div>
       </div>
       <p class="piezas-caption caption-3d" ${modo3D ? "" : "hidden"}>Arrastrá para girar · tocá un paño</p>
       ${v.grado ? `<div class="grado-fila"><span class="grado-tag g${v.grado}">Grado ${v.grado}</span></div>` : ""}
