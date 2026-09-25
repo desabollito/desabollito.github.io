@@ -786,3 +786,11 @@ body[data-detalle="1"] .fab { display: none !important; }
 
 .map-cab { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .vform-map .vista-3d { margin-bottom: 4px; }
+
+.aviso-rep { margin-top: 6px; font-size: 13px; color: var(--warn); font-weight: 600; }
+.aviso-rep a { color: var(--warn); text-decoration: underline; }
+.solicitudes li { background: var(--surface-2); }
+.solicitudes li { flex-wrap: wrap; }
+.solicitudes .t-meta { flex-basis: 100%; }
+.solicitudes .t-meta > span { flex-wrap: wrap; }
+.solicitudes .btn { margin-left: auto; }

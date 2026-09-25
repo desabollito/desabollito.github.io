@@ -65,10 +65,20 @@ service cloud.firestore {
       match /vehicles/{vid} {
         allow read: if isMember(cid);
         allow create: if isMember(cid) && request.resource.data.createdBy == uid();
+        // Mandar a la papelera o restaurar: solo quien lo cargó, o un admin (al aprobar una solicitud)
         allow update: if isMember(cid)
-          && request.resource.data.createdBy == resource.data.createdBy;
+          && request.resource.data.createdBy == resource.data.createdBy
+          && (request.resource.data.get('deleted', false) == resource.data.get('deleted', false)
+              || resource.data.createdBy == uid() || isAdmin(cid));
         allow delete: if isAdmin(cid)
           || (isMember(cid) && resource.data.createdBy == uid());
+      }
+
+      // ── Solicitudes de eliminación (las resuelven los administradores)
+      match /solicitudes/{sid} {
+        allow read: if isAdmin(cid) || (isMember(cid) && resource.data.pedidoPor == uid());
+        allow create: if isMember(cid) && request.resource.data.pedidoPor == uid();
+        allow delete: if isAdmin(cid) || (isMember(cid) && resource.data.pedidoPor == uid());
       }
 
       // ── Gastos del operativo ───────────────────────────────

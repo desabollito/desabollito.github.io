@@ -1,5 +1,6 @@
 import {
   S, activos, getVehiculo, guardarVehiculo, actualizarVehiculo, cambiarEstado, moverAPapelera,
+  solicitarEliminacion, cargadoPor, esDeWhatsApp,
   nuevoIdVehiculo, soyAdmin, mensajeError
 } from "./data.js";
 import { ESTADOS, ESTADO, SECUENCIA, PIEZA, ORDEN_PIEZAS, estadoActual, piezasMarcadas } from "./domain.js";
@@ -31,7 +32,7 @@ function filtrar(lista) {
 
 function tarjeta(v, sel) {
   const foto = v.fotos?.[0]?.url;
-  const autor = S.company?.members?.length > 1 && v.createdBy !== S.user.uid ? v.createdByName : "";
+  const autor = esDeWhatsApp(v) ? "Bot" : (S.company?.members?.length > 1 && v.createdBy !== S.user.uid ? v.createdByName : "");
   return `
   <a class="vcard ${sel ? "sel" : ""}" href="#/v/${v.id}" style="--c:${ESTADO[estadoActual(v)].color}">
     <span class="vthumb">${foto ? `<img src="${esc(thumb(foto, 160))}" alt="" loading="lazy">` : icon("car")}</span>
@@ -158,7 +159,7 @@ function renderDetalle(root, v, embebido) {
   const anulado = est === "anulado";
   const marcadas = piezasMarcadas(v);
   const todos = marcadas.length === ORDEN_PIEZAS.length;
-  const puedeBorrar = soyAdmin() || v.createdBy === S.user.uid;
+  const esMio = v.createdBy === S.user.uid;
 
   root.innerHTML = `
   <article class="detail">
@@ -235,8 +236,8 @@ function renderDetalle(root, v, embebido) {
     </section>
 
     <footer class="d-foot">
-      <span>Cargado por ${esc(v.createdByName || "—")}</span>
-      ${puedeBorrar ? `<button class="icon-btn danger" data-act="borrar" aria-label="Eliminar vehículo" title="Eliminar">${icon("trash")}</button>` : ""}
+      <span>Cargado por ${esc(esMio ? "vos" : cargadoPor(v))}</span>
+      <button class="icon-btn danger" data-act="borrar" aria-label="Eliminar vehículo" title="Eliminar">${icon("trash")}</button>
     </footer>
   </article>`;
 
@@ -267,6 +268,14 @@ function renderDetalle(root, v, embebido) {
       }
       if (await confirmar({ title: "¿Anular este trabajo?", message: "Queda registrado como anulado. Podés reactivarlo después.", ok: "Anular", danger: true }))
         cambiarEstado(v, "anulado").catch(err => toast(mensajeError(err), "error"));
+      return;
+    }
+    if (act === "borrar" && !esMio) {
+      // Solo quien lo cargó puede borrarlo: los demás piden la eliminación a los administradores
+      if (await confirmar({ title: "Este vehículo no es tuyo",
+        message: `Está cargado por ${cargadoPor(v)}. ¿Solicitar su eliminación a los administradores del operativo?`, ok: "Solicitar eliminación", danger: true })) {
+        solicitarEliminacion(v).then(() => toast("Solicitud enviada a los administradores", "success")).catch(err => toast(mensajeError(err), "error"));
+      }
       return;
     }
     if (act === "borrar") {
@@ -555,7 +564,7 @@ export function vistaFormulario(view, id = null) {
           <div class="grid-2">
             <label class="field"><span>Modelo</span>
               <input name="modelo" value="${esc(v?.modelo)}" placeholder="Toyota Corolla 2020" required autocomplete="off"></label>
-            <label class="field"><span>Patente</span>
+            <label class="field" id="f-patente"><span>Patente</span>
               <input name="patente" value="${esc(v?.patente)}" placeholder="AB123CD" class="upper" autocomplete="off" autocapitalize="characters" maxlength="10"></label>
           </div>
         </fieldset>
@@ -644,7 +653,19 @@ export function vistaFormulario(view, id = null) {
     const d = e.target.value.replace(/\D/g, "");
     e.target.value = d ? Number(d).toLocaleString("es-AR") : "";
   });
-  form.patente.addEventListener("input", e => { e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9 ]/g, ""); });
+  // Patente repetida en este operativo
+  const repetida = pat => {
+    const p = String(pat || "").replace(/\s+/g, "");
+    return p.length >= 5 ? activos().find(x => x.patente === p && x.id !== v?.id) : null;
+  };
+  const avisoRepetida = () => {
+    const otro = repetida(form.patente.value);
+    let aviso = $("#aviso-patente", view);
+    if (!otro) { aviso?.remove(); return; }
+    if (!aviso) { aviso = document.createElement("p"); aviso.id = "aviso-patente"; aviso.className = "aviso-rep"; $("#f-patente", view).appendChild(aviso); }
+    aviso.innerHTML = `Ya está cargada en este operativo: <a href="#/v/${otro.id}">${esc(otro.modelo || otro.patente)}</a>`;
+  };
+  form.patente.addEventListener("input", e => { e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9 ]/g, ""); avisoRepetida(); });
 
   // Fotos cargadas desde el formulario: se suben mientras completás los datos
   const vid = v?.id || nuevoIdVehiculo();
@@ -691,6 +712,12 @@ export function vistaFormulario(view, id = null) {
   form.addEventListener("submit", async e => {
     e.preventDefault();
     const f = form;
+    const otro = repetida(f.patente.value);
+    if (otro) {
+      if (await confirmar({ title: `La patente ${otro.patente} ya está cargada`,
+        message: `Es ${otro.modelo || "un vehículo"} de este operativo. Para no duplicarlo, abrí ese y agregale lo que falte.`, ok: "Abrir ese vehículo" })) go(`#/v/${otro.id}`);
+      return;
+    }
     if (!f.modelo.value.trim() && !f.patente.value.trim()) {
       toast("Poné al menos el modelo o la patente", "warning"); marcarError(f.modelo); return;
     }

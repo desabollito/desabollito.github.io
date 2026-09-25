@@ -192,6 +192,7 @@ function escucharEmpresas() {
     emit("companies");
     sincronizarFoto();
     if (cambio) { escucharVehiculos(); escucharGastos(); }
+    escucharSolicitudes();
   }, e => { console.error(e); emit("error"); });
 }
 
@@ -204,6 +205,7 @@ export function elegirEmpresa(id) {
   emit("companies");
   escucharVehiculos();
   escucharGastos();
+  escucharSolicitudes();
 }
 
 export async function crearEmpresa(nombre) {
@@ -317,7 +319,8 @@ function escucharVehiculos() {
 }
 
 export const activos = () => S.vehicles.filter(v => !v.deleted);
-export const papelera = () => S.vehicles.filter(v => v.deleted);
+// Papelera personal: los vehículos que borré yo
+export const papelera = () => S.vehicles.filter(v => v.deleted && (v.deletedBy ? v.deletedBy === S.user.uid : v.createdBy === S.user.uid));
 export const getVehiculo = id => S.vehicles.find(v => v.id === id);
 
 export function nuevoIdVehiculo() {
@@ -363,8 +366,42 @@ export async function cambiarEstado(v, estado, fecha = hoyISO()) {
   await actualizarVehiculo(v.id, { estado, fechas });
 }
 
-export const moverAPapelera = id => actualizarVehiculo(id, { deleted: true, deletedAt: serverTimestamp() });
-export const restaurar = id => actualizarVehiculo(id, { deleted: false, deletedAt: null });
+export const moverAPapelera = id => actualizarVehiculo(id, { deleted: true, deletedAt: serverTimestamp(), deletedBy: S.user.uid });
+export const restaurar = id => actualizarVehiculo(id, { deleted: false, deletedAt: null, deletedBy: null });
+
+// Quién cargó el vehículo (persona o bot de WhatsApp)
+export const esDeWhatsApp = v => String(v?.createdBy || "").startsWith("whatsapp:");
+export function cargadoPor(v) {
+  if (esDeWhatsApp(v)) {
+    const quien = String(v.createdByName || "").replace(/\s*\(WhatsApp\)\s*$/, "");
+    return `el bot de WhatsApp${quien ? ` (enviado por ${quien})` : ""}`;
+  }
+  return v?.createdByName || "otra persona";
+}
+
+// ── Solicitudes de eliminación (las aprueban los administradores)
+const colSolicitudes = () => collection(db, "companies", S.company.id, "solicitudes");
+let unsubSolicitudes = null;
+S.solicitudes = [];
+export function escucharSolicitudes() {
+  unsubSolicitudes?.(); S.solicitudes = [];
+  if (!S.company || !soyAdmin()) return;
+  unsubSolicitudes = onSnapshot(colSolicitudes(), snap => {
+    S.solicitudes = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+      .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+    emit("solicitudes");
+  }, e => console.warn("solicitudes", e));
+}
+export async function solicitarEliminacion(v) {
+  await setDoc(doc(colSolicitudes(), v.id), {
+    vid: v.id, patente: v.patente || "", modelo: v.modelo || "", cargadoPor: cargadoPor(v),
+    pedidoPor: S.user.uid, pedidoPorNombre: S.profile?.name || "", createdAt: serverTimestamp()
+  });
+}
+export async function resolverSolicitud(sol, aprobar) {
+  if (aprobar) await moverAPapelera(sol.vid);
+  await deleteDoc(doc(colSolicitudes(), sol.id));
+}
 export const eliminarDefinitivo = id => deleteDoc(doc(colVehiculos(), id));
 
 // ── Gastos ────────────────────────────────────────────────────

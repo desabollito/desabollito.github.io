@@ -90,6 +90,7 @@ onChange(what => {
   // Nunca repintar un formulario a mitad de carga: se perdería lo escrito
   if (["nuevo", "editar"].includes(ruta.nombre) && $("#vform")) return; // sí se pinta si todavía estaba cargando
   if (what === "gastos") { if (ruta.nombre === "gastos") ctrl?.soloLista?.(); return; }
+  if (what === "solicitudes") { if (["papelera", "ajustes"].includes(ruta.nombre)) render({ conservarScroll: true }); return; }
   if (what === "vehicles" && ruta.nombre === "gastos") return;
   if (what === "vehicles" && ctrl?.soloLista && !ruta.arg) { ctrl.soloLista(); return; }
   if (what === "error") { toast("Problema de conexión con la base de datos", "error"); return; }

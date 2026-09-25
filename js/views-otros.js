@@ -1,6 +1,6 @@
 import {
   S, activos, papelera, restaurar, eliminarDefinitivo, soyAdmin, miRol, renombrarEmpresa, guardarSello,
-  agregarMiembro, cambiarRol, quitarMiembro, guardarEtiquetas, salirDeEmpresa, eliminarEmpresa, crearEmpresa, elegirEmpresa,
+  agregarMiembro, cambiarRol, quitarMiembro, guardarEtiquetas, resolverSolicitud, salirDeEmpresa, eliminarEmpresa, crearEmpresa, elegirEmpresa,
   actualizarPerfil, salir, mensajeError
 } from "./data.js";
 import { ESTADOS, ESTADO, ROLES, estadoActual } from "./domain.js";
@@ -471,7 +471,7 @@ export function vistaAjustes(view) {
     </section>
 
     <nav class="card menu">
-      <a href="#/papelera">${icon("trash")}<span><strong>Papelera</strong><small>${enPapelera ? `${enPapelera} ${enPapelera === 1 ? "vehículo" : "vehículos"}` : "Vacía"}</small></span>${icon("next")}</a>
+      <a href="#/papelera">${icon("trash")}<span><strong>Papelera</strong><small>${(S.solicitudes?.length && soyAdmin()) ? `${S.solicitudes.length} ${S.solicitudes.length === 1 ? "solicitud" : "solicitudes"} de eliminación · ` : ""}${enPapelera ? `${enPapelera} ${enPapelera === 1 ? "vehículo" : "vehículos"}` : "Vacía"}</small></span>${icon("next")}</a>
     </nav>
 
     <section class="card">
@@ -530,18 +530,35 @@ export function vistaPapelera(view) {
   setTopbar({ title: "Papelera", back: "#/ajustes" });
   const items = papelera();
   const admin = soyAdmin();
+  const sols = admin ? (S.solicitudes || []) : [];
   view.innerHTML = `
   <div class="page narrow">
+    ${sols.length ? `<section class="card">
+      <h3>Solicitudes de eliminación <small class="muted">${sols.length}</small></h3>
+      <ul class="trash solicitudes">${sols.map(x => `
+        <li><span class="t-meta"><strong>${esc(x.modelo || "Sin modelo")}</strong>
+          <span>${plate(x.patente, "sm")}<small class="muted">Pide ${esc(x.pedidoPorNombre || "alguien")} · cargado por ${esc(x.cargadoPor || "—")}</small></span></span>
+          <button class="btn btn-danger-ghost btn-sm" data-ok="${x.id}">Eliminar</button>
+          <button class="icon-btn sm" data-no="${x.id}" aria-label="Rechazar">${icon("x")}</button>
+        </li>`).join("")}</ul>
+    </section>` : ""}
     ${items.length ? `<p class="muted small">Los vehículos quedan acá hasta que los restaures o los elimines.</p>
     <ul class="trash">${items.map(v => `
       <li><span class="t-meta"><strong>${esc(v.modelo || "Sin modelo")}</strong>
         <span>${plate(v.patente, "sm")}<small class="muted">Borrado el ${fechaCorta(tsToISO(v.deletedAt)) || "—"}</small></span></span>
         <button class="btn btn-ghost btn-sm" data-r="${v.id}">${icon("restore")}Restaurar</button>
-        ${admin || v.createdBy === S.user.uid ? `<button class="icon-btn sm danger" data-x="${v.id}" aria-label="Eliminar para siempre">${icon("trash")}</button>` : ""}
+        <button class="icon-btn sm danger" data-x="${v.id}" aria-label="Eliminar para siempre">${icon("trash")}</button>
       </li>`).join("")}</ul>`
-    : `<div class="empty"><h2>La papelera está vacía</h2><p>Lo que borres de la lista aparece acá por si te arrepentís.</p></div>`}
+    : `<div class="empty"><h2>Tu papelera está vacía</h2><p>Lo que borres aparece acá por si te arrepentís.</p></div>`}
   </div>`;
   $(".page", view).onclick = async e => {
+    const ok = e.target.closest("[data-ok]"), no = e.target.closest("[data-no]");
+    if (ok || no) {
+      const sol = sols.find(x => x.id === (ok ? ok.dataset.ok : no.dataset.no));
+      if (ok && !(await confirmar({ title: `¿Eliminar ${sol.modelo || sol.patente}?`, message: "Va a tu papelera; desde ahí se puede restaurar.", ok: "Eliminar", danger: true }))) return;
+      resolverSolicitud(sol, !!ok).then(() => toast(ok ? "Vehículo eliminado" : "Solicitud rechazada", "success")).catch(err => toast(mensajeError(err), "error"));
+      return;
+    }
     const r = e.target.closest("[data-r]"), x = e.target.closest("[data-x]");
     if (r) { restaurar(r.dataset.r).catch(err => toast(mensajeError(err), "error")); toast("Vehículo restaurado", "success"); }
     if (x) {

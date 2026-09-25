@@ -106,6 +106,10 @@ export function openSheet({ title = "", body = "", wide = false, onClose } = {})
   return api;
 }
 
+// Al cambiar de pantalla se cierran las ventanas abiertas
+export function cerrarHojas() { [...sheetStack].forEach(h => h.close()); }
+addEventListener("hashchange", cerrarHojas);
+
 document.addEventListener("keydown", e => {
   if (e.key === "Escape" && sheetStack.length) sheetStack[sheetStack.length - 1].close();
 });
