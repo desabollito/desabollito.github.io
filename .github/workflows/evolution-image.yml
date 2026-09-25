@@ -1,0 +1,26 @@
+name: Imagen Evolution API (con arreglo)
+on:
+  push:
+    paths: [ "bot/evolution/Dockerfile", ".github/workflows/evolution-image.yml" ]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - name: Compilar (amd64 y arm64)
+        run: |
+          for arch in amd64 arm64; do
+            docker buildx build --platform linux/$arch --load -t desabollito/evolution:fix bot/evolution
+            docker save desabollito/evolution:fix | gzip -1 > evolution-fix-$arch.tar.gz
+            ls -la evolution-fix-$arch.tar.gz
+          done
+      - name: Publicar como release
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: |
+          gh release delete evolution-fix --yes --cleanup-tag 2>/dev/null || true
+          gh release create evolution-fix evolution-fix-amd64.tar.gz evolution-fix-arm64.tar.gz \
+            --title "Evolution API 2.3.7 + arreglo de vinculación" --notes "Imagen para bot/evolution/setup.sh" --latest=false
