@@ -36,9 +36,9 @@ function tarjeta(v, sel) {
     <span class="vthumb">${foto ? `<img src="${esc(thumb(foto, 160))}" alt="" loading="lazy">` : icon("car")}</span>
     <span class="vbody">
       <span class="vtop"><strong class="vmodel">${esc(v.modelo || "Sin modelo")}</strong>
-        ${v.precio ? `<span class="vprice">${money(v.precio)}</span>` : ""}</span>
+</span>
       <span class="vmid">${plate(v.patente, "sm")}${estadoPill(v)}${v._pending ? `<span class="sync" title="Pendiente de sincronizar"></span>` : ""}</span>
-      <span class="vsub"><span class="vcli">${esc([v.asegurado, v.compania].filter(Boolean).join(", ") || "Sin datos del cliente")}</span>
+      <span class="vsub"><span class="vcli">${esc([v.compania, v.localidad].filter(Boolean).join(", "))}</span>
         ${autor ? `<em>${esc(autor.split(" ")[0])}</em>` : ""}<time>${fechaCorta(v.fechas?.peritado)}</time></span>
     </span>
   </a>`;
