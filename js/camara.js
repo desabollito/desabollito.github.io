@@ -117,34 +117,6 @@ export async function abrirCamara(op = {}) {
 // Formato 4:3 (el de la cámara del celular), con la mayor resolución disponible
 const VIDEO_4x3 = { width: { ideal: 4032 }, height: { ideal: 3024 }, aspectRatio: { ideal: 4 / 3 } };
 
-// Lentes: zoom nativo si el celular lo expone; si no, cámaras traseras separadas (ultra gran angular, etc.)
-async function opcionesDeLente(track) {
-  const caps = track.getCapabilities?.() || {};
-  if (caps.zoom && caps.zoom.max > caps.zoom.min) {
-    const { min, max } = caps.zoom, ops = [];
-    if (min < 0.95) ops.push({ t: (Math.round(min * 10) / 10).toString().replace(".", ",") + "x", zoom: min });
-    ops.push({ t: "1x", zoom: Math.max(min, 1) });
-    if (max >= 2) ops.push({ t: "2x", zoom: 2 });
-    if (max >= 3) ops.push({ t: "3x", zoom: 3 });
-    return ops.length > 1 ? ops : [];
-  }
-  const devs = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === "videoinput");
-  const traseras = devs.filter(d => !/front|frontal|delanter|user|facetime/i.test(d.label));
-  if (traseras.length < 2) return [];
-  const rol = d => /ultra|gran angular|0[.,]5/i.test(d.label) ? 0 : /tele/i.test(d.label) ? 2 : /dual|triple/i.test(d.label) ? 9 : 1;
-  const conRol = traseras.map(d => ({ d, r: rol(d) })).filter(x => x.r !== 9);
-  const conocidos = conRol.some(x => x.r !== 1);
-  if (conocidos) {
-    const ops = [];
-    const ultra = conRol.find(x => x.r === 0), normal = conRol.find(x => x.r === 1), tele = conRol.find(x => x.r === 2);
-    if (ultra) ops.push({ t: "0,5x", id: ultra.d.deviceId });
-    if (normal) ops.push({ t: "1x", id: normal.d.deviceId });
-    if (tele) ops.push({ t: "2x", id: tele.d.deviceId });
-    return ops.length > 1 ? ops : [];
-  }
-  return conRol.map((x, i) => ({ t: `Lente ${i + 1}`, id: x.d.deviceId }));
-}
-
 async function abrirCamara_() {
   if (!navigator.mediaDevices?.getUserMedia) return null;
   let stream;
@@ -159,7 +131,7 @@ async function abrirCamara_() {
 
   return new Promise(resolve => {
     const fotos = [];          // { file, url }
-    let flash = false, cerrado = false, lentes = [], lente = 0;
+    let flash = false, cerrado = false, zoom2 = false, zoomNativo = false;
 
     const el = document.createElement("div");
     el.className = "cam";
@@ -167,14 +139,13 @@ async function abrirCamara_() {
       <div class="cam-visor"><video playsinline muted autoplay></video><div class="cam-flashfx"></div></div>
       <header class="cam-top">
         <button class="cam-ic" data-cerrar aria-label="Cerrar">${icon("x")}</button>
-        <span class="cam-titulo">Fotos</span>
+        <span class="cam-titulo cam-n"></span>
         <button class="cam-ic" data-flash aria-label="Linterna" hidden>${icon("flash")}</button><span class="cam-ic vacio"></span>
       </header>
       <footer class="cam-bot">
-        <div class="cam-lentes"></div>
         <div class="cam-tiras"></div>
         <div class="cam-ctrl">
-          <span class="cam-n"></span>
+          <button class="cam-zoom" data-zoom aria-label="Zoom">1x</button>
           <button class="cam-disparo" data-disparo aria-label="Sacar foto"></button>
           <button class="cam-ok" data-ok>OK</button>
         </div>
@@ -184,26 +155,21 @@ async function abrirCamara_() {
     const $ = s => el.querySelector(s);
     const video = $("video"); video.srcObject = stream;
 
-    const prepararControles = async () => {
-      const puedeFlash = !!track.getCapabilities?.().torch;
+    // Flash si el celular lo tiene; zoom 2x nativo si existe, si no, digital (se recorta al centro)
+    const prepararControles = () => {
+      const caps = track.getCapabilities?.() || {};
+      const puedeFlash = !!caps.torch;
       $("[data-flash]").hidden = !puedeFlash; $(".cam-ic.vacio").hidden = puedeFlash;
-      if (!lentes.length) {
-        lentes = await opcionesDeLente(track).catch(() => []);
-        lente = Math.max(0, lentes.findIndex(o => o.t === "1x"));
-      }
-      $(".cam-lentes").innerHTML = lentes.map((o, i) => `<button class="${i === lente ? "on" : ""}" data-lente="${i}">${o.t}</button>`).join("");
+      zoomNativo = !!(caps.zoom && caps.zoom.max >= 2);
     };
-    const usarLente = async i => {
-      const o = lentes[i]; if (!o) return;
-      lente = i; prepararControles();
-      if (o.zoom != null) { track.applyConstraints({ advanced: [{ zoom: o.zoom }] }).catch(() => {}); return; }
-      try {
-        stream.getTracks().forEach(t => t.stop());
-        stream = await pedir({ deviceId: { exact: o.id } });
-        track = stream.getVideoTracks()[0]; video.srcObject = stream; flash = false;
-        $("[data-flash]").classList.remove("on");
-        prepararControles();
-      } catch (e) { console.warn("lente", e); toast("No se pudo cambiar de lente", "error"); }
+    const aplicarZoom = () => {
+      $("[data-zoom]").textContent = zoom2 ? "2x" : "1x";
+      $("[data-zoom]").classList.toggle("on", zoom2);
+      if (zoomNativo) {
+        const min = track.getCapabilities().zoom.min;
+        track.applyConstraints({ advanced: [{ zoom: zoom2 ? 2 : Math.max(1, min) }] }).catch(() => {});
+        video.style.transform = "";
+      } else video.style.transform = zoom2 ? "scale(2)" : "";
     };
 
     const pintar = () => {
@@ -230,8 +196,14 @@ async function abrirCamara_() {
       if (t.matches("[data-disparo]")) {
         if (!video.videoWidth) return;
         const c = document.createElement("canvas");
-        c.width = video.videoWidth; c.height = video.videoHeight;
-        c.getContext("2d").drawImage(video, 0, 0);
+        const vw = video.videoWidth, vh = video.videoHeight;
+        if (zoom2 && !zoomNativo) {          // zoom digital: se guarda la mitad central
+          c.width = vw / 2; c.height = vh / 2;
+          c.getContext("2d").drawImage(video, vw / 4, vh / 4, vw / 2, vh / 2, 0, 0, vw / 2, vh / 2);
+        } else {
+          c.width = vw; c.height = vh;
+          c.getContext("2d").drawImage(video, 0, 0);
+        }
         $(".cam-flashfx").classList.remove("on"); void el.offsetWidth; $(".cam-flashfx").classList.add("on");
         navigator.vibrate?.(25);
         c.toBlob(b => {
@@ -240,7 +212,7 @@ async function abrirCamara_() {
           fotos.push({ file, url: URL.createObjectURL(b) }); pintar();
         }, "image/jpeg", 0.92);
       }
-      else if (t.matches("[data-lente]")) usarLente(+t.dataset.lente);
+      else if (t.matches("[data-zoom]")) { zoom2 = !zoom2; aplicarZoom(); }
       else if (t.matches("[data-quitar]")) { const [f] = fotos.splice(+t.dataset.quitar, 1); URL.revokeObjectURL(f.url); pintar(); }
       else if (t.matches("[data-ok]")) terminar({ fotos: fotos.map(f => f.file), patente: null });
       else if (t.matches("[data-flash]")) {

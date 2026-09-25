@@ -891,3 +891,12 @@ html.cam-abierta, html.cam-abierta body { overflow: hidden; }
   font-size: 13px; color: var(--muted); }
 .version-btn .ic { width: 14px; height: 14px; }
 .version-btn:hover, .version-btn:focus-visible { background: var(--surface-2); color: var(--ink); }
+
+/* Cámara: contador arriba al centro, un solo botón de zoom a la izquierda del disparador, OK más chico */
+.cam-titulo.cam-n { font-size: 16px; font-weight: 700; }
+.cam-zoom { all: unset; justify-self: end; margin-right: 22px; width: 46px; height: 46px; border-radius: 50%; background: #0009;
+  border: 1.5px solid #fff6; color: #fff; font: 700 14px/46px var(--font); text-align: center; cursor: pointer; box-sizing: border-box; line-height: 43px; }
+.cam-zoom.on { background: #fff; color: #000; border-color: #fff; }
+.cam-ok { padding: 8px 16px; min-width: 0; font-size: 15px; font-weight: 700; margin-left: 22px; justify-self: start; }
+.cam-visor { overflow: hidden; }
+.cam-visor video { transition: transform .15s ease-out; }
