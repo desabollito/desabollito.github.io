@@ -16,7 +16,7 @@ DIR=/opt/desabollito
 
 echo "▶ 1/6 Actualizando DuckDNS (${DOMINIO} → IP de este servidor)"
 curl -fsS "https://www.duckdns.org/update?domains=${SUB}&token=${DUCK}&ip=" ; echo
-( crontab -l 2>/dev/null | grep -v duckdns ; echo "*/5 * * * * curl -fsS 'https://www.duckdns.org/update?domains=${SUB}&token=${DUCK}&ip=' >/dev/null" ) | crontab -
+{ crontab -l 2>/dev/null | grep -v duckdns || true; echo "*/5 * * * * curl -fsS 'https://www.duckdns.org/update?domains=${SUB}&token=${DUCK}&ip=' >/dev/null"; } | crontab -
 
 echo "▶ 2/6 Abriendo puertos 80 y 443"
 iptables -C INPUT -p tcp --dport 80 -j ACCEPT 2>/dev/null || iptables -I INPUT 1 -p tcp --dport 80 -j ACCEPT
