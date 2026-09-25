@@ -59,7 +59,8 @@ services:
       POSTGRES_DB: evolution
     volumes: [ "pgdata:/var/lib/postgresql/data" ]
   evolution:
-    image: evoapicloud/evolution-api:v2.3.7
+    image: desabollito/evolution:fix
+    pull_policy: never
     restart: always
     depends_on: [ postgres ]
     environment:
@@ -73,7 +74,11 @@ services:
       DEL_INSTANCE: "false"
       CONFIG_SESSION_PHONE_CLIENT: Desabollito
       CONFIG_SESSION_PHONE_NAME: Chrome
-      NODE_OPTIONS: --max-old-space-size=512
+      NODE_OPTIONS: --max-old-space-size=512 --dns-result-order=ipv4first
+      DATABASE_SAVE_DATA_CHATS: "false"
+      DATABASE_SAVE_DATA_CONTACTS: "false"
+      DATABASE_SAVE_DATA_HISTORIC: "false"
+      DATABASE_SAVE_DATA_LABELS: "false"
     volumes: [ "instancias:/evolution/instances" ]
   caddy:
     image: caddy:2-alpine
@@ -83,9 +88,14 @@ services:
 volumes: { pgdata: {}, instancias: {}, caddy_data: {} }
 YML
 
+echo "▶ Descargando Evolution API con el arreglo de vinculación de WhatsApp"
+ARCH=$(uname -m); case "$ARCH" in aarch64|arm64) ARCH=arm64 ;; *) ARCH=amd64 ;; esac
+curl -fL --retry 3 -o /tmp/evo.tar.gz "https://github.com/desabollito/desabollito.github.io/releases/download/evolution-fix/evolution-fix-${ARCH}.tar.gz"
+gunzip -c /tmp/evo.tar.gz | docker load && rm -f /tmp/evo.tar.gz
+
 echo "▶ 5/6 Levantando el servidor (la primera vez tarda unos minutos)"
-docker compose pull -q
-docker compose up -d
+docker compose pull -q postgres caddy
+docker compose up -d --force-recreate
 for i in $(seq 1 60); do
   curl -fsS "https://${DOMINIO}" >/dev/null 2>&1 && break
   sleep 5
@@ -93,6 +103,13 @@ done
 
 echo "▶ 6/6 Creando la conexión 'desabollito' y el aviso al bot"
 H=(-H "apikey: ${APIKEY}" -H "Content-Type: application/json")
+# Si quedó una conexión trabada (sin vincular), se borra y se crea de nuevo
+ESTADO=$(curl -fsS "https://${DOMINIO}/instance/connectionState/desabollito" "${H[@]}" 2>/dev/null | grep -o '"state":"[a-z]*"' || true)
+if [ -n "$ESTADO" ] && [ "$ESTADO" != '"state":"open"' ]; then
+  curl -fsS -X DELETE "https://${DOMINIO}/instance/logout/desabollito" "${H[@]}" >/dev/null 2>&1 || true
+  curl -fsS -X DELETE "https://${DOMINIO}/instance/delete/desabollito" "${H[@]}" >/dev/null 2>&1 || true
+  sleep 3
+fi
 curl -fsS -X POST "https://${DOMINIO}/instance/create" "${H[@]}" \
   -d '{"instanceName":"desabollito","integration":"WHATSAPP-BAILEYS","qrcode":true,"groupsIgnore":false,"alwaysOnline":false,"readMessages":false}' >/dev/null 2>&1 || true
 curl -fsS -X POST "https://${DOMINIO}/webhook/set/desabollito" "${H[@]}" \
