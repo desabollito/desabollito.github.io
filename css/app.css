@@ -393,11 +393,12 @@ fieldset.card legend + * { clear: both; }
 /* ── Formulario ───────────────────────────────────────────── */
 .vform { padding-bottom: 96px; }
 .vform-cols { display: grid; gap: 14px; grid-template-columns: minmax(0, 1fr);
-  grid-template-areas: "veh" "cli" "map" "det"; }
+  grid-template-areas: "fotos" "veh" "cli" "map" "det"; }
+.vform-fotos { grid-area: fotos; margin-top: 0; }
 .vform-veh { grid-area: veh; } .vform-cli { grid-area: cli; } .vform-map { grid-area: map; } .vform-det { grid-area: det; }
 @media (min-width: 1000px) {
-  .vform-cols { grid-template-columns: minmax(0, 1fr) 400px; grid-template-areas: "veh map" "cli map" "det map"; align-items: start; }
-  .vform-map { position: sticky; top: calc(var(--top) + 16px); grid-row: 1 / span 3; }
+  .vform-cols { grid-template-columns: minmax(0, 1fr) 400px; grid-template-areas: "fotos map" "veh map" "cli map" "det map"; align-items: start; }
+  .vform-map { position: sticky; top: calc(var(--top) + 16px); grid-row: 1 / span 4; }
   .map-wrap { grid-template-columns: 1fr; justify-items: center; }
   .map-wrap .carmap { max-width: 210px; }
 }

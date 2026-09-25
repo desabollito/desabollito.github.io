@@ -518,6 +518,11 @@ export function vistaFormulario(view, id = null) {
   view.innerHTML = `
   <form class="vform" id="vform" novalidate>
     <div class="vform-cols">
+          <div class="card form-fotos vform-fotos">
+            <label class="btn btn-ghost btn-block">${icon("camera")}Agregar fotos${v?.fotos?.length ? ` <small class="muted">(ya tiene ${v.fotos.length})</small>` : ""}
+              <input type="file" accept="image/*" multiple hidden id="ff-in"></label>
+            <div class="ff-grid" id="ff-grid"></div>
+          </div>
         <fieldset class="card vform-veh">
           <legend>Vehículo</legend>
           <div class="grid-2">
@@ -555,11 +560,6 @@ export function vistaFormulario(view, id = null) {
             <div class="seg seg-sm" id="grado" role="radiogroup" aria-label="Grado de daño">
               ${[1, 2, 3].map(g => `<button type="button" class="seg-btn ${v?.grado === g ? "on" : ""}" data-g="${g}" role="radio" aria-checked="${v?.grado === g}">Grado ${g}</button>`).join("")}
             </div>
-          </div>
-          <div class="form-fotos">
-            <label class="btn btn-ghost btn-block">${icon("camera")}Agregar fotos${v?.fotos?.length ? ` <small class="muted">(ya tiene ${v.fotos.length})</small>` : ""}
-              <input type="file" accept="image/*" multiple hidden id="ff-in"></label>
-            <div class="ff-grid" id="ff-grid"></div>
           </div>
         </fieldset>
         <fieldset class="card vform-det">
