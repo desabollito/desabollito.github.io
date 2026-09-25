@@ -2,17 +2,16 @@ name: Publicar reglas de Firestore
 on:
   push:
     branches: [main]
-    paths: ["firestore.rules", ".github/workflows/deploy-reglas.yml"]
+    paths: ["firestore.rules", ".github/workflows/deploy-reglas.yml", ".github/scripts/reglas.mjs"]
   workflow_dispatch:
 jobs:
   reglas:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Credenciales
-        run: echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > "$RUNNER_TEMP/sa.json"
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
       - name: Publicar reglas
         env:
-          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/sa.json
-        run: npx -y firebase-tools@13 deploy --only firestore:rules --project desabollitoorg --non-interactive
-# Publica firestore.rules en Firebase cuando cambia
+          SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: node .github/scripts/reglas.mjs
