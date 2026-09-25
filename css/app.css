@@ -821,9 +821,12 @@ html.cam-abierta, html.cam-abierta body { overflow: hidden; }
 .cam-ic.on { background: #ffd54a; color: #000; }
 .cam-pat { position: relative; flex: 1; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 0 20px; }
 .cam[data-modo="patente"] .cam-pat { display: flex; }
-.cam[data-modo="patente"] .cam-bot { display: none; }
-.cam-marco { width: min(78vw, 360px); aspect-ratio: 3.2 / 1; border-radius: 12px; border: 3px solid #fff; box-shadow: 0 0 0 100vmax #0008; }
-.cam-ayuda { position: relative; margin: 0; font-weight: 600; text-shadow: 0 1px 3px #000; }
+.cam[data-modo="patente"] .cam-ok, .cam[data-modo="patente"] .cam-n { visibility: hidden; }
+.cam[data-modo="patente"] .cam-pat { justify-content: flex-start; padding-top: 18vh; }
+.cam-ic.vacio { visibility: hidden; }
+.cam-vista { position: relative; margin: -8px 0 0; min-height: 1.2em; font: 600 13px/1.2 ui-monospace, monospace; letter-spacing: .12em; color: #fffa; text-shadow: 0 1px 2px #000; }
+.cam-marco { width: min(86vw, 420px); aspect-ratio: 3 / 1; border-radius: 12px; border: 3px solid #fff; box-shadow: 0 0 0 100vmax #0008; }
+.cam-ayuda { position: relative; margin: 0; text-align: center; font-weight: 600; text-shadow: 0 1px 3px #000; }
 .cam-leida { position: relative; display: flex; flex-direction: column; align-items: center; gap: 12px; background: #000c; padding: 16px; border-radius: 16px; }
 .cam-leida[hidden] { display: none; }
 .cam-leida-btns { display: flex; gap: 10px; }

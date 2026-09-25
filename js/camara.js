@@ -49,34 +49,71 @@ function cargarOCR() {
   return motor;
 }
 
-// Recorta la zona del recuadro, pasa a gris con contraste e invierte si la patente es oscura (modelo viejo)
-function recortePatente(video, marco, lienzo, { alternar = false, margen = 0 } = {}) {
+// Zona del video que cae dentro del recuadro (el video se muestra con object-fit: cover)
+function zona(video, marco, margen = 0) {
   const vr = video.getBoundingClientRect(), mr = marco.getBoundingClientRect();
   const vw = video.videoWidth, vh = video.videoHeight;
-  const esc_ = Math.max(vr.width / vw, vr.height / vh);            // object-fit: cover
-  const ox = (vr.width - vw * esc_) / 2, oy = (vr.height - vh * esc_) / 2;
-  const extra = mr.height * margen;
-  const sx = (mr.left - vr.left - ox) / esc_, sy = (mr.top - extra - vr.top - oy) / esc_;
-  const sw = mr.width / esc_, sh = (mr.height + extra * 2) / esc_;
-  const W = 640, H = Math.round(W * sh / sw);
+  const k = Math.max(vr.width / vw, vr.height / vh);
+  const ox = (vr.width - vw * k) / 2, oy = (vr.height - vh * k) / 2;
+  const ex = mr.width * margen * 0.3, ey = mr.height * margen;
+  return { sx: (mr.left - ex - vr.left - ox) / k, sy: (mr.top - ey - vr.top - oy) / k,
+           sw: (mr.width + ex * 2) / k, sh: (mr.height + ey * 2) / k };
+}
+
+// Prepara el recorte para el lector: gris, contraste, invertido (patentes negras) y opcionalmente blanco/negro puro
+function preparar(src, z, lienzo, { ancho = 400, invertir = false, bn = false } = {}) {
+  const W = ancho, H = Math.max(20, Math.round(W * z.sh / z.sw));
   lienzo.width = W; lienzo.height = H;
   const c = lienzo.getContext("2d", { willReadFrequently: true });
-  c.drawImage(video, sx, sy, sw, sh, 0, 0, W, H);
-  const img = c.getImageData(0, 0, W, H), d = img.data;
+  c.drawImage(src, z.sx, z.sy, z.sw, z.sh, 0, 0, W, H);
+  const img = c.getImageData(0, 0, W, H), d = img.data, n = d.length / 4;
+  const hist = new Uint32Array(256);
   let min = 255, max = 0, suma = 0;
-  for (let i = 0; i < d.length; i += 4) { const g = d[i] * .3 + d[i + 1] * .59 + d[i + 2] * .11; d[i] = g; if (g < min) min = g; if (g > max) max = g; suma += g; }
-  const inv = (suma / (d.length / 4) < 110) !== alternar, rango = Math.max(1, max - min);
-  for (let i = 0; i < d.length; i += 4) { let g = (d[i] - min) * 255 / rango; if (inv) g = 255 - g; d[i] = d[i + 1] = d[i + 2] = g; }
+  for (let i = 0; i < d.length; i += 4) {
+    const g = (d[i] * .3 + d[i + 1] * .59 + d[i + 2] * .11) | 0;
+    d[i] = g; hist[g]++; if (g < min) min = g; if (g > max) max = g; suma += g;
+  }
+  let umbral = 128;
+  if (bn) {                                   // Otsu
+    let sB = 0, wB = 0, mejor = 0, total = 0;
+    for (let t = 0; t < 256; t++) total += t * hist[t];
+    for (let t = 0; t < 256; t++) {
+      wB += hist[t]; if (!wB) continue;
+      const wF = n - wB; if (!wF) break;
+      sB += t * hist[t];
+      const v = wB * wF * ((sB / wB) - ((total - sB) / wF)) ** 2;
+      if (v > mejor) { mejor = v; umbral = t; }
+    }
+  }
+  const inv = (suma / n < 110) !== invertir, rango = Math.max(1, max - min);
+  for (let i = 0; i < d.length; i += 4) {
+    let g = bn ? (d[i] > umbral ? 255 : 0) : (d[i] - min) * 255 / rango;
+    if (inv) g = 255 - g;
+    d[i] = d[i + 1] = d[i + 2] = g;
+  }
   c.putImageData(img, 0, 0);
   return lienzo;
 }
+const VARIANTES = [
+  { margen: 0, ancho: 400 }, { margen: 0, ancho: 400, invertir: true },
+  { margen: 0.25, ancho: 560 }, { margen: 0, ancho: 300, bn: true },
+  { margen: 0.25, ancho: 560, invertir: true }, { margen: 0, ancho: 300, bn: true, invertir: true },
+  { margen: 0.15, ancho: 480, bn: true }
+];
+const limpio = t => String(t || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 12);
 
 /**
  * Abre la cámara a pantalla completa.
  * @param {{ patente?: boolean }} op  patente: antes de las fotos, escanea la patente
  * @returns {Promise<{ fotos: File[], patente: string|null } | null>}  null si no hay cámara (usar galería)
  */
-export async function abrirCamara({ patente = false } = {}) {
+let abriendo = false;
+export async function abrirCamara(op = {}) {
+  if (abriendo || document.querySelector(".cam")) return { fotos: [], patente: null };
+  abriendo = true;
+  try { return await abrirCamara_(op); } finally { abriendo = false; }
+}
+async function abrirCamara_({ patente = false } = {}) {
   if (!navigator.mediaDevices?.getUserMedia) return null;
   let stream;
   try {
@@ -104,11 +141,12 @@ export async function abrirCamara({ patente = false } = {}) {
       <header class="cam-top">
         <button class="cam-ic" data-cerrar aria-label="Cerrar">${icon("x")}</button>
         <span class="cam-titulo"></span>
-        ${puedeFlash ? `<button class="cam-ic" data-flash aria-label="Linterna">${icon("flash")}</button>` : `<span class="cam-ic"></span>`}
+        ${puedeFlash ? `<button class="cam-ic" data-flash aria-label="Linterna">${icon("flash")}</button>` : `<span class="cam-ic vacio"></span>`}
       </header>
       <div class="cam-pat">
-        <div class="cam-marco"></div>
         <p class="cam-ayuda">Apuntá a la patente</p>
+        <div class="cam-marco"></div>
+        <p class="cam-vista"></p>
         <div class="cam-leida" hidden>
           <div class="cam-plate"></div>
           <div class="cam-leida-btns">
@@ -116,7 +154,7 @@ export async function abrirCamara({ patente = false } = {}) {
             <button class="btn btn-primary" data-usar>Usar</button>
           </div>
         </div>
-        <button class="cam-saltar" data-saltar>Saltar y sacar fotos</button>
+        <button class="cam-saltar" data-saltar>Saltar la patente</button>
       </div>
       <footer class="cam-bot">
         <div class="cam-tiras"></div>
@@ -153,33 +191,52 @@ export async function abrirCamara({ patente = false } = {}) {
     const alNavegar = () => terminar(fotos.length ? { fotos: fotos.map(f => f.file), patente: leida } : { fotos: [], patente: leida });
     addEventListener("hashchange", alNavegar);
 
-    // ── Escaneo continuo de la patente
-    // Se prueban variantes (recuadro justo / con margen, normal / invertido) y se acepta
-    // la patente cuando aparece igual al menos 2 veces en las últimas 4 lecturas.
-    const VARIANTES = [{ margen: 0 }, { margen: 0, alternar: true }, { margen: 0.25 }, { margen: 0.25, alternar: true }];
-    let ultimas = [], intento = 0;
+    // ── Lectura de la patente: continua sobre el video, y a fondo sobre la foto al tocar el disparador.
+    // Se acepta con confianza alta, o si la misma patente aparece 2 veces en las últimas 6 lecturas.
+    let ultimas = [], intento = 0, ocupado = false;
+    const mostrarLeida = p => {
+      leida = p; navigator.vibrate?.(40);
+      $(".cam-plate").innerHTML = plate(p, "lg");
+      $(".cam-leida").hidden = false; $(".cam-ayuda").hidden = true; $(".cam-vista").textContent = "";
+    };
+    const leer = async (src, z, v) => {
+      const w = await cargarOCR();
+      const { data } = await w.recognize(preparar(src, z, lienzo, v));
+      const p = data.confidence >= 35 ? patenteDeTexto(data.text) : null;
+      if (!cerrado && modo === "patente") $(".cam-vista").textContent = limpio(data.text);
+      return { p, conf: data.confidence };
+    };
     const escanear = async () => {
       if (cerrado || modo !== "patente" || !$(".cam-leida").hidden) return;
       try {
-        const w = await cargarOCR();
-        if (video.readyState >= 2 && modo === "patente") {
-          $(".cam-ayuda").textContent = "Apuntá a la patente";
-          const { data } = await w.recognize(recortePatente(video, $(".cam-marco"), lienzo, VARIANTES[intento++ % VARIANTES.length]));
-          const p = data.confidence >= 55 ? patenteDeTexto(data.text) : null;
-          ultimas = [...ultimas, p].slice(-4);
-          if (p && ultimas.filter(x => x === p).length >= 2) {                 // misma lectura dos veces seguidas → confiable
-            leida = p; navigator.vibrate?.(40);
-            $(".cam-plate").innerHTML = plate(p, "lg");
-            $(".cam-leida").hidden = false; $(".cam-ayuda").hidden = true;
-            return;
-          }
+        if (!ocupado && video.readyState >= 2) {
+          await cargarOCR();
+          $(".cam-ayuda").textContent = "Apuntá a la patente o tocá el botón";
+          const v = VARIANTES[intento++ % VARIANTES.length];
+          const { p, conf } = await leer(video, zona(video, $(".cam-marco"), v.margen), v);
+          ultimas = [...ultimas, p].slice(-6);
+          if (p && modo === "patente" && $(".cam-leida").hidden && (conf >= 80 || ultimas.filter(x => x === p).length >= 2)) { mostrarLeida(p); return; }
         }
       } catch (e) {
         console.warn("ocr", e);
         $(".cam-ayuda").textContent = "No se pudo cargar el lector. Podés saltar este paso.";
         return;
       }
-      setTimeout(escanear, 120);
+      setTimeout(escanear, 80);
+    };
+    // Foto de la patente: se guarda como primera foto y se lee con todas las variantes
+    const leerFoto = async (foto, zonas) => {
+      ocupado = true;
+      $(".cam-ayuda").textContent = "Leyendo la patente…";
+      try {
+        for (const v of VARIANTES) {
+          if (cerrado || modo !== "patente") return;
+          const { p } = await leer(foto, zonas[v.margen], v);
+          if (p) { mostrarLeida(p); return; }
+        }
+        $(".cam-ayuda").textContent = "No la pude leer. Acercate hasta que llene el recuadro y probá de nuevo.";
+      } catch (e) { console.warn("ocr", e); }
+      finally { ocupado = false; if (!cerrado && modo === "patente" && $(".cam-leida").hidden) escanear(); }
     };
     const aFotos = () => { modo = "fotos"; pintar(); };
 
@@ -190,6 +247,11 @@ export async function abrirCamara({ patente = false } = {}) {
         const c = document.createElement("canvas");
         c.width = video.videoWidth; c.height = video.videoHeight;
         c.getContext("2d").drawImage(video, 0, 0);
+        if (modo === "patente" && $(".cam-leida").hidden) {
+          const marco = $(".cam-marco"), zonas = {};
+          for (const v of VARIANTES) zonas[v.margen] ??= zona(video, marco, v.margen);
+          leerFoto(c, zonas);
+        }
         $(".cam-flashfx").classList.remove("on"); void el.offsetWidth; $(".cam-flashfx").classList.add("on");
         navigator.vibrate?.(25);
         c.toBlob(b => {
@@ -201,7 +263,7 @@ export async function abrirCamara({ patente = false } = {}) {
       else if (t.matches("[data-quitar]")) { const [f] = fotos.splice(+t.dataset.quitar, 1); URL.revokeObjectURL(f.url); pintar(); }
       else if (t.matches("[data-ok]")) terminar({ fotos: fotos.map(f => f.file), patente: leida });
       else if (t.matches("[data-usar]")) aFotos();
-      else if (t.matches("[data-otra]")) { leida = null; ultimas = []; $(".cam-leida").hidden = true; $(".cam-ayuda").hidden = false; escanear(); }
+      else if (t.matches("[data-otra]")) { leida = null; ultimas = []; $(".cam-leida").hidden = true; $(".cam-ayuda").hidden = false; if (!ocupado) escanear(); }
       else if (t.matches("[data-saltar]")) { leida = null; aFotos(); }
       else if (t.matches("[data-flash]")) {
         flash = !flash; t.classList.toggle("on", flash);
