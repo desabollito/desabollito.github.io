@@ -453,7 +453,6 @@ export function vistaAjustes(view) {
         <div class="profile-meta"><h2>${esc(p.name)}</h2><p class="muted">@${esc(p.username)}</p></div>
       </div>
       <button class="btn btn-ghost btn-block" id="editar-perfil">${icon("edit")}Editar perfil</button>
-      <p class="muted small">Pasale tu usuario al administrador del operativo para que te sume.</p>
     </section>
 
     ${WHATSAPP_BOT ? `<section class="card">
