@@ -13,7 +13,7 @@ export const SECUENCIA = ["peritado", "turnado", "reparado", "facturado"];
 // frente del auto arriba) se usa tanto en el SVG como en el PDF.
 export const PIEZAS = [
   { key: "capot",       label: "Capot",                x: 64,  y: 24,  w: 112, h: 90, r: 16 },
-  { key: "techo",       label: "Techo",                x: 84,  y: 124, w: 72, h: 172, r: 10 },
+  { key: "techo",       label: "Techo",                x: 84,  y: 158, w: 72, h: 104, r: 10 },
   { key: "baul",        label: "Baúl",                 x: 66,  y: 300, w: 108, h: 90, r: 16 },
   { key: "parante_izq", label: "Parante izquierdo",    x: 60,  y: 124, w: 20, h: 172, r: 8 },
   { key: "parante_der", label: "Parante derecho",      x: 160, y: 124, w: 20, h: 172, r: 8 },
@@ -31,8 +31,10 @@ export const ORDEN_PIEZAS = ["capot", "techo", "baul", "gf_izq", "pd_izq", "pt_i
   "gf_der", "pd_der", "pt_der", "gt_der", "parante_izq", "parante_der"];
 
 // Vidrios (solo dibujo, no seleccionables)
-// El techo ocupa todo el largo de los parantes (ya no se dibujan parabrisas ni luneta)
-export const VIDRIOS = [];
+export const VIDRIOS = [
+  { x: 84, y: 120, w: 72, h: 32, r: 8 },   // parabrisas
+  { x: 86, y: 266, w: 68, h: 28, r: 8 }    // luneta
+];
 
 export const ROLES = {
   owner:   { label: "Dueño" },
