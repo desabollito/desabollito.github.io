@@ -976,3 +976,4 @@ label.logo-prev { cursor: pointer; }
 /* WhatsApp vinculado en el perfil */
 .perfil-wa { display: inline-flex; align-items: center; gap: 6px; margin: 4px 0 0; font-size: 13px; color: #25d366; font-weight: 600; }
 .perfil-wa .ic { width: 15px; height: 15px; }
+.perfil-wa { flex-wrap: wrap; } .perfil-wa .link-btn { margin-left: 6px; font-size: 12px; }

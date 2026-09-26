@@ -1,6 +1,6 @@
 import {
   S, activos, papelera, restaurar, eliminarDefinitivo, soyAdmin, miRol, renombrarEmpresa, guardarSello,
-  agregarMiembro, cambiarRol, quitarMiembro, guardarEtiquetas, resolverSolicitud, salirDeEmpresa, eliminarEmpresa, crearEmpresa, elegirEmpresa,
+  agregarMiembro, cambiarRol, quitarMiembro, guardarEtiquetas, resolverSolicitud, desvincularWhatsApp, salirDeEmpresa, eliminarEmpresa, crearEmpresa, elegirEmpresa,
   actualizarPerfil, salir, mensajeError
 } from "./data.js";
 import { ESTADOS, ESTADO, ROLES, estadoActual } from "./domain.js";
@@ -459,7 +459,8 @@ export function vistaAjustes(view) {
       <div class="profile-row">
         <span class="avatar lg">${p.photoURL ? `<img src="${esc(avatar(p.photoURL, 160))}" alt="">` : esc(initials(p.name))}</span>
         <div class="profile-meta"><h2>${esc(p.name)}</h2><p class="muted">@${esc(p.username)}</p>
-          ${p.whatsapp ? `<p class="perfil-wa" title="WhatsApp vinculado al bot">${icon("chat")}+${esc(String(p.whatsapp).replace(/^(\d{2})(9)(\d{2})(\d{4})(\d{4})$/, "$1 $2 $3 $4-$5"))}</p>` : ""}</div>
+          ${p.whatsapp ? `<p class="perfil-wa" title="WhatsApp vinculado al bot">${icon("chat")}+${esc(String(p.whatsapp).replace(/^(\d{2})(9)(\d{2})(\d{4})(\d{4})$/, "$1 $2 $3 $4-$5"))}
+            <button type="button" class="link-btn danger small" id="wa-desv">Desvincular WhatsApp</button></p>` : ""}</div>
       </div>
       <button class="btn btn-ghost btn-block" id="editar-perfil">${icon("edit")}Editar perfil</button>
     </section>
@@ -489,6 +490,10 @@ export function vistaAjustes(view) {
     </section>
   </div>`;
 
+  $("#wa-desv", view)?.addEventListener("click", async () => {
+    if (!(await confirmar({ title: "¿Desvincular tu WhatsApp?", message: "El bot te va a pedir tu usuario la próxima vez que le escribas (desde este u otro número).", ok: "Desvincular", danger: true }))) return;
+    desvincularWhatsApp().then(() => toast("WhatsApp desvinculado", "success")).catch(e => toast(mensajeError(e), "error"));
+  });
   $("#editar-perfil", view).onclick = () => editarPerfil(() => vistaAjustes(view));
   $("#tema", view).onclick = e => {
     const b = e.target.closest("[data-t]"); if (!b) return;

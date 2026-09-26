@@ -117,6 +117,12 @@ async function procesar(m, env) {
   // Cada número tiene que estar vinculado a un usuario aprobado de la web
   const cuenta = await fsGet(env, `bot_numeros/${numero}`);
   if (!cuenta?.uid) return vincular(env, m, quien);
+  // Si lo desvincularon desde la app, el número vuelve a pedir el usuario
+  const perfil = await fsGet(env, `users/${cuenta.uid}`);
+  if (!perfil || perfil.whatsapp !== numero) {
+    await fsDelete(env, `bot_numeros/${numero}`).catch(() => {});
+    return vincular(env, m, quien);
+  }
   quien.uid = cuenta.uid; quien.username = cuenta.username; quien.nombre = cuenta.name || quien.nombre;
 
   if (m.type === "text") return alRecibirTexto(env, m, quien, (m.text?.body || "").trim());
@@ -1380,7 +1386,15 @@ async function vincular(env, m, quien) {
         return responder(env, dest(m), `⏳ La cuenta *@${cand}* todavía está esperando aprobación.\n\nCuando la aprueben, escribime de nuevo tu usuario.`);
       }
       const nombre = perfil?.name || u.name || cand;
-      if (perfil?.whatsapp && perfil.whatsapp !== numero) await fsDelete(env, `bot_numeros/${perfil.whatsapp}`).catch(() => {});
+      // Un usuario con otro WhatsApp ya vinculado no se puede tomar desde otro número
+      if (perfil?.whatsapp && perfil.whatsapp !== numero) {
+        const otro = await fsGet(env, `bot_numeros/${perfil.whatsapp}`);
+        if (otro?.uid === u.uid) {
+          return responder(env, dest(m), `🔒 El usuario *@${cand}* ya tiene otro WhatsApp vinculado.
+
+Si cambiaste de número, entrá a la app → Ajustes → *Desvincular WhatsApp* y después escribime tu usuario desde este número.`);
+        }
+      }
       await fsSet(env, `bot_numeros/${numero}`, { uid: u.uid, username: cand, name: nombre, ts: Date.now() });
       await fsMerge(env, `users/${u.uid}`, { whatsapp: numero });
       await fsDelete(env, `bot_vinculo/${numero}`).catch(() => {});

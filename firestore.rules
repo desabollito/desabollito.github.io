@@ -26,7 +26,8 @@ service cloud.firestore {
       allow update: if signedIn() && uid() == userId
         && request.resource.data.get('aprobado', true) == resource.data.get('aprobado', true)
         && request.resource.data.get('rechazado', false) == resource.data.get('rechazado', false)
-        && request.resource.data.get('whatsapp', '') == resource.data.get('whatsapp', '');
+        && (request.resource.data.get('whatsapp', '') == resource.data.get('whatsapp', '')
+            || !('whatsapp' in request.resource.data));   // solo se puede desvincular, no poner otro número
     }
 
     // ── Nombres de usuario únicos → { uid, name } ────────────

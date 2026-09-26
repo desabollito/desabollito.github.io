@@ -79,6 +79,10 @@ function escucharPerfil(user) {
   }, e => console.warn("perfil", e));
 }
 export const cuentaPendiente = () => S.profile?.aprobado === false;
+export async function desvincularWhatsApp() {
+  await updateDoc(doc(db, "users", S.user.uid), { whatsapp: deleteField() });
+  delete S.profile.whatsapp; emit("profile");
+}
 let unsubCompanies = null, unsubVehicles = null, unsubGastos = null, ultimaFirma = "";
 
 export function iniciarSesion(onReady) {
