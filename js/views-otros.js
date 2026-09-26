@@ -46,7 +46,8 @@ export function vistaPlanilla(view) {
     title: "Planilla", sub: S.company?.name,
     actions: `<button class="btn btn-ghost btn-sm" id="dl" aria-label="Descargar">${icon("download")}<span class="hide-sm">Descargar</span></button>`
   });
-  const ordenes = [["fecha", "Fecha"], ["patente", "Patente"], ["modelo", "Modelo"], ["asegurado", "Asegurado"], ["estado", "Estado"], ["precio", "Precio"]];
+  const ordenes = [["fecha", "Fecha"], ["patente", "Patente"], ["modelo", "Modelo"], ["estado", "Estado"]];
+  if (matchMedia("(max-width: 899px)").matches && !ordenes.some(([k]) => k === P.orden)) { P.orden = "fecha"; P.dir = -1; }
   view.innerHTML = `
   <div class="sheet-page">
     <label class="search">${icon("search")}<input type="search" id="pq" placeholder="Buscar patente, modelo, asegurado, estado…" value="${esc(P.q)}"></label>
