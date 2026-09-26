@@ -1,10 +1,10 @@
 import {
   S, onChange, iniciarSesion, ingresar, crearCuenta, mensajeError, elegirEmpresa
 } from "./data.js";
-import { $, $$, toast, busy } from "./ui.js";
+import { $, $$, toast, busy, openSheet } from "./ui.js";
 import { FIREBASE } from "./config.js";
 import { iniciarFechas } from "./fecha.js";
-import { cuentaPendiente, salir } from "./data.js";
+import { cuentaPendiente, salir, marcarOperativosVistos } from "./data.js";
 import { marcarNav, pintarLateral, esAncho } from "./shell.js";
 import { vistaVehiculos, vistaDetalle, vistaFormulario, reiniciarVista3D } from "./views-vehiculos.js";
 import {
@@ -87,6 +87,7 @@ matchMedia("(min-width: 1100px)").addEventListener("change", () => render({ cons
 
 // Cambios de datos en vivo (otro técnico cargó algo, llegó la sincronización, etc.)
 onChange(what => {
+  if (what?.tipo === "agregado") { avisarAgregado(what.operativos); return; }
   if (what === "perfil") { mostrarSegunAprobacion(); if (!cuentaPendiente()) render({ conservarScroll: true }); return; }
   if (what === "companies" || what === "profile") pintarLateral();
   if (!S.profile) return;
@@ -245,3 +246,21 @@ if ("serviceWorker" in navigator) {
 
 // Selector de fecha propio en toda la app
 iniciarFechas();
+
+// Cartel al abrir la app cuando alguien te sumó a un operativo
+function avisarAgregado(ops) {
+  const esc = t => String(t || "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const quien = o => o.por?.user ? "@" + o.por.user : o.por?.por || "Alguien";
+  const s = openSheet({
+    title: ops.length === 1 ? "¡Te sumaron a un operativo!" : "¡Te sumaron a operativos nuevos!",
+    body: `<div class="stack">${ops.map(o => `<p><strong>${esc(quien(o))}</strong> te agregó a <strong>${esc(o.name)}</strong>.</p>`).join("")}
+      <div class="row-btns">
+        <button class="btn btn-ghost" data-ok>Entendido</button>
+        ${ops.length === 1 && S.company?.id !== ops[0].id ? `<button class="btn btn-primary" data-ir>Ir al operativo</button>` : ""}
+      </div></div>`,
+    onClose: () => marcarOperativosVistos(ops.map(o => o.id))
+  });
+  $("[data-ok]", s.el).onclick = () => s.close();
+  const ir = $("[data-ir]", s.el);
+  if (ir) ir.onclick = () => { elegirEmpresa(ops[0].id); s.close(); location.hash = "#/"; };
+}

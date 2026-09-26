@@ -496,7 +496,7 @@ export function vistaAjustes(view) {
     </section>
 
     <nav class="card menu">
-      <a href="#/papelera">${icon("trash")}<span><strong>Papelera</strong><small>${(S.solicitudes?.length && soyAdmin()) ? `${S.solicitudes.length} ${S.solicitudes.length === 1 ? "solicitud" : "solicitudes"} de eliminación · ` : ""}${enPapelera ? `${enPapelera} ${enPapelera === 1 ? "vehículo" : "vehículos"}` : "Vacía"}</small></span>${icon("next")}</a>
+      <a href="#/papelera">${icon("trash")}<span><strong>Papelera</strong><small>${(S.solicitudes?.length && soyAdmin()) ? `${S.solicitudes.length} ${S.solicitudes.length === 1 ? "solicitud" : "solicitudes"} · ` : ""}${enPapelera ? `${enPapelera} ${enPapelera === 1 ? "vehículo" : "vehículos"}` : "Vacía"}</small></span>${icon("next")}</a>
     </nav>
 
     <section class="card">
@@ -556,6 +556,9 @@ function editarPerfil(alTerminar) {
 // ═════════════════════════════════════════════════════════════
 //  PAPELERA
 // ═════════════════════════════════════════════════════════════
+const QUE_PIDE = { eliminar: "pide eliminarlo", foto: "pide quitar una foto", documento: "pide quitar el documento", editar: "pide acceso para editarlo" };
+const BOTON_OK = { eliminar: "Eliminar", foto: "Quitar foto", documento: "Quitar", editar: "Dar acceso" };
+const HECHO = { eliminar: "Vehículo eliminado", foto: "Foto quitada", documento: "Documento quitado", editar: "Acceso de edición otorgado" };
 export function vistaPapelera(view) {
   setTopbar({ title: "Papelera", back: "#/ajustes" });
   const items = papelera();
@@ -564,11 +567,12 @@ export function vistaPapelera(view) {
   view.innerHTML = `
   <div class="page narrow">
     ${sols.length ? `<section class="card">
-      <h3>Solicitudes de eliminación <small class="muted">${sols.length}</small></h3>
+      <h3>Solicitudes <small class="muted">${sols.length}</small></h3>
       <ul class="trash solicitudes">${sols.map(x => `
         <li><span class="t-meta"><strong>${esc(x.modelo || "Sin modelo")}</strong>
-          <span>${plate(x.patente, "sm")}<small class="muted">Pide ${esc(x.pedidoPorNombre || "alguien")} · cargado por ${esc(x.cargadoPor || "—")}</small></span></span>
-          <button class="btn btn-danger-ghost btn-sm" data-ok="${x.id}">Eliminar</button>
+          <span>${plate(x.patente, "sm")}<small class="muted">${esc(x.pedidoPorUser ? "@" + x.pedidoPorUser : x.pedidoPorNombre || "Alguien")} ${esc(QUE_PIDE[x.tipo || "eliminar"])}${x.tipo === "documento" && x.item?.name ? ` “${esc(x.item.name)}”` : ""} · cargado por ${esc(x.cargadoPor || "—")}</small></span></span>
+          ${x.tipo === "foto" && x.item?.url ? `<a class="sol-foto" href="${esc(x.item.url)}" target="_blank" rel="noopener"><img src="${esc(x.item.url.replace("/upload/", "/upload/c_fill,w_80,h_80,q_auto,f_auto/"))}" alt=""></a>` : ""}
+          <button class="btn ${x.tipo === "editar" ? "btn-ghost" : "btn-danger-ghost"} btn-sm" data-ok="${x.id}">${BOTON_OK[x.tipo || "eliminar"]}</button>
           <button class="icon-btn sm" data-no="${x.id}" aria-label="Rechazar">${icon("x")}</button>
         </li>`).join("")}</ul>
     </section>` : ""}
@@ -585,8 +589,9 @@ export function vistaPapelera(view) {
     const ok = e.target.closest("[data-ok]"), no = e.target.closest("[data-no]");
     if (ok || no) {
       const sol = sols.find(x => x.id === (ok ? ok.dataset.ok : no.dataset.no));
-      if (ok && !(await confirmar({ title: `¿Eliminar ${sol.modelo || sol.patente}?`, message: "Va a tu papelera; desde ahí se puede restaurar.", ok: "Eliminar", danger: true }))) return;
-      resolverSolicitud(sol, !!ok).then(() => toast(ok ? "Vehículo eliminado" : "Solicitud rechazada", "success")).catch(err => toast(mensajeError(err), "error"));
+      const tipo = sol.tipo || "eliminar";
+      if (ok && tipo === "eliminar" && !(await confirmar({ title: `¿Eliminar ${sol.modelo || sol.patente}?`, message: "Va a tu papelera; desde ahí se puede restaurar.", ok: "Eliminar", danger: true }))) return;
+      resolverSolicitud(sol, !!ok).then(() => toast(ok ? HECHO[tipo] : "Solicitud rechazada", "success")).catch(err => toast(mensajeError(err), "error"));
       return;
     }
     const r = e.target.closest("[data-r]"), x = e.target.closest("[data-x]");

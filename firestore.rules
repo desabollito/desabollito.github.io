@@ -69,23 +69,34 @@ service cloud.firestore {
         && !(uid() in request.resource.data.members)
         && request.resource.data.members.size() == resource.data.members.size() - 1;
 
-      // Cada miembro puede actualizar solo su propia foto en el operativo
+      // Cada miembro puede actualizar solo su propia foto y su @usuario en el operativo
       allow update: if signedIn()
         && uid() in resource.data.members
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberPhotos'])
-        && request.resource.data.memberPhotos.diff(resource.data.get('memberPhotos', {})).affectedKeys().hasOnly([uid()]);
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberPhotos', 'memberUsers'])
+        && request.resource.data.get('memberPhotos', {}).diff(resource.data.get('memberPhotos', {})).affectedKeys().hasOnly([uid()])
+        && request.resource.data.get('memberUsers', {}).diff(resource.data.get('memberUsers', {})).affectedKeys().hasOnly([uid()]);
 
       allow delete: if signedIn() && resource.data.ownerId == uid();
 
       // ── Vehículos del operativo ────────────────────────────
       match /vehicles/{vid} {
+        function esDueno(cid) {
+          return resource.data.createdBy == uid() || resource.data.get('createdByUid', '') == uid() || isAdmin(cid);
+        }
         allow read: if isMember(cid);
         allow create: if isMember(cid) && request.resource.data.createdBy == uid();
-        // Mandar a la papelera o restaurar: solo quien lo cargó, o un admin (al aprobar una solicitud)
+        // Quien lo cargó y los administradores pueden todo; quien recibió acceso de edición
+        // puede editar los datos. El resto solo cambia el estado, agrega fotos/documentos y firma.
         allow update: if isMember(cid)
           && request.resource.data.createdBy == resource.data.createdBy
-          && (request.resource.data.get('deleted', false) == resource.data.get('deleted', false)
-              || resource.data.createdBy == uid() || resource.data.get('createdByUid', '') == uid() || isAdmin(cid));
+          && request.resource.data.get('createdByUid', '') == resource.data.get('createdByUid', '')
+          && (esDueno(cid) || request.resource.data.get('deleted', false) == resource.data.get('deleted', false))
+          && (esDueno(cid) || request.resource.data.get('editores', []) == resource.data.get('editores', []))
+          && (esDueno(cid) || uid() in resource.data.get('editores', [])
+              || (request.resource.data.diff(resource.data).affectedKeys()
+                    .hasOnly(['estado', 'fechas', 'fotos', 'archivos', 'firma', 'historial', 'updatedAt', 'updatedBy'])
+                  && request.resource.data.get('fotos', []).size() >= resource.data.get('fotos', []).size()
+                  && request.resource.data.get('archivos', []).size() >= resource.data.get('archivos', []).size()));
         allow delete: if isAdmin(cid)
           || (isMember(cid) && (resource.data.createdBy == uid() || resource.data.get('createdByUid', '') == uid()));
       }

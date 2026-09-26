@@ -72,13 +72,34 @@ let unsubPerfil = null;
 function escucharPerfil(user) {
   unsubPerfil?.();
   unsubPerfil = onSnapshot(doc(db, "users", user.uid), snap => {
-    if (!snap.exists() || S.user?.uid !== user.uid) return;
-    const antes = S.profile?.aprobado, d = snap.data();
+    if (S.user?.uid !== user.uid) return;
+    // Cuenta pendiente cuyo perfil desapareció: el administrador la rechazó
+    if (!snap.exists()) {
+      if (S.profile?.aprobado === false && !snap.metadata.fromCache) { S.profile = { ...S.profile, rechazado: true }; emit("perfil"); }
+      return;
+    }
+    const antes = S.profile?.aprobado, waAntes = S.profile?.whatsapp, d = snap.data();
     S.profile = { ...S.profile, ...d, id: user.uid };
-    if (antes !== d.aprobado || S.profile.whatsapp !== d.whatsapp) emit("perfil");
+    if (antes !== d.aprobado || waAntes !== d.whatsapp) emit("perfil");
+    // Recién aprobada: recién ahí arrancan los operativos
+    if (antes === false && d.aprobado === true) escucharEmpresas();
   }, e => console.warn("perfil", e));
 }
 export const cuentaPendiente = () => S.profile?.aprobado === false;
+// Operativos a los que me agregaron y todavía no vi (se avisa con un cartel al abrir la app)
+const avisados = new Set();
+export function revisarAgregados() {
+  const uid = S.user?.uid; if (!uid || cuentaPendiente()) return;
+  const vistos = S.profile?.operativosVistos || [];
+  const nuevos = S.companies.filter(c => c.memberAddedBy?.[uid] && c.ownerId !== uid && !vistos.includes(c.id) && !avisados.has(c.id));
+  if (!nuevos.length) return;
+  nuevos.forEach(c => avisados.add(c.id));
+  emit({ tipo: "agregado", operativos: nuevos.map(c => ({ id: c.id, name: c.name, por: c.memberAddedBy[uid] })) });
+}
+export async function marcarOperativosVistos(ids) {
+  S.profile.operativosVistos = [...new Set([...(S.profile.operativosVistos || []), ...ids])];
+  await updateDoc(doc(db, "users", S.user.uid), { operativosVistos: arrayUnion(...ids) }).catch(e => console.warn("vistos", e));
+}
 export async function desvincularWhatsApp() {
   await updateDoc(doc(db, "users", S.user.uid), { whatsapp: deleteField() });
   delete S.profile.whatsapp; emit("profile");
@@ -93,7 +114,7 @@ export function iniciarSesion(onReady) {
     try {
       await asegurarPerfil(user);
       escucharPerfil(user);
-      escucharEmpresas();
+      if (S.profile?.aprobado !== false) escucharEmpresas();   // cuenta pendiente: no arranca nada hasta que la aprueben
       onReady(true);
     } catch (e) {
       console.error(e);
@@ -184,6 +205,17 @@ export async function actualizarPerfil({ nombre, usuario, foto }) {
 
 // La foto de perfil se copia en cada operativo (memberPhotos) para que la vea el equipo
 const fotoSincronizada = new Set();
+// Cada miembro deja su @usuario en el operativo (para mostrar "cargado por @usuario")
+const usuarioSincronizado = new Set();
+async function sincronizarUsuario() {
+  const uid = S.user?.uid, u = S.profile?.username;
+  if (!uid || !u) return;
+  for (const c of S.companies) {
+    if (c.memberUsers?.[uid] === u || usuarioSincronizado.has(c.id)) continue;
+    usuarioSincronizado.add(c.id);
+    await updateDoc(doc(db, "companies", c.id), { [`memberUsers.${uid}`]: u }).catch(e => console.warn("usuario en operativo", e));
+  }
+}
 export async function sincronizarFoto(forzar = false) {
   const uid = S.user?.uid, url = S.profile?.photoURL || "";
   if (!uid || !url) return;
@@ -216,10 +248,10 @@ function escucharEmpresas() {
     if (firma === ultimaFirma && !cambio) return;
     ultimaFirma = firma;
     emit("companies");
-    sincronizarFoto();
+    sincronizarFoto(); sincronizarUsuario(); revisarAgregados();
     if (cambio) { escucharVehiculos(); escucharGastos(); }
     escucharSolicitudes();
-  }, e => { console.error(e); emit("error"); });
+  }, e => { console.error(e); if (e?.code !== "permission-denied") emit("error"); });
 }
 
 export function elegirEmpresa(id) {
@@ -242,6 +274,7 @@ export async function crearEmpresa(nombre) {
     members: [uid],
     roles: { [uid]: "owner" },
     memberNames: { [uid]: name },
+    memberUsers: { [uid]: S.profile?.username || "" },
     memberTags: {},
     seal: { texto: "", logo: "" },
     createdAt: serverTimestamp()
@@ -271,8 +304,13 @@ export async function agregarMiembro(usuario, rol = "tecnico") {
   await updateDoc(doc(db, "companies", S.company.id), {
     members: arrayUnion(uid),
     [`roles.${uid}`]: rol,
-    [`memberNames.${uid}`]: name || u
+    [`memberNames.${uid}`]: name || u,
+    [`memberUsers.${uid}`]: u,
+    [`memberAddedBy.${uid}`]: { por: S.profile?.name || "", user: S.profile?.username || "", t: Date.now() }
   });
+  // Aviso por WhatsApp a la persona agregada (si tiene el número vinculado)
+  fetch(`${BOT_API}/agregado`, { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ cid: S.company.id, uid }) }).catch(() => {});
   return name || u;
 }
 
@@ -331,6 +369,7 @@ export async function eliminarEmpresa() {
 // ── Vehículos ─────────────────────────────────────────────────
 const colVehiculos = (cid = S.company?.id) => collection(db, "companies", cid, "vehicles");
 
+const reintentos = { v: 0, g: 0 };
 function escucharVehiculos() {
   unsubVehicles?.();
   S.vehicles = []; S.loadingVehicles = true;
@@ -340,9 +379,14 @@ function escucharVehiculos() {
     S.vehicles = snap.docs.map(d => ({ id: d.id, ...d.data(), _pending: d.metadata.hasPendingWrites }));
     S.vehicles.sort((a, b) => (b.fechas?.peritado || "").localeCompare(a.fechas?.peritado || "")
       || (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
-    S.loadingVehicles = false;
+    S.loadingVehicles = false; reintentos.v = 0;
     emit("vehicles");
-  }, e => { console.error(e); S.loadingVehicles = false; emit("error"); });
+  }, e => {
+    console.warn("vehículos", e); S.loadingVehicles = false;
+    // Permiso denegado suele ser una carrera (operativo recién creado o cambio de operativo): se reintenta en silencio
+    if (e?.code === "permission-denied" && reintentos.v++ < 3) setTimeout(() => { if (S.company) escucharVehiculos(); }, 2000);
+    else if (e?.code !== "permission-denied") emit("error");
+  });
 }
 
 export const activos = () => S.vehicles.filter(v => !v.deleted);
@@ -405,7 +449,8 @@ export async function guardarVehiculo(id, data, esNuevo) {
       deleted: false,
       createdAt: serverTimestamp(),
       createdBy: S.user.uid,
-      createdByName: S.profile?.name || ""
+      createdByName: S.profile?.name || "",
+      createdByUser: S.profile?.username || ""
     });
   } else {
     await updateDoc(ref, base);
@@ -435,37 +480,64 @@ export async function cambiarEstado(v, estado, fecha = hoyISO()) {
 export const moverAPapelera = id => actualizarVehiculo(id, { deleted: true, deletedAt: serverTimestamp(), deletedBy: S.user.uid }, "Lo envió a la papelera");
 export const restaurar = id => actualizarVehiculo(id, { deleted: false, deletedAt: null, deletedBy: null }, "Lo restauró de la papelera");
 
-// Quién cargó el vehículo (persona o bot de WhatsApp)
+// Quién cargó el vehículo: se muestra el @usuario (vale igual para la app y el bot)
 export const esDeWhatsApp = v => String(v?.createdBy || "").startsWith("whatsapp:");
 export function cargadoPor(v) {
-  if (esDeWhatsApp(v)) {
-    const quien = String(v.createdByName || "").replace(/\s*\(WhatsApp\)\s*$/, "");
-    return `el bot de WhatsApp${quien ? ` (enviado por ${quien})` : ""}`;
-  }
-  return v?.createdByName || "otra persona";
+  if (v?.createdByUser) return "@" + v.createdByUser;
+  const uid = v?.createdByUid || v?.createdBy;
+  const miembro = S.company?.memberUsers?.[uid];
+  if (miembro) return "@" + miembro;
+  return String(v?.createdByName || "").replace(/\s*\(WhatsApp\)\s*$/, "") || "otra persona";
 }
+// Permisos sobre un vehículo: quien lo cargó, los administradores y a quienes se les dio acceso
+export const esMioV = v => !!v && (v.createdBy === S.user?.uid || v.createdByUid === S.user?.uid);
+export const puedoEditar = v => esMioV(v) || soyAdmin() || (v?.editores || []).includes(S.user?.uid);
 
-// ── Solicitudes de eliminación (las aprueban los administradores)
+// ── Solicitudes (las aprueban los administradores): eliminar el vehículo, quitar una foto o
+//    un documento, o acceso para editar un vehículo de otro
 const colSolicitudes = () => collection(db, "companies", S.company.id, "solicitudes");
-let unsubSolicitudes = null;
-S.solicitudes = [];
+let unsubSolicitudes = null, unsubMias = null;
+S.solicitudes = []; S.misSolicitudes = [];
 export function escucharSolicitudes() {
-  unsubSolicitudes?.(); S.solicitudes = [];
-  if (!S.company || !soyAdmin()) return;
-  unsubSolicitudes = onSnapshot(colSolicitudes(), snap => {
-    S.solicitudes = snap.docs.map(d => ({ id: d.id, ...d.data() }))
-      .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
-    emit("solicitudes");
-  }, e => console.warn("solicitudes", e));
+  unsubSolicitudes?.(); unsubMias?.(); S.solicitudes = []; S.misSolicitudes = [];
+  if (!S.company) return;
+  if (soyAdmin()) {
+    unsubSolicitudes = onSnapshot(colSolicitudes(), snap => {
+      S.solicitudes = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+        .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+      emit("solicitudes");
+    }, e => console.warn("solicitudes", e));
+  } else {
+    unsubMias = onSnapshot(query(colSolicitudes(), where("pedidoPor", "==", S.user.uid)), snap => {
+      S.misSolicitudes = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    }, e => console.warn("mis solicitudes", e));
+  }
 }
-export async function solicitarEliminacion(v) {
-  await setDoc(doc(colSolicitudes(), v.id), {
-    vid: v.id, patente: v.patente || "", modelo: v.modelo || "", cargadoPor: cargadoPor(v),
-    pedidoPor: S.user.uid, pedidoPorNombre: S.profile?.name || "", createdAt: serverTimestamp()
+export const yaPedi = (tipo, vid) => S.misSolicitudes.some(x => x.tipo === tipo && x.vid === vid);
+export async function crearSolicitud(v, tipo, item = null) {
+  const id = tipo === "eliminar" ? v.id : `${tipo}_${v.id}_${tipo === "editar" ? S.user.uid : Date.now()}`;
+  await setDoc(doc(colSolicitudes(), id), {
+    tipo, vid: v.id, patente: v.patente || "", modelo: v.modelo || "", cargadoPor: cargadoPor(v),
+    ...(item ? { item: { url: item.url || "", publicId: item.publicId || "", name: item.name || "" } } : {}),
+    pedidoPor: S.user.uid, pedidoPorNombre: S.profile?.name || "", pedidoPorUser: S.profile?.username || "",
+    createdAt: serverTimestamp()
   });
+  // Aviso por WhatsApp al administrador de Desabollito
+  fetch(`${BOT_API}/solicitud`, { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ cid: S.company.id, sid: id }) }).catch(() => {});
 }
+export const solicitarEliminacion = v => crearSolicitud(v, "eliminar");
 export async function resolverSolicitud(sol, aprobar) {
-  if (aprobar) await moverAPapelera(sol.vid);
+  if (aprobar) {
+    const v = getVehiculo(sol.vid);
+    const quien = sol.pedidoPorUser ? "@" + sol.pedidoPorUser : sol.pedidoPorNombre || "otro usuario";
+    if (sol.tipo === "editar") await actualizarVehiculo(sol.vid, { editores: arrayUnion(sol.pedidoPor) }, `Le dio acceso de edición a ${quien}`);
+    else if (sol.tipo === "foto" || sol.tipo === "documento") {
+      const campo = sol.tipo === "foto" ? "fotos" : "archivos";
+      const lista = (v?.[campo] || []).filter(x => !(x.url === sol.item?.url && (x.publicId || "") === (sol.item?.publicId || "")));
+      await actualizarVehiculo(sol.vid, { [campo]: lista }, sol.tipo === "foto" ? `Quitó una foto (pedido de ${quien})` : `Quitó el documento “${sol.item?.name || ""}” (pedido de ${quien})`);
+    } else await moverAPapelera(sol.vid);
+  }
   await deleteDoc(doc(colSolicitudes(), sol.id));
 }
 export const eliminarDefinitivo = id => deleteDoc(doc(colVehiculos(), id));
@@ -480,9 +552,13 @@ function escucharGastos() {
   unsubGastos = onSnapshot(colGastos(), { includeMetadataChanges: true }, snap => {
     S.gastos = snap.docs.map(d => ({ id: d.id, ...d.data(), _pending: d.metadata.hasPendingWrites }))
       .sort((a, b) => (b.fecha || "").localeCompare(a.fecha || "") || (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
-    S.loadingGastos = false;
+    S.loadingGastos = false; reintentos.g = 0;
     emit("gastos");
-  }, e => { console.error(e); S.loadingGastos = false; emit("error"); });
+  }, e => {
+    console.warn("gastos", e); S.loadingGastos = false;
+    if (e?.code === "permission-denied" && reintentos.g++ < 3) setTimeout(() => { if (S.company) escucharGastos(); }, 2000);
+    else if (e?.code !== "permission-denied") emit("error");
+  });
 }
 
 export async function guardarGasto(id, data) {

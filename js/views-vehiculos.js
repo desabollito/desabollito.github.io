@@ -2,7 +2,7 @@ import { BOT_API } from "./config.js";
 import { botonesFotos, conectarFotos, buscarPatenteEnFoto } from "./camara.js";
 import {
   S, activos, getVehiculo, guardarVehiculo, actualizarVehiculo, cambiarEstado, moverAPapelera,
-  solicitarEliminacion, cargadoPor, esDeWhatsApp,
+  solicitarEliminacion, cargadoPor, esDeWhatsApp, puedoEditar, esMioV, crearSolicitud, yaPedi,
   nuevoIdVehiculo, soyAdmin, mensajeError
 } from "./data.js";
 import { ESTADOS, ESTADO, SECUENCIA, PIEZA, ORDEN_PIEZAS, estadoActual, piezasMarcadas } from "./domain.js";
@@ -17,7 +17,14 @@ import { presupuestoPDF, nombreArchivo } from "./pdf.js";
 import { setTopbar, go, esAncho } from "./shell.js";
 
 // Filtros de la lista (se conservan al navegar)
-const F = { estado: "todos", q: "", mios: false };
+const F = { estado: "todos", q: "", mios: false, orden: "fecha", dir: -1 };
+const ORDENES = [["fecha", "Fecha"], ["patente", "Patente"], ["modelo", "Modelo"], ["estado", "Estado"]];
+function ordenar(lista) {
+  if (F.orden === "fecha" && F.dir === -1) return lista;   // ya viene ordenada por fecha, la más nueva arriba
+  const clave = v => F.orden === "fecha" ? (v.fechas?.peritado || "") : F.orden === "estado" ? String(SECUENCIA.indexOf(estadoActual(v)) + 10)
+    : String(v[F.orden] || "").toLowerCase();
+  return [...lista].sort((a, b) => clave(a).localeCompare(clave(b), "es", { numeric: true }) * F.dir);
+}
 const tokensBorrado = new Map(); // publicId → delete_token (válido 10 min)
 
 // ═════════════════════════════════════════════════════════════
@@ -27,7 +34,7 @@ function filtrar(lista) {
   const q = F.q.trim().toLowerCase();
   return lista.filter(v =>
     (F.estado === "todos" || estadoActual(v) === F.estado) &&
-    (!F.mios || v.createdBy === S.user.uid) &&
+    (!F.mios || esMioV(v)) &&
     (!q || [v.modelo, v.patente, v.asegurado, v.compania, v.localidad, v.telefono]
       .some(x => (x || "").toLowerCase().includes(q))));
 }
@@ -41,7 +48,7 @@ function historialHTML(v) {
   }
   h.sort((a, b) => (b.t || 0) - (a.t || 0));
   const cuando = t => t ? new Date(t).toLocaleString("es-AR", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" }) : "";
-  return `<ol class="hist">${h.map(e => `<li><span class="hist-txt"><strong>${esc(e.por || "Alguien")}</strong> ${esc(e.txt)}</span><time>${cuando(e.t)}</time></li>`).join("")}</ol>`;
+  return `<ol class="hist">${h.map(e => `<li><span class="hist-txt"><strong>${esc(e.por || "Alguien")}</strong> ${esc(String(e.txt || "").replace(/ por WhatsApp/g, ""))}</span><time>${cuando(e.t)}</time></li>`).join("")}</ol>`;
 }
 
 // Paños agrupados para el detalle en escritorio: centro y parantes, lateral izquierdo, lateral derecho
@@ -53,15 +60,13 @@ const GRUPOS_PIEZAS = [
 
 function tarjeta(v, sel) {
   const foto = v.fotos?.[0]?.url, rot0 = v.fotos?.[0]?.rot;
-  const autor = !esDeWhatsApp(v) && S.company?.members?.length > 1 && v.createdBy !== S.user.uid ? v.createdByName : "";
   return `
   <a class="vcard ${sel ? "sel" : ""}" href="#/v/${v.id}" style="--c:${ESTADO[estadoActual(v)].color}">
     <span class="vthumb">${foto ? `<img src="${esc(thumb(foto, 160, rot0))}" alt="" loading="lazy">` : icon("car")}</span>
     <span class="vbody">
       <span class="vtop"><strong class="vmodel">${esc(v.modelo || "Sin modelo")}</strong>${estadoPill(v)}</span>
-      <span class="vmid">${plate(v.patente, "sm")}${v._pending ? `<span class="sync" title="Pendiente de sincronizar"></span>` : ""}</span>
-      <span class="vsub"><span class="vcli">${esc(v.compania || "")}</span>
-        ${autor ? `<em>${esc(autor.split(" ")[0])}</em>` : ""}<time>${fechaCorta(v.fechas?.peritado)}</time></span>
+      <span class="vmid">${plate(v.patente, "sm")}${v._pending ? `<span class="sync" title="Pendiente de sincronizar"></span>` : ""}${esDeWhatsApp(v) ? `<small class="vbot">Bot</small>` : ""}</span>
+      <span class="vsub"><span class="vcli">${esc(v.compania || "")}</span><time>${fechaCorta(v.fechas?.peritado)}</time></span>
     </span>
   </a>`;
 }
@@ -71,9 +76,11 @@ export function vistaVehiculos(view, selId = null) {
   const sel = selId ? getVehiculo(selId) : null;
   if (selId && !ancho) return vistaDetalle(view, selId);
 
+  const filtroActivo = () => F.mios || F.orden !== "fecha" || F.dir !== -1;
   setTopbar({
     title: "Vehículos",
-    sub: S.company?.name
+    sub: S.company?.name,
+    actions: `<button class="icon-btn filtro-btn ${filtroActivo() ? "activo" : ""}" id="tb-filtros" aria-label="Filtros" title="Filtros">${icon("filter")}</button>`
   });
 
   view.innerHTML = `
@@ -83,8 +90,6 @@ export function vistaVehiculos(view, selId = null) {
           <label class="search">${icon("search")}
             <input type="search" id="q" placeholder="Buscar patente, modelo, asegurado…" value="${esc(F.q)}" autocomplete="off"></label>
           <div class="estado-strip" id="estado-strip" role="tablist" aria-label="Filtrar por estado"></div>
-          ${S.company?.members?.length > 1 ? `
-            <label class="toggle"><input type="checkbox" id="mios" ${F.mios ? "checked" : ""}><span>Solo los que cargué yo</span></label>` : ""}
         </div>
         <div id="vlist" class="vlist"></div>
       </section>
@@ -100,7 +105,7 @@ export function vistaVehiculos(view, selId = null) {
         <b>${cuenta[e.key]}</b><span>${e.label}</span></button>`).join("");
     $("#estado-strip", view).setAttribute("aria-label", `Filtrar por estado (${todos.length} en total)`);
 
-    const lista = filtrar(todos);
+    const lista = ordenar(filtrar(todos));
     const box = $("#vlist", view);
     if (S.loadingVehicles) { box.innerHTML = `<div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>`; return; }
     if (!todos.length) {
@@ -123,7 +128,23 @@ export function vistaVehiculos(view, selId = null) {
     const b = e.target.closest("[data-e]"); if (!b) return;
     F.estado = F.estado === b.dataset.e ? "todos" : b.dataset.e; pintar();
   });
-  $("#mios", view)?.addEventListener("change", e => { F.mios = e.target.checked; pintar(); });
+  // Filtros: orden (como en la planilla) y "Cargados por mí"
+  $("#tb-filtros")?.addEventListener("click", () => {
+    const s = openSheet({ title: "Filtros", body: `<div class="stack filtros">
+      <span class="muted small">Ordenar por</span><div class="p-chips" id="f-orden"></div>
+      <label class="toggle"><input type="checkbox" id="f-mios" ${F.mios ? "checked" : ""}><span>Cargados por mí</span></label>
+      <button class="btn btn-ghost btn-sm" id="f-reset">Quitar filtros</button></div>` });
+    const chips = () => { $("#f-orden", s.el).innerHTML = ORDENES.map(([k, t]) => `<button type="button" class="p-chip ${F.orden === k ? "on" : ""}" data-orden="${k}">${t}${F.orden === k ? `<i>${F.dir > 0 ? "↑" : "↓"}</i>` : ""}</button>`).join(""); };
+    const aplicar = () => { chips(); pintar(); $("#tb-filtros")?.classList.toggle("activo", filtroActivo()); };
+    chips();
+    $("#f-orden", s.el).onclick = e => {
+      const b = e.target.closest("[data-orden]"); if (!b) return;
+      if (F.orden === b.dataset.orden) F.dir *= -1; else { F.orden = b.dataset.orden; F.dir = F.orden === "fecha" ? -1 : 1; }
+      aplicar();
+    };
+    $("#f-mios", s.el).onchange = e => { F.mios = e.target.checked; aplicar(); };
+    $("#f-reset", s.el).onclick = () => { F.mios = false; F.orden = "fecha"; F.dir = -1; $("#f-mios", s.el).checked = false; aplicar(); };
+  });
   pintar();
 
   if (ancho) {
@@ -179,7 +200,7 @@ function renderDetalle(root, v, embebido) {
   const anulado = est === "anulado";
   const marcadas = piezasMarcadas(v);
   const todos = marcadas.length === ORDEN_PIEZAS.length;
-  const esMio = v.createdBy === S.user.uid || v.createdByUid === S.user.uid;
+  const esMio = esMioV(v);
 
   root.innerHTML = `
   <article class="detail">
@@ -261,7 +282,7 @@ function renderDetalle(root, v, embebido) {
     </section>
 
     <footer class="d-foot">
-      <span>Cargado por ${esc(esMio ? "vos" : cargadoPor(v))}</span>
+      <span>Cargado por ${esc(cargadoPor(v))}</span>
       <span class="d-foot-btns">
         <button class="icon-btn sm hist-btn" data-act="historial" aria-label="Historial" title="Historial">${icon("clock")}</button>
         <button class="icon-btn danger" data-act="borrar" aria-label="Eliminar vehículo" title="Eliminar">${icon("trash")}</button>
@@ -299,7 +320,7 @@ function renderDetalle(root, v, embebido) {
       return;
     }
     if (act === "historial") { openSheet({ title: "Historial", body: historialHTML(getVehiculo(v.id) || v) }); return; }
-    if (act === "borrar" && !esMio) {
+    if (act === "borrar" && !esMio && !soyAdmin()) {
       // Solo quien lo cargó puede borrarlo: los demás piden la eliminación a los administradores
       if (await confirmar({ title: "Este vehículo no es tuyo",
         message: `Está cargado por ${cargadoPor(v)}. ¿Solicitar su eliminación a los administradores del operativo?`, ok: "Solicitar eliminación", danger: true })) {
@@ -422,8 +443,22 @@ async function subirAdjuntos(v, files, tipo, root) {
   } catch (e) { toast(mensajeError(e), "error"); }
 }
 
+// Pedir acceso para editar un vehículo cargado por otra persona
+export async function pedirEdicion(v) {
+  if (yaPedi("editar", v.id)) { toast("Ya pediste acceso para editar este vehículo", "info"); return; }
+  if (!(await confirmar({ title: "Este vehículo no es tuyo", message: `Lo cargó ${cargadoPor(v)}. ¿Querés pedir acceso para editarlo?`, ok: "Pedir acceso" }))) return;
+  crearSolicitud(v, "editar").then(() => toast("Pedido enviado a los administradores", "success")).catch(e => toast(mensajeError(e), "error"));
+}
+
 async function quitarAdjunto(v, campo, idx) {
   const item = v[campo]?.[idx]; if (!item) return;
+  if (!puedoEditar(v)) {
+    const tipo = campo === "fotos" ? "foto" : "documento";
+    if (!(await confirmar({ title: "Este vehículo no es tuyo",
+      message: `Lo cargó ${cargadoPor(v)}. ¿Pedir a los administradores que quiten ${tipo === "foto" ? "esta foto" : `“${item.name}”`}?`, ok: "Pedir que la quiten", danger: true }))) return;
+    crearSolicitud(v, tipo, item).then(() => toast("Pedido enviado a los administradores", "success")).catch(e => toast(mensajeError(e), "error"));
+    return;
+  }
   const ok = await confirmar({
     title: campo === "fotos" ? "¿Quitar esta foto?" : `¿Quitar “${item.name}”?`,
     message: "Se quita del vehículo y del PDF.", ok: "Quitar", danger: true
@@ -440,12 +475,12 @@ function visor(fotos = [], inicio = 0, v = null) {
   const s = openSheet({
     wide: true,
     body: `<div class="viewer">
-      <img id="vw-img" alt="">
+      <div class="viewer-foto"><img id="vw-img" alt="">
+        <button class="icon-btn viewer-dl" id="vw-dl" aria-label="Descargar (mantené apretado para descargar todas)" title="Descargar · mantené apretado para todas">${icon("download")}</button></div>
       <div class="viewer-bar">
         <button class="icon-btn" data-p aria-label="Anterior">${icon("back")}</button>
         <span id="vw-n"></span>
-        <a class="icon-btn" id="vw-dl" target="_blank" rel="noopener" aria-label="Abrir original">${icon("download")}</a>
-        ${v ? `<button class="icon-btn" id="vw-rot" aria-label="Girar foto" title="Girar">${icon("rotate")}</button>` : ""}
+        ${v && puedoEditar(v) ? `<button class="icon-btn" id="vw-rot" aria-label="Girar foto" title="Girar">${icon("rotate")}</button>` : ""}
         ${v ? `<button class="icon-btn danger" id="vw-del" aria-label="Quitar esta foto">${icon("trash")}</button>` : ""}
         <button class="icon-btn" data-n aria-label="Siguiente">${icon("next")}</button>
       </div>
@@ -456,8 +491,30 @@ function visor(fotos = [], inicio = 0, v = null) {
     $("#vw-img", s.el).src = grande(fotos[i].url, 1600, fotos[i].rot);
     const f = fotos[i];
     $("#vw-n", s.el).textContent = `${i + 1} de ${fotos.length}` + (f.via === "whatsapp" ? ` · por WhatsApp${f.byName ? " (" + f.byName + ")" : ""}` : "");
-    $("#vw-dl", s.el).href = fotos[i].url;
   };
+  // Descargar: un toque baja la foto actual; mantener apretado 0,6 s baja todas
+  const nombreFoto = n => `${(v?.patente || v?.modelo || "foto").replace(/\s+/g, "_")}_${String(n + 1).padStart(2, "0")}.jpg`;
+  const bajar = async n => {
+    const f = fotos[n];
+    try {
+      const r = await fetch(grande(f.url, 4000, f.rot).replace("f_auto", "f_jpg")); if (!r.ok) throw new Error(r.status);
+      const a = document.createElement("a"); a.href = URL.createObjectURL(await r.blob()); a.download = nombreFoto(n); a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    } catch { open(f.url, "_blank", "noopener"); }
+  };
+  const dl = $("#vw-dl", s.el);
+  let largo = null, todas = false;
+  dl.addEventListener("pointerdown", () => {
+    todas = false;
+    largo = setTimeout(async () => {
+      todas = true; navigator.vibrate?.(30);
+      toast(`Descargando ${fotos.length} ${fotos.length === 1 ? "foto" : "fotos"}…`);
+      for (let n = 0; n < fotos.length; n++) { await bajar(n); await new Promise(r => setTimeout(r, 350)); }
+    }, 600);
+  });
+  ["pointerup", "pointerleave", "pointercancel"].forEach(ev => dl.addEventListener(ev, () => clearTimeout(largo)));
+  dl.addEventListener("contextmenu", e => e.preventDefault());
+  dl.addEventListener("click", () => { if (!todas) bajar(i); });
   $("[data-p]", s.el).onclick = () => { i = (i - 1 + fotos.length) % fotos.length; show(); };
   $("[data-n]", s.el).onclick = () => { i = (i + 1) % fotos.length; show(); };
   let x0 = null;
@@ -618,6 +675,12 @@ function compartir(v) {
 // ═════════════════════════════════════════════════════════════
 export function vistaFormulario(view, id = null) {
   const v = id ? getVehiculo(id) : null;
+  // Vehículo de otra persona sin acceso de edición: vuelve al detalle y ofrece pedir acceso
+  if (v && !puedoEditar(v)) {
+    location.replace(`#/v/${v.id}`);
+    setTimeout(() => pedirEdicion(v), 250);
+    return;
+  }
   if (id && !v) {
     setTopbar({ title: "Editar", back: "#/" });
     view.innerHTML = S.loadingVehicles ? `<div class="skeleton tall"></div>` : `<div class="empty"><h2>No encontramos este vehículo</h2></div>`;

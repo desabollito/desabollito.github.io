@@ -1017,3 +1017,16 @@ details.vform-det .field + .field { margin-top: 12px; }
 .login-nombre { margin: 0; line-height: 0; }
 .login-nombre img { width: min(260px, 72vw); height: auto; margin: 0 auto; }
 .espera a { color: var(--primary); }
+.sol-foto img { width: 40px; height: 40px; border-radius: 8px; object-fit: cover; display: block; }
+
+/* Lista: "Bot" arriba de la fecha, con su mismo estilo; botón de filtros */
+.vmid .vbot { margin-left: auto; font-size: 13px; color: var(--muted); font-weight: 400; }
+.filtro-btn { position: relative; }
+.filtro-btn.activo::after { content: ""; position: absolute; top: 7px; right: 7px; width: 8px; height: 8px; border-radius: 50%; background: var(--primary); }
+.filtros .p-chips { flex-wrap: wrap; overflow: visible; }
+.filtros #f-reset { align-self: flex-start; }
+
+/* Visor: descargar arriba a la derecha de la foto */
+.viewer-foto { position: relative; }
+.viewer-dl { position: absolute; top: 10px; right: 10px; background: rgba(10,20,32,.62); color: #fff; border-radius: 50%; -webkit-touch-callout: none; user-select: none; }
+.viewer-dl:hover { background: rgba(10,20,32,.8); }

@@ -40,12 +40,13 @@ export default {
     if (url.pathname === "/") return new Response("Desabollito bot funcionando ✅");
     if (url.pathname === "/diagnostico") return diagnostico(url, env);
     if (url.pathname === "/evolution") return webhookEvolution(req, url, env, ctx);
-    if (url.pathname === "/registro" || url.pathname === "/avisar") {
+    const API = { "/registro": nuevoRegistro, "/avisar": avisarCliente, "/solicitud": avisarSolicitud, "/agregado": avisarAgregado };
+    if (API[url.pathname]) {
       if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
       if (req.method !== "POST") return json({ ok: false, error: "Método no permitido" }, 405);
       let body = {};
       try { body = await req.json(); } catch {}
-      try { return url.pathname === "/registro" ? await nuevoRegistro(env, body) : await avisarCliente(env, body); }
+      try { return await API[url.pathname](env, body); }
       catch (e) { console.error(url.pathname, e?.stack || e); return json({ ok: false, error: "Error interno del bot" }, 500); }
     }
     if (url.pathname !== "/webhook") return new Response("No encontrado", { status: 404 });
@@ -713,6 +714,7 @@ async function crearVehiculo(env, op, d, quien) {
     estado: "peritado", fechas: { peritado: hoy }, fotos: [], archivos: [], firma: null, deleted: false,
     createdBy: `whatsapp:${quien.numero}`, createdByName: `${quien.nombre || quien.numero} (WhatsApp)`,
     ...(quien.uid ? { createdByUid: quien.uid } : {}),
+    ...(quien.username ? { createdByUser: quien.username } : {}),
     historial: [{ t: Date.now(), uid: quien.uid || "", por: quien.nombre || quien.numero, txt: "Cargó el vehículo por WhatsApp" }],
     updatedBy: `whatsapp:${quien.numero}`, via: "whatsapp"
   };
@@ -958,7 +960,7 @@ async function tokenFirebase(env) {
   const enc = o => b64url(new TextEncoder().encode(JSON.stringify(o)));
   const datos = `${enc({ alg: "RS256", typ: "JWT" })}.${enc({
     iss: env.FIREBASE_CLIENT_EMAIL,
-    scope: "https://www.googleapis.com/auth/datastore",
+    scope: "https://www.googleapis.com/auth/datastore https://www.googleapis.com/auth/identitytoolkit",
     aud: "https://oauth2.googleapis.com/token",
     iat: ahora, exp: ahora + 3600
   })}`;
@@ -1442,12 +1444,19 @@ async function comandoAdmin(env, m, texto) {
       "Hay varias solicitudes. Respondé *SI usuario* o *NO usuario*:\n\n" + pend.map(x => `• ${x.name || ""} (@${x.username})`).join("\n"));
     return true;
   }
-  await fsMerge(env, `users/${p.uid}`, aprobar ? { aprobado: true, rechazado: false } : { aprobado: false, rechazado: true });
-  if (aprobar) await fsMerge(env, `usernames/${p.username}`, { pendiente: false }).catch(() => {});
+  if (aprobar) {
+    await fsMerge(env, `users/${p.uid}`, { aprobado: true, rechazado: false });
+    await fsMerge(env, `usernames/${p.username}`, { pendiente: false }).catch(() => {});
+  } else {
+    // Rechazo: se borra la cuenta entera, así el usuario queda libre para registrarse de nuevo
+    await borrarCuentaAuth(env, p.uid).catch(e => console.error("borrar cuenta", e));
+    await fsDelete(env, `usernames/${p.username}`).catch(() => {});
+    await fsDelete(env, `users/${p.uid}`).catch(() => {});
+  }
   await fsDelete(env, `bot_pendientes/${p.username}`);
   await responder(env, dest(m), aprobar
-    ? `✅ Aprobaste a *${p.name || p.username}* (@${p.username}). Ya puede entrar a la app y usar el bot.`
-    : `❌ Rechazaste la cuenta de *${p.name || p.username}* (@${p.username}).`);
+    ? `✅ Aprobaste a *${p.name || p.username}*.`
+    : `❌ Rechazaste a *${p.name || p.username}*.`);
   return true;
 }
 
@@ -1497,4 +1506,51 @@ async function avisarCliente(env, { cid, vid, por }) {
   await fsMerge(env, ruta, { avisoReparado: { t: Date.now(), por: quien } });
   await fsAppend(env, ruta, "historial", { t: Date.now(), uid: "", por: quien, txt: "Le avisó al cliente por WhatsApp que el auto está listo" }).catch(() => {});
   return json({ ok: true });
+}
+
+// Borra la cuenta de acceso (Firebase Authentication) de un usuario rechazado
+async function borrarCuentaAuth(env, uid) {
+  const r = await fetch(`https://identitytoolkit.googleapis.com/v1/projects/${env.FIREBASE_PROJECT_ID}/accounts:delete`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${await tokenFirebase(env)}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ localId: uid })
+  });
+  if (!r.ok) throw new Error(`No se pudo borrar la cuenta ${uid}: ${r.status} ${await r.text()}`);
+}
+
+const idValido = x => /^[A-Za-z0-9_-]{1,120}$/.test(String(x || ""));
+
+// Solicitudes de la app (eliminar, quitar foto/documento, acceso de edición): aviso al administrador
+async function avisarSolicitud(env, { cid, sid }) {
+  if (!idValido(cid) || !idValido(sid)) return json({ ok: false, error: "Datos inválidos" }, 400);
+  const ruta = `companies/${cid}/solicitudes/${sid}`;
+  const sol = await fsGet(env, ruta);
+  if (!sol) return json({ ok: false, error: "No existe la solicitud" }, 404);
+  if (sol.notificado) return json({ ok: true, yaAvisado: true });
+  const c = await fsGet(env, `companies/${cid}`);
+  const quien = sol.pedidoPorUser ? "@" + sol.pedidoPorUser : sol.pedidoPorNombre || "Alguien";
+  const que = { eliminar: "eliminar el vehículo", foto: "quitar una foto de", documento: `quitar el documento “${sol.item?.name || ""}” de`, editar: "acceso para editar" }[sol.tipo || "eliminar"];
+  const auto = `*${sol.modelo || "Vehículo"}*${sol.patente ? ` (${sol.patente})` : ""}`;
+  const r = await enviar(env, destinoNumero(env, numeroAdmin(env)), { type: "text", text: { preview_url: false, body:
+    `📩 *Nueva solicitud* en ${c?.name || "un operativo"}\n\n${quien} pide ${que} ${auto}` +
+    `${sol.cargadoPor ? `, cargado por ${sol.cargadoPor}` : ""}.\n\nPara aprobarla o rechazarla: ${APP_URL}/#/papelera` } });
+  await fsMerge(env, ruta, { notificado: true });
+  return json({ ok: !!r?.ok });
+}
+
+// Alguien fue sumado a un operativo: se le avisa por WhatsApp si tiene el número vinculado (una sola vez)
+async function avisarAgregado(env, { cid, uid }) {
+  if (!idValido(cid) || !idValido(uid)) return json({ ok: false, error: "Datos inválidos" }, 400);
+  const c = await fsGet(env, `companies/${cid}`);
+  if (!c || !(c.members || []).includes(uid)) return json({ ok: false, error: "No es miembro" });
+  const u = await fsGet(env, `users/${uid}`);
+  if (!u?.whatsapp) return json({ ok: false, error: "Sin WhatsApp vinculado" });
+  if ((u.avisosOperativos || []).includes(cid)) return json({ ok: true, yaAvisado: true });
+  const por = c.memberAddedBy?.[uid];
+  const quien = por?.user ? "@" + por.user : por?.por || "Alguien";
+  const nombre = String(u.name || "").trim().split(/\s+/)[0];
+  const r = await enviar(env, destinoNumero(env, u.whatsapp), { type: "text", text: { preview_url: false, body:
+    `👋 ${nombre ? nombre + ", " : ""}${quien} te agregó al operativo *${c.name || ""}*.\n\nYa podés cargar vehículos ahí desde la app o por acá.` } });
+  await fsMerge(env, `users/${uid}`, { avisosOperativos: [...(u.avisosOperativos || []), cid] });
+  return json({ ok: !!r?.ok });
 }
