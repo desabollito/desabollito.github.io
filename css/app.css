@@ -985,3 +985,15 @@ label.logo-prev { cursor: pointer; }
 .hist-btn .ic { width: 17px; height: 17px; }
 .sheet .hist { margin-top: 4px; }
 details.vform-det .field + .field { margin-top: 12px; }
+
+/* Planilla: orden con chips propios y resumen al final */
+.p-sort { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.p-sort > span { flex-shrink: 0; }
+.p-chips { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding: 2px 0; }
+.p-chips::-webkit-scrollbar { display: none; }
+.p-chip { all: unset; box-sizing: border-box; cursor: pointer; flex-shrink: 0; display: inline-flex; align-items: center; gap: 4px; height: 32px; padding: 0 12px;
+  border-radius: 99px; border: 1px solid var(--line); background: var(--surface); color: var(--ink-2); font: 600 13px var(--font); }
+.p-chip.on { background: var(--primary); border-color: var(--primary); color: #fff; }
+.p-chip i { font-style: normal; font-weight: 800; }
+#psum { margin-top: 14px; }
+@media (max-width: 899px) { #psum { margin-bottom: 84px; } }

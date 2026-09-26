@@ -50,14 +50,12 @@ export function vistaPlanilla(view) {
   view.innerHTML = `
   <div class="sheet-page">
     <label class="search">${icon("search")}<input type="search" id="pq" placeholder="Buscar patente, modelo, asegurado, estado…" value="${esc(P.q)}"></label>
-    <div class="p-summary" id="psum"></div>
 
     <!-- Celular: lista compacta con orden elegible -->
     <div class="p-mobile">
-      <div class="p-sort">
+      <div class="p-sort" role="group" aria-label="Ordenar por">
         <span class="muted small">Ordenar por</span>
-        <select id="psort" aria-label="Ordenar por">${ordenes.map(([k, t]) => `<option value="${k}" ${P.orden === k ? "selected" : ""}>${t}</option>`).join("")}</select>
-        <button class="icon-btn sm" id="pdir" aria-label="Invertir orden">${icon("sort")}</button>
+        <div class="p-chips" id="psort"></div>
       </div>
       <div class="p-list" id="plist"></div>
     </div>
@@ -67,9 +65,16 @@ export function vistaPlanilla(view) {
       <thead><tr>${COLS.map(([k, t]) => `<th data-k="${k}" class="${k === "precio" ? "num" : ""}" aria-sort="${P.orden === k ? (P.dir > 0 ? "ascending" : "descending") : "none"}">
         <button>${t}${P.orden === k ? (P.dir > 0 ? " ↑" : " ↓") : ""}</button></th>`).join("")}</tr></thead>
       <tbody id="tb"></tbody><tfoot id="tf"></tfoot></table></div>
+
+    <div class="p-summary" id="psum"></div>
   </div>`;
 
+  const pintarOrden = () => {
+    $("#psort", view).innerHTML = ordenes.map(([k, t]) => `<button type="button" class="p-chip ${P.orden === k ? "on" : ""}" data-orden="${k}"
+      aria-pressed="${P.orden === k}">${t}${P.orden === k ? `<i>${P.dir > 0 ? "↑" : "↓"}</i>` : ""}</button>`).join("");
+  };
   const pintar = () => {
+    pintarOrden();
     const filas = filasPlanilla();
     const total = filas.reduce((s, v) => s + (estadoActual(v) === "anulado" ? 0 : Number(v.precio || 0)), 0);
     $("#psum", view).innerHTML = `<span><b>${filas.length}</b> ${filas.length === 1 ? "vehículo" : "vehículos"}</span><span>Total <b>${money(total) || "$0"}</b></span>`;
@@ -100,8 +105,13 @@ export function vistaPlanilla(view) {
   pintar();
 
   $("#pq", view).oninput = debounce(e => { P.q = e.target.value; pintar(); }, 120);
-  $("#psort", view).onchange = e => { P.orden = e.target.value; P.dir = ["fecha", "precio"].includes(P.orden) ? -1 : 1; pintar(); };
-  $("#pdir", view).onclick = () => { P.dir *= -1; pintar(); };
+  // Tocar un criterio lo elige; tocar el elegido invierte el orden
+  $("#psort", view).onclick = e => {
+    const b = e.target.closest("[data-orden]"); if (!b) return;
+    if (P.orden === b.dataset.orden) P.dir *= -1;
+    else { P.orden = b.dataset.orden; P.dir = ["fecha", "precio"].includes(P.orden) ? -1 : 1; }
+    pintar();
+  };
   $("thead", view).onclick = e => {
     const th = e.target.closest("[data-k]"); if (!th) return;
     if (P.orden === th.dataset.k) P.dir *= -1; else { P.orden = th.dataset.k; P.dir = 1; }
