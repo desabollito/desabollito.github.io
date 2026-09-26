@@ -123,7 +123,7 @@ async function procesar(m, env) {
     await fsDelete(env, `bot_numeros/${numero}`).catch(() => {});
     return vincular(env, m, quien);
   }
-  quien.uid = cuenta.uid; quien.username = cuenta.username; quien.nombre = cuenta.name || quien.nombre;
+  quien.waNombre = m._nombre || ""; quien.uid = cuenta.uid; quien.username = cuenta.username; quien.nombre = cuenta.name || quien.nombre;
 
   if (m.type === "text") return alRecibirTexto(env, m, quien, (m.text?.body || "").trim());
   if (m.type === "image" || m.type === "document") return alRecibirArchivo(env, m, quien);
@@ -387,10 +387,18 @@ export function quitarFrase(texto, frase) {
 }
 
 
-const SALUDO =
-  "¡Hola, soy Desabollito 🚘!\n\n" +
+const INSTRUCCIONES =
   "Enviame los datos del vehículo y luego las fotos.\n\n" +
   "Para finalizar, enviá *OK* o continuá con otro vehículo.";
+const SALUDO = "¡Hola, soy Desabollito 🚘!\n\n" + INSTRUCCIONES;
+
+// Saludo según la hora de Argentina (UTC-3), con el nombre de WhatsApp o el usuario
+function saludoHora(quien) {
+  const h = (new Date().getUTCHours() + 21) % 24;
+  const franja = h >= 5 && h < 12 ? "Buenos días" : h >= 12 && h < 20 ? "Buenas tardes" : "Buenas noches";
+  const nombre = String(quien?.waNombre || "").trim() || quien?.username || "";
+  return `${franja}${nombre ? " " + nombre : ""}! 👋\n\n` + INSTRUCCIONES;
+}
 
 const AYUDA =
   "🚗 *Cómo usar Desabollito*\n\n" +
@@ -486,7 +494,7 @@ async function alRecibirTexto(env, m, quien, texto) {
   const hora = horaDe(m);
   const s = await leerSesion(env, numero);
 
-  if (esSaludo(texto)) return responder(env, dest(m), SALUDO);
+  if (esSaludo(texto)) return responder(env, dest(m), saludoHora(quien));
   if (esAyuda(texto)) return responder(env, dest(m), AYUDA);
 
   // Comando: cambiar de operativo
@@ -1398,7 +1406,7 @@ Si cambiaste de número, entrá a la app → Ajustes → *Desvincular WhatsApp* 
       await fsSet(env, `bot_numeros/${numero}`, { uid: u.uid, username: cand, name: nombre, ts: Date.now() });
       await fsMerge(env, `users/${u.uid}`, { whatsapp: numero });
       await fsDelete(env, `bot_vinculo/${numero}`).catch(() => {});
-      return responder(env, dest(m), `✅ Listo *${nombre}*, tu WhatsApp quedó vinculado a *@${cand}*.\n\n` + SALUDO);
+      return responder(env, dest(m), `✅ Listo *${nombre}*, tu WhatsApp quedó vinculado a *@${cand}*.\n\n` + INSTRUCCIONES);
     }
     if (estado?.pedido) {
       return responderLink(env, dest(m), `❌ No encontré el usuario *${cand}*.\n\nPara usar el bot necesitás una cuenta en Desabollito. Registrate acá y, cuando te la aprueben, escribime tu usuario:\n\n👉 ${APP_URL}`);
