@@ -123,7 +123,7 @@ async function procesar(m, env) {
     await fsDelete(env, `bot_numeros/${numero}`).catch(() => {});
     return vincular(env, m, quien);
   }
-  quien.waNombre = m._nombre || ""; quien.uid = cuenta.uid; quien.username = cuenta.username; quien.nombre = cuenta.name || quien.nombre;
+  quien.waNombre = m._nombre || ""; quien.appNombre = cuenta.name || ""; quien.uid = cuenta.uid; quien.username = cuenta.username; quien.nombre = cuenta.name || quien.nombre;
 
   if (m.type === "text") return alRecibirTexto(env, m, quien, (m.text?.body || "").trim());
   if (m.type === "image" || m.type === "document") return alRecibirArchivo(env, m, quien);
@@ -392,11 +392,12 @@ const INSTRUCCIONES =
   "Para finalizar, enviá *OK* o continuá con otro vehículo.";
 const SALUDO = "¡Hola, soy Desabollito 🚘!\n\n" + INSTRUCCIONES;
 
-// Saludo según la hora de Argentina (UTC-3), con el nombre de WhatsApp o el usuario
+// Saludo según la hora de Argentina (UTC-3): con el nombre de la cuenta de la app;
+// si todavía no se conoce, con el nombre de WhatsApp
 function saludoHora(quien) {
   const h = (new Date().getUTCHours() + 21) % 24;
   const franja = h >= 5 && h < 12 ? "Buenos días" : h >= 12 && h < 20 ? "Buenas tardes" : "Buenas noches";
-  const nombre = String(quien?.waNombre || "").trim() || quien?.username || "";
+  const nombre = String(quien?.appNombre || "").trim() || quien?.username || String(quien?.waNombre || "").trim();
   return `${franja}${nombre ? " " + nombre : ""}! 👋\n\n` + INSTRUCCIONES;
 }
 
@@ -1416,7 +1417,8 @@ Si cambiaste de número, entrá a la app → Ajustes → *Desvincular WhatsApp* 
   }
   if (estado?.pedido && m.type !== "text") return; // fotos antes de vincular: ya se le pidió el usuario
   await fsSet(env, `bot_vinculo/${numero}`, { pedido: true, ts: Date.now() });
-  return responder(env, dest(m), "👋 ¡Hola! Soy el bot de *Desabollito*.\n\nPara empezar, escribime tu *usuario* de la app (el que usás para entrar en desabollito.github.io).");
+  const wa = String(m._nombre || "").trim();
+  return responder(env, dest(m), `👋 ¡Hola${wa ? " " + wa : ""}! Soy el bot de *Desabollito*.\n\nPara empezar, escribime tu *usuario* de la app (el que usás para entrar en desabollito.github.io).`);
 }
 
 // El administrador responde "SI usuario" / "NO usuario" (o solo SI/NO si hay una sola solicitud)
