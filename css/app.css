@@ -395,10 +395,11 @@ fieldset.card legend + * { clear: both; }
 .vform-cols { display: grid; gap: 14px; grid-template-columns: minmax(0, 1fr);
   grid-template-areas: "fotos" "veh" "cli" "map" "det"; }
 .vform-fotos { grid-area: fotos; margin-top: 0; }
-.vform-veh { grid-area: veh; } .vform-cli { grid-area: cli; } .vform-map { grid-area: map; } .vform-det { grid-area: det; }
+.vform-veh { grid-area: veh; } .vform-cli { grid-area: cli; } .vform-der { grid-area: map; display: flex; flex-direction: column; gap: 14px; min-width: 0; } .vform-det { grid-area: det; }
 @media (min-width: 1000px) {
   .vform-cols { grid-template-columns: minmax(0, 1fr) 400px; grid-template-areas: "fotos map" "veh map" "cli map" "det map"; align-items: start; }
-  .vform-map { position: sticky; top: calc(var(--top) + 16px); grid-row: 1 / span 4; }
+  .vform-der { position: sticky; top: calc(var(--top) + 16px); grid-row: 1 / span 4; }
+  .vform-cols { grid-template-rows: auto auto auto 1fr; }
   .map-wrap { grid-template-columns: 1fr; justify-items: center; }
   .map-wrap .carmap { max-width: 210px; }
 }
@@ -709,7 +710,7 @@ body[data-detalle="1"] .fab { display: none !important; }
 /* Grado de daño */
 .grado-pick { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
 .grado-pick > span { font-size: 13px; font-weight: 600; color: var(--ink-2); }
-@media (max-width: 699px) { .grado-pick > span { text-align: center; } }
+@media (max-width: 699px) { .grado-pick > span { text-align: center; } details.vform-det .grado-pick > span { text-align: left; } }
 .grado-tag { font-size: 12.5px; font-weight: 800; padding: 4px 10px; border-radius: 999px; background: var(--surface-2); color: var(--ink); }
 .grado-tag.g1 { background: color-mix(in srgb, #22b07d 18%, transparent); color: #22b07d; }
 .grado-tag.g2 { background: color-mix(in srgb, #e0a526 20%, transparent); color: #d19613; }
@@ -900,3 +901,51 @@ html.cam-abierta, html.cam-abierta body { overflow: hidden; }
 .cam-ok { padding: 8px 16px; min-width: 0; font-size: 15px; font-weight: 700; margin-left: 22px; justify-self: start; }
 .cam-visor { overflow: hidden; }
 .cam-visor video { transition: transform .15s ease-out; }
+
+/* Formulario: 3D a la altura del título, precio aparte y "Adicionales" desplegable */
+fieldset.card legend.leg-flex { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.vform-precio .field { margin: 6px 0 0; }
+details.vform-det { padding-top: 0; padding-bottom: 0; }
+details.vform-det > summary { list-style: none; cursor: pointer; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+  padding: 16px 28px 16px 0; font-weight: 700; font-size: 15px; position: relative; }
+details.vform-det > summary::-webkit-details-marker { display: none; }
+details.vform-det > summary::after { content: ""; position: absolute; right: 4px; top: 50%; width: 9px; height: 9px; margin-top: -7px;
+  border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(45deg); transition: transform .2s; }
+details.vform-det[open] > summary::after { transform: rotate(-135deg); margin-top: -2px; }
+details.vform-det > summary small { font-weight: 500; font-size: 12px; }
+details.vform-det[open] { padding-bottom: 16px; }
+details.vform-det .grado-pick { margin: 0 0 12px; }
+/* Fotos subidas en carrusel */
+.ff-grid { display: flex; gap: 8px; overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 4px; scrollbar-width: thin; }
+.ff-grid > * { flex: 0 0 96px; height: 96px; scroll-snap-align: start; }
+
+.cam-cuadro { position: relative; overflow: hidden; aspect-ratio: var(--ar, 0.75); width: min(100vw, calc(100dvh * var(--ar, 0.75))); }
+.cam-visor .cam-cuadro video { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* Selector de fecha propio */
+.fecha-btn { all: unset; box-sizing: border-box; width: 100%; display: flex; align-items: center; gap: 10px; min-height: 46px; padding: 0 14px;
+  border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); color: var(--ink); font: 600 15px var(--font); cursor: pointer; }
+.fecha-btn .ic { width: 18px; height: 18px; color: var(--muted); }
+.fecha-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+.fecha-pop { position: fixed; z-index: 2000; width: 290px; padding: 12px; border-radius: 16px; background: var(--surface); border: 1px solid var(--line);
+  box-shadow: 0 14px 40px #0006; font-family: var(--font); color: var(--ink); }
+.fecha-pop button { all: unset; box-sizing: border-box; cursor: pointer; text-align: center; border-radius: 10px; }
+.fp-cab { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.fp-cab button { width: 36px; height: 36px; font-size: 22px; line-height: 34px; color: var(--ink-2); }
+.fp-cab button:hover { background: var(--surface-2); }
+.fp-sem, .fp-dias { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.fp-sem span { text-align: center; font-size: 11px; font-weight: 700; color: var(--muted); padding: 4px 0; }
+.fp-dias button { height: 36px; line-height: 36px; font-size: 14px; font-weight: 600; }
+.fp-dias button:hover { background: var(--surface-2); }
+.fp-dias button.hoy { box-shadow: inset 0 0 0 1.5px var(--primary); }
+.fp-dias button.sel { background: var(--primary); color: #fff; }
+.fp-pie { display: flex; justify-content: flex-end; margin-top: 8px; }
+.fp-pie button { padding: 6px 12px; font-size: 13px; font-weight: 700; color: var(--primary); }
+.fp-pie button:hover { background: var(--surface-2); }
+
+/* Logo del sello: tamaño fijo, la imagen siempre centrada; se toca para elegirlo */
+.logo-prev { box-sizing: border-box; flex-shrink: 0; overflow: hidden; }
+label.logo-prev { cursor: pointer; }
+.logo-vis { width: 100%; height: 100%; display: grid; place-items: center; min-height: 0; }
+.logo-prev img { display: block; max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain; }
+.logo-row { align-items: center; }

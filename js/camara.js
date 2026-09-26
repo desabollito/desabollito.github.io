@@ -136,7 +136,7 @@ async function abrirCamara_() {
     const el = document.createElement("div");
     el.className = "cam";
     el.innerHTML = `
-      <div class="cam-visor"><video playsinline muted autoplay></video><div class="cam-flashfx"></div></div>
+      <div class="cam-visor"><div class="cam-cuadro"><video playsinline muted autoplay></video></div><div class="cam-flashfx"></div></div>
       <header class="cam-top">
         <button class="cam-ic" data-cerrar aria-label="Cerrar">${icon("x")}</button>
         <span class="cam-titulo cam-n"></span>
@@ -154,6 +154,9 @@ async function abrirCamara_() {
     document.documentElement.classList.add("cam-abierta");
     const $ = s => el.querySelector(s);
     const video = $("video"); video.srcObject = stream;
+    // el recuadro toma la proporción real de la foto (4:3), así el zoom 2x no cambia el formato
+    const ajustarCuadro = () => { if (video.videoWidth) $(".cam-cuadro").style.setProperty("--ar", video.videoWidth / video.videoHeight); };
+    video.addEventListener("loadedmetadata", ajustarCuadro); video.addEventListener("resize", ajustarCuadro);
 
     // Flash si el celular lo tiene; zoom 2x nativo si existe, si no, digital (se recorta al centro)
     const prepararControles = () => {

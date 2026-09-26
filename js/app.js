@@ -3,6 +3,7 @@ import {
 } from "./data.js";
 import { $, $$, toast, busy } from "./ui.js";
 import { FIREBASE } from "./config.js";
+import { iniciarFechas } from "./fecha.js";
 import { marcarNav, pintarLateral, esAncho } from "./shell.js";
 import { vistaVehiculos, vistaDetalle, vistaFormulario, reiniciarVista3D } from "./views-vehiculos.js";
 import {
@@ -212,3 +213,6 @@ if ("serviceWorker" in navigator) {
     } catch (e) { console.warn("SW", e); }
   });
 }
+
+// Selector de fecha propio en toda la app
+iniciarFechas();

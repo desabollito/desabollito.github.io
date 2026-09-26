@@ -281,10 +281,10 @@ export function vistaEmpresa(view) {
         <label class="field">
           <textarea name="texto" aria-label="Texto del sello" rows="4" ${admin ? "" : "disabled"} placeholder="Juan Pérez · Desabollador&#10;CUIT 20-12345678-9&#10;11 2345 6789">${esc(sello.texto)}</textarea></label>
         <div class="logo-row">
-          <div class="logo-prev ${sello.logo ? "" : "vacio"}">${sello.logo ? `<img src="${esc(sello.logo)}" alt="Logo">` : "Sin logo"}</div>
-          ${admin ? `<div class="stack-sm">
-            <label class="btn btn-ghost btn-sm">${icon("plus")}${sello.logo ? "Cambiar logo" : "Subir logo"}<input type="file" accept="image/*" hidden id="logo-in"></label>
-            ${sello.logo ? `<button type="button" class="link-btn danger" id="logo-del">Quitar logo</button>` : ""}</div>` : ""}
+          <${admin ? "label" : "div"} class="logo-prev ${sello.logo ? "" : "vacio"}" ${admin ? 'title="Tocá para elegir el logo"' : ""}>
+            <span class="logo-vis">${sello.logo ? `<img src="${esc(sello.logo)}" alt="Logo">` : admin ? "Subir logo" : "Sin logo"}</span>
+            ${admin ? `<input type="file" accept="image/*" hidden id="logo-in">` : ""}</${admin ? "label" : "div"}>
+          ${admin ? `<button type="button" class="link-btn danger" id="logo-del" ${sello.logo ? "" : "hidden"}>Quitar logo</button>` : ""}
         </div>
         ${admin ? `<button class="btn btn-primary">Guardar sello</button>` : ""}
       </form>
@@ -305,10 +305,10 @@ export function vistaEmpresa(view) {
   $("#agregar-usuario", view)?.addEventListener("click", () => {
     let rol = "tecnico";
     const sh = openSheet({
-      title: "Agregar usuario",
+      title: "Agregar personas",
       body: `<form class="stack" id="add">
         <label class="field"><span>Nombre de usuario</span>
-          <input name="u" placeholder="usuario" autocapitalize="none" spellcheck="false" required></label>
+          <input name="u" placeholder="Ej: desabollito" autocapitalize="none" spellcheck="false" required></label>
         <div class="field"><span>Rol</span>
           <div class="seg seg-rol" id="rol-nuevo">
             <button type="button" class="seg-btn on" data-v="tecnico">Técnico</button>
@@ -341,10 +341,18 @@ export function vistaEmpresa(view) {
   });
   $("#logo-in", view)?.addEventListener("change", async e => {
     const f = e.target.files[0]; if (!f) return;
-    try { logo = await imagenChica(f); $(".logo-prev", view).classList.remove("vacio"); $(".logo-prev", view).innerHTML = `<img src="${logo}" alt="Logo">`; }
+    e.target.value = "";
+    try {
+      logo = await imagenChica(f);
+      $(".logo-prev", view).classList.remove("vacio");
+      $(".logo-vis", view).innerHTML = `<img src="${logo}" alt="Logo">`;
+      $("#logo-del", view).hidden = false;
+    }
     catch { toast("No se pudo leer la imagen", "error"); }
   });
-  $("#logo-del", view)?.addEventListener("click", () => { logo = ""; $(".logo-prev", view).classList.add("vacio"); $(".logo-prev", view).textContent = "Sin logo"; });
+  $("#logo-del", view)?.addEventListener("click", e => {
+    logo = ""; $(".logo-prev", view).classList.add("vacio"); $(".logo-vis", view).textContent = "Subir logo"; e.currentTarget.hidden = true;
+  });
   if ($("#sello", view)) $("#sello", view).onsubmit = async e => {
     e.preventDefault(); if (!admin) return;
     try { await guardarSello({ texto: e.target.texto.value.trim(), logo }); toast("Sello guardado", "success"); }

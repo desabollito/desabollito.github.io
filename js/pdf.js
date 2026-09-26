@@ -82,10 +82,10 @@ function patente(doc, txt, xDer, y) {
 }
 
 function mapaPiezas(doc, piezas, x, y, alto) {
-  const k = alto / 400;
+  const k = alto / 422;
   const R = (p, estilo) => doc.roundedRect(x + p.x * k, y + p.y * k, p.w * k, p.h * k, p.r * k, p.r * k, estilo);
   doc.setFillColor(...SUAVE); doc.setDrawColor(...LINEA); doc.setLineWidth(0.4);
-  doc.roundedRect(x + 22 * k, y + 8 * k, 196 * k, 384 * k, 38 * k, 38 * k, "FD");
+  doc.roundedRect(x + 22 * k, y + 8 * k, 196 * k, 406 * k, 40 * k, 40 * k, "FD");
   doc.setFillColor(226, 232, 240);
   VIDRIOS.forEach(v => R(v, "F"));
   PIEZAS.forEach(p => {
@@ -138,7 +138,7 @@ export async function presupuestoPDF(v, empresa, { conFotos = false, onProgreso 
     titulo(doc, "Paños afectados", M, y, CW); y += 7;
     const altoMapa = 74;
     mapaPiezas(doc, v.piezas, M, y, altoMapa);
-    const lx = M + altoMapa * 0.6 + 10;
+    const lx = M + altoMapa * 240 / 422 + 10;
     doc.setFont("helvetica", "normal"); doc.setFontSize(9.5); doc.setTextColor(...INK);
     const col2 = marcadas.length > 7;
     marcadas.forEach((k, i) => {

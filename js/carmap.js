@@ -2,7 +2,7 @@ import { PIEZAS, PIEZA, VIDRIOS, ORDEN_PIEZAS } from "./domain.js";
 import { esc } from "./ui.js";
 
 // Silueta del auto visto desde arriba, frente hacia arriba.
-const CUERPO = "M120 8 C182 8 214 22 216 60 L218 330 C218 372 194 392 120 392 C46 392 22 372 22 330 L24 60 C26 22 58 8 120 8 Z";
+const CUERPO = "M120 8 C182 8 214 22 216 60 L218 350 C218 394 194 414 120 414 C46 414 22 394 22 350 L24 60 C26 22 58 8 120 8 Z";
 
 function rect(p, extra = "") {
   return `<rect x="${p.x}" y="${p.y}" width="${p.w}" height="${p.h}" rx="${p.r}" ${extra}/>`;
@@ -19,7 +19,7 @@ export function carMapSVG(piezas = {}, { editable = false, size = "" } = {}) {
       <title>${esc(p.label)}</title>${rect(p)}</g>`;
   }).join("");
   const glass = VIDRIOS.map(v => rect(v, 'class="glass"')).join("");
-  return `<svg class="carmap ${size} ${editable ? "editable" : ""}" viewBox="0 0 240 400" role="${editable ? "group" : "img"}"
+  return `<svg class="carmap ${size} ${editable ? "editable" : ""}" viewBox="0 0 240 422" role="${editable ? "group" : "img"}"
       aria-label="Mapa de piezas del vehículo">
     <path class="body" d="${CUERPO}"/>
     <rect class="mirror" x="6" y="122" width="18" height="10" rx="4"/>

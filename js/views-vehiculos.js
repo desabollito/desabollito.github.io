@@ -609,38 +609,37 @@ export function vistaFormulario(view, id = null) {
           <datalist id="dl-comp">${opciones("compania")}</datalist>
           <datalist id="dl-loc">${opciones("localidad")}</datalist>
         </fieldset>
+        <div class="vform-der">
         <fieldset class="card vform-map">
-          <legend>Paños afectados</legend>
-          <div class="map-cab">
-            <p class="muted small">Tocá los paños en el dibujo del auto.</p>
-            <button type="button" class="btn btn-ghost btn-sm vista-btn" id="f-vista">3D</button>
-          </div>
+          <legend class="leg-flex"><span>Paños afectados</span>
+            <button type="button" class="btn btn-ghost btn-sm vista-btn" id="f-vista">3D</button></legend>
           <div class="vista-3d" id="f-3d" hidden></div>
           <div class="map-wrap">
             ${carMapSVG(piezas, { editable: true })}
             <div class="pieza-chips"></div>
           </div>
           <p class="pieza-resumen" aria-live="polite"></p>
+        </fieldset>
+        <fieldset class="card vform-precio">
+          <legend>Precio</legend>
+          <label class="field"><span class="money-in"><i>$</i><input name="precio" inputmode="numeric" aria-label="Precio" value="${v?.precio ? Number(v.precio).toLocaleString("es-AR") : ""}" placeholder="0"></span></label>
+        </fieldset>
+        </div>
+        <details class="card vform-det">
+          <summary>Adicionales <small class="muted">grado, observaciones, repuestos${v ? "" : ", fecha de peritaje"}</small></summary>
           <div class="grado-pick">
             <span>Grado de daño</span>
             <div class="seg seg-sm" id="grado" role="radiogroup" aria-label="Grado de daño">
               ${[1, 2, 3].map(g => `<button type="button" class="seg-btn ${v?.grado === g ? "on" : ""}" data-g="${g}" role="radio" aria-checked="${v?.grado === g}">Grado ${g}</button>`).join("")}
             </div>
           </div>
-        </fieldset>
-        <fieldset class="card vform-det">
-          <legend>Detalle del trabajo</legend>
           <label class="field"><span>Observaciones</span>
             <textarea name="observaciones" rows="3" placeholder="Detalles adicionales">${esc(v?.observaciones)}</textarea></label>
           <label class="field"><span>Repuestos</span>
             <textarea name="repuestos" rows="2" placeholder="Un repuesto por línea">${esc(v?.repuestos)}</textarea></label>
-          <div class="grid-2">
-            <label class="field"><span>Precio</span>
-              <span class="money-in"><i>$</i><input name="precio" inputmode="numeric" value="${v?.precio ? Number(v.precio).toLocaleString("es-AR") : ""}" placeholder="0"></span></label>
-            ${v ? "" : `<label class="field"><span>Fecha de peritaje</span>
-              <input name="fecha" type="date" value="${hoyISO()}"></label>`}
-          </div>
-        </fieldset>
+          ${v ? "" : `<label class="field"><span>Fecha de peritaje</span>
+            <input name="fecha" type="date" value="${hoyISO()}"></label>`}
+        </details>
     </div>
 
     <div class="vform-bar">
