@@ -527,7 +527,14 @@ function firmar(v) {
   ["pointerup", "pointercancel", "pointerleave"].forEach(ev => c.addEventListener(ev, () => { dib = false; }));
   $("[data-clear]", s.el).onclick = () => { ctx.clearRect(0, 0, c.width, c.height); trazos = 0; };
   $("[data-save]", s.el).onclick = () => {
-    if (!trazos) { toast("La firma está vacía", "warning"); return; }
+    if (!trazos) {
+      // Vacía: si había una firma guardada, se elimina; si no, no hay nada que hacer
+      if (v.firma || getVehiculo(v.id)?.firma) {
+        actualizarVehiculo(v.id, { firma: null }, "Eliminó la firma del cliente").catch(e => toast(mensajeError(e), "error"));
+        toast("Firma eliminada", "success");
+      }
+      s.close(); return;
+    }
     // Reducir a un PNG liviano para guardarlo en la base
     const out = document.createElement("canvas");
     out.width = 600; out.height = Math.round(600 * c.height / c.width);
