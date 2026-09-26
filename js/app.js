@@ -1,10 +1,10 @@
 import {
-  S, onChange, iniciarSesion, ingresar, crearCuenta, ingresarConGoogle, mensajeError, elegirEmpresa
+  S, onChange, iniciarSesion, ingresar, crearCuenta, mensajeError, elegirEmpresa
 } from "./data.js";
 import { $, $$, toast, busy } from "./ui.js";
 import { FIREBASE } from "./config.js";
 import { iniciarFechas } from "./fecha.js";
-import { cuentaPendiente, reenviarSolicitud, salir } from "./data.js";
+import { cuentaPendiente, salir } from "./data.js";
 import { marcarNav, pintarLateral, esAncho } from "./shell.js";
 import { vistaVehiculos, vistaDetalle, vistaFormulario, reiniciarVista3D } from "./views-vehiculos.js";
 import {
@@ -130,12 +130,7 @@ $("#login-form").addEventListener("submit", async e => {
   }
 });
 
-$("#login-google").addEventListener("click", async e => {
-  const b = e.currentTarget;
-  busy(b, true, "Abriendo Google…");
-  try { await ingresarConGoogle(); }
-  catch (err) { if (err.code !== "auth/cancelled-popup-request") toast(mensajeError(err), "error"); busy(b, false); }
-});
+
 
 // ── Arranque ──────────────────────────────────────────────────
 if (FIREBASE.apiKey.startsWith("TU_")) {
@@ -148,7 +143,7 @@ iniciarSesion((logueado, error) => {
   $("#login").hidden = logueado;
   $("#shell").hidden = !logueado;
   if (!logueado) {
-    busy($("#login-submit"), false); busy($("#login-google"), false);
+    busy($("#login-submit"), false);
     $("#login-form").reset();
     view.innerHTML = "";
     return;
@@ -172,22 +167,18 @@ function mostrarSegunAprobacion() {
     document.body.appendChild(el);
     el.addEventListener("click", async e => {
       if (e.target.closest("[data-salir]")) salir();
-      if (e.target.closest("[data-reenviar]")) {
-        const b = e.target.closest("button"); b.disabled = true;
-        await reenviarSolicitud().catch(() => {});
-        toast("Volvimos a enviar la solicitud", "success");
-      }
+
     });
   }
   const rechazada = S.profile?.rechazado;
   el.innerHTML = `<div class="espera-caja">
       <img src="img/logo-oscuro.png" alt="" class="espera-logo">
       <h1>${rechazada ? "Tu solicitud no fue aprobada" : "Solicitud enviada"}</h1>
-      <p>${rechazada ? "Si creés que es un error, comunicate con el administrador de Desabollito."
-        : `Recibimos tu registro como <strong>@${S.profile?.username || ""}</strong>. Un administrador lo tiene que aprobar; cuando lo haga, esta pantalla se abre sola.`}</p>
+      ${rechazada ? `<p>Si creés que es un error, comunicate con nosotros a <a href="mailto:desabollito@gmail.com">desabollito@gmail.com</a></p>`
+        : `<p>Recibimos tu registro como <strong>${S.profile?.username || ""}</strong>.</p>
+           <p>Un administrador lo tiene que aprobar; cuando lo haga, esta pantalla se abre sola.</p>`}
       ${rechazada ? "" : `<p class="muted small">Después de la aprobación también vas a poder usar el bot de WhatsApp: escribile tu usuario para empezar.</p>`}
       <div class="espera-btns">
-        ${rechazada ? "" : `<button class="btn btn-ghost" data-reenviar>Reenviar solicitud</button>`}
         <button class="btn btn-ghost" data-salir>Cerrar sesión</button>
       </div></div>`;
   el.hidden = false; $("#shell").hidden = true;

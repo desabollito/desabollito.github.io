@@ -1012,3 +1012,8 @@ details.vform-det .field + .field { margin-top: 12px; }
 @media (min-width: 900px) { .p-lupa { display: none; } }
 .p-search input::-webkit-search-cancel-button { display: none; }
 @media (max-width: 899px) { .p-chip { padding: 0 10px; font-size: 12.5px; } .p-chips { gap: 5px; } .p-sort { gap: 6px; } }
+
+/* Nombre de la app como logo */
+.login-nombre { margin: 0; line-height: 0; }
+.login-nombre img { width: min(260px, 72vw); height: auto; margin: 0 auto; }
+.espera a { color: var(--primary); }
