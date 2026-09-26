@@ -49,13 +49,15 @@ export function vistaPlanilla(view) {
   const ordenes = [["fecha", "Fecha"], ["patente", "Patente"], ["modelo", "Modelo"], ["estado", "Estado"]];
   if (matchMedia("(max-width: 899px)").matches && !ordenes.some(([k]) => k === P.orden)) { P.orden = "fecha"; P.dir = -1; }
   view.innerHTML = `
-  <div class="sheet-page">
-    <label class="search">${icon("search")}<input type="search" id="pq" placeholder="Buscar patente, modelo, asegurado, estado…" value="${esc(P.q)}"></label>
+  <div class="sheet-page ${P.q ? "buscando" : ""}">
+    <label class="search p-search">${icon("search")}<input type="search" id="pq" placeholder="Buscar patente, modelo, asegurado, estado…" value="${esc(P.q)}">
+      <button type="button" class="icon-btn sm p-search-x" id="pq-x" aria-label="Cerrar búsqueda">${icon("x")}</button></label>
 
     <!-- Celular: lista compacta con orden elegible -->
     <div class="p-mobile">
       <div class="p-sort" role="group" aria-label="Ordenar por">
         <div class="p-chips" id="psort"></div>
+        <button type="button" class="p-lupa" id="plupa" aria-label="Buscar">${icon("search")}</button>
       </div>
       <div class="p-list" id="plist"></div>
     </div>
@@ -105,6 +107,10 @@ export function vistaPlanilla(view) {
   pintar();
 
   $("#pq", view).oninput = debounce(e => { P.q = e.target.value; pintar(); }, 120);
+  // Celular: la búsqueda se abre con la lupa al final de los filtros
+  const pagina = $(".sheet-page", view);
+  $("#plupa", view).onclick = () => { pagina.classList.add("buscando"); $("#pq", view).focus(); };
+  $("#pq-x", view).onclick = e => { e.preventDefault(); P.q = ""; $("#pq", view).value = ""; pagina.classList.remove("buscando"); pintar(); };
   // Tocar un criterio lo elige; tocar el elegido invierte el orden
   $("#psort", view).onclick = e => {
     const b = e.target.closest("[data-orden]"); if (!b) return;

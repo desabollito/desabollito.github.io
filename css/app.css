@@ -997,3 +997,18 @@ details.vform-det .field + .field { margin-top: 12px; }
 .p-chip i { font-style: normal; font-weight: 800; }
 #psum { margin-top: 14px; }
 @media (max-width: 899px) { #psum { margin-bottom: 84px; } }
+
+/* Planilla: lupa al final de los filtros (celular) */
+.p-lupa { all: unset; box-sizing: border-box; cursor: pointer; flex-shrink: 0; width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center;
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink-2); }
+.p-lupa .ic { width: 16px; height: 16px; }
+.p-search-x { display: none; }
+@media (max-width: 899px) {
+  .sheet-page > .p-search { display: none; }
+  .sheet-page.buscando > .p-search { display: flex; }
+  .sheet-page.buscando .p-lupa { display: none; }
+  .p-search-x { display: grid; margin-left: auto; }
+}
+@media (min-width: 900px) { .p-lupa { display: none; } }
+.p-search input::-webkit-search-cancel-button { display: none; }
+@media (max-width: 899px) { .p-chip { padding: 0 10px; font-size: 12.5px; } .p-chips { gap: 5px; } .p-sort { gap: 6px; } }

@@ -36,7 +36,7 @@ export const USER_DOMAIN = "desabollito.app";
 // Con esto la app muestra el botón "Abrir chat con el bot". Vacío = oculto.
 export const WHATSAPP_BOT = "";
 
-export const APP_VERSION = "2.10.11";
+export const APP_VERSION = "2.10.12";
 
 // Bot de WhatsApp (Cloudflare Worker): avisos al cliente y solicitudes de registro
 export const BOT_API = "https://desabollito-bot.desabollito.workers.dev";
