@@ -977,3 +977,10 @@ label.logo-prev { cursor: pointer; }
 .perfil-wa { display: inline-flex; align-items: center; gap: 6px; margin: 4px 0 0; font-size: 13px; color: #25d366; font-weight: 600; }
 .perfil-wa .ic { width: 15px; height: 15px; }
 .perfil-wa { flex-wrap: wrap; } .perfil-wa .link-btn { margin-left: 6px; font-size: 12px; }
+
+/* Historial: botoncito gris al lado de borrar */
+.d-foot-btns { display: inline-flex; align-items: center; gap: 4px; }
+.hist-btn { color: var(--muted); opacity: .65; }
+.hist-btn:hover, .hist-btn:focus-visible { opacity: 1; }
+.hist-btn .ic { width: 17px; height: 17px; }
+.sheet .hist { margin-top: 4px; }

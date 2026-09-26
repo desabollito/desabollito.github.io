@@ -41,10 +41,7 @@ function historialHTML(v) {
   }
   h.sort((a, b) => (b.t || 0) - (a.t || 0));
   const cuando = t => t ? new Date(t).toLocaleString("es-AR", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" }) : "";
-  return `<details class="d-sec d-hist">
-      <summary><h3>Historial</h3><small class="muted">${h.length}</small></summary>
-      <ol class="hist">${h.map(e => `<li><span class="hist-txt"><strong>${esc(e.por || "Alguien")}</strong> ${esc(e.txt)}</span><time>${cuando(e.t)}</time></li>`).join("")}</ol>
-    </details>`;
+  return `<ol class="hist">${h.map(e => `<li><span class="hist-txt"><strong>${esc(e.por || "Alguien")}</strong> ${esc(e.txt)}</span><time>${cuando(e.t)}</time></li>`).join("")}</ol>`;
 }
 
 // Paños agrupados para el detalle en escritorio: centro y parantes, lateral izquierdo, lateral derecho
@@ -263,11 +260,12 @@ function renderDetalle(root, v, embebido) {
         : `<p class="muted small">Pedile al cliente que firme en la pantalla al entregar el auto.</p>`}
     </section>
 
-    ${historialHTML(v)}
-
     <footer class="d-foot">
       <span>Cargado por ${esc(esMio ? "vos" : cargadoPor(v))}</span>
-      <button class="icon-btn danger" data-act="borrar" aria-label="Eliminar vehículo" title="Eliminar">${icon("trash")}</button>
+      <span class="d-foot-btns">
+        <button class="icon-btn sm hist-btn" data-act="historial" aria-label="Historial" title="Historial">${icon("clock")}</button>
+        <button class="icon-btn danger" data-act="borrar" aria-label="Eliminar vehículo" title="Eliminar">${icon("trash")}</button>
+      </span>
     </footer>
   </article>`;
 
@@ -300,6 +298,7 @@ function renderDetalle(root, v, embebido) {
         cambiarEstado(v, "anulado").catch(err => toast(mensajeError(err), "error"));
       return;
     }
+    if (act === "historial") { openSheet({ title: "Historial", body: historialHTML(getVehiculo(v.id) || v) }); return; }
     if (act === "borrar" && !esMio) {
       // Solo quien lo cargó puede borrarlo: los demás piden la eliminación a los administradores
       if (await confirmar({ title: "Este vehículo no es tuyo",
