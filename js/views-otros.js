@@ -55,7 +55,6 @@ export function vistaPlanilla(view) {
     <!-- Celular: lista compacta con orden elegible -->
     <div class="p-mobile">
       <div class="p-sort" role="group" aria-label="Ordenar por">
-        <span class="muted small">Ordenar por</span>
         <div class="p-chips" id="psort"></div>
       </div>
       <div class="p-list" id="plist"></div>

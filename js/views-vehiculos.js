@@ -257,7 +257,7 @@ function renderDetalle(root, v, embebido) {
       <div class="sec-head"><h3>Firma del cliente</h3>
         <button class="btn btn-ghost btn-sm" data-act="firma">${icon("sign")}${v.firma ? "Volver a firmar" : "Firmar"}</button></div>
       ${v.firma ? `<img class="firma-img" src="${esc(v.firma)}" alt="Firma del cliente">`
-        : `<p class="muted small">Pedile al cliente que firme en la pantalla al entregar el auto.</p>`}
+        : ""}
     </section>
 
     <footer class="d-foot">
