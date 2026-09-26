@@ -1,3 +1,4 @@
+import { BOT_API } from "./config.js";
 import { botonesFotos, conectarFotos, buscarPatenteEnFoto } from "./camara.js";
 import {
   S, activos, getVehiculo, guardarVehiculo, actualizarVehiculo, cambiarEstado, moverAPapelera,
@@ -29,6 +30,21 @@ function filtrar(lista) {
     (!F.mios || v.createdBy === S.user.uid) &&
     (!q || [v.modelo, v.patente, v.asegurado, v.compania, v.localidad, v.telefono]
       .some(x => (x || "").toLowerCase().includes(q))));
+}
+
+// Historial del vehículo (lo más nuevo arriba). Los vehículos viejos arrancan con la carga.
+function historialHTML(v) {
+  const h = [...(v.historial || [])];
+  if (!h.some(e => /^Carg/.test(e.txt))) {
+    const t = v.createdAt?.toMillis?.() || (v.createdAt?.seconds ? v.createdAt.seconds * 1000 : 0);
+    h.push({ t, por: esDeWhatsApp(v) ? String(v.createdByName || "").replace(/\s*\(WhatsApp\)$/, "") : v.createdByName, txt: esDeWhatsApp(v) ? "Cargó el vehículo por WhatsApp" : "Cargó el vehículo" });
+  }
+  h.sort((a, b) => (b.t || 0) - (a.t || 0));
+  const cuando = t => t ? new Date(t).toLocaleString("es-AR", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" }) : "";
+  return `<details class="d-sec d-hist">
+      <summary><h3>Historial</h3><small class="muted">${h.length}</small></summary>
+      <ol class="hist">${h.map(e => `<li><span class="hist-txt"><strong>${esc(e.por || "Alguien")}</strong> ${esc(e.txt)}</span><time>${cuando(e.t)}</time></li>`).join("")}</ol>
+    </details>`;
 }
 
 // Paños agrupados para el detalle en escritorio: centro y parantes, lateral izquierdo, lateral derecho
@@ -166,7 +182,7 @@ function renderDetalle(root, v, embebido) {
   const anulado = est === "anulado";
   const marcadas = piezasMarcadas(v);
   const todos = marcadas.length === ORDEN_PIEZAS.length;
-  const esMio = v.createdBy === S.user.uid;
+  const esMio = v.createdBy === S.user.uid || v.createdByUid === S.user.uid;
 
   root.innerHTML = `
   <article class="detail">
@@ -247,6 +263,8 @@ function renderDetalle(root, v, embebido) {
         : `<p class="muted small">Pedile al cliente que firme en la pantalla al entregar el auto.</p>`}
     </section>
 
+    ${historialHTML(v)}
+
     <footer class="d-foot">
       <span>Cargado por ${esc(esMio ? "vos" : cargadoPor(v))}</span>
       <button class="icon-btn danger" data-act="borrar" aria-label="Eliminar vehículo" title="Eliminar">${icon("trash")}</button>
@@ -320,6 +338,30 @@ function renderDetalle(root, v, embebido) {
   }));
 }
 
+// Aviso al cliente por WhatsApp cuando el auto queda reparado (se confirma dos veces)
+function textoAviso(v) {
+  const nombre = String(v.asegurado || "").trim().split(/\s+/)[0];
+  return `Hola${nombre ? " " + nombre : ""}! 👋 Te escribimos de ${S.company?.name || "Desabollito"}: tu ${v.modelo || "vehículo"}${v.patente ? ` (${v.patente})` : ""} ya está reparado y listo para retirar. ¡Gracias por confiar en nosotros!`;
+}
+async function ofrecerAvisoCliente(v) {
+  v = getVehiculo(v.id) || v;
+  if (!v.telefono) return;
+  if (!(await confirmar({ title: "¿Avisarle al cliente?", message: `Le mandamos un WhatsApp a ${v.asegurado || "el cliente"} (${v.telefono}) diciendo que el auto está listo.`, ok: "Sí, avisar" }))) return;
+  if (!(await confirmar({ title: "¿Confirmás el envío?", message: `Se va a enviar este mensaje a ${v.telefono}:\n\n“${textoAviso(v)}”`, ok: "Enviar mensaje" }))) return;
+  try {
+    const r = await fetch(`${BOT_API}/avisar`, { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ cid: S.company.id, vid: v.id, por: S.profile?.name || "" }) });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok || !d.ok) throw new Error(d.error || "No se pudo enviar");
+    toast("Aviso enviado al cliente", "success");
+  } catch (e) {
+    if (await confirmar({ title: "No se pudo enviar desde el bot", message: `${e.message}. ¿Abrir WhatsApp para mandarlo vos?`, ok: "Abrir WhatsApp" })) {
+      const tel = String(v.telefono).replace(/\D/g, "").replace(/^0/, "");
+      open(`https://wa.me/${tel.startsWith("54") ? tel : "549" + tel}?text=${encodeURIComponent(textoAviso(v))}`, "_blank");
+    }
+  }
+}
+
 function elegirFechaEstado(v, estado) {
   const e = ESTADO[estado];
   const s = openSheet({
@@ -335,6 +377,7 @@ function elegirFechaEstado(v, estado) {
     cambiarEstado(v, estado, ev.target.f.value).catch(err => toast(mensajeError(err), "error"));
     toast(`${e.label} · ${fechaCorta(ev.target.f.value)}`, "success");
     s.close();
+    if (estado === "reparado") setTimeout(() => ofrecerAvisoCliente(v), 350);
   };
 }
 
@@ -374,7 +417,8 @@ async function subirAdjuntos(v, files, tipo, root) {
   const actual = getVehiculo(v.id) || v;
   const campo = tipo === "foto" ? "fotos" : "archivos";
   try {
-    await actualizarVehiculo(v.id, { [campo]: [...(actual[campo] || []), ...nuevos] });
+    await actualizarVehiculo(v.id, { [campo]: [...(actual[campo] || []), ...nuevos] },
+      tipo === "foto" ? `Agregó ${nuevos.length} ${nuevos.length === 1 ? "foto" : "fotos"}` : `Adjuntó ${nuevos.length === 1 ? "un documento" : `${nuevos.length} documentos`}`);
     toast(tipo === "foto" ? "Fotos guardadas" : "Documentos guardados", "success");
   } catch (e) { toast(mensajeError(e), "error"); }
 }
@@ -387,7 +431,7 @@ async function quitarAdjunto(v, campo, idx) {
   });
   if (!ok) return;
   const lista = (getVehiculo(v.id)?.[campo] || []).filter(x => x.publicId !== item.publicId || x.url !== item.url);
-  actualizarVehiculo(v.id, { [campo]: lista }).catch(e => toast(mensajeError(e), "error"));
+  actualizarVehiculo(v.id, { [campo]: lista }, campo === "fotos" ? "Quitó una foto" : `Quitó el documento “${item.name}”`).catch(e => toast(mensajeError(e), "error"));
   if (tokensBorrado.has(item.publicId)) borrarConToken(tokensBorrado.get(item.publicId));
 }
 
@@ -489,7 +533,7 @@ function firmar(v) {
     const out = document.createElement("canvas");
     out.width = 600; out.height = Math.round(600 * c.height / c.width);
     out.getContext("2d").drawImage(c, 0, 0, out.width, out.height);
-    actualizarVehiculo(v.id, { firma: out.toDataURL("image/png") }).catch(e => toast(mensajeError(e), "error"));
+    actualizarVehiculo(v.id, { firma: out.toDataURL("image/png") }, "Registró la firma del cliente").catch(e => toast(mensajeError(e), "error"));
     toast("Firma guardada", "success");
     s.close();
   };

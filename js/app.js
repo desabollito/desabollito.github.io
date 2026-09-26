@@ -4,6 +4,7 @@ import {
 import { $, $$, toast, busy } from "./ui.js";
 import { FIREBASE } from "./config.js";
 import { iniciarFechas } from "./fecha.js";
+import { cuentaPendiente, reenviarSolicitud, salir } from "./data.js";
 import { marcarNav, pintarLateral, esAncho } from "./shell.js";
 import { vistaVehiculos, vistaDetalle, vistaFormulario, reiniciarVista3D } from "./views-vehiculos.js";
 import {
@@ -86,6 +87,7 @@ matchMedia("(min-width: 1100px)").addEventListener("change", () => render({ cons
 
 // Cambios de datos en vivo (otro técnico cargó algo, llegó la sincronización, etc.)
 onChange(what => {
+  if (what === "perfil") { mostrarSegunAprobacion(); if (!cuentaPendiente()) render({ conservarScroll: true }); return; }
   if (what === "companies" || what === "profile") pintarLateral();
   if (!S.profile) return;
   // Nunca repintar un formulario a mitad de carga: se perdería lo escrito
@@ -152,9 +154,45 @@ iniciarSesion((logueado, error) => {
     return;
   }
   if (error) toast("No se pudo cargar tu perfil: " + mensajeError(error), "error");
+  if (mostrarSegunAprobacion()) return;
   pintarLateral();
   render();
 });
+
+// Cuenta nueva sin aprobar: pantalla de espera (se desbloquea sola al aprobarla)
+function mostrarSegunAprobacion() {
+  let el = $("#espera");
+  if (!cuentaPendiente()) {
+    if (el && !el.hidden) { el.hidden = true; $("#shell").hidden = false; pintarLateral(); render(); toast("¡Tu cuenta fue aprobada! 🎉", "success"); }
+    return false;
+  }
+  if (!el) {
+    el = document.createElement("section");
+    el.id = "espera"; el.className = "espera";
+    document.body.appendChild(el);
+    el.addEventListener("click", async e => {
+      if (e.target.closest("[data-salir]")) salir();
+      if (e.target.closest("[data-reenviar]")) {
+        const b = e.target.closest("button"); b.disabled = true;
+        await reenviarSolicitud().catch(() => {});
+        toast("Volvimos a enviar la solicitud", "success");
+      }
+    });
+  }
+  const rechazada = S.profile?.rechazado;
+  el.innerHTML = `<div class="espera-caja">
+      <img src="img/logo-oscuro.png" alt="" class="espera-logo">
+      <h1>${rechazada ? "Tu solicitud no fue aprobada" : "Solicitud enviada"}</h1>
+      <p>${rechazada ? "Si creés que es un error, comunicate con el administrador de Desabollito."
+        : `Recibimos tu registro como <strong>@${S.profile?.username || ""}</strong>. Un administrador lo tiene que aprobar; cuando lo haga, esta pantalla se abre sola.`}</p>
+      ${rechazada ? "" : `<p class="muted small">Después de la aprobación también vas a poder usar el bot de WhatsApp: escribile tu usuario para empezar.</p>`}
+      <div class="espera-btns">
+        ${rechazada ? "" : `<button class="btn btn-ghost" data-reenviar>Reenviar solicitud</button>`}
+        <button class="btn btn-ghost" data-salir>Cerrar sesión</button>
+      </div></div>`;
+  el.hidden = false; $("#shell").hidden = true;
+  return true;
+}
 
 // ── Actualizaciones ───────────────────────────────────────────
 // Tocar la versión en Ajustes fuerza la actualización: borra la copia guardada de la app y recarga desde el servidor.

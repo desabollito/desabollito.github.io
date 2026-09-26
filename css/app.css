@@ -949,3 +949,30 @@ label.logo-prev { cursor: pointer; }
 .logo-vis { width: 100%; height: 100%; display: grid; place-items: center; min-height: 0; }
 .logo-prev img { display: block; max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain; }
 .logo-row { align-items: center; }
+
+/* Historial del vehículo */
+.d-hist > summary { list-style: none; cursor: pointer; display: flex; align-items: baseline; gap: 8px; position: relative; padding-right: 24px; }
+.d-hist > summary::-webkit-details-marker { display: none; }
+.d-hist > summary h3 { margin: 0; }
+.d-hist > summary::after { content: ""; position: absolute; right: 4px; top: 50%; width: 8px; height: 8px; margin-top: -6px;
+  border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(45deg); transition: transform .2s; }
+.d-hist[open] > summary::after { transform: rotate(-135deg); margin-top: -1px; }
+.hist { list-style: none; margin: 12px 0 0; padding: 0 0 0 14px; border-left: 2px solid var(--line); display: flex; flex-direction: column; gap: 10px; }
+.hist li { position: relative; display: flex; justify-content: space-between; gap: 12px; font-size: 14px; }
+.hist li::before { content: ""; position: absolute; left: -20px; top: 6px; width: 10px; height: 10px; border-radius: 50%; background: var(--surface); border: 2px solid var(--primary); }
+.hist-txt { color: var(--ink-2); min-width: 0; }
+.hist-txt strong { color: var(--ink); }
+.hist time { flex-shrink: 0; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.confirm p { white-space: pre-line; }
+
+/* Cuenta pendiente de aprobación */
+.espera { position: fixed; inset: 0; display: grid; place-items: center; padding: 24px; background: var(--bg); z-index: 50; }
+.espera-caja { max-width: 420px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.espera-logo { width: 84px; height: 84px; object-fit: contain; margin-bottom: 6px; }
+.espera h1 { margin: 0; font-size: 24px; }
+.espera p { margin: 0; color: var(--ink-2); line-height: 1.5; }
+.espera-btns { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-top: 10px; }
+:root:not([data-theme="light"]) .espera-logo { content: url(../img/logo-claro.png); }
+/* WhatsApp vinculado en el perfil */
+.perfil-wa { display: inline-flex; align-items: center; gap: 6px; margin: 4px 0 0; font-size: 13px; color: #25d366; font-weight: 600; }
+.perfil-wa .ic { width: 15px; height: 15px; }

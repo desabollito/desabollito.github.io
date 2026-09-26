@@ -4,9 +4,9 @@ import {
   collection, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc, onSnapshot,
   query, where, serverTimestamp, arrayUnion, writeBatch, deleteField
 } from "./firebase.js";
-import { USER_DOMAIN } from "./config.js";
+import { USER_DOMAIN, BOT_API } from "./config.js";
 import { hoyISO } from "./ui.js";
-import { SECUENCIA } from "./domain.js";
+import { SECUENCIA, ESTADO, PIEZA } from "./domain.js";
 import { subir, recorteCuadrado } from "./media.js";
 
 // ── Estado global muy simple con suscriptores ─────────────────
@@ -67,15 +67,28 @@ export function mensajeError(e) {
 }
 
 // ── Arranque de sesión ────────────────────────────────────────
+let unsubPerfil = null;
+// El perfil propio se escucha en vivo: así la app se desbloquea sola cuando aprueban la cuenta
+function escucharPerfil(user) {
+  unsubPerfil?.();
+  unsubPerfil = onSnapshot(doc(db, "users", user.uid), snap => {
+    if (!snap.exists() || S.user?.uid !== user.uid) return;
+    const antes = S.profile?.aprobado, d = snap.data();
+    S.profile = { ...S.profile, ...d, id: user.uid };
+    if (antes !== d.aprobado || S.profile.whatsapp !== d.whatsapp) emit("perfil");
+  }, e => console.warn("perfil", e));
+}
+export const cuentaPendiente = () => S.profile?.aprobado === false;
 let unsubCompanies = null, unsubVehicles = null, unsubGastos = null, ultimaFirma = "";
 
 export function iniciarSesion(onReady) {
   onAuthStateChanged(auth, async user => {
-    unsubCompanies?.(); unsubVehicles?.(); unsubGastos?.(); ultimaFirma = "";
+    unsubCompanies?.(); unsubVehicles?.(); unsubGastos?.(); unsubPerfil?.(); ultimaFirma = "";
     S.user = user; S.profile = null; S.companies = []; S.company = null; S.vehicles = []; S.gastos = [];
     if (!user) { onReady(false); return; }
     try {
       await asegurarPerfil(user);
+      escucharPerfil(user);
       escucharEmpresas();
       onReady(true);
     } catch (e) {
@@ -92,24 +105,33 @@ async function asegurarPerfil(user) {
 
   const esInterno = user.email?.endsWith("@" + USER_DOMAIN);
   const base = limpiarUsuario(esInterno ? user.email.split("@")[0] : (user.email?.split("@")[0] || user.displayName || "usuario"));
-  const username = await reservarUsuario(base, user.uid, user.displayName || base);
+  const nueva = !snap.exists();
+  const username = await reservarUsuario(base, user.uid, user.displayName || base, nueva);
   const data = {
     name: user.displayName || base,
     email: user.email || "",
     photoURL: user.photoURL || "",
     username,
+    ...(nueva ? { aprobado: false } : {}),
     createdAt: snap.exists() ? (snap.data().createdAt || serverTimestamp()) : serverTimestamp()
   };
   await setDoc(ref, data, { merge: true });
   S.profile = { id: user.uid, ...(snap.exists() ? snap.data() : {}), ...data };
+  // Cuenta nueva: se avisa al administrador por WhatsApp para que la apruebe
+  if (nueva) fetch(`${BOT_API}/registro`, { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ uid: user.uid }) }).catch(e => console.warn("aviso de registro", e));
+}
+export function reenviarSolicitud() {
+  return fetch(`${BOT_API}/registro`, { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ uid: S.user.uid, reenviar: true }) });
 }
 
-async function reservarUsuario(base, uid, name) {
+async function reservarUsuario(base, uid, name, pendiente = false) {
   let cand = base.length >= 3 ? base : base + "usr";
   for (let i = 0; i < 20; i++) {
     const ref = doc(db, "usernames", cand);
     const s = await getDoc(ref);
-    if (!s.exists()) { await setDoc(ref, { uid, name }); return cand; }
+    if (!s.exists()) { await setDoc(ref, pendiente ? { uid, name, pendiente: true } : { uid, name }); return cand; }
     if (s.data().uid === uid) return cand;
     cand = base + Math.floor(Math.random() * 900 + 100);
   }
@@ -136,7 +158,7 @@ export async function cambiarNombre(nombre) {
   if (!nombre) return;
   await updateProfile(S.user, { displayName: nombre });
   await updateDoc(doc(db, "users", S.user.uid), { name: nombre });
-  if (S.profile.username) await setDoc(doc(db, "usernames", S.profile.username), { uid: S.user.uid, name: nombre });
+  if (S.profile.username) await setDoc(doc(db, "usernames", S.profile.username), { uid: S.user.uid, name: nombre }, { merge: true });
   S.profile.name = nombre;
   emit("profile");
 }
@@ -239,7 +261,8 @@ export async function agregarMiembro(usuario, rol = "tecnico") {
   const u = limpiarUsuario(usuario);
   const s = await getDoc(doc(db, "usernames", u));
   if (!s.exists()) throw new Error(`No existe el usuario “${u}”. Pedile que entre a la app una vez y te pase su usuario.`);
-  const { uid, name } = s.data();
+  const { uid, name, pendiente } = s.data();
+  if (pendiente) throw new Error(`La cuenta “${u}” todavía no fue aprobada.`);
   if (S.company.members.includes(uid)) throw new Error("Ya es parte del operativo");
   await updateDoc(doc(db, "companies", S.company.id), {
     members: arrayUnion(uid),
@@ -327,9 +350,46 @@ export function nuevoIdVehiculo() {
   return doc(colVehiculos()).id;
 }
 
+// ── Historial de cambios de cada vehículo ─────────────────────
+const entrada = txt => ({ t: Date.now(), uid: S.user.uid, por: S.profile?.name || "", txt });
+const plata = n => "$" + Number(n || 0).toLocaleString("es-AR");
+const CAMPOS_HIST = { modelo: "el modelo", patente: "la patente", asegurado: "el asegurado", telefono: "el teléfono",
+  compania: "la compañía", localidad: "la localidad", observaciones: "las observaciones", repuestos: "los repuestos" };
+function cambiosDe(viejo, nuevo) {
+  if (!viejo) return [];
+  const out = [];
+  for (const [k, nombre] of Object.entries(CAMPOS_HIST)) {
+    if (k in nuevo && String(nuevo[k] ?? "") !== String(viejo[k] ?? "")) {
+      const largo = k === "observaciones" || k === "repuestos";
+      out.push(largo || !nuevo[k] ? `Cambió ${nombre}` : `Cambió ${nombre} a “${nuevo[k]}”`);
+    }
+  }
+  if ("precio" in nuevo && Number(nuevo.precio || 0) !== Number(viejo.precio || 0))
+    out.push(`Cambió el precio de ${plata(viejo.precio)} a ${plata(nuevo.precio)}`);
+  if ("grado" in nuevo && (nuevo.grado || null) !== (viejo.grado || null))
+    out.push(nuevo.grado ? `Puso grado ${nuevo.grado}` : "Quitó el grado");
+  if ("piezas" in nuevo) {
+    const a = viejo.piezas || {}, b = nuevo.piezas || {};
+    const mas = Object.keys(b).filter(k => b[k] && !a[k]).map(k => PIEZA[k]?.label || k);
+    const menos = Object.keys(a).filter(k => a[k] && !b[k]).map(k => PIEZA[k]?.label || k);
+    if (mas.length) out.push(`Marcó ${mas.join(", ")}`);
+    if (menos.length) out.push(`Desmarcó ${menos.join(", ")}`);
+  }
+  if ("fotos" in nuevo && (nuevo.fotos?.length || 0) > (viejo.fotos?.length || 0)) {
+    const n = nuevo.fotos.length - (viejo.fotos?.length || 0);
+    out.push(`Agregó ${n} ${n === 1 ? "foto" : "fotos"}`);
+  }
+  return out;
+}
+
 export async function guardarVehiculo(id, data, esNuevo) {
   const ref = doc(colVehiculos(), id);
   const base = { ...data, updatedAt: serverTimestamp(), updatedBy: S.user.uid };
+  if (esNuevo) base.historial = [entrada("Cargó el vehículo")];
+  else {
+    const cambios = cambiosDe(getVehiculo(id), data);
+    if (cambios.length) base.historial = arrayUnion(...cambios.map(entrada));
+  }
   if (esNuevo) {
     // setDoc sin await de red: con caché offline se guarda al instante
     await setDoc(ref, {
@@ -348,8 +408,9 @@ export async function guardarVehiculo(id, data, esNuevo) {
   }
 }
 
-export async function actualizarVehiculo(id, campos) {
-  await updateDoc(doc(colVehiculos(), id), { ...campos, updatedAt: serverTimestamp(), updatedBy: S.user.uid });
+export async function actualizarVehiculo(id, campos, hist) {
+  const extra = hist ? { historial: arrayUnion(entrada(hist)) } : {};
+  await updateDoc(doc(colVehiculos(), id), { ...campos, ...extra, updatedAt: serverTimestamp(), updatedBy: S.user.uid });
 }
 
 export async function cambiarEstado(v, estado, fecha = hoyISO()) {
@@ -363,11 +424,12 @@ export async function cambiarEstado(v, estado, fecha = hoyISO()) {
     });
   }
   fechas[estado] = fecha;
-  await actualizarVehiculo(v.id, { estado, fechas });
+  const [a, m, d] = String(fecha).split("-");
+  await actualizarVehiculo(v.id, { estado, fechas }, `Pasó a ${ESTADO[estado]?.label || estado}${d ? ` (${d}/${m}/${a})` : ""}`);
 }
 
-export const moverAPapelera = id => actualizarVehiculo(id, { deleted: true, deletedAt: serverTimestamp(), deletedBy: S.user.uid });
-export const restaurar = id => actualizarVehiculo(id, { deleted: false, deletedAt: null, deletedBy: null });
+export const moverAPapelera = id => actualizarVehiculo(id, { deleted: true, deletedAt: serverTimestamp(), deletedBy: S.user.uid }, "Lo envió a la papelera");
+export const restaurar = id => actualizarVehiculo(id, { deleted: false, deletedAt: null, deletedBy: null }, "Lo restauró de la papelera");
 
 // Quién cargó el vehículo (persona o bot de WhatsApp)
 export const esDeWhatsApp = v => String(v?.createdBy || "").startsWith("whatsapp:");

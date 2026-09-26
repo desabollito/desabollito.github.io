@@ -10,18 +10,33 @@ service cloud.firestore {
     function company(cid) { return get(/databases/$(database)/documents/companies/$(cid)).data; }
     function isMember(cid) { return signedIn() && uid() in company(cid).members; }
     function isAdmin(cid) { return isMember(cid) && company(cid).roles[uid()] in ['owner', 'admin']; }
+    // Cuentas aprobadas (las cuentas viejas no tienen el campo y cuentan como aprobadas)
+    function aprobado() {
+      let p = /databases/$(database)/documents/users/$(uid());
+      return exists(p) && get(p).data.get('aprobado', true) == true;
+    }
 
     // ── Perfil propio ────────────────────────────────────────
+    // La aprobación y el WhatsApp vinculado los escribe solo el bot (cuenta de servicio).
     match /users/{userId} {
-      allow read, write: if signedIn() && uid() == userId;
+      allow read, delete: if signedIn() && uid() == userId;
+      allow create: if signedIn() && uid() == userId
+        && request.resource.data.get('aprobado', false) == false
+        && !('whatsapp' in request.resource.data);
+      allow update: if signedIn() && uid() == userId
+        && request.resource.data.get('aprobado', true) == resource.data.get('aprobado', true)
+        && request.resource.data.get('rechazado', false) == resource.data.get('rechazado', false)
+        && request.resource.data.get('whatsapp', '') == resource.data.get('whatsapp', '');
     }
 
     // ── Nombres de usuario únicos → { uid, name } ────────────
     match /usernames/{name} {
       allow read: if signedIn();
       allow create: if signedIn() && request.resource.data.uid == uid()
-                    && name.matches('^[a-z0-9._-]{3,64}$');
-      allow update: if signedIn() && resource.data.uid == uid() && request.resource.data.uid == uid();
+                    && name.matches('^[a-z0-9._-]{3,64}$')
+                    && (request.resource.data.get('pendiente', false) == true || aprobado());
+      allow update: if signedIn() && resource.data.uid == uid() && request.resource.data.uid == uid()
+                    && (request.resource.data.get('pendiente', false) == resource.data.get('pendiente', false) || aprobado());
       allow delete: if signedIn() && resource.data.uid == uid();
     }
 
@@ -32,7 +47,7 @@ service cloud.firestore {
       allow read: if signedIn() && uid() in resource.data.members;
 
       // Al crear, quien crea es el único miembro y es el dueño
-      allow create: if signedIn()
+      allow create: if signedIn() && aprobado()
         && request.resource.data.ownerId == uid()
         && request.resource.data.members == [uid()]
         && request.resource.data.roles[uid()] == 'owner';
@@ -69,9 +84,9 @@ service cloud.firestore {
         allow update: if isMember(cid)
           && request.resource.data.createdBy == resource.data.createdBy
           && (request.resource.data.get('deleted', false) == resource.data.get('deleted', false)
-              || resource.data.createdBy == uid() || isAdmin(cid));
+              || resource.data.createdBy == uid() || resource.data.get('createdByUid', '') == uid() || isAdmin(cid));
         allow delete: if isAdmin(cid)
-          || (isMember(cid) && resource.data.createdBy == uid());
+          || (isMember(cid) && (resource.data.createdBy == uid() || resource.data.get('createdByUid', '') == uid()));
       }
 
       // ── Solicitudes de eliminación (las resuelven los administradores)

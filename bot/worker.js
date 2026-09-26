@@ -40,6 +40,14 @@ export default {
     if (url.pathname === "/") return new Response("Desabollito bot funcionando ✅");
     if (url.pathname === "/diagnostico") return diagnostico(url, env);
     if (url.pathname === "/evolution") return webhookEvolution(req, url, env, ctx);
+    if (url.pathname === "/registro" || url.pathname === "/avisar") {
+      if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
+      if (req.method !== "POST") return json({ ok: false, error: "Método no permitido" }, 405);
+      let body = {};
+      try { body = await req.json(); } catch {}
+      try { return url.pathname === "/registro" ? await nuevoRegistro(env, body) : await avisarCliente(env, body); }
+      catch (e) { console.error(url.pathname, e?.stack || e); return json({ ok: false, error: "Error interno del bot" }, 500); }
+    }
     if (url.pathname !== "/webhook") return new Response("No encontrado", { status: 404 });
 
     // Verificación del webhook (Meta la hace una sola vez al configurarlo)
@@ -101,6 +109,15 @@ async function procesar(m, env) {
   if (permitidos.length && !permitidos.includes(numero)) {
     return m._grupo ? null : responder(env, dest(m), "⛔ Este número no está habilitado para usar el bot de Desabollito.");
   }
+
+  // El administrador aprueba o rechaza cuentas nuevas respondiendo SI / NO
+  if (numero === numeroAdmin(env) && m.type === "text" && !m._grupo) {
+    if (await comandoAdmin(env, m, (m.text?.body || "").trim())) return;
+  }
+  // Cada número tiene que estar vinculado a un usuario aprobado de la web
+  const cuenta = await fsGet(env, `bot_numeros/${numero}`);
+  if (!cuenta?.uid) return vincular(env, m, quien);
+  quien.uid = cuenta.uid; quien.username = cuenta.username; quien.nombre = cuenta.name || quien.nombre;
 
   if (m.type === "text") return alRecibirTexto(env, m, quien, (m.text?.body || "").trim());
   if (m.type === "image" || m.type === "document") return alRecibirArchivo(env, m, quien);
@@ -171,7 +188,7 @@ const IDX_MODELOS = indice(MODELOS);
 
 // Patentes argentinas: AA000AA (Mercosur) y AAA000 (anterior)
 const RE_PATENTE = /\b([A-Za-z]{2})[\s.-]?(\d{3})[\s.-]?([A-Za-z]{2})\b|\b([A-Za-z]{3})[\s.-]?(\d{3})\b/;
-function buscarPatenteEnTexto(texto) {
+export function buscarPatenteEnTexto(texto) {
   const m = String(texto).match(RE_PATENTE);
   if (!m) return null;
   return { patente: (m[1] ? m[1] + m[2] + m[3] : m[4] + m[5]).toUpperCase(), desde: m.index, largo: m[0].length };
@@ -220,7 +237,7 @@ const titulo = t => t.split(/\s+/).map(p => /\d/.test(p) || p.length <= 3 && p =
  * @param {string} texto
  * @param {{ localidades?: string[], companias?: string[] }} extra  valores ya usados en la app
  */
-function interpretar(texto, extra = {}) {
+export function interpretar(texto, extra = {}) {
   let resto = ` ${String(texto || "")} `;
   const r = { patente: null, modelo: "", compania: "", telefono: "", localidad: "", grado: null, otros: "", asegurado: "", piezas: {} };
 
@@ -337,7 +354,7 @@ function interpretar(texto, extra = {}) {
 const GENERICAS = new Set(["operativo", "operativos", "granizo", "taller", "equipo", "de", "del", "la", "el", "los", "las", "en"]);
 const soloPalabras = t => sinTildes(t).replace(/[^a-z0-9ñ]+/g, " ").trim();
 
-function operativoMencionado(texto, operativos) {
+export function operativoMencionado(texto, operativos) {
   const t = ` ${soloPalabras(texto)} `;
   let mejor = null;
   for (const op of operativos) {
@@ -352,7 +369,7 @@ function operativoMencionado(texto, operativos) {
 
 // Quita del texto las palabras del nombre del operativo (para que no se tomen como
 // modelo), salvo que también sean una localidad conocida.
-function quitarFrase(texto, frase) {
+export function quitarFrase(texto, frase) {
   if (!frase || indice(LOCALIDADES).has(frase)) return texto;
   const objetivo = frase.split(" ");
   const palabras = String(texto).split(/\s+/);
@@ -362,6 +379,7 @@ function quitarFrase(texto, frase) {
   }
   return palabras.join(" ");
 }
+
 
 const SALUDO =
   "¡Hola, soy Desabollito 🚘!\n\n" +
@@ -506,7 +524,7 @@ async function alRecibirTexto(env, m, quien, texto) {
   if (s?.opciones?.length && numeroElegido !== null) {
     const v = s.opciones[numeroElegido - 1];
     if (!v) return responder(env, dest(m), `Elegí un número del 1 al ${s.opciones.length}.`);
-    await abrirExistente(env, numero, v, s.datos || {}, hora, s);
+    await abrirExistente(env, numero, v, s.datos || {}, hora, s, true, quien);
     return v.fotos ? responder(env, dest(m), `⚠️ ${etiqueta(v)} ya tiene ${resumen(v.fotos)} subidas. Si mandás más, se suman a esas.`) : tilde(env, m);
   }
 
@@ -530,7 +548,7 @@ async function alRecibirTexto(env, m, quien, texto) {
   if (mencion) datos.operativo = mencion.op;
   if (datos.patente) {
     if (abierta(s) && s.patente === datos.patente) {
-      await actualizarDatos(env, s, datos);
+      await actualizarDatos(env, s, datos, quien);
       return tilde(env, m);
     }
     if (abierta(s)) await cerrarEnSilencio(env, numero, hora);
@@ -571,7 +589,7 @@ async function prepararVehiculo(env, numero, datos, hora, previa, quien) {
         encontrados.slice(0, 9).map((x, i) => `${i + 1}. ${x.operativo} · ${x.modelo || "sin modelo"}`).join("\n");
     }
     // Si la patente ya existe en otro operativo distinto del nombrado, se usa esa (no se duplica)
-    await abrirExistente(env, numero, v, datos, hora, previa, !mencionado);
+    await abrirExistente(env, numero, v, datos, hora, previa, !mencionado, quien);
     return v.fotos ? `⚠️ ${etiqueta(v)} ya tiene ${resumen(v.fotos)} subidas. Si mandás más, se suman a esas.` : null;
   }
 
@@ -587,15 +605,15 @@ async function prepararVehiculo(env, numero, datos, hora, previa, quien) {
   return `🔎 La patente *${datos.patente}* no está cargada.\n\n¿En qué operativo la creo? Respondé con el número:\n\n` + menuOperativos(operativos);
 }
 
-async function abrirExistente(env, numero, v, datos, hora, previa, fijar = true) {
-  await actualizarDatos(env, v, datos);
+async function abrirExistente(env, numero, v, datos, hora, previa, fijar = true, quien = null) {
+  await actualizarDatos(env, v, datos, quien);
   await abrir(env, numero, v, hora, previa, false);
   // El operativo del vehículo abierto pasa a ser el actual (salvo que se haya nombrado otro)
   if (fijar) await fijarOperativo(env, numero, v);
 }
 
 // Completa en la web los datos que vinieron en el mensaje (solo los que cambian)
-async function actualizarDatos(env, v, datos) {
+async function actualizarDatos(env, v, datos, quien) {
   const campos = { modelo: "modelo", compania: "compañía", telefono: "teléfono", localidad: "localidad", grado: "grado", asegurado: "cliente" };
   const nuevos = {}, nombres = [];
   for (const [k, nombre] of Object.entries(campos)) {
@@ -612,7 +630,11 @@ async function actualizarDatos(env, v, datos) {
     nuevos.piezas = { ...(v.piezas || {}), ...Object.fromEntries(panosNuevos.map(k => [k, true])) };
     v.piezas = nuevos.piezas; nombres.push("paños");
   }
-  if (nombres.length) await fsMerge(env, `companies/${v.cid}/vehicles/${v.vid}`, nuevos);
+  if (nombres.length) {
+    await fsMerge(env, `companies/${v.cid}/vehicles/${v.vid}`, nuevos);
+    await fsAppend(env, `companies/${v.cid}/vehicles/${v.vid}`, "historial",
+      { t: Date.now(), uid: quien?.uid || "", por: quien?.nombre || "", txt: `Actualizó ${nombres.join(", ")} por WhatsApp` }).catch(() => {});
+  }
   return nombres;
 }
 
@@ -674,6 +696,8 @@ async function crearVehiculo(env, op, d, quien) {
     localidad: d.localidad || op.operativo || "", observaciones: d.otros || "", repuestos: "", precio: 0, piezas: d.piezas || {}, grado: d.grado || null,
     estado: "peritado", fechas: { peritado: hoy }, fotos: [], archivos: [], firma: null, deleted: false,
     createdBy: `whatsapp:${quien.numero}`, createdByName: `${quien.nombre || quien.numero} (WhatsApp)`,
+    ...(quien.uid ? { createdByUid: quien.uid } : {}),
+    historial: [{ t: Date.now(), uid: quien.uid || "", por: quien.nombre || quien.numero, txt: "Cargó el vehículo por WhatsApp" }],
     updatedBy: `whatsapp:${quien.numero}`, via: "whatsapp"
   };
   const ruta = `companies/${op.cid}/vehicles/${vid}`;
@@ -1321,4 +1345,131 @@ export function deEvolution(d) {
     return { ...base, type: "document", document: { id: key.id, caption: doc.caption || "", filename: doc.fileName || "archivo" }, _mime: doc.mimetype };
   }
   return { ...base, type: "unsupported" };
+}
+
+
+// ─────────────────────────────────────────────────────────────
+//  Cuentas: vinculación de WhatsApp, aprobación de registros y avisos al cliente
+// ─────────────────────────────────────────────────────────────
+const CORS = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "POST, OPTIONS", "Access-Control-Allow-Headers": "Content-Type" };
+const json = (d, st = 200) => new Response(JSON.stringify(d), { status: st, headers: { ...CORS, "content-type": "application/json; charset=utf-8" } });
+const numeroAdmin = env => normalizarNumero(env.ADMIN_WHATSAPP || "5491137709755");
+const destinoNumero = (env, numero) => (env.EVOLUTION_URL ? `evo:${numero}` : numero);
+const limpiarUsuario = u => String(u || "").toLowerCase().trim().replace(/^@/, "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9._-]/g, "");
+const responderLink = (env, to, texto) => enviar(env, to, { type: "text", text: { body: texto, preview_url: true } });
+
+// Primer contacto de un número: se le pide el usuario de la web y se vincula
+async function vincular(env, m, quien) {
+  const numero = quien.numero;
+  if (m._grupo) {
+    return avisarUnaVez(env, { ...m, _grupo: false }, numero, "vincular",
+      "👋 Para usar el bot primero escribime por privado tu *usuario* de Desabollito.");
+  }
+  const estado = await fsGet(env, `bot_vinculo/${numero}`);
+  const texto = m.type === "text" ? String(m.text?.body || "").trim() : "";
+  const unaPalabra = texto && !/\s/.test(texto.replace(/^@/, ""));
+  const cand = unaPalabra ? limpiarUsuario(texto) : "";
+
+  if (cand.length >= 3) {
+    const u = await fsGet(env, `usernames/${cand}`);
+    if (u?.uid) {
+      const perfil = await fsGet(env, `users/${u.uid}`);
+      if (perfil?.rechazado) return responder(env, dest(m), "⛔ Esa cuenta no fue aprobada, así que no puede usar el bot.");
+      if (perfil?.aprobado === false) {
+        await fsSet(env, `bot_vinculo/${numero}`, { pedido: true, ts: Date.now() });
+        return responder(env, dest(m), `⏳ La cuenta *@${cand}* todavía está esperando aprobación.\n\nCuando la aprueben, escribime de nuevo tu usuario.`);
+      }
+      const nombre = perfil?.name || u.name || cand;
+      if (perfil?.whatsapp && perfil.whatsapp !== numero) await fsDelete(env, `bot_numeros/${perfil.whatsapp}`).catch(() => {});
+      await fsSet(env, `bot_numeros/${numero}`, { uid: u.uid, username: cand, name: nombre, ts: Date.now() });
+      await fsMerge(env, `users/${u.uid}`, { whatsapp: numero });
+      await fsDelete(env, `bot_vinculo/${numero}`).catch(() => {});
+      return responder(env, dest(m), `✅ Listo *${nombre}*, tu WhatsApp quedó vinculado a *@${cand}*.\n\n` + SALUDO);
+    }
+    if (estado?.pedido) {
+      return responderLink(env, dest(m), `❌ No encontré el usuario *${cand}*.\n\nPara usar el bot necesitás una cuenta en Desabollito. Registrate acá y, cuando te la aprueben, escribime tu usuario:\n\n👉 ${APP_URL}`);
+    }
+  } else if (estado?.pedido && texto) {
+    return responderLink(env, dest(m), `Escribime solo tu *usuario* de Desabollito (una palabra, sin espacios).\n\n¿No tenés cuenta? Registrate acá:\n👉 ${APP_URL}`);
+  }
+  if (estado?.pedido && m.type !== "text") return; // fotos antes de vincular: ya se le pidió el usuario
+  await fsSet(env, `bot_vinculo/${numero}`, { pedido: true, ts: Date.now() });
+  return responder(env, dest(m), "👋 ¡Hola! Soy el bot de *Desabollito*.\n\nPara empezar, escribime tu *usuario* de la app (el que usás para entrar en desabollito.github.io).");
+}
+
+// El administrador responde "SI usuario" / "NO usuario" (o solo SI/NO si hay una sola solicitud)
+async function comandoAdmin(env, m, texto) {
+  const t = limpio(texto);
+  if (t === "pendientes") {
+    const pend = await fsList(env, "bot_pendientes");
+    await responder(env, dest(m), pend.length ? "📋 Cuentas esperando aprobación:\n\n" + pend.map(p => `• ${p.name || ""} (@${p.username})`).join("\n") + "\n\nRespondé *SI usuario* o *NO usuario*."
+      : "No hay cuentas esperando aprobación.");
+    return true;
+  }
+  const mm = texto.trim().match(/^(si|sí|no)\b[\s,:]*@?([a-z0-9._-]{3,64})?\s*$/i);
+  if (!mm) return false;
+  const pend = await fsList(env, "bot_pendientes");
+  if (!pend.length) return false; // no hay solicitudes: el mensaje sigue su curso normal
+  const aprobar = !/^no$/i.test(mm[1]);
+  let p = mm[2] ? pend.find(x => x.username === limpiarUsuario(mm[2])) : pend.length === 1 ? pend[0] : null;
+  if (!p) {
+    await responder(env, dest(m), mm[2] ? `No hay ninguna solicitud de *@${limpiarUsuario(mm[2])}*.` :
+      "Hay varias solicitudes. Respondé *SI usuario* o *NO usuario*:\n\n" + pend.map(x => `• ${x.name || ""} (@${x.username})`).join("\n"));
+    return true;
+  }
+  await fsMerge(env, `users/${p.uid}`, aprobar ? { aprobado: true, rechazado: false } : { aprobado: false, rechazado: true });
+  if (aprobar) await fsMerge(env, `usernames/${p.username}`, { pendiente: false }).catch(() => {});
+  await fsDelete(env, `bot_pendientes/${p.username}`);
+  await responder(env, dest(m), aprobar
+    ? `✅ Aprobaste a *${p.name || p.username}* (@${p.username}). Ya puede entrar a la app y usar el bot.`
+    : `❌ Rechazaste la cuenta de *${p.name || p.username}* (@${p.username}).`);
+  return true;
+}
+
+// La app avisa que alguien se registró: se le pregunta al administrador por WhatsApp
+async function nuevoRegistro(env, { uid, reenviar }) {
+  if (!uid || !/^[A-Za-z0-9]{10,40}$/.test(uid)) return json({ ok: false, error: "Falta el usuario" }, 400);
+  const p = await fsGet(env, `users/${uid}`);
+  if (!p || p.aprobado !== false || p.rechazado) return json({ ok: false, error: "Nada para avisar" });
+  if (p.notificado && (!reenviar || Date.now() - Number(p.notificadoEn || 0) < 10 * 60 * 1000)) return json({ ok: true, yaAvisado: true });
+  const username = p.username || "";
+  await fsSet(env, `bot_pendientes/${username}`, { uid, username, name: p.name || "", ts: Date.now() });
+  const r = await enviar(env, destinoNumero(env, numeroAdmin(env)), { type: "text", text: { body:
+    `🆕 *Nueva cuenta en Desabollito*\n\n👤 ${p.name || "(sin nombre)"}\n🔑 Usuario: *@${username}*${p.email && !/@desabollito/i.test(p.email) ? `\n✉️ ${p.email}` : ""}\n\n` +
+    `Respondé *SI ${username}* para aprobarla o *NO ${username}* para rechazarla.`, preview_url: false } });
+  await fsMerge(env, `users/${uid}`, { notificado: true, notificadoEn: Date.now() });
+  return json({ ok: !!r?.ok });
+}
+
+// Celular argentino → 549 + área + número (acepta 0, 15, espacios, +54...)
+export function telefonoAR(t) {
+  let d = String(t || "").replace(/\D/g, "");
+  if (d.startsWith("549")) d = d.slice(3); else if (d.startsWith("54")) d = d.slice(2);
+  d = d.replace(/^0/, "");
+  if (d.length === 12) {                       // área + 15 + número
+    for (const a of [2, 3, 4]) if (d.slice(a, a + 2) === "15") { d = d.slice(0, a) + d.slice(a + 2); break; }
+  }
+  if (d.length === 8) d = "11" + d;            // número de CABA sin característica
+  return d.length === 10 ? "549" + d : null;
+}
+
+// Aviso al cliente cuando su auto queda reparado (una sola vez por vehículo)
+async function avisarCliente(env, { cid, vid, por }) {
+  if (!/^[A-Za-z0-9_-]{1,60}$/.test(cid || "") || !/^[A-Za-z0-9_-]{1,60}$/.test(vid || "")) return json({ ok: false, error: "Datos inválidos" }, 400);
+  const ruta = `companies/${cid}/vehicles/${vid}`;
+  const v = await fsGet(env, ruta);
+  if (!v || v.deleted) return json({ ok: false, error: "No encontré el vehículo" }, 404);
+  if (v.estado !== "reparado") return json({ ok: false, error: "El vehículo no está marcado como reparado" });
+  if (v.avisoReparado) return json({ ok: false, error: "Al cliente ya se le avisó" });
+  const tel = telefonoAR(v.telefono);
+  if (!tel) return json({ ok: false, error: "El teléfono del cliente no parece un celular válido" });
+  const c = await fsGet(env, `companies/${cid}`);
+  const nombre = String(v.asegurado || "").trim().split(/\s+/)[0];
+  const texto = `Hola${nombre ? " " + nombre : ""}! 👋 Te escribimos de ${c?.name || "Desabollito"}: tu ${v.modelo || "vehículo"}${v.patente ? ` (${v.patente})` : ""} ya está reparado y listo para retirar. ¡Gracias por confiar en nosotros!`;
+  const r = await enviar(env, destinoNumero(env, tel), { type: "text", text: { body: texto, preview_url: false } });
+  if (!r?.ok) return json({ ok: false, error: "WhatsApp no aceptó el mensaje" });
+  const quien = String(por || "").slice(0, 60);
+  await fsMerge(env, ruta, { avisoReparado: { t: Date.now(), por: quien } });
+  await fsAppend(env, ruta, "historial", { t: Date.now(), uid: "", por: quien, txt: "Le avisó al cliente por WhatsApp que el auto está listo" }).catch(() => {});
+  return json({ ok: true });
 }

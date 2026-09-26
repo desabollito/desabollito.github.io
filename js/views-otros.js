@@ -458,7 +458,8 @@ export function vistaAjustes(view) {
     <section class="card profile">
       <div class="profile-row">
         <span class="avatar lg">${p.photoURL ? `<img src="${esc(avatar(p.photoURL, 160))}" alt="">` : esc(initials(p.name))}</span>
-        <div class="profile-meta"><h2>${esc(p.name)}</h2><p class="muted">@${esc(p.username)}</p></div>
+        <div class="profile-meta"><h2>${esc(p.name)}</h2><p class="muted">@${esc(p.username)}</p>
+          ${p.whatsapp ? `<p class="perfil-wa" title="WhatsApp vinculado al bot">${icon("chat")}+${esc(String(p.whatsapp).replace(/^(\d{2})(9)(\d{2})(\d{4})(\d{4})$/, "$1 $2 $3 $4-$5"))}</p>` : ""}</div>
       </div>
       <button class="btn btn-ghost btn-block" id="editar-perfil">${icon("edit")}Editar perfil</button>
     </section>
