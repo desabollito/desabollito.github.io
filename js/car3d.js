@@ -86,9 +86,9 @@ export async function montar3D(contenedor, piezas = {}, opciones = {}) {
   // ── Paños
   const mallas = {};
   const registrar = (k, m) => { m.userData.pieza = k; (mallas[k] ||= []).push(m); };
-  registrar("capot", extruir(poligono([[1.1, CINTURA + 0.005], [2.16, 0.865], [2.16, 0.9], [1.1, CINTURA + 0.04]]), 1.6, pintura(COLOR_BASE), 0, 0.015));
+  registrar("capot", extruir(poligono([[1.1, CINTURA + 0.005], [2.13, 0.865], [2.265, 0.64], [2.3, 0.64], [2.17, 0.9], [1.1, CINTURA + 0.04]]), 1.62, pintura(COLOR_BASE), 0, 0.015));
   registrar("techo", extruir(poligono([[-0.74, 1.435], [0.36, 1.455], [0.36, 1.49], [-0.74, 1.47]]), 1.36, pintura(COLOR_BASE), 0, 0.015));
-  registrar("baul", extruir(poligono([[-2.22, 0.945], [-1.35, CINTURA + 0.005], [-1.35, CINTURA + 0.04], [-2.22, 0.98]]), 1.6, pintura(COLOR_BASE), 0, 0.015));
+  registrar("baul", extruir(poligono([[-2.21, 0.945], [-1.35, CINTURA + 0.005], [-1.35, CINTURA + 0.04], [-2.25, 0.98], [-2.335, 0.66], [-2.3, 0.66]]), 1.62, pintura(COLOR_BASE), 0, 0.015));
   registrar("capot", extruir(poligono([[2.1, PISO + 0.04], [2.3, 0.58], [2.18, 0.885], [2.12, 0.885], [2.24, 0.58], [2.05, PISO + 0.04]]), 1.62, pintura(COLOR_BASE), 0, 0.012));
   registrar("baul", extruir(poligono([[-2.18, PISO + 0.04], [-2.33, 0.6], [-2.24, 0.965], [-2.18, 0.965], [-2.27, 0.6], [-2.12, PISO + 0.04]]), 1.62, pintura(COLOR_BASE), 0, 0.012));
   const borde = [[-1.33, CINTURA], [-0.73, 1.44], [0.35, 1.46], [1.08, CINTURA]];
