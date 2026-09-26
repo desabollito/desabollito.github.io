@@ -571,6 +571,7 @@ function firmar(v) {
       <div class="row-btns"><button class="btn btn-ghost" data-clear>Borrar</button>
       <button class="btn btn-primary" data-save>Guardar firma</button></div></div>`
   });
+  s.el.classList.add("sheet-arriba");
   const c = $("#pad", s.el), ctx = c.getContext("2d");
   const dpr = Math.max(2, devicePixelRatio || 1);
   const r = c.getBoundingClientRect();

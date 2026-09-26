@@ -1042,3 +1042,6 @@ details.vform-det .field + .field { margin-top: 12px; }
 .d-sub { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
 .d-sub h3 { font-size: 14px; }
 .d-adic:not([open]) { padding-bottom: 14px; } .d-adic > summary { min-height: 0; }
+
+/* Firma en pantalla grande: la ventana arranca arriba (a la altura del encabezado) en vez de centrada */
+@media (min-width: 700px) { .sheet-backdrop.sheet-arriba { align-items: flex-start; padding-top: calc(var(--top) + var(--safe-t, 0px) + 12px); } }
