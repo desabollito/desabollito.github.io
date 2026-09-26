@@ -177,7 +177,7 @@ export function vistaDetalle(view, id) {
 }
 
 // Vista 3D: siempre arranca en 2D al abrir un vehículo
-let modo3D = false, vid3D = null;
+let modo3D = false, vid3D = null, adicAbierto = false;
 export const reiniciarVista3D = () => { modo3D = false; };
 function iniciar3D(root, v) {
   const caja = $(".vista-3d", root), cap = $(".caption-3d", root);
@@ -262,10 +262,12 @@ function renderDetalle(root, v, embebido) {
       ${v.grado ? `<div class="grado-fila"><span class="grado-tag g${v.grado}">Grado ${v.grado}</span></div>` : ""}
     </section>
 
-    ${v.observaciones ? `<section class="d-sec"><h3>Observaciones</h3><p class="prose">${esc(v.observaciones)}</p></section>` : ""}
-    ${v.repuestos ? `<section class="d-sec"><h3>Repuestos</h3><p class="prose">${esc(v.repuestos)}</p></section>` : ""}
+    <details class="d-sec d-adic" ${adicAbierto ? "open" : ""}>
+      <summary><h3>Adicionales</h3><small class="muted">Observaciones, Repuestos, Documentos, Firma</small></summary>
+    ${v.observaciones ? `<section class="d-sub"><h3>Observaciones</h3><p class="prose">${esc(v.observaciones)}</p></section>` : ""}
+    ${v.repuestos ? `<section class="d-sub"><h3>Repuestos</h3><p class="prose">${esc(v.repuestos)}</p></section>` : ""}
 
-    <section class="d-sec">
+    <section class="d-sub">
       <div class="sec-head"><h3>Documentos <small>${v.archivos?.length || 0}</small></h3>
         <label class="btn btn-ghost btn-sm">${icon("file")}Adjuntar
           <input type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,image/*" multiple hidden data-up="doc"></label></div>
@@ -274,12 +276,14 @@ function renderDetalle(root, v, embebido) {
           <button class="icon-btn sm" data-del-doc="${i}" aria-label="Quitar documento">${icon("x")}</button></li>`).join("")}</ul>
     </section>
 
-    <section class="d-sec">
+    <section class="d-sub">
       <div class="sec-head"><h3>Firma del cliente</h3>
         <button class="btn btn-ghost btn-sm" data-act="firma">${icon("sign")}${v.firma ? "Volver a firmar" : "Firmar"}</button></div>
       ${v.firma ? `<img class="firma-img" src="${esc(v.firma)}" alt="Firma del cliente">`
         : ""}
     </section>
+
+    </details>
 
     <footer class="d-foot">
       <span>Cargado por ${esc(cargadoPor(v))}</span>
@@ -290,6 +294,7 @@ function renderDetalle(root, v, embebido) {
     </footer>
   </article>`;
 
+  $(".d-adic", root)?.addEventListener("toggle", e => { adicAbierto = e.target.open; });
   if (modo3D) iniciar3D(root, v);
 
   // Acciones
