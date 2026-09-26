@@ -12,9 +12,9 @@ export const SECUENCIA = ["peritado", "turnado", "reparado", "facturado"];
 // Piezas de carrocería. La geometría (x,y,w,h en un lienzo 200×400,
 // frente del auto arriba) se usa tanto en el SVG como en el PDF.
 export const PIEZAS = [
-  { key: "capot",       label: "Capot",                x: 66,  y: 36,  w: 108, h: 78, r: 14 },
+  { key: "capot",       label: "Capot",                x: 64,  y: 24,  w: 112, h: 90, r: 16 },
   { key: "techo",       label: "Techo",                x: 84,  y: 158, w: 72, h: 104, r: 10 },
-  { key: "baul",        label: "Baúl",                 x: 70,  y: 300, w: 100, h: 62, r: 14 },
+  { key: "baul",        label: "Baúl",                 x: 66,  y: 300, w: 108, h: 90, r: 16 },
   { key: "parante_izq", label: "Parante izquierdo",    x: 60,  y: 124, w: 20, h: 172, r: 8 },
   { key: "parante_der", label: "Parante derecho",      x: 160, y: 124, w: 20, h: 172, r: 8 },
   { key: "gf_izq",      label: "Guardabarro del. izq.", x: 26,  y: 44,  w: 32, h: 76, r: 12 },

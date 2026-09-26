@@ -25,7 +25,7 @@ export function carMapSVG(piezas = {}, { editable = false, size = "" } = {}) {
     <rect class="mirror" x="6" y="122" width="18" height="10" rx="4"/>
     <rect class="mirror" x="216" y="122" width="18" height="10" rx="4"/>
     ${glass}${panels}
-    <text class="car-front" x="120" y="24" text-anchor="middle">Frente</text>
+    <text class="car-front" x="120" y="19" text-anchor="middle">Frente</text>
   </svg>`;
 }
 
