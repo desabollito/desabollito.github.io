@@ -984,3 +984,4 @@ label.logo-prev { cursor: pointer; }
 .hist-btn:hover, .hist-btn:focus-visible { opacity: 1; }
 .hist-btn .ic { width: 17px; height: 17px; }
 .sheet .hist { margin-top: 4px; }
+details.vform-det .field + .field { margin-top: 12px; }

@@ -676,7 +676,7 @@ export function vistaFormulario(view, id = null) {
         </fieldset>
         </div>
         <details class="card vform-det">
-          <summary>Adicionales <small class="muted">grado, observaciones, repuestos${v ? "" : ", fecha de peritaje"}</small></summary>
+          <summary>Adicionales <small class="muted">Grado, Observaciones, Repuestos${v ? "" : ", Fecha de peritaje"}</small></summary>
           <div class="grado-pick">
             <span>Grado de daño</span>
             <div class="seg seg-sm" id="grado" role="radiogroup" aria-label="Grado de daño">
