@@ -397,7 +397,8 @@ const SALUDO = "¡Hola, soy Desabollito 🚘!\n\n" + INSTRUCCIONES;
 function saludoHora(quien) {
   const h = (new Date().getUTCHours() + 21) % 24;
   const franja = h >= 5 && h < 12 ? "Buenos días" : h >= 12 && h < 20 ? "Buenas tardes" : "Buenas noches";
-  const nombre = String(quien?.appNombre || "").trim() || quien?.username || String(quien?.waNombre || "").trim();
+  const primero = t => String(t || "").trim().split(/\s+/)[0] || "";   // solo el nombre, sin apellido
+  const nombre = primero(quien?.appNombre) || quien?.username || primero(quien?.waNombre);
   return `${franja}${nombre ? " " + nombre : ""}! 👋\n\n` + INSTRUCCIONES;
 }
 
