@@ -852,7 +852,7 @@ function variantesAR(to) {
 async function enviarEvolution(env, to, payload) {
   const chat = to.slice(4);
   const base = String(env.EVOLUTION_URL || "").replace(/\/+$/, "");
-  const inst = env.EVOLUTION_INSTANCE || "desabollito";
+  const inst = payload._inst || env.EVOLUTION_INSTANCE || "desabollito";
   const h = { apikey: env.EVOLUTION_APIKEY, "Content-Type": "application/json" };
   const r = payload.type === "reaction"
     ? await fetch(`${base}/message/sendReaction/${inst}`, { method: "POST", headers: h,
@@ -1276,6 +1276,10 @@ async function diagnostico(url, env) {
       const estadoEvo = j?.instance?.state || j?.state;
       if (estadoEvo === "open") ok("Número propio (Evolution)", "Conectado a WhatsApp");
       else mal("Número propio (Evolution)", `Estado: ${estadoEvo || r.status}. Escaneá el QR en ${base}/manager`);
+      const cli = await estadoEvolution(env, instanciaClientes(env));
+      if (cli === "open") ok("Número de la empresa (avisos a clientes)", `Conexión "${instanciaClientes(env)}" conectada`);
+      else aviso("Número de la empresa (avisos a clientes)", cli ? `Conexión "${instanciaClientes(env)}": ${cli}. Escaneá el QR en ${base}/manager`
+        : `Falta crear la conexión "${instanciaClientes(env)}" en ${base}/manager. Mientras tanto los avisos a clientes no se envían.`);
     } catch (e) { mal("Número propio (Evolution)", "No responde el servidor: " + e.message); }
   }
 
@@ -1500,7 +1504,11 @@ async function avisarCliente(env, { cid, vid, por }) {
   const c = await fsGet(env, `companies/${cid}`);
   const nombre = String(v.asegurado || "").trim().split(/\s+/)[0];
   const texto = `Hola${nombre ? " " + nombre : ""}! 👋 Te escribimos de ${c?.name || "Desabollito"}: tu ${v.modelo || "vehículo"}${v.patente ? ` (${v.patente})` : ""} ya está reparado y listo para retirar. ¡Gracias por confiar en nosotros!`;
-  const r = await enviar(env, destinoNumero(env, tel), { type: "text", text: { body: texto, preview_url: false } });
+  // Los avisos a clientes salen desde el número de la empresa (conexión "clientes" de Evolution), no desde Desabollito
+  if (!env.EVOLUTION_URL) return json({ ok: false, error: "Falta conectar el número de la empresa" });
+  const est = await estadoEvolution(env, instanciaClientes(env));
+  if (est !== "open") return json({ ok: false, error: "El número de la empresa no está conectado" });
+  const r = await enviarEvolution(env, `evo:${tel}`, { type: "text", text: { body: texto }, _inst: instanciaClientes(env) });
   if (!r?.ok) return json({ ok: false, error: "WhatsApp no aceptó el mensaje" });
   const quien = String(por || "").slice(0, 60);
   await fsMerge(env, ruta, { avisoReparado: { t: Date.now(), por: quien } });
@@ -1553,4 +1561,16 @@ async function avisarAgregado(env, { cid, uid }) {
     `👋 ${nombre ? nombre + ", " : ""}${quien} te agregó al operativo *${c.name || ""}*.\n\nYa podés cargar vehículos ahí desde la app o por acá.` } });
   await fsMerge(env, `users/${uid}`, { avisosOperativos: [...(u.avisosOperativos || []), cid] });
   return json({ ok: !!r?.ok });
+}
+
+// Conexión de Evolution del número de la empresa (el que usan los clientes). Solo envía avisos: no tiene webhook.
+const instanciaClientes = env => env.EVOLUTION_INSTANCE_CLIENTES || "clientes";
+async function estadoEvolution(env, inst) {
+  try {
+    const base = String(env.EVOLUTION_URL || "").replace(/\/+$/, "");
+    const r = await fetch(`${base}/instance/connectionState/${inst}`, { headers: { apikey: env.EVOLUTION_APIKEY } });
+    if (r.status === 404) return null;
+    const j = await r.json().catch(() => ({}));
+    return j?.instance?.state || j?.state || `error ${r.status}`;
+  } catch { return null; }
 }
