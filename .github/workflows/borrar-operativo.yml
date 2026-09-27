@@ -1,0 +1,18 @@
+name: Borrar operativo (una vez)
+on:
+  push:
+    branches: [main]
+    paths: [".github/workflows/borrar-operativo.yml"]
+  workflow_dispatch:
+jobs:
+  borrar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - name: Borrar
+        env:
+          SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          NOMBRE: "juan perez"
+        run: node .github/scripts/borrar-operativo.mjs

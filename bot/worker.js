@@ -235,6 +235,8 @@ function sacarPanos(texto) {
   return { piezas, resto: original };
 }
 
+// Palabra con forma de nombre propio: "Juan" o, si escriben todo en mayúsculas, "JUAN"
+const palabraNombre = w => /^[A-ZÁÉÍÓÚÑ][a-záéíóúñü']+$/.test(w) || /^[A-ZÁÉÍÓÚÑÜ']{2,}$/.test(w);
 // ── Nombre del cliente: "cliente Juan Pérez", "asegurado: Ana Ruiz", "titular …"
 const RE_CLIENTE = /\b(?:cliente|asegurad[oa]|titular|nombre|sr\.?|sra\.?)\s*:?\s+([A-Za-zÁÉÍÓÚÑÜáéíóúñü'´]+(?:\s+[A-Za-zÁÉÍÓÚÑÜáéíóúñü'´]+){0,3})/i;
 
@@ -322,7 +324,7 @@ export function interpretar(texto, extra = {}) {
   if (idxModelo.length) {
     let ini = Math.min(...idxModelo), fin = Math.max(...idxModelo);
     // Suma palabras desconocidas pegadas ("Chery Tiggo 4"), salvo que parezcan un nombre ("Carlos Méndez")
-    const esNombre = w => /^[A-ZÁÉÍÓÚÑ][a-záéíóúñü']+$/.test(w);
+    const esNombre = palabraNombre;
     let libres = 0;
     while (fin + 1 + libres < palabras.length && !tipo[fin + 1 + libres]) libres++;
     const grupo = palabras.slice(fin + 1, fin + 1 + libres);
@@ -347,8 +349,8 @@ export function interpretar(texto, extra = {}) {
   });
   for (const g of grupos) {
     const t = g.join(" ");
-    const pareceNombre = g.length >= 2 && g.length <= 4 && g.every(w => /^[A-ZÁÉÍÓÚÑ][a-záéíóúñü']+$/.test(w));
-    if (!r.asegurado && pareceNombre && r.modelo) { r.asegurado = t; continue; }
+    const pareceNombre = g.length >= 2 && g.length <= 4 && g.every(palabraNombre);
+    if (!r.asegurado && pareceNombre && r.modelo) { r.asegurado = titulo(t); continue; }
     if (!r.modelo) r.modelo = titulo(t);
     else if (!r.localidad) r.localidad = titulo(t);
     else r.otros = (r.otros ? r.otros + " " : "") + t;
@@ -409,7 +411,6 @@ const AYUDA =
   "- Luego envia las fotos\n\n" +
   "- Listo! Seguí con otro o enviá *OK* para finalizar.\n\n" +
   "🚨 *Operativo*\n\n" +
-  "Si nombrás la localidad del operativo en el mensaje, se asignarán los vehiculos a ese operativo.\n\n" +
   "Para cambiarlo escribí *operativo*.";
 
 const lineaOperativo = fijo => `\n\n> Operativo actual: ${fijo ? fijo.operativo : "ninguno (escribí *operativo* para elegirlo)"}`;
@@ -441,17 +442,19 @@ async function leerSesion(env, numero) {
 const abierta = s => !!(s?.vid && !s.cerradaEn);
 
 // Operativo "fijo" de cada número: donde se crean los vehículos nuevos
-async function operativoFijo(env, numero) {
+async function operativoFijo(env, numero, uid) {
   const o = await fsGet(env, `bot_operativo/${numero}`);
   if (!o?.cid) return null;
   const c = await fsGet(env, `companies/${o.cid}`);
-  return c ? { cid: o.cid, operativo: c.name || o.operativo } : null;
+  if (!c || (uid && !(c.members || []).includes(uid))) return null;   // ya no es miembro
+  return { cid: o.cid, operativo: c.name || o.operativo };
 }
 const fijarOperativo = (env, numero, op) => fsSet(env, `bot_operativo/${numero}`, { cid: op.cid, operativo: op.operativo, ts: Date.now() });
 
-async function listaOperativos(env) {
-  return (await fsList(env, "companies"))
-    .map(o => ({ cid: o.__id, operativo: o.name || "Operativo" }))
+async function listaOperativos(env, uid) {
+  if (!uid) return [];
+  return (await fsQuery(env, "", "companies", { field: "members", op: "ARRAY_CONTAINS", value: uid }, 50))
+    .map(o => ({ cid: o.__ruta.split("/")[1], operativo: o.name || "Operativo" }))
     .sort((a, b) => a.operativo.localeCompare(b.operativo)).slice(0, 20);
 }
 const menuOperativos = ops => ops.map((o, i) => `${i + 1}. ${o.operativo}`).join("\n") + "\n\n0. Cancelar";
@@ -502,9 +505,9 @@ async function alRecibirTexto(env, m, quien, texto) {
 
   // Comando: cambiar de operativo
   if (esCambioOperativo(texto)) {
-    const ops = await listaOperativos(env);
+    const ops = await listaOperativos(env, quien.uid);
     if (!ops.length) return responder(env, dest(m), "No hay operativos creados en la app todavía.");
-    const fijo = await operativoFijo(env, numero);
+    const fijo = await operativoFijo(env, numero, quien.uid);
     await fsMerge(env, `bot_sesiones/${numero}`, { elegirOperativo: ops, ts: Date.now() });
     return responder(env, dest(m), (fijo ? `🏢 Operativo actual: *${fijo.operativo}*\n\n` : "") +
       "¿En qué operativo cargo los vehículos nuevos? Respondé con el número:\n\n" + menuOperativos(ops));
@@ -541,14 +544,14 @@ async function alRecibirTexto(env, m, quien, texto) {
   if (s?.opciones?.length && numeroElegido !== null) {
     const v = s.opciones[numeroElegido - 1];
     if (!v) return responder(env, dest(m), `Elegí un número del 1 al ${s.opciones.length}.`);
-    await abrirExistente(env, numero, v, s.datos || {}, hora, s, true, quien);
+    await abrirExistente(env, numero, v, s.datos || {}, hora, s, false, quien);
     return v.fotos ? responder(env, dest(m), `⚠️ ${etiqueta(v)} ya tiene ${resumen(v.fotos)} subidas. Si mandás más, se suman a esas.`) : tilde(env, m);
   }
 
   // Localizar: "Ubicame NTK100" → link al vehículo en la app
   if (esLocalizar(texto) && buscarPatenteEnTexto(texto)) {
     const patente = buscarPatenteEnTexto(texto).patente;
-    const encontrados = await buscarPatente(env, patente);
+    const encontrados = await buscarPatente(env, patente, quien.uid);
     if (!encontrados.length) return responder(env, dest(m), `🔎 No encontré la patente *${patente}*.`);
     return responder(env, dest(m), encontrados.map(v =>
       `📍 ${etiqueta(v)} · ${v.operativo}\n${APP_URL}/#/o/${v.cid}/v/${v.vid}`).join("\n\n"));
@@ -557,10 +560,7 @@ async function alRecibirTexto(env, m, quien, texto) {
   // Datos de un vehículo (tiene patente). Si nombra un operativo, se usa ese.
   const patenteEnTexto = buscarPatenteEnTexto(texto);
   let mencion = null, textoDatos = texto;
-  if (patenteEnTexto) {
-    mencion = operativoMencionado(texto, await listaOperativos(env));
-    if (mencion) textoDatos = quitarFrase(texto, mencion.frase);
-  }
+  // (el operativo solo se cambia con el comando "operativo"; nombres en el mensaje no lo cambian)
   const datos = interpretar(textoDatos);
   if (mencion) datos.operativo = mencion.op;
   if (datos.patente) {
@@ -591,11 +591,10 @@ async function alRecibirTexto(env, m, quien, texto) {
 // en el operativo nombrado o en el último usado. Devuelve un texto solo si hay que
 // preguntarle algo al usuario; si no, null (el bot solo marca la tilde).
 async function prepararVehiculo(env, numero, datos, hora, previa, quien) {
-  const encontrados = await buscarPatente(env, datos.patente);
+  const encontrados = await buscarPatente(env, datos.patente, quien?.uid);
   // Prioridad: operativo nombrado en el mensaje → último operativo usado → preguntar
-  const mencionado = datos.operativo || null;
-  if (mencionado) await fijarOperativo(env, numero, mencionado);
-  const fijo = mencionado || await operativoFijo(env, numero);
+  const mencionado = null;
+  const fijo = await operativoFijo(env, numero, quien?.uid);
   delete datos.operativo;
 
   if (encontrados.length) {
@@ -606,7 +605,7 @@ async function prepararVehiculo(env, numero, datos, hora, previa, quien) {
         encontrados.slice(0, 9).map((x, i) => `${i + 1}. ${x.operativo} · ${x.modelo || "sin modelo"}`).join("\n");
     }
     // Si la patente ya existe en otro operativo distinto del nombrado, se usa esa (no se duplica)
-    await abrirExistente(env, numero, v, datos, hora, previa, !mencionado, quien);
+    await abrirExistente(env, numero, v, datos, hora, previa, false, quien);
     return v.fotos ? `⚠️ ${etiqueta(v)} ya tiene ${resumen(v.fotos)} subidas. Si mandás más, se suman a esas.` : null;
   }
 
@@ -616,8 +615,8 @@ async function prepararVehiculo(env, numero, datos, hora, previa, quien) {
     return null;
   }
 
-  const operativos = await listaOperativos(env);
-  if (!operativos.length) return "No hay operativos creados en la app todavía.";
+  const operativos = await listaOperativos(env, quien?.uid);
+  if (!operativos.length) return "No sos parte de ningún operativo todavía. Pedile a un administrador que te sume desde la app.";
   await fsMerge(env, `bot_sesiones/${numero}`, { crear: { datos, operativos }, ts: Date.now() });
   return `🔎 La patente *${datos.patente}* no está cargada.\n\n¿En qué operativo la creo? Respondé con el número:\n\n` + menuOperativos(operativos);
 }
@@ -675,7 +674,8 @@ async function abrir(env, numero, v, hora, previa, nuevo = false) {
   });
 }
 
-async function buscarPatente(env, patente) {
+async function buscarPatente(env, patente, uid) {
+  const mios = new Set((await listaOperativos(env, uid)).map(o => o.cid));
   let vehiculos;
   try {
     // Una sola consulta sobre todos los operativos
@@ -684,7 +684,8 @@ async function buscarPatente(env, patente) {
     // Si falta el índice de grupo de colecciones, se recorre operativo por operativo
     console.warn("Consulta global no disponible, se recorre por operativo:", e.message);
     vehiculos = [];
-    for (const op of await fsList(env, "companies")) {
+    for (const cid of mios) {
+      const op = { __id: cid };
       const vs = await fsQuery(env, `companies/${op.__id}`, "vehicles", { field: "patente", op: "EQUAL", value: patente }, 5);
       vs.forEach(v => { v.__ruta = `companies/${op.__id}/vehicles/${v.__id}`; });
       vehiculos.push(...vs);
@@ -695,6 +696,7 @@ async function buscarPatente(env, patente) {
   for (const v of vehiculos) {
     if (v.deleted) continue;
     const [, cid, , vid] = v.__ruta.split("/");
+    if (!mios.has(cid)) continue;
     nombres[cid] ??= (await fsGet(env, `companies/${cid}`))?.name || "Operativo";
     res.push({ cid, vid, patente: v.patente, modelo: v.modelo || "", operativo: nombres[cid],
       compania: v.compania || "", telefono: v.telefono || "", localidad: v.localidad || "", grado: v.grado || null,
@@ -764,9 +766,7 @@ async function alRecibirArchivo(env, m, quien) {
   const caption = (media?.caption || "").trim();
   let datos = null;
   if (caption && buscarPatenteEnTexto(caption)) {
-    const mencion = operativoMencionado(caption, await listaOperativos(env));
-    datos = interpretar(mencion ? quitarFrase(caption, mencion.frase) : caption);
-    if (mencion) datos.operativo = mencion.op;
+    datos = interpretar(caption);
   }
   if (datos?.patente && !(abierta(sesion) && sesion.patente === datos.patente)) {
     if (abierta(sesion)) await cerrarEnSilencio(env, numero, hora - 1);
