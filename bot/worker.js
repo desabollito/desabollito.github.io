@@ -266,6 +266,9 @@ export function interpretar(texto, extra = {}) {
   const r = { patente: null, modelo: "", compania: "", telefono: "", localidad: "", grado: null, otros: "", asegurado: "", piezas: {},
     observaciones: "", repuestos: "", pintura: "", precio: null };
 
+  // 0. "P208", "P3008", "p 2008"… (una P y 3 o 4 números) es un Peugeot
+  resto = resto.replace(/(^|\s)p\s?-?(\d{3,4})(?=\s|[.,;]|$)/gi, "$1Peugeot $2");
+
   // 1. Patente
   const p = buscarPatenteEnTexto(resto);
   if (p) { r.patente = p.patente; resto = resto.slice(0, p.desde) + " " + resto.slice(p.desde + p.largo); }
@@ -291,7 +294,19 @@ export function interpretar(texto, extra = {}) {
 
   // 3. Teléfono: 8 a 13 dígitos (con o sin +54, espacios o guiones)
   resto = resto.replace(/(?:\+?\s?\d[\d\s-]{6,16}\d)/g, m => {
-    const d = m.replace(/\D/g, "");
+    let d = m.replace(/\D/g, "");
+    // Número de modelo pegado al teléfono ("2008 3515551234"): se deja el primero y se toma el resto
+    if (!r.telefono && d.length > 13 && /\s/.test(m.trim())) {
+      const [primero, ...demas] = m.trim().split(/\s+/);
+      const t2 = demas.join("").replace(/\D/g, "");
+      if (t2.length >= 8 && t2.length <= 13) { d = t2; }
+      else return m;
+      let t = d;
+      if (t.startsWith("549") && t.length === 13) t = t.slice(3);
+      else if (t.startsWith("54") && t.length === 12) t = t.slice(2);
+      else if (t.startsWith("0") && t.length === 11) t = t.slice(1);
+      r.telefono = t; return ` ${primero} `;
+    }
     if (!r.telefono && d.length >= 8 && d.length <= 13) {
       // Formato local: sin +54 / 9 / 0 adelante (ej: 1137709755)
       let t = d;
