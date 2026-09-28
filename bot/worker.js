@@ -488,6 +488,34 @@ function detalleVehiculo(v, operativo) {
   ];
   return filas.filter(Boolean).join("\n");
 }
+// ── Repuestos por WhatsApp: "repuestos AB123CD" → lista con estados; después agregar o cambiar estados
+const FASES_REP = [["sinpedir", "Sin pedir", "🔴"], ["pedido", "Pedido", "🟡"], ["recibido", "Recibido", "🔵"], ["colocado", "Colocado", "🟢"]];
+const itemsRep = t => String(t || "").split(/\n|,|;|\.(?!\d)/).map(x => x.trim()).filter(Boolean).map(x => x.charAt(0).toUpperCase() + x.slice(1));
+const claveRep = x => sinTildes(String(x)).replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "").slice(0, 60) || "item";
+const faseDe = (v, x) => FASES_REP.find(f => f[0] === v.etapasRepuestos?.[claveRep(x)]) || FASES_REP[0];
+const RE_PIDE_REP = /^(?:localiz\w*\s+)?repuestos?\s+(\S+(?:\s+\S+)?)$/i;
+function textoRepuestos(v, operativo) {
+  const est = v.fechas?.anulado ? "anulado" : v.estado === "ausente" ? "ausente" : ["facturado", "reparado", "turnado", "peritado"].find(k => v.fechas?.[k]) || "peritado";
+  const items = itemsRep(v.repuestos);
+  return [`🔧 *${v.modelo || "Sin modelo"}* · ${v.patente || ""}`,
+    [v.compania ? `🛡️ ${v.compania}` : "", `📌 ${ESTADO_TXT[est] || est}`, operativo ? `📂 ${operativo}` : ""].filter(Boolean).join(" · "),
+    "",
+    items.length ? "*Repuestos:*\n" + items.map((x, i) => { const f = faseDe(v, x); return `${i + 1}. ${x} — ${f[2]} ${f[1]}`; }).join("\n") : "_Todavía no tiene repuestos cargados._",
+    "",
+    "¿Querés agregar un repuesto o actualizar el estado de alguno?",
+    "• Agregar: *agregar espejo derecho*",
+    items.length ? "• Cambiar estado: *1 recibido* (sin pedir · pedido · recibido · colocado)" : "",
+    "• *listo* para terminar"].filter(x => x !== null && x !== undefined).join("\n").replace(/\n{3,}/g, "\n\n");
+}
+function faseDeTexto(t) {
+  const x = sinTildes(t).replace(/\s+/g, "");
+  if (/^sinpedir|^nopedid|^falta/.test(x)) return "sinpedir";
+  if (/^pedid|^pedi/.test(x)) return "pedido";
+  if (/^recib|^lleg/.test(x)) return "recibido";
+  if (/^coloc|^puest|^instal/.test(x)) return "colocado";
+  return null;
+}
+
 const etiqueta = s => s.modelo ? `*${s.modelo}* (${s.patente})` : `*${s.patente}*`;
 const PALABRAS_CIERRE = ["ok", "oka", "okey", "okay", "okk", "listo", "lista", "ya", "ya está", "ya esta", "fin", "terminé", "termine",
   "cerrar", "chau", "gracias", "dale", "perfecto", "joya", "bien", "👍", "👌", "✅"];
@@ -649,6 +677,53 @@ async function alRecibirTexto(env, m, quien, texto) {
     if (!v) return responder(env, dest(m), `Elegí un número del 1 al ${s.opciones.length}.`);
     await abrirExistente(env, numero, v, s.datos || {}, hora, s, false, quien);
     return v.fotos ? responder(env, dest(m), `⚠️ ${etiqueta(v)} ya tiene ${resumen(v.fotos)} subidas. Si mandás más, se suman a esas.`) : tilde(env, m);
+  }
+
+  // Repuestos: "repuestos AB123CD" / "localizá repuesto AB123CD" → lista con estados y opciones
+  const pideRep = sinMencion.match(RE_PIDE_REP);
+  if (pideRep && buscarPatenteEnTexto(pideRep[1])) {
+    const patente = buscarPatenteEnTexto(pideRep[1]).patente;
+    const encontrados = await buscarPatente(env, patente, quien.uid);
+    if (!encontrados.length) return responder(env, dest(m), `🔎 No encontré la patente *${patente}*.`);
+    const e = encontrados[0];
+    const v = await fsGet(env, `companies/${e.cid}/vehicles/${e.vid}`);
+    if (!v || v.deleted) return responder(env, dest(m), `🔎 No encontré la patente *${patente}*.`);
+    const op = e.operativo || (await fsGet(env, `companies/${e.cid}`).catch(() => null))?.name || "";
+    await fsMerge(env, `bot_sesiones/${numero}`, { repuestosDe: { cid: e.cid, vid: e.vid, op, t: Date.now() } });
+    return responder(env, dest(m), textoRepuestos(v, op));
+  }
+  // Si manda otro vehículo, se deja de ver los repuestos
+  if (s?.repuestosDe && buscarPatenteEnTexto(texto)) await fsMerge(env, `bot_sesiones/${numero}`, { repuestosDe: null }).catch(() => {});
+  // Respuestas mientras se están viendo los repuestos (15 minutos)
+  if (s?.repuestosDe && Date.now() - Number(s.repuestosDe.t || 0) < 15 * 60_000 && !buscarPatenteEnTexto(texto)) {
+    const { cid, vid, op } = s.repuestosDe, ruta = `companies/${cid}/vehicles/${vid}`;
+    const tx = sinMencion.trim();
+    const fin = /^(listo|lista|nada|no|ninguno|chau|gracias|ok|oka|okey|fin|terminar|termine|terminé)$/i.test(limpio(tx));
+    const agrega = tx.match(/^(?:agreg\w*|sum\w*|a[nñ]ad\w*|\+)\s+(.+)$/i);
+    const cambia = tx.match(/^(\d{1,2})[\s.:)-]+(.+)$/);
+    if (fin) {
+      await fsMerge(env, `bot_sesiones/${numero}`, { repuestosDe: null });
+      if (!abierta(s)) return responder(env, dest(m), "👍 Listo.");   // con un vehículo abierto, el "ok" sigue su curso (resumen de fotos)
+    }
+    if (agrega || cambia) {
+      const v = await fsGet(env, ruta);
+      if (!v || v.deleted) { await fsMerge(env, `bot_sesiones/${numero}`, { repuestosDe: null }); return responder(env, dest(m), "Ese vehículo ya no está disponible."); }
+      const por = quien.nombre || quien.numero;
+      if (agrega) {
+        const nuevos = itemsRep(agrega[1]);
+        await fsMerge(env, ruta, { repuestos: [...itemsRep(v.repuestos), ...nuevos].join(", "), updatedBy: `whatsapp:${numero}` });
+        await fsAppend(env, ruta, "historial", { t: Date.now(), uid: quien.uid || "", por, txt: `Agregó repuesto: ${nuevos.join(", ")}` }).catch(() => {});
+      } else {
+        const items = itemsRep(v.repuestos), n = Number(cambia[1]), fase = faseDeTexto(cambia[2]);
+        if (!items[n - 1]) return responder(env, dest(m), `Elegí un número del 1 al ${items.length}.`);
+        if (!fase) return responder(env, dest(m), "Estados posibles: *sin pedir*, *pedido*, *recibido* o *colocado*. Ej: *1 recibido*");
+        const item = items[n - 1];
+        await fsMerge(env, ruta, { etapasRepuestos: { ...(v.etapasRepuestos || {}), [claveRep(item)]: fase }, updatedBy: `whatsapp:${numero}` });
+        await fsAppend(env, ruta, "historial", { t: Date.now(), uid: quien.uid || "", por, txt: `${item}: ${FASES_REP.find(f => f[0] === fase)[1]}` }).catch(() => {});
+      }
+      await fsMerge(env, `bot_sesiones/${numero}`, { repuestosDe: { ...s.repuestosDe, t: Date.now() } });
+      return responder(env, dest(m), "✅ Actualizado\n\n" + textoRepuestos(await fsGet(env, ruta), op));
+    }
   }
 
   // Localizar: "Localizá NTK100" → detalle del vehículo por escrito + link (sin vista previa).
