@@ -610,13 +610,12 @@ function visor(fotos = [], inicio = 0, v = null) {
   });
   // Nombre: PATENTE_01.jpg, PATENTE_02.jpg…
   const nombreFoto = n => `${String(v?.patente || v?.modelo || "foto").toUpperCase().replace(/[^A-Z0-9]+/g, "_")}_${String(n + 1).padStart(2, "0")}.jpg`;
+  // Cloudinary manda el archivo con el nombre elegido (fl_attachment), así el celular no le pone la fecha
   const bajar = async n => {
-    const f = fotos[n];
-    try {
-      const r = await fetch(grande(f.url, 4000, f.rot).replace("f_auto", "f_jpg")); if (!r.ok) throw new Error(r.status);
-      const a = document.createElement("a"); a.href = URL.createObjectURL(await r.blob()); a.download = nombreFoto(n); a.click();
-      setTimeout(() => URL.revokeObjectURL(a.href), 4000);
-    } catch { open(f.url, "_blank", "noopener"); }
+    const f = fotos[n], nombre = nombreFoto(n);
+    const url = grande(f.url, 4000, f.rot).replace("f_auto", "f_jpg").replace("/upload/", `/upload/fl_attachment:${nombre.replace(/\.jpg$/, "")}/`);
+    const a = document.createElement("a"); a.href = url; a.download = nombre; a.rel = "noopener";
+    document.body.appendChild(a); a.click(); a.remove();
   };
   // Descargar: pregunta si bajar solo esta foto o todas las del vehículo
   $("#vw-dl", s.el).addEventListener("click", () => {
