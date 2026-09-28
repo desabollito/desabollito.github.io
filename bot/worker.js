@@ -589,7 +589,9 @@ async function alRecibirTexto(env, m, quien, texto) {
   // (el operativo solo se cambia con el comando "operativo"; nombres en el mensaje no lo cambian)
   const datos = interpretar(sinMencion);
   if (datos.patente) {
-    if (abierta(s) && s.patente === datos.patente) {
+    // Si el vehículo abierto se borró desde la app, no se sigue cargando ahí: se crea de nuevo
+    const sigue = abierta(s) && s.patente === datos.patente ? await fsGet(env, `companies/${s.cid}/vehicles/${s.vid}`) : null;
+    if (sigue && !sigue.deleted) {
       await actualizarDatos(env, s, datos, quien);
       if (pideAbierto) return abrirParaGrupo(env, m, s);
       return tilde(env, m);
