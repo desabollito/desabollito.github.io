@@ -489,6 +489,60 @@ async function quitarAdjunto(v, campo, idx) {
   if (tokensBorrado.has(item.publicId)) borrarConToken(tokensBorrado.get(item.publicId));
 }
 
+// Foto a pantalla completa: pellizcar o doble toque para hacer zoom, arrastrar para mover
+function zoomFoto(url, previa) {
+  const el = document.createElement("div");
+  el.className = "zoom-foto";
+  el.innerHTML = `<img alt="" src="${esc(previa || url)}"><button class="icon-btn zoom-x" aria-label="Cerrar">${icon("x")}</button>`;
+  document.body.appendChild(el);
+  const im = $("img", el);
+  if (previa && previa !== url) { const hd = new Image(); hd.onload = () => { im.src = url; }; hd.src = url; }
+  let esc_ = 1, tx = 0, ty = 0;
+  const pintar = () => { im.style.transform = `translate(${tx}px, ${ty}px) scale(${esc_})`; };
+  const limitar = () => {
+    if (esc_ <= 1) { esc_ = 1; tx = 0; ty = 0; return; }
+    const mx = im.offsetWidth * (esc_ - 1) / 2, my = im.offsetHeight * (esc_ - 1) / 2;
+    tx = Math.max(-mx, Math.min(mx, tx)); ty = Math.max(-my, Math.min(my, ty));
+  };
+  const cerrar = () => { el.remove(); removeEventListener("keydown", tecla, true); };
+  const tecla = e => { if (e.key === "Escape") { e.stopPropagation(); cerrar(); } };
+  addEventListener("keydown", tecla, true);
+  $(".zoom-x", el).onclick = cerrar;
+  const ptrs = new Map();
+  let d0 = 0, e0 = 1, p0 = null, ultimoToque = 0, movio = false;
+  el.addEventListener("pointerdown", e => {
+    if (e.target.closest(".zoom-x")) return;
+    el.setPointerCapture?.(e.pointerId);
+    ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY }); movio = false;
+    if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; d0 = Math.hypot(a.x - b.x, a.y - b.y); e0 = esc_; }
+    else p0 = { x: e.clientX - tx, y: e.clientY - ty };
+  });
+  el.addEventListener("pointermove", e => {
+    if (!ptrs.has(e.pointerId)) return;
+    ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY }); movio = true;
+    if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; esc_ = Math.max(1, Math.min(6, e0 * Math.hypot(a.x - b.x, a.y - b.y) / d0)); }
+    else if (p0 && esc_ > 1) { tx = e.clientX - p0.x; ty = e.clientY - p0.y; }
+    limitar(); pintar();
+  });
+  const soltar = e => {
+    if (!ptrs.has(e.pointerId)) return;
+    ptrs.delete(e.pointerId);
+    if (ptrs.size === 1) { const [a] = [...ptrs.values()]; p0 = { x: a.x - tx, y: a.y - ty }; }
+    if (ptrs.size || movio) return;
+    // Doble toque: acerca / vuelve
+    const ahora = Date.now();
+    if (ahora - ultimoToque < 300) {
+      if (esc_ > 1) { esc_ = 1; tx = 0; ty = 0; }
+      else { esc_ = 2.5; const r = im.getBoundingClientRect(); tx = (r.left + r.width / 2 - e.clientX) * 1.5; ty = (r.top + r.height / 2 - e.clientY) * 1.5; limitar(); }
+      im.style.transition = "transform .2s"; pintar(); setTimeout(() => { im.style.transition = ""; }, 220);
+      ultimoToque = 0;
+    } else ultimoToque = ahora;
+  };
+  el.addEventListener("pointerup", soltar);
+  el.addEventListener("pointercancel", soltar);
+  el.addEventListener("wheel", e => { e.preventDefault(); esc_ = Math.max(1, Math.min(6, esc_ * (e.deltaY < 0 ? 1.15 : 0.87))); limitar(); pintar(); }, { passive: false });
+}
+
 function visor(fotos = [], inicio = 0, v = null) {
   if (!fotos.length) return;
   let i = inicio;
@@ -497,6 +551,7 @@ function visor(fotos = [], inicio = 0, v = null) {
     body: `<div class="viewer">
       <div class="viewer-foto"><img id="vw-img" alt=""><span class="viewer-carga" hidden><span class="spin"></span></span>
         ${v && puedoEditar(v) ? `<button class="icon-btn viewer-ov viewer-rot" id="vw-rot" aria-label="Girar foto" title="Girar">${icon("rotate")}</button>` : ""}
+        <button class="icon-btn viewer-ov viewer-x" data-close aria-label="Cerrar">${icon("x")}</button>
         <button class="icon-btn viewer-ov viewer-dl" id="vw-dl" aria-label="Descargar (mantené apretado para descargar todas)" title="Descargar · mantené apretado para todas">${icon("download")}</button>
 </div>
       <div class="viewer-bar">
@@ -509,6 +564,7 @@ function visor(fotos = [], inicio = 0, v = null) {
         <div class="viewer-mas" id="vw-mas-op" hidden>${botonesFotos({ id: "vw-add" })}</div></div>` : ""}
       </div>`
   });
+  $(".sheet", s.el).classList.add("sheet-visor");
   const img0 = $("#vw-img", s.el), carga = $(".viewer-carga", s.el);
   img0.addEventListener("load", () => { carga.hidden = true; img0.classList.remove("cargando"); });
   img0.addEventListener("error", () => { carga.hidden = true; img0.classList.remove("cargando"); });
@@ -551,14 +607,16 @@ function visor(fotos = [], inicio = 0, v = null) {
   dl.addEventListener("click", () => { if (!todas) bajar(i); });
   if ($("[data-p]", s.el)) $("[data-p]", s.el).onclick = () => { i = (i - 1 + fotos.length) % fotos.length; show(); };
   if ($("[data-n]", s.el)) $("[data-n]", s.el).onclick = () => { i = (i + 1) % fotos.length; show(); };
-  let x0 = null;
+  let x0 = null, deslizo = false;
   const img = $("#vw-img", s.el);
-  img.addEventListener("touchstart", e => { x0 = e.touches[0].clientX; }, { passive: true });
+  img.addEventListener("touchstart", e => { x0 = e.touches[0].clientX; deslizo = false; }, { passive: true });
   img.addEventListener("touchend", e => {
     if (x0 === null) return;
     const dx = e.changedTouches[0].clientX - x0; x0 = null;
-    if (Math.abs(dx) > 40) { i = (i + (dx < 0 ? 1 : -1) + fotos.length) % fotos.length; show(); }
+    if (Math.abs(dx) > 40) { deslizo = true; i = (i + (dx < 0 ? 1 : -1) + fotos.length) % fotos.length; show(); }
   });
+  // Tocar la foto: se abre a pantalla completa con zoom
+  img.addEventListener("click", () => { if (!deslizo) zoomFoto(grande(fotos[i].url, 2400, fotos[i].rot), img.src); deslizo = false; });
   const vwAdd = $("#vw-add", s.el);
   if (vwAdd) conectarFotos(vwAdd, files => {
     if (!files.length) return;

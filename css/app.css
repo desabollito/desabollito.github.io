@@ -1080,3 +1080,22 @@ details.vform-det .field + .field { margin-top: 12px; }
   .viewer img { width: 100%; height: auto; max-height: 70dvh; border-radius: 0; }
   .viewer-foto .viewer-carga { min-height: 200px; }
 }
+
+/* Visor en celular: ocupa toda la pantalla y la foto queda centrada */
+@media (max-width: 699px) {
+  .sheet.sheet-visor { height: 100dvh; max-height: 100dvh; border-radius: 0; display: flex; flex-direction: column; padding-top: calc(8px + var(--safe-t, 0px)); }
+  .sheet-visor .sheet-body, .sheet-visor .viewer { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+  .sheet-visor .viewer-foto { flex: 1; display: flex; align-items: center; justify-content: center; min-height: 0; }
+  .sheet-visor .viewer-foto .viewer-ov { z-index: 1; }
+}
+.viewer img { cursor: zoom-in; }
+/* Foto a pantalla completa con zoom */
+.zoom-foto { position: fixed; inset: 0; z-index: 90; background: #000; display: flex; align-items: center; justify-content: center; touch-action: none; overflow: hidden; }
+.zoom-foto img { max-width: 100%; max-height: 100%; object-fit: contain; transform-origin: center; user-select: none; -webkit-user-drag: none; pointer-events: none; }
+.zoom-foto .zoom-x { position: absolute; top: calc(10px + var(--safe-t, 0px)); right: 10px; background: rgba(255,255,255,.14); color: #fff; border-radius: 50%; }
+.viewer-x { display: none; }
+@media (max-width: 699px) {
+  .sheet-visor .viewer-x { display: inline-grid; top: 10px; right: 10px; }
+  .sheet-visor .viewer-dl { right: 64px; }
+  .sheet-visor .viewer-foto { position: relative; }
+}
