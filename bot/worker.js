@@ -347,7 +347,7 @@ export function interpretar(texto, extra = {}) {
   });
   for (const g of grupos) {
     const t = g.join(" ");
-    const pareceNombre = g.length >= 1 && g.length <= 4 && g.every(palabraNombre) && !idxLoc.has(sinTildes(t));   // una ciudad no es un nombre
+    const pareceNombre = g.length >= 1 && g.length <= 4 && g.every(palabraNombre);
     if (!r.asegurado && pareceNombre && r.modelo) { r.asegurado = titulo(t); continue; }
     if (!r.modelo) r.modelo = titulo(t);
     else r.otros = (r.otros ? r.otros + " " : "") + t;
