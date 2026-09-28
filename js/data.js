@@ -444,7 +444,8 @@ export async function actualizarVehiculo(id, campos, hist) {
 
 export async function cambiarEstado(v, estado, fecha = hoyISO()) {
   const fechas = { ...(v.fechas || {}) };
-  if (estado !== "anulado") {
+  if (estado !== "anulado" && estado !== "ausente") {
+    delete fechas.ausente;
     // al avanzar, completa fechas faltantes de los pasos previos
     const idx = SECUENCIA.indexOf(estado);
     SECUENCIA.forEach((e, i) => {

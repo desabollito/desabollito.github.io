@@ -303,9 +303,10 @@ function renderDetalle(root, v, embebido) {
         <button class="link-btn small ${anulado ? "" : "danger"}" data-act="anular">${anulado ? "Reactivar vehículo" : "Anular vehículo"}</button></div>
       <ol class="stepper ${anulado ? "is-anulado" : ""}">
         ${SECUENCIA.map(k => {
-          const e = ESTADO[k], hecho = !!v.fechas?.[k] && !anulado, actual = k === est;
-          return `<li><button class="step ${hecho ? "done" : ""} ${actual ? "now" : ""}" data-estado="${k}" style="--c:${e.color}">
-            <span class="dot">${hecho ? icon("check") : ""}</span>
+          const aus = k === "turnado" && est === "ausente";
+          const e = aus ? ESTADO.ausente : ESTADO[k], hecho = !!v.fechas?.[k] && !anulado, actual = k === est || aus;
+          return `<li><button class="step ${hecho ? "done" : ""} ${actual ? "now" : ""} ${aus ? "is-ausente" : ""}" data-estado="${k}" style="--c:${e.color}">
+            <span class="dot">${hecho ? icon(aus ? "x" : "check") : ""}</span>
             <span class="step-l">${e.label}</span>
             <span class="step-d">${v.fechas?.[k] ? fechaCorta(v.fechas[k]) : "—"}${(k === "peritado" || k === "reparado") && v.fechas?.[k] && horaDe(v, k) ? `<br>${horaDe(v, k)}` : ""}</span></button></li>`;
         }).join("")}
@@ -370,11 +371,27 @@ function renderDetalle(root, v, embebido) {
   $(".d-adic", root)?.addEventListener("toggle", e => { adicAbierto = e.target.open; });
   if (modo3D && marcadas.length) iniciar3D(root, v);
 
+  // Mantener apretado "Turnado" (con el auto turnado): lo marca Ausente; otra vez, vuelve a Turnado
+  let pasoLargo = false, relojPaso = null;
+  const pasoTurno = $('[data-estado="turnado"]', root);
+  pasoTurno?.addEventListener("pointerdown", () => {
+    pasoLargo = false;
+    const est = estadoActual(v);
+    if (est !== "turnado" && est !== "ausente") return;
+    relojPaso = setTimeout(() => {
+      pasoLargo = true; navigator.vibrate?.(30);
+      if (est === "turnado") { cambiarEstado(v, "ausente", hoyISO()).catch(err => toast(mensajeError(err), "error")); toast("Marcado como ausente"); }
+      else { cambiarEstado(v, "turnado", v.fechas?.turnado || hoyISO()).catch(err => toast(mensajeError(err), "error")); toast("Volvió a turnado"); }
+    }, 600);
+  });
+  ["pointerup", "pointerleave", "pointercancel"].forEach(ev => pasoTurno?.addEventListener(ev, () => clearTimeout(relojPaso)));
+  pasoTurno?.addEventListener("contextmenu", e => e.preventDefault());
+
   // Acciones
   root.addEventListener("click", async e => {
     const t = e.target;
     const step = t.closest("[data-estado]");
-    if (step) return elegirFechaEstado(v, step.dataset.estado);
+    if (step) { if (pasoLargo) { pasoLargo = false; return; } return elegirFechaEstado(v, step.dataset.estado); }
     const et = t.closest(".etapa-item");
     if (et) return elegirEtapa(v, et.dataset.tipo, et.dataset.item);
     const act = t.closest("[data-act]")?.dataset.act;

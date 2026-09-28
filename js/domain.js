@@ -4,6 +4,7 @@ export const ESTADOS = [
   { key: "turnado",   label: "Turnado",   color: "#9b7bf2" },
   { key: "reparado",  label: "Reparado",  color: "#22b07d" },
   { key: "facturado", label: "Facturado", color: "#e0a526" },
+  { key: "ausente",   label: "Ausente",   color: "#5f6b7a" },   // turnado que no vino (mantener apretado "Turnado")
   { key: "anulado",   label: "Anulado",   color: "#e5484d" }
 ];
 export const ESTADO = Object.fromEntries(ESTADOS.map(e => [e.key, e]));
