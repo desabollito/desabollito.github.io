@@ -1071,3 +1071,5 @@ details.vform-det .field + .field { margin-top: 12px; }
 
 /* Pintura (Adicionales): mismo formato que los paños marcados */
 .pintura-list { flex-direction: row; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.pintura-list li { font-size: 12.5px; font-weight: 800; padding: 4px 10px; border-radius: 999px; background: var(--primary-soft); color: var(--primary); }
+.pintura-list li::before { display: none; }

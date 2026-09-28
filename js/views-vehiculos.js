@@ -196,8 +196,8 @@ function waLink(tel, texto = "") {
   return `https://wa.me/${d}${texto ? "?text=" + encodeURIComponent(texto) : ""}`;
 }
 
-// "capot, techo y puerta" → ["Capot", "Techo", "Puerta"]
-const itemsTexto = t => String(t || "").split(/\n|,|;|\s+y\s+/i).map(x => x.trim()).filter(Boolean)
+// "capot y techo, puerta" → ["Capot y techo", "Puerta"] (se separa solo con comas y puntos)
+const itemsTexto = t => String(t || "").split(/\n|,|;|\.(?!\d)/).map(x => x.trim()).filter(Boolean)
   .map(x => x.charAt(0).toUpperCase() + x.slice(1));
 
 const chipsSec = (titulo, t) => itemsTexto(t).length ? `<section class="d-sec"><h3>${titulo}</h3>
