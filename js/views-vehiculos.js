@@ -216,7 +216,7 @@ const itemsTexto = t => String(t || "").split(/\n|,|;|\.(?!\d)/).map(x => x.trim
 
 // Estado de cada repuesto y de cada paño de pintura: se toca el ítem y se elige
 const ETAPAS = {
-  repuestos: [["pedido", "Pedido", "#e0a526"], ["recibido", "Recibido", "#4f8ff7"], ["colocado", "Colocado", "#22b07d"]],
+  repuestos: [["sinpedir", "Sin pedir", "#e5484d"], ["pedido", "Pedido", "#e0a526"], ["recibido", "Recibido", "#4f8ff7"], ["colocado", "Colocado", "#22b07d"]],
   pintura: [["pendiente", "Pendiente", "#e0a526"], ["turnado", "Turnado", "#9b7bf2"], ["pintado", "Pintado", "#22b07d"]]
 };
 const CAMPO_ETAPAS = { repuestos: "etapasRepuestos", pintura: "etapasPintura" };
