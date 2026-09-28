@@ -1158,10 +1158,14 @@ a[href="#/ajustes"] { -webkit-touch-callout: none; user-select: none; }
 
 .adm-toggle { margin-bottom: 14px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; }
 
-/* Estado de repuestos / pintura */
-.etapa-btn { border: 0; cursor: pointer; font: inherit; font-size: 12.5px; font-weight: 800; padding: 5px 12px; border-radius: 999px;
-  color: var(--c); background: color-mix(in srgb, var(--c) 18%, transparent); display: inline-flex; align-items: center; gap: 6px; }
-.etapa-btn::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--c); }
+/* Estado de cada repuesto / paño de pintura */
+.pintura-list.etapas li { padding: 0; background: none; }
+.etapa-item { border: 0; cursor: pointer; font: inherit; display: inline-flex; align-items: center; gap: 8px; padding: 5px 6px 5px 12px; border-radius: 999px;
+  background: var(--primary-soft); color: var(--primary); font-size: 12.5px; font-weight: 800; }
+.etapa-item small { font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 999px; color: var(--c); background: color-mix(in srgb, var(--c) 20%, var(--surface)); }
+.etapa-op { justify-content: flex-start; gap: 12px; border: 1px solid var(--line); background: var(--surface); }
+.etapa-op i { width: 12px; height: 12px; border-radius: 50%; background: var(--c); }
+.etapa-op.on { border-color: var(--c); background: color-mix(in srgb, var(--c) 14%, var(--surface)); }
 
 /* Sin espacio de más al final del vehículo (el botón + no se muestra ahí) y sin "rebote" al llegar al borde */
 body[data-detalle="1"] .main { padding-bottom: calc(var(--tab) + var(--safe-b) + 16px); }

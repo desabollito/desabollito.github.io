@@ -214,19 +214,36 @@ function waLink(tel, texto = "") {
 const itemsTexto = t => String(t || "").split(/\n|,|;|\.(?!\d)/).map(x => x.trim()).filter(Boolean)
   .map(x => x.charAt(0).toUpperCase() + x.slice(1));
 
-// Estado de repuestos y pintura: un botón que avanza al tocarlo
+// Estado de cada repuesto y de cada paño de pintura: se toca el ítem y se elige
 const ETAPAS = {
-  estadoRepuestos: [["pedido", "Pedido", "#e0a526"], ["recibido", "Recibido", "#4f8ff7"], ["colocado", "Colocado", "#22b07d"]],
-  estadoPintura: [["pendiente", "Pendiente", "#e0a526"], ["turnado", "Turnado", "#9b7bf2"], ["pintado", "Pintado", "#22b07d"]]
+  repuestos: [["pedido", "Pedido", "#e0a526"], ["recibido", "Recibido", "#4f8ff7"], ["colocado", "Colocado", "#22b07d"]],
+  pintura: [["pendiente", "Pendiente", "#e0a526"], ["turnado", "Turnado", "#9b7bf2"], ["pintado", "Pintado", "#22b07d"]]
 };
-const etapaDe = (v, campo) => ETAPAS[campo].find(e => e[0] === v[campo]) || ETAPAS[campo][0];
-const chipsSec = (titulo, t, v, campo) => {
-  if (!itemsTexto(t).length) return "";
-  const [, label, color] = etapaDe(v, campo);
-  return `<section class="d-sec"><div class="sec-head"><h3>${titulo}</h3>
-    <button type="button" class="etapa-btn" data-etapa="${campo}" style="--c:${color}" title="Tocá para cambiar el estado">${label}</button></div>
-  <ul class="piezas-list pintura-list">${itemsTexto(t).map(x => `<li>${esc(x)}</li>`).join("")}</ul></section>`;
+const CAMPO_ETAPAS = { repuestos: "etapasRepuestos", pintura: "etapasPintura" };
+const claveItem = x => sinTildesJS(x).toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "").slice(0, 60) || "item";
+const sinTildesJS = t => String(t).normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+const etapaItem = (v, tipo, x) => ETAPAS[tipo].find(e => e[0] === v[CAMPO_ETAPAS[tipo]]?.[claveItem(x)]) || ETAPAS[tipo][0];
+const chipsSec = (titulo, v, tipo) => {
+  const items = itemsTexto(v[tipo]);
+  if (!items.length) return "";
+  return `<section class="d-sec"><h3>${titulo}</h3>
+  <ul class="piezas-list pintura-list etapas">${items.map(x => { const [, label, color] = etapaItem(v, tipo, x);
+    return `<li><button type="button" class="etapa-item" data-tipo="${tipo}" data-item="${esc(x)}" style="--c:${color}"><span>${esc(x)}</span><small>${label}</small></button></li>`; }).join("")}</ul></section>`;
 };
+
+function elegirEtapa(v, tipo, item) {
+  const actual = etapaItem(v, tipo, item)[0];
+  const s = openSheet({ title: item, body: `<div class="stack etapa-opciones">${ETAPAS[tipo].map(([k, label, color]) =>
+    `<button type="button" class="btn btn-block etapa-op ${k === actual ? "on" : ""}" data-k="${k}" style="--c:${color}"><i></i>${label}</button>`).join("")}</div>` });
+  s.el.addEventListener("click", e => {
+    const b = e.target.closest("[data-k]"); if (!b) return;
+    s.close();
+    if (b.dataset.k === actual) return;
+    const campo = CAMPO_ETAPAS[tipo], label = ETAPAS[tipo].find(x => x[0] === b.dataset.k)[1];
+    actualizarVehiculo(v.id, { [`${campo}.${claveItem(item)}`]: b.dataset.k }, `${item}: ${label}`)
+      .catch(err => toast(mensajeError(err), "error"));
+  });
+}
 
 function renderDetalle(root, v, embebido) {
   if (vid3D !== v.id) { vid3D = v.id; modo3D = false; } // al abrir otro vehículo, arranca en 2D
@@ -302,8 +319,8 @@ function renderDetalle(root, v, embebido) {
     </section>`}
 
     ${v.observaciones ? `<section class="d-sec"><h3>Observaciones</h3><p class="prose">${esc(v.observaciones)}</p></section>` : ""}
-    ${chipsSec("Repuestos", v.repuestos, v, "estadoRepuestos")}
-    ${chipsSec("Pintura", v.pintura, v, "estadoPintura")}
+    ${chipsSec("Repuestos", v, "repuestos")}
+    ${chipsSec("Pintura", v, "pintura")}
 
     ${v.archivos?.length || v.fechas?.reparado || v.fechas?.facturado || v.firma ? `<details class="d-sec d-adic" ${adicAbierto ? "open" : ""}>
       <summary><h3>Adicionales</h3></summary>
@@ -341,14 +358,8 @@ function renderDetalle(root, v, embebido) {
     const t = e.target;
     const step = t.closest("[data-estado]");
     if (step) return elegirFechaEstado(v, step.dataset.estado);
-    const et = t.closest("[data-etapa]");
-    if (et) {
-      const campo = et.dataset.etapa, lista = ETAPAS[campo];
-      const sig = lista[(lista.indexOf(etapaDe(v, campo)) + 1) % lista.length];
-      et.textContent = sig[1]; et.style.setProperty("--c", sig[2]);
-      return actualizarVehiculo(v.id, { [campo]: sig[0] }, `${campo === "estadoRepuestos" ? "Repuestos" : "Pintura"}: ${sig[1]}`)
-        .catch(err => toast(mensajeError(err), "error"));
-    }
+    const et = t.closest(".etapa-item");
+    if (et) return elegirEtapa(v, et.dataset.tipo, et.dataset.item);
     const act = t.closest("[data-act]")?.dataset.act;
     if (act === "pdf") return compartir(v);
     if (act === "galeria") return visor(v.fotos, 0, v);
