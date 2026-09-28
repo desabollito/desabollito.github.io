@@ -289,12 +289,12 @@ function renderDetalle(root, v, embebido) {
           <button class="icon-btn sm" data-del-doc="${i}" aria-label="Quitar documento">${icon("x")}</button></li>`).join("")}</ul>
     </section>
 
-    <section class="d-sub">
+    ${v.fechas?.reparado || v.fechas?.facturado || v.firma ? `<section class="d-sub">
       <div class="sec-head"><h3>Firma del cliente</h3>
         <button class="btn btn-ghost btn-sm" data-act="firma">${icon("sign")}${v.firma ? "Volver a firmar" : "Firmar"}</button></div>
       ${v.firma ? `<img class="firma-img" src="${esc(v.firma)}" alt="Firma del cliente">`
         : ""}
-    </section>
+    </section>` : ""}
 
     </details>
 
