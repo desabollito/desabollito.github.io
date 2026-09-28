@@ -35,7 +35,7 @@ export function pintarLateral() {
   $("#company-role").textContent = c ? `${ROLES[c.roles?.[S.user.uid]]?.label || "Miembro"} · ${c.members.length} ${c.members.length === 1 ? "persona" : "personas"}` : "";
   const p = S.profile || {};
   $("#side-user").innerHTML = `
-    <span class="avatar">${p.photoURL ? `<img src="${esc(avatar(p.photoURL, 80))}" alt="">` : esc(initials(p.name))}</span>
+    <span class="avatar">${esc(initials(p.name))}</span>
     <span class="side-user-meta"><strong>${esc(p.name || "")}</strong><small>@${esc(p.username || "")}</small></span>`;
 }
 

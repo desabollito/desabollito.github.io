@@ -254,7 +254,7 @@ export function vistaEmpresa(view) {
   const admin = soyAdmin(), duenio = miRol() === "owner";
   const miembros = c.members.map(uid => ({
     uid, name: c.memberNames?.[uid] || "Usuario", rol: c.roles?.[uid] || "tecnico", tags: c.memberTags?.[uid] || [],
-    foto: c.memberPhotos?.[uid] || (uid === S.user.uid ? S.profile?.photoURL : "")
+    foto: ""
   })).sort((a, b) => (a.rol === "owner" ? -1 : b.rol === "owner" ? 1 : a.name.localeCompare(b.name)));
   const sello = c.seal || {};
 
@@ -269,7 +269,7 @@ export function vistaEmpresa(view) {
       <h3>Equipo <small class="muted">${miembros.length}</small></h3>
       <ul class="members">${miembros.map(m => `
         <li>
-          <span class="avatar">${m.foto ? `<img src="${esc(avatar(m.foto, 80))}" alt="">` : esc(initials(m.name))}</span>
+          <span class="avatar">${esc(initials(m.name))}</span>
           <span class="m-meta">
             <strong>${esc(m.name)}${m.uid === S.user.uid ? " (vos)" : ""}</strong>
             <small>${ROLES[m.rol]?.label || m.rol}</small>
@@ -472,7 +472,7 @@ export function vistaAjustes(view) {
   <div class="page narrow">
     <section class="card profile">
       <div class="profile-row">
-        <span class="avatar lg">${p.photoURL ? `<img src="${esc(avatar(p.photoURL, 160))}" alt="">` : esc(initials(p.name))}</span>
+        <span class="avatar lg">${esc(initials(p.name))}</span>
         <div class="profile-meta"><h2>${esc(p.name)}</h2><p class="muted">@${esc(p.username)}</p>
           ${p.whatsapp ? `<p class="perfil-wa" title="WhatsApp vinculado al bot">${icon("chat")}+${esc(String(p.whatsapp).replace(/^(\d{2})(9)(\d{2})(\d{4})(\d{4})$/, "$1 $2 $3 $4-$5"))}
             <button type="button" class="icon-btn sm wa-desv" id="wa-desv" aria-label="Desvincular WhatsApp" title="Desvincular WhatsApp">${icon("x")}</button></p>` : ""}</div>
@@ -519,15 +519,9 @@ export function vistaAjustes(view) {
 
 function editarPerfil(alTerminar) {
   const p = S.profile;
-  let foto = null;
   const s = openSheet({
     title: "Editar perfil",
     body: `<form class="stack" id="perfil-form">
-      <div class="photo-pick">
-        <span class="avatar xl" id="pf-prev">${p.photoURL ? `<img src="${esc(avatar(p.photoURL, 200))}" alt="">` : esc(initials(p.name))}</span>
-        <label class="btn btn-ghost btn-sm">${icon("camera")}${p.photoURL ? "Cambiar foto" : "Subir foto"}
-          <input type="file" accept="image/*" hidden id="pf-foto"></label>
-      </div>
       <label class="field"><span>Nombre</span>
         <input name="nombre" value="${esc(p.name)}" required autocomplete="name"></label>
       <label class="field"><span>Usuario</span>
@@ -536,16 +530,12 @@ function editarPerfil(alTerminar) {
       <button class="btn btn-primary btn-block btn-lg">Guardar perfil</button>
     </form>`
   });
-  $("#pf-foto", s.el).onchange = e => {
-    foto = e.target.files[0] || null;
-    if (foto) $("#pf-prev", s.el).innerHTML = `<img src="${URL.createObjectURL(foto)}" alt="">`;
-  };
   $("#perfil-form", s.el).onsubmit = async e => {
     e.preventDefault();
     const b = $("button.btn-primary", e.target);
-    busy(b, true, foto ? "Subiendo foto…" : "Guardando…");
+    busy(b, true, "Guardando…");
     try {
-      await actualizarPerfil({ nombre: e.target.nombre.value, usuario: e.target.usuario.value, foto });
+      await actualizarPerfil({ nombre: e.target.nombre.value, usuario: e.target.usuario.value });
       toast("Perfil actualizado", "success");
       s.close(); alTerminar?.();
     } catch (err) { toast(mensajeError(err), "error"); busy(b, false); }

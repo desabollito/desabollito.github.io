@@ -7,7 +7,6 @@ import {
 import { USER_DOMAIN, BOT_API } from "./config.js";
 import { hoyISO, horaAhora } from "./ui.js";
 import { SECUENCIA, ESTADO, PIEZA } from "./domain.js";
-import { subir, recorteCuadrado } from "./media.js";
 
 // ── Estado global muy simple con suscriptores ─────────────────
 export const S = {
@@ -135,7 +134,6 @@ async function asegurarPerfil(user) {
   const data = {
     name: user.displayName || base,
     email: user.email || "",
-    photoURL: user.photoURL || "",
     username,
     ...(nueva ? { aprobado: false } : {}),
     createdAt: snap.exists() ? (snap.data().createdAt || serverTimestamp()) : serverTimestamp()
@@ -188,23 +186,13 @@ export async function cambiarNombre(nombre) {
   emit("profile");
 }
 
-// Edita nombre, usuario y foto en un solo paso
-export async function actualizarPerfil({ nombre, usuario, foto }) {
+// Edita nombre y usuario
+export async function actualizarPerfil({ nombre, usuario }) {
   if (usuario && limpiarUsuario(usuario) !== S.profile.username) await cambiarUsuario(usuario);
   if (nombre && nombre.trim() !== S.profile.name) await cambiarNombre(nombre);
-  if (foto) {
-    const blob = await recorteCuadrado(foto);
-    const r = await subir(blob, `perfiles/${S.user.uid}`);
-    await updateDoc(doc(db, "users", S.user.uid), { photoURL: r.url });
-    await updateProfile(S.user, { photoURL: r.url }).catch(() => {});
-    S.profile.photoURL = r.url;
-    await sincronizarFoto(true);
-  }
   emit("profile");
 }
 
-// La foto de perfil se copia en cada operativo (memberPhotos) para que la vea el equipo
-const fotoSincronizada = new Set();
 // Cada miembro deja su @usuario en el operativo (para mostrar "cargado por @usuario")
 const usuarioSincronizado = new Set();
 async function sincronizarUsuario() {
@@ -214,15 +202,6 @@ async function sincronizarUsuario() {
     if (c.memberUsers?.[uid] === u || usuarioSincronizado.has(c.id)) continue;
     usuarioSincronizado.add(c.id);
     await updateDoc(doc(db, "companies", c.id), { [`memberUsers.${uid}`]: u }).catch(e => console.warn("usuario en operativo", e));
-  }
-}
-export async function sincronizarFoto(forzar = false) {
-  const uid = S.user?.uid, url = S.profile?.photoURL || "";
-  if (!uid || !url) return;
-  for (const c of S.companies) {
-    if (c.memberPhotos?.[uid] === url || (!forzar && fotoSincronizada.has(c.id))) continue;
-    fotoSincronizada.add(c.id);
-    await updateDoc(doc(db, "companies", c.id), { [`memberPhotos.${uid}`]: url }).catch(e => console.warn("foto en operativo", e));
   }
 }
 
@@ -242,11 +221,11 @@ function escucharEmpresas() {
     const cambio = actual?.id !== S.company?.id;
     S.company = actual;
     // Solo avisar si algo cambió de verdad (evita repintar por metadatos)
-    const firma = JSON.stringify(S.companies.map(c => [c.id, c.name, c.members, c.roles, c.memberNames, c.memberTags, c.memberPhotos, c.seal?.texto, (c.seal?.logo || "").length]));
+    const firma = JSON.stringify(S.companies.map(c => [c.id, c.name, c.members, c.roles, c.memberNames, c.memberTags, c.seal?.texto, (c.seal?.logo || "").length]));
     if (firma === ultimaFirma && !cambio) return;
     ultimaFirma = firma;
     emit("companies");
-    sincronizarFoto(); sincronizarUsuario(); revisarAgregados();
+    sincronizarUsuario(); revisarAgregados();
     if (!unsubPedidos && S.companies.some(c => ["owner", "admin"].includes(c.roles?.[S.user.uid]))) escucharPedidosParaMi();
     if (cambio) { escucharVehiculos(); escucharGastos(); }
     escucharSolicitudes();
