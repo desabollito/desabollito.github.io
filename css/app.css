@@ -1154,3 +1154,5 @@ a[href="#/ajustes"] { -webkit-touch-callout: none; user-select: none; }
 /* Sin operativo */
 .so-ops { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; margin-top: 6px; }
 .so-form { width: 100%; display: flex; flex-direction: column; gap: 12px; text-align: left; margin-top: 4px; }
+
+.p-chip .f-n { margin-left: 4px; font-weight: 800; opacity: .75; font-variant-numeric: tabular-nums; }

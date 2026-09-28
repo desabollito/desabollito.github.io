@@ -16,7 +16,7 @@ import { presupuestoPDF, nombreArchivo } from "./pdf.js";
 import { setTopbar, go, esAncho } from "./shell.js";
 
 // Filtros de la lista (se conservan al navegar)
-const F = { estado: "todos", q: "", mios: false, orden: "fecha", dir: -1 };
+const F = { estado: "todos", q: "", mios: false, orden: "fecha", dir: -1, grado: null }; // grado: null = todos, 0 = sin grado
 const ORDENES = [["fecha", "Fecha"], ["patente", "Patente"], ["modelo", "Modelo"], ["estado", "Estado"]];
 function ordenar(lista) {
   if (F.orden === "fecha" && F.dir === -1) return lista;   // ya viene ordenada por fecha, la más nueva arriba
@@ -34,6 +34,7 @@ function filtrar(lista) {
   return lista.filter(v =>
     (F.estado === "todos" || estadoActual(v) === F.estado) &&
     (!F.mios || esMioV(v)) &&
+    (F.grado === null || (v.grado || 0) === F.grado) &&
     (!q || [v.modelo, v.patente, v.asegurado, v.compania, v.localidad, v.telefono]
       .some(x => (x || "").toLowerCase().includes(q))));
 }
@@ -78,7 +79,7 @@ export function vistaVehiculos(view, selId = null) {
   const sel = selId ? getVehiculo(selId) : null;
   if (selId && !ancho) return vistaDetalle(view, selId);
 
-  const filtroActivo = () => F.mios || F.orden !== "fecha" || F.dir !== -1;
+  const filtroActivo = () => F.mios || F.grado !== null || F.orden !== "fecha" || F.dir !== -1;
   setTopbar({
     title: "Vehículos",
     sub: S.company?.name,
@@ -122,7 +123,7 @@ export function vistaVehiculos(view, selId = null) {
       ? lista.map(v => tarjeta(v, v.id === selId)).join("")
       : `<div class="empty small"><p>Ningún vehículo coincide con la búsqueda.</p>
          <button class="btn btn-ghost" id="limpiar">Limpiar filtros</button></div>`;
-    $("#limpiar", box)?.addEventListener("click", () => { F.q = ""; F.estado = "todos"; F.mios = false; $("#q", view).value = ""; pintar(); });
+    $("#limpiar", box)?.addEventListener("click", () => { F.q = ""; F.estado = "todos"; F.mios = false; F.grado = null; $("#tb-filtros")?.classList.remove("activo"); $("#q", view).value = ""; pintar(); });
   };
 
   $("#q", view).addEventListener("input", debounce(e => { F.q = e.target.value; pintar(); }, 120));
@@ -133,10 +134,22 @@ export function vistaVehiculos(view, selId = null) {
   // Filtros: orden (como en la planilla) y "Cargados por mí"
   $("#tb-filtros")?.addEventListener("click", () => {
     const s = openSheet({ title: "Filtros", body: `<div class="stack filtros">
+      <span class="muted small">Grado</span><div class="p-chips" id="f-grado"></div>
       <span class="muted small">Ordenar por</span><div class="p-chips" id="f-orden"></div>
       <label class="toggle"><input type="checkbox" id="f-mios" ${F.mios ? "checked" : ""}><span>Cargados por mí</span></label>
       <button class="btn btn-ghost btn-sm" id="f-reset">Quitar filtros</button></div>` });
     const chips = () => { $("#f-orden", s.el).innerHTML = ORDENES.map(([k, t]) => `<button type="button" class="p-chip ${F.orden === k ? "on" : ""}" data-orden="${k}">${t}${F.orden === k ? `<i>${F.dir > 0 ? "↑" : "↓"}</i>` : ""}</button>`).join(""); };
+    const chipsGrado = () => {
+      const n = g => activos().filter(v => (v.grado || 0) === g).length;
+      $("#f-grado", s.el).innerHTML = [[1, "Grado 1"], [2, "Grado 2"], [3, "Grado 3"], [0, "Sin grado"]].map(([g, t]) =>
+        `<button type="button" class="p-chip ${F.grado === g ? "on" : ""}" data-grado="${g}">${t} <b class="f-n">${n(g)}</b></button>`).join("");
+    };
+    chipsGrado();
+    $("#f-grado", s.el).onclick = e => {
+      const b = e.target.closest("[data-grado]"); if (!b) return;
+      const g = Number(b.dataset.grado);
+      F.grado = F.grado === g ? null : g; chipsGrado(); aplicar();
+    };
     const aplicar = () => { chips(); pintar(); $("#tb-filtros")?.classList.toggle("activo", filtroActivo()); };
     chips();
     $("#f-orden", s.el).onclick = e => {
@@ -145,7 +158,7 @@ export function vistaVehiculos(view, selId = null) {
       aplicar();
     };
     $("#f-mios", s.el).onchange = e => { F.mios = e.target.checked; aplicar(); };
-    $("#f-reset", s.el).onclick = () => { F.mios = false; F.orden = "fecha"; F.dir = -1; $("#f-mios", s.el).checked = false; aplicar(); };
+    $("#f-reset", s.el).onclick = () => { F.mios = false; F.grado = null; F.orden = "fecha"; F.dir = -1; $("#f-mios", s.el).checked = false; chipsGrado(); aplicar(); };
   });
   pintar();
 
