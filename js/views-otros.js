@@ -1,7 +1,7 @@
 import {
   S, activos, papelera, restaurar, eliminarDefinitivo, soyAdmin, miRol, renombrarEmpresa, guardarSello,
   agregarMiembro, cambiarRol, quitarMiembro, guardarEtiquetas, resolverSolicitud, desvincularWhatsApp, salirDeEmpresa, eliminarEmpresa, crearEmpresa, elegirEmpresa,
-  actualizarPerfil, salir, mensajeError
+  actualizarPerfil, salir, mensajeError, llamarAdmin
 } from "./data.js";
 import { ESTADOS, ESTADO, ROLES, estadoActual } from "./domain.js";
 import {
@@ -602,4 +602,42 @@ export function vistaPapelera(view) {
         eliminarDefinitivo(x.dataset.x).catch(err => toast(mensajeError(err), "error"));
     }
   };
+}
+
+// ── Panel del creador: se abre manteniendo apretado el botón de Ajustes (solo @gzmatte)
+export async function panelCreador() {
+  const s = openSheet({ title: "Administración", wide: true, body: `<div class="adm"><div class="skeleton" style="height:160px"></div></div>` });
+  const caja = $(".adm", s.el);
+  let tab = "operativos", datos = null;
+  const pintar = () => {
+    const { operativos, usuarios } = datos;
+    caja.innerHTML = `
+      <div class="seg seg-sm adm-tabs">
+        <button type="button" class="seg-btn ${tab === "operativos" ? "on" : ""}" data-tab="operativos">Operativos <small>${operativos.length}</small></button>
+        <button type="button" class="seg-btn ${tab === "usuarios" ? "on" : ""}" data-tab="usuarios">Usuarios <small>${usuarios.length}</small></button>
+      </div>
+      ${tab === "operativos" ? `<ul class="adm-list">${operativos.map(o => `
+        <li><div><strong>${esc(o.name)}</strong>
+          <small class="muted">${o.miembros.map(m => `${esc(m.quien)}${m.rol === "admin" ? " (admin)" : ""}`).join(" · ") || "Sin miembros"}</small></div></li>`).join("")}</ul>`
+      : `<ul class="adm-list">${usuarios.map(u => `
+        <li><div><strong>${esc(u.name || "Sin nombre")}</strong>
+          <small class="muted">@${esc(u.username)}${u.whatsapp ? ` · +${esc(u.whatsapp)}` : ""}${!u.aprobado ? " · pendiente" : ""}${u.rechazado ? " · rechazado" : ""}</small></div>
+          ${u.username === "gzmatte" ? "" : `<button type="button" class="icon-btn sm danger" data-borrar="${esc(u.uid)}" aria-label="Eliminar usuario" title="Eliminar de la app">${icon("trash")}</button>`}</li>`).join("")}</ul>`}`;
+  };
+  const cargar = async () => {
+    try { datos = await llamarAdmin("datos"); pintar(); }
+    catch (e) { caja.innerHTML = `<p class="muted center">${esc(e.message)}</p>`; }
+  };
+  caja.addEventListener("click", async e => {
+    const t = e.target.closest("[data-tab]");
+    if (t) { tab = t.dataset.tab; return pintar(); }
+    const b = e.target.closest("[data-borrar]");
+    if (!b) return;
+    const u = datos.usuarios.find(x => x.uid === b.dataset.borrar);
+    if (!(await confirmar({ title: `¿Eliminar a ${u.name || "@" + u.username}?`, message: `Se borra su cuenta @${u.username}, su WhatsApp vinculado y se lo quita de todos los operativos. Los vehículos que cargó quedan.`, ok: "Eliminar", danger: true }))) return;
+    b.disabled = true;
+    try { await llamarAdmin("borrar-usuario", { uid: u.uid }); toast("Usuario eliminado", "success"); await cargar(); }
+    catch (err) { b.disabled = false; toast(err.message, "error"); }
+  });
+  cargar();
 }

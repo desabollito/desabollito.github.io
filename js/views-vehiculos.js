@@ -66,8 +66,8 @@ function tarjeta(v, sel) {
     <span class="vthumb">${foto ? `<img src="${esc(thumb(foto, 160, rot0))}" alt="" loading="lazy">` : icon("car")}</span>
     <span class="vbody">
       <span class="vtop"><strong class="vmodel">${esc(v.modelo || "Sin modelo")}</strong>${estadoPill(v)}</span>
-      <span class="vmid">${plate(v.patente, "sm")}${v._pending ? `<span class="sync" title="Pendiente de sincronizar"></span>` : ""}${esDeWhatsApp(v) ? `<small class="vbot">Bot</small>` : ""}</span>
-      <span class="vsub"><span class="vcli">${esc(v.compania || "")}</span><span class="vfechas"><time>${fechaCorta(v.fechas?.peritado)}${horaDe(v, "peritado") ? ` ${horaDe(v, "peritado")}` : ""}</time>${v.fechas?.reparado && !v.fechas?.anulado ? `<time class="vrep">${fechaCorta(v.fechas.reparado)}${horaDe(v, "reparado") ? ` ${horaDe(v, "reparado")}` : ""}</time>` : ""}</span></span>
+      <span class="vmid">${plate(v.patente, "sm")}${v._pending ? `<span class="sync" title="Pendiente de sincronizar"></span>` : ""}${horaDe(v, "peritado") ? `<time class="vhora">${horaDe(v, "peritado")}hs</time>` : ""}</span>
+      <span class="vsub"><span class="vcli">${esc(v.compania || "")}</span><span class="vfechas"><time>${fechaCorta(v.fechas?.peritado)}</time>${v.fechas?.reparado && !v.fechas?.anulado ? `<time class="vrep">${fechaCorta(v.fechas.reparado)}${horaDe(v, "reparado") ? ` ${horaDe(v, "reparado")}hs` : ""}</time>` : ""}</span></span>
     </span>
   </a>`;
 }
@@ -221,9 +221,9 @@ function renderDetalle(root, v, embebido) {
              <label class="d-cover-gal" aria-label="Agregar fotos de la galería">${icon("image")}<span class="gal-plus">+</span><input type="file" accept="image/*" multiple hidden data-galeria></label>
            </div>`}
       <div class="d-title">
+        ${v.grado ? `<div class="d-grado"><span class="grado-tag g${v.grado}">Grado ${v.grado}</span></div>` : ""}
         <h2>${esc(v.modelo || "Sin modelo")}</h2>
         <div class="d-plate">${plate(v.patente, "lg")}</div>
-        ${v.grado ? `<div class="d-grado"><span class="grado-tag g${v.grado}">Grado ${v.grado}</span></div>` : ""}
         ${v.precio ? `<div class="d-price"><strong>${money(v.precio)}</strong></div>` : ""}
       </div>
     </header>
@@ -248,8 +248,7 @@ function renderDetalle(root, v, embebido) {
           return `<li><button class="step ${hecho ? "done" : ""} ${actual ? "now" : ""}" data-estado="${k}" style="--c:${e.color}">
             <span class="dot">${hecho ? icon("check") : ""}</span>
             <span class="step-l">${e.label}</span>
-            <span class="step-d">${v.fechas?.[k] ? fechaCorta(v.fechas[k]) : "—"}</span>
-            ${(k === "peritado" || k === "reparado") && v.fechas?.[k] && horaDe(v, k) ? `<span class="step-h">${horaDe(v, k)}</span>` : ""}</button></li>`;
+            <span class="step-d">${v.fechas?.[k] ? fechaCorta(v.fechas[k]) : "—"}${(k === "peritado" || k === "reparado") && v.fechas?.[k] && horaDe(v, k) ? `<br>${horaDe(v, k)}hs` : ""}</span></button></li>`;
         }).join("")}
       </ol>
       ${anulado ? `<p class="muted small">Anulado el ${fechaCorta(v.fechas?.anulado)}</p>` : ""}
@@ -304,11 +303,10 @@ function renderDetalle(root, v, embebido) {
     </details>` : ""}
 
     <footer class="d-foot">
-      <span>Cargado por ${esc(cargadoPor(v))}</span>
+      <span class="d-autor"><button class="icon-btn sm hist-btn" data-act="historial" aria-label="Historial" title="Historial">${icon("clock")}</button>Cargado por ${esc(cargadoPor(v))}</span>
       <span class="d-foot-btns">
-        <label class="icon-btn sm hist-btn" aria-label="Adjuntar documento" title="Adjuntar documento">${icon("file")}
-          <input type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,image/*" multiple hidden data-up="doc"></label>
-        <button class="icon-btn sm hist-btn" data-act="historial" aria-label="Historial" title="Historial">${icon("clock")}</button>
+        ${v.archivos?.length ? "" : `<label class="icon-btn sm hist-btn doc-mas" aria-label="Adjuntar documento" title="Adjuntar documento">${icon("file")}<span class="gal-plus">+</span>
+          <input type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,image/*" multiple hidden data-up="doc"></label>`}
         <button class="icon-btn danger" data-act="borrar" aria-label="Eliminar vehículo" title="Eliminar">${icon("trash")}</button>
       </span>
     </footer>

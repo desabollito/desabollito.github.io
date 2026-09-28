@@ -577,3 +577,14 @@ export async function guardarGasto(id, data) {
 }
 
 export const borrarGasto = id => deleteDoc(doc(colGastos(), id));
+
+// ── Panel del creador (@gzmatte): todos los operativos y usuarios ─────
+export const soyCreador = () => S.profile?.username === "gzmatte";
+export async function llamarAdmin(ruta, datos = {}) {
+  const idToken = await S.user.getIdToken();
+  const r = await fetch(`${BOT_API}/admin/${ruta}`, { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ idToken, ...datos }) });
+  const j = await r.json().catch(() => ({}));
+  if (!j.ok) throw new Error(j.error || "No se pudo completar");
+  return j;
+}

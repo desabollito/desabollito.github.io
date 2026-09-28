@@ -1125,3 +1125,16 @@ details.vform-det .field + .field { margin-top: 12px; }
 .d-grado { display: flex; }
 .vsub .vfechas { margin-left: auto; flex-shrink: 0; }
 .vsub .vfechas time { margin-left: 0; }
+
+/* Panel del creador */
+.adm-tabs { margin-bottom: 12px; }
+.adm-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.adm-list li { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 2px; border-bottom: 1px solid var(--line); }
+.adm-list li > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.adm-list small { overflow-wrap: anywhere; }
+a[href="#/ajustes"] { -webkit-touch-callout: none; user-select: none; }
+
+.vmid .vhora { margin-left: auto; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.d-autor { display: inline-flex; align-items: center; gap: 4px; }
+.doc-mas { position: relative; }
+.doc-mas .gal-plus { position: absolute; right: 2px; bottom: 2px; }

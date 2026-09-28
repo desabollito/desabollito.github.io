@@ -4,11 +4,11 @@ import {
 import { $, $$, toast, busy, openSheet } from "./ui.js";
 import { FIREBASE } from "./config.js";
 import { iniciarFechas } from "./fecha.js";
-import { cuentaPendiente, salir, marcarOperativosVistos } from "./data.js";
+import { cuentaPendiente, salir, marcarOperativosVistos, soyCreador } from "./data.js";
 import { marcarNav, pintarLateral, esAncho } from "./shell.js";
 import { vistaVehiculos, vistaDetalle, vistaFormulario, reiniciarVista3D } from "./views-vehiculos.js";
 import {
-  vistaPlanilla, vistaCalendario, calendarioAlEntrar, vistaEmpresa, vistaAjustes, vistaPapelera, elegirEmpresaSheet
+  vistaPlanilla, vistaCalendario, calendarioAlEntrar, vistaEmpresa, vistaAjustes, vistaPapelera, elegirEmpresaSheet, panelCreador
 } from "./views-otros.js";
 import { vistaGastos, formGasto } from "./views-gastos.js";
 
@@ -263,4 +263,18 @@ function avisarAgregado(ops) {
   $("[data-ok]", s.el).onclick = () => s.close();
   const ir = $("[data-ir]", s.el);
   if (ir) ir.onclick = () => { elegirEmpresa(ops[0].id); s.close(); location.hash = "#/"; };
+}
+
+// Mantener apretado el botón de Ajustes (solo el creador de la app): panel con todos los operativos y usuarios
+{
+  let reloj = null, abrio = false;
+  document.addEventListener("pointerdown", e => {
+    const a = e.target.closest('a[href="#/ajustes"]');
+    abrio = false;
+    if (!a || !soyCreador()) return;
+    reloj = setTimeout(() => { abrio = true; navigator.vibrate?.(30); panelCreador(); }, 650);
+  });
+  ["pointerup", "pointercancel"].forEach(ev => document.addEventListener(ev, () => clearTimeout(reloj), true));
+  document.addEventListener("click", e => { if (abrio && e.target.closest('a[href="#/ajustes"]')) { e.preventDefault(); abrio = false; } }, true);
+  document.addEventListener("contextmenu", e => { if (e.target.closest('a[href="#/ajustes"]') && soyCreador()) e.preventDefault(); });
 }

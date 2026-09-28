@@ -40,7 +40,8 @@ export default {
     if (url.pathname === "/") return new Response("Desabollito bot funcionando ✅");
     if (url.pathname === "/diagnostico") return diagnostico(url, env);
     if (url.pathname === "/evolution") return webhookEvolution(req, url, env, ctx);
-    const API = { "/registro": nuevoRegistro, "/avisar": avisarCliente, "/solicitud": avisarSolicitud, "/agregado": avisarAgregado };
+    const API = { "/registro": nuevoRegistro, "/avisar": avisarCliente, "/solicitud": avisarSolicitud, "/agregado": avisarAgregado,
+      "/admin/datos": adminDatos, "/admin/borrar-usuario": adminBorrarUsuario };
     if (API[url.pathname]) {
       if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
       if (req.method !== "POST") return json({ ok: false, error: "Método no permitido" }, 405);
@@ -1608,6 +1609,80 @@ async function avisarCliente(env, { cid, vid, por }) {
   const quien = String(por || "").slice(0, 60);
   await fsMerge(env, ruta, { avisoReparado: { t: Date.now(), por: quien } });
   await fsAppend(env, ruta, "historial", { t: Date.now(), uid: "", por: quien, txt: "Le avisó al cliente por WhatsApp que el auto está listo" }).catch(() => {});
+  return json({ ok: true });
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  Panel del creador de la app (solo la cuenta @gzmatte)
+// ═══════════════════════════════════════════════════════════════
+const CREADOR = "gzmatte";
+let jwksCache = null;
+const b64dec = t => Uint8Array.from(atob(t.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((t.length + 3) % 4)), c => c.charCodeAt(0));
+
+// Verifica el token de sesión de Firebase que manda la app y devuelve el uid
+async function verificarIdToken(env, token) {
+  const [h, p, firma] = String(token || "").split(".");
+  if (!h || !p || !firma) throw new Error("token");
+  const cab = JSON.parse(new TextDecoder().decode(b64dec(h)));
+  const dat = JSON.parse(new TextDecoder().decode(b64dec(p)));
+  const ahora = Date.now() / 1000;
+  if (cab.alg !== "RS256" || dat.aud !== env.FIREBASE_PROJECT_ID || dat.iss !== `https://securetoken.google.com/${env.FIREBASE_PROJECT_ID}`
+    || !(dat.exp > ahora) || !dat.sub) throw new Error("token");
+  if (!jwksCache || jwksCache.exp < Date.now()) {
+    const r = await fetch("https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com");
+    jwksCache = { keys: (await r.json()).keys || [], exp: Date.now() + 3600_000 };
+  }
+  const jwk = jwksCache.keys.find(k => k.kid === cab.kid);
+  if (!jwk) throw new Error("token");
+  const clave = await crypto.subtle.importKey("jwk", { kty: jwk.kty, n: jwk.n, e: jwk.e, alg: "RS256", ext: true },
+    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, false, ["verify"]);
+  const ok = await crypto.subtle.verify("RSASSA-PKCS1-v1_5", clave, b64dec(firma), new TextEncoder().encode(`${h}.${p}`));
+  if (!ok) throw new Error("token");
+  return dat.sub;
+}
+
+async function soloCreador(env, idToken) {
+  try {
+    const uid = await verificarIdToken(env, idToken);
+    const u = await fsGet(env, `users/${uid}`);
+    return u?.username === CREADOR ? uid : null;
+  } catch { return null; }
+}
+
+// Todos los operativos y todos los usuarios
+async function adminDatos(env, { idToken }) {
+  if (!(await soloCreador(env, idToken))) return json({ ok: false, error: "No autorizado" }, 403);
+  const [users, comps] = await Promise.all([fsList(env, "users"), fsList(env, "companies")]);
+  const nombreDe = Object.fromEntries(users.map(u => [u.__id, u.username ? "@" + u.username : u.name || u.__id]));
+  return json({ ok: true,
+    usuarios: users.map(u => ({ uid: u.__id, name: u.name || "", username: u.username || "", whatsapp: u.whatsapp || "",
+      aprobado: u.aprobado !== false, rechazado: !!u.rechazado }))
+      .sort((a, b) => (a.name || a.username).localeCompare(b.name || b.username)),
+    operativos: comps.map(c => ({ id: c.__id, name: c.name || "Sin nombre",
+      miembros: (c.members || []).map(m => ({ uid: m, quien: nombreDe[m] || c.memberNames?.[m] || "(usuario borrado)", rol: c.roles?.[m] || "" })) }))
+      .sort((a, b) => a.name.localeCompare(b.name)) });
+}
+
+// Elimina un usuario de la app: cuenta de acceso, perfil, nombre de usuario, WhatsApp y membresías
+async function adminBorrarUsuario(env, { idToken, uid }) {
+  const yo = await soloCreador(env, idToken);
+  if (!yo) return json({ ok: false, error: "No autorizado" }, 403);
+  if (!idValido(uid) || uid === yo) return json({ ok: false, error: "No se puede borrar ese usuario" }, 400);
+  const u = await fsGet(env, `users/${uid}`);
+  await borrarCuentaAuth(env, uid).catch(e => console.error("borrar cuenta", e));
+  if (u?.username) {
+    await fsDelete(env, `usernames/${u.username}`).catch(() => {});
+    await fsDelete(env, `bot_pendientes/${u.username}`).catch(() => {});
+  }
+  if (u?.whatsapp) await fsDelete(env, `bot_numeros/${u.whatsapp}`).catch(() => {});
+  const sinUid = o => Object.fromEntries(Object.entries(o || {}).filter(([k]) => k !== uid));
+  for (const c of await fsList(env, "companies")) {
+    if (!(c.members || []).includes(uid)) continue;
+    const cambios = { members: c.members.filter(m => m !== uid) };
+    for (const k of ["roles", "memberNames", "memberTags", "memberPhotos", "memberUsers", "memberAddedBy"]) if (c[k]) cambios[k] = sinUid(c[k]);
+    await fsMerge(env, `companies/${c.__id}`, cambios).catch(e => console.error("quitar de operativo", e));
+  }
+  await fsDelete(env, `users/${uid}`).catch(() => {});
   return json({ ok: true });
 }
 
