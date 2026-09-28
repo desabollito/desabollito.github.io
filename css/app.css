@@ -1120,8 +1120,9 @@ details.vform-det .field + .field { margin-top: 12px; }
 
 /* Horas (peritado / reparado) */
 .step-h { display: block; font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
-.vfechas { display: inline-flex; flex-direction: column; align-items: flex-end; gap: 1px; font-variant-numeric: tabular-nums; }
-.vfechas .vrep { color: #22b07d; }
+.vfechas { display: inline-flex; flex-direction: row; align-items: flex-start; gap: 12px; font-variant-numeric: tabular-nums; }
+.vf { display: inline-flex; flex-direction: column; align-items: flex-end; gap: 1px; }
+.vfechas .vrep, .vfechas .vrep time { color: #22b07d; }
 .d-grado { display: flex; }
 .vsub .vfechas { margin-left: auto; flex-shrink: 0; }
 .vsub .vfechas time { margin-left: 0; }

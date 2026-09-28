@@ -66,8 +66,8 @@ function tarjeta(v, sel) {
     <span class="vthumb">${foto ? `<img src="${esc(thumb(foto, 160, rot0))}" alt="" loading="lazy">` : icon("car")}</span>
     <span class="vbody">
       <span class="vtop"><strong class="vmodel">${esc(v.modelo || "Sin modelo")}</strong>${estadoPill(v)}</span>
-      <span class="vmid">${plate(v.patente, "sm")}${v._pending ? `<span class="sync" title="Pendiente de sincronizar"></span>` : ""}${horaDe(v, "peritado") ? `<time class="vhora">${horaDe(v, "peritado")}hs</time>` : ""}</span>
-      <span class="vsub"><span class="vcli">${esc(v.compania || "")}</span><span class="vfechas"><time>${fechaCorta(v.fechas?.peritado)}</time>${v.fechas?.reparado && !v.fechas?.anulado ? `<time class="vrep">${fechaCorta(v.fechas.reparado)}${horaDe(v, "reparado") ? ` ${horaDe(v, "reparado")}hs` : ""}</time>` : ""}</span></span>
+      <span class="vmid">${plate(v.patente, "sm")}${v._pending ? `<span class="sync" title="Pendiente de sincronizar"></span>` : ""}</span>
+      <span class="vsub"><span class="vcli">${esc(v.compania || "")}</span><span class="vfechas">${v.fechas?.reparado && !v.fechas?.anulado ? `<span class="vf vrep"><time>${fechaCorta(v.fechas.reparado)}</time>${horaDe(v, "reparado") ? `<time>${horaDe(v, "reparado")}</time>` : ""}</span>` : ""}<span class="vf"><time>${fechaCorta(v.fechas?.peritado)}</time>${horaDe(v, "peritado") ? `<time>${horaDe(v, "peritado")}</time>` : ""}</span></span></span>
     </span>
   </a>`;
 }
@@ -248,7 +248,7 @@ function renderDetalle(root, v, embebido) {
           return `<li><button class="step ${hecho ? "done" : ""} ${actual ? "now" : ""}" data-estado="${k}" style="--c:${e.color}">
             <span class="dot">${hecho ? icon("check") : ""}</span>
             <span class="step-l">${e.label}</span>
-            <span class="step-d">${v.fechas?.[k] ? fechaCorta(v.fechas[k]) : "—"}${(k === "peritado" || k === "reparado") && v.fechas?.[k] && horaDe(v, k) ? `<br>${horaDe(v, k)}hs` : ""}</span></button></li>`;
+            <span class="step-d">${v.fechas?.[k] ? fechaCorta(v.fechas[k]) : "—"}${(k === "peritado" || k === "reparado") && v.fechas?.[k] && horaDe(v, k) ? `<br>${horaDe(v, k)}` : ""}</span></button></li>`;
         }).join("")}
       </ol>
       ${anulado ? `<p class="muted small">Anulado el ${fechaCorta(v.fechas?.anulado)}</p>` : ""}
