@@ -311,9 +311,7 @@ export function interpretar(texto, extra = {}) {
       if (!frase) continue;
       let asignado = null;
       if (!r.compania) { const c = compDe(frase); if (c) { r.compania = c; asignado = "compania"; } }
-      if (!asignado && idxLoc.has(frase) && !((IDX_MODELOS.has(frase) || IDX_MARCAS.has(frase)) && frase !== "santa fe")) {
-        if (!r.localidad) { r.localidad = idxLoc.get(frase); asignado = "localidad"; }
-      }
+      // (la localidad nunca se toma del mensaje: siempre es el nombre del operativo)
       if (!asignado && (IDX_MARCAS.has(frase) || IDX_MODELOS.has(frase))) asignado = "modelo";
       if (asignado) for (let k = i; k < i + n; k++) tipo[k] = asignado;
     }
@@ -349,10 +347,9 @@ export function interpretar(texto, extra = {}) {
   });
   for (const g of grupos) {
     const t = g.join(" ");
-    const pareceNombre = g.length >= 2 && g.length <= 4 && g.every(palabraNombre);
+    const pareceNombre = g.length >= 1 && g.length <= 4 && g.every(palabraNombre) && !idxLoc.has(sinTildes(t));   // una ciudad no es un nombre
     if (!r.asegurado && pareceNombre && r.modelo) { r.asegurado = titulo(t); continue; }
     if (!r.modelo) r.modelo = titulo(t);
-    else if (!r.localidad) r.localidad = titulo(t);
     else r.otros = (r.otros ? r.otros + " " : "") + t;
   }
   return r;
@@ -664,7 +661,7 @@ async function abrirExistente(env, numero, v, datos, hora, previa, fijar = true,
 
 // Completa en la web los datos que vinieron en el mensaje (solo los que cambian)
 async function actualizarDatos(env, v, datos, quien) {
-  const campos = { modelo: "modelo", compania: "compañía", telefono: "teléfono", localidad: "localidad", grado: "grado", asegurado: "cliente" };
+  const campos = { modelo: "modelo", compania: "compañía", telefono: "teléfono", grado: "grado", asegurado: "cliente" };
   const nuevos = {}, nombres = [];
   for (const [k, nombre] of Object.entries(campos)) {
     if (datos[k] && datos[k] !== v[k]) { nuevos[k] = datos[k]; nombres.push(nombre); v[k] = datos[k]; }
@@ -746,7 +743,7 @@ async function crearVehiculo(env, op, d, quien) {
   const hoy = new Date(Date.now() - 3 * 3600 * 1000).toISOString().slice(0, 10); // fecha de Argentina (UTC-3)
   const datos = {
     modelo: d.modelo || "", patente: d.patente, asegurado: d.asegurado || "", telefono: d.telefono || "", compania: d.compania || "",
-    localidad: d.localidad || op.operativo || "", observaciones: d.otros || "", repuestos: "", precio: 0, piezas: d.piezas || {}, grado: d.grado || null,
+    localidad: op.operativo || "", observaciones: d.otros || "", repuestos: "", precio: 0, piezas: d.piezas || {}, grado: d.grado || null,
     estado: "peritado", fechas: { peritado: hoy }, fotos: [], archivos: [], firma: null, deleted: false,
     createdBy: `whatsapp:${quien.numero}`, createdByName: `${quien.nombre || quien.numero} (WhatsApp)`,
     ...(quien.uid ? { createdByUid: quien.uid } : {}),
