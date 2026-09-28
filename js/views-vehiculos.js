@@ -13,6 +13,7 @@ import { carMapSVG, montarMapa } from "./carmap.js";
 import { montar3D } from "./car3d.js";
 import { subir, comprimir, borrarConToken, thumb, grande, cloudinaryListo } from "./media.js";
 import { presupuestoPDF, nombreArchivo } from "./pdf.js";
+import { armarZip } from "./zip.js";
 import { setTopbar, go, esAncho } from "./shell.js";
 
 // Filtros de la lista (se conservan al navegar)
@@ -640,14 +641,46 @@ function visor(fotos = [], inicio = 0, v = null) {
     dl.addEventListener("contextmenu", e => e.preventDefault());
     dl.addEventListener("click", () => { if (!todas) bajar(i); });
   } else {
-    // Computadora: pregunta si bajar solo esta foto o todas las del vehículo
+    // Computadora: esta foto, todas en ZIP o todas en una carpeta (esta última solo en Chrome/Edge)
+    const baseNombre = nombreFoto(0).replace(/_01\.jpg$/, "");
+    const traer = async n => {
+      const f = fotos[n];
+      const r = await fetch(grande(f.url, 4000, f.rot).replace("f_auto", "f_jpg"));
+      if (!r.ok) throw new Error(`No se pudo bajar la foto ${n + 1}`);
+      return r.blob();
+    };
+    const conProgreso = async (hacer) => {
+      const t = toast(`Preparando ${fotos.length} fotos…`);
+      try { await hacer(); } catch (e) { if (e?.name !== "AbortError") toast(e.message || "No se pudo descargar", "error"); }
+    };
     dl.addEventListener("click", () => {
       if (fotos.length === 1) return bajar(i);
+      const carpeta = "showDirectoryPicker" in window;
       const q = openSheet({ title: "Descargar", body: `<div class="stack">
         <button type="button" class="btn btn-ghost btn-block" data-una>${icon("image")}Esta foto</button>
-        <button type="button" class="btn btn-primary btn-block" data-todas>${icon("download")}Todas las fotos del vehículo (${fotos.length})</button></div>` });
+        <button type="button" class="btn btn-primary btn-block" data-zip>${icon("download")}Todas en ZIP (${fotos.length})</button>
+        ${carpeta ? `<button type="button" class="btn btn-ghost btn-block" data-carpeta>${icon("file")}Todas en una carpeta</button>` : ""}</div>` });
       $("[data-una]", q.el).onclick = () => { q.close(); bajar(i); };
-      $("[data-todas]", q.el).onclick = () => { q.close(); bajarTodas(); };
+      $("[data-zip]", q.el).onclick = () => { q.close(); conProgreso(async () => {
+        const archivos = [];
+        for (let n = 0; n < fotos.length; n++) archivos.push({ nombre: nombreFoto(n), datos: new Uint8Array(await (await traer(n)).arrayBuffer()) });
+        const a = document.createElement("a"); a.href = URL.createObjectURL(armarZip(archivos)); a.download = `${baseNombre}.zip`;
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+        toast("ZIP descargado", "success");
+      }); };
+      $("[data-carpeta]", q.el)?.addEventListener("click", async () => {
+        q.close();
+        let dir;
+        try { dir = await window.showDirectoryPicker({ mode: "readwrite", id: "desabollito-fotos" }); } catch { return; }
+        conProgreso(async () => {
+          for (let n = 0; n < fotos.length; n++) {
+            const fh = await dir.getFileHandle(nombreFoto(n), { create: true });
+            const w = await fh.createWritable(); await w.write(await traer(n)); await w.close();
+          }
+          toast(`${fotos.length} fotos guardadas en “${dir.name}”`, "success");
+        });
+      });
     });
   }
   if ($("[data-p]", s.el)) $("[data-p]", s.el).onclick = () => { i = (i - 1 + fotos.length) % fotos.length; show(); };
