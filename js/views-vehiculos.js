@@ -498,12 +498,12 @@ function visor(fotos = [], inicio = 0, v = null) {
       <div class="viewer-foto"><img id="vw-img" alt=""><span class="viewer-carga" hidden><span class="spin"></span></span>
         ${v && puedoEditar(v) ? `<button class="icon-btn viewer-ov viewer-rot" id="vw-rot" aria-label="Girar foto" title="Girar">${icon("rotate")}</button>` : ""}
         <button class="icon-btn viewer-ov viewer-dl" id="vw-dl" aria-label="Descargar (mantené apretado para descargar todas)" title="Descargar · mantené apretado para todas">${icon("download")}</button>
-        ${fotos.length > 1 ? `<button class="icon-btn viewer-ov viewer-prev" data-p aria-label="Anterior">${icon("back")}</button>
-        <button class="icon-btn viewer-ov viewer-next" data-n aria-label="Siguiente">${icon("next")}</button>` : ""}</div>
+</div>
       <div class="viewer-bar">
-        <span class="viewer-bar-lado"></span>
+        <button class="icon-btn" data-p aria-label="Anterior" ${fotos.length > 1 ? "" : "disabled"}>${icon("back")}</button>
         <span id="vw-n"></span>
-        <span class="viewer-bar-lado">${v ? `<button class="icon-btn danger" id="vw-del" aria-label="Quitar esta foto">${icon("trash")}</button>` : ""}</span>
+        ${v ? `<button class="icon-btn danger" id="vw-del" aria-label="Quitar esta foto">${icon("trash")}</button>` : ""}
+        <button class="icon-btn" data-n aria-label="Siguiente" ${fotos.length > 1 ? "" : "disabled"}>${icon("next")}</button>
       </div>
       ${v ? `<div class="viewer-add"><button type="button" class="btn btn-ghost btn-block" id="vw-mas">${icon("plus")}Añadir más fotos</button>
         <div class="viewer-mas" id="vw-mas-op" hidden>${botonesFotos({ id: "vw-add" })}</div></div>` : ""}

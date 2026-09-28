@@ -1073,3 +1073,10 @@ details.vform-det .field + .field { margin-top: 12px; }
 .pintura-list { flex-direction: row; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
 .pintura-list li { font-size: 12.5px; font-weight: 800; padding: 4px 10px; border-radius: 999px; background: var(--primary-soft); color: var(--primary); }
 .pintura-list li::before { display: none; }
+
+/* Visor en celular: la foto ocupa todo el ancho (sin márgenes a los costados), manteniendo la proporción */
+@media (max-width: 699px) {
+  .viewer-foto { margin: 0 -18px; }
+  .viewer img { width: 100%; height: auto; max-height: 70dvh; border-radius: 0; }
+  .viewer-foto .viewer-carga { min-height: 200px; }
+}
