@@ -51,6 +51,8 @@ function historialHTML(v) {
   return `<ol class="hist">${h.map(e => `<li><span class="hist-txt"><strong>${esc(e.por || "Alguien")}</strong> ${esc(String(e.txt || "").replace(/ por WhatsApp/g, ""))}</span><time>${cuando(e.t)}</time></li>`).join("")}</ol>`;
 }
 
+const gradoHTML = v => v.grado ? `<div class="grado-fila"><span class="grado-tag g${v.grado}">Grado ${v.grado}</span></div>` : "";
+
 // Paños agrupados para el detalle en escritorio: centro y parantes, lateral izquierdo, lateral derecho
 const GRUPOS_PIEZAS = [
   ["capot", "techo", "baul", "parante_izq", "parante_der"],
@@ -248,10 +250,11 @@ function renderDetalle(root, v, embebido) {
 
     <section class="d-sec d-piezas">
       <div class="sec-head"><h3>Paños afectados ${todos ? "<small>todos</small>" : marcadas.length ? `<small>${marcadas.length}</small>` : ""}</h3>
-        <button class="btn btn-ghost btn-sm vista-btn" data-act="vista3d">${modo3D ? "2D" : "3D"}</button></div>
+        ${marcadas.length ? `<button class="btn btn-ghost btn-sm vista-btn" data-act="vista3d">${modo3D ? "2D" : "3D"}</button>` : ""}</div>
+      ${!marcadas.length ? `<p class="muted sin-panos">Sin paños marcados</p>${gradoHTML(v)}` : `
       <div class="vista-3d" ${modo3D ? "" : "hidden"}></div>
       <div class="piezas-view" ${modo3D ? "hidden" : ""}>
-        ${carMapSVG(v.piezas || {}, { size: "carmap-sm" })}
+        <div class="map-col">${carMapSVG(v.piezas || {}, { size: "carmap-sm" })}${gradoHTML(v)}</div>
         <p class="piezas-caption" aria-live="polite">${todos ? "<strong>Todos</strong>" : marcadas.length ? "Tocá un paño para ver su nombre" : "Sin paños marcados"}</p>
         <div class="piezas-grupos">${todos ? `<ul class="piezas-list"><li>Todos</li></ul>`
           : !marcadas.length ? `<ul class="piezas-list"><li class="muted">Sin paños marcados</li></ul>`
@@ -259,13 +262,14 @@ function renderDetalle(root, v, embebido) {
               .map(g => `<ul class="piezas-list">${g.map(k => `<li>${esc(PIEZA[k].label)}</li>`).join("")}</ul>`).join("")}</div>
       </div>
       <p class="piezas-caption caption-3d" ${modo3D ? "" : "hidden"}>Arrastrá para girar · tocá un paño</p>
-      ${v.grado ? `<div class="grado-fila"><span class="grado-tag g${v.grado}">Grado ${v.grado}</span></div>` : ""}
+      ${modo3D ? gradoHTML(v) : ""}`}
     </section>
 
+    ${v.observaciones ? `<section class="d-sec"><h3>Observaciones</h3><p class="prose">${esc(v.observaciones)}</p></section>` : ""}
+    ${v.repuestos ? `<section class="d-sec"><h3>Repuestos</h3><p class="prose">${esc(v.repuestos)}</p></section>` : ""}
+
     <details class="d-sec d-adic" ${adicAbierto ? "open" : ""}>
-      <summary><h3>Adicionales</h3><small class="muted">Observaciones, Repuestos, Documentos, Firma</small></summary>
-    ${v.observaciones ? `<section class="d-sub"><h3>Observaciones</h3><p class="prose">${esc(v.observaciones)}</p></section>` : ""}
-    ${v.repuestos ? `<section class="d-sub"><h3>Repuestos</h3><p class="prose">${esc(v.repuestos)}</p></section>` : ""}
+      <summary><h3>Adicionales</h3><small class="muted">Documentos, Firma</small></summary>
 
     <section class="d-sub">
       <div class="sec-head"><h3>Documentos <small>${v.archivos?.length || 0}</small></h3>
@@ -295,7 +299,7 @@ function renderDetalle(root, v, embebido) {
   </article>`;
 
   $(".d-adic", root)?.addEventListener("toggle", e => { adicAbierto = e.target.open; });
-  if (modo3D) iniciar3D(root, v);
+  if (modo3D && marcadas.length) iniciar3D(root, v);
 
   // Acciones
   root.addEventListener("click", async e => {
@@ -480,23 +484,37 @@ function visor(fotos = [], inicio = 0, v = null) {
   const s = openSheet({
     wide: true,
     body: `<div class="viewer">
-      <div class="viewer-foto"><img id="vw-img" alt="">
-        <button class="icon-btn viewer-dl" id="vw-dl" aria-label="Descargar (mantené apretado para descargar todas)" title="Descargar · mantené apretado para todas">${icon("download")}</button></div>
+      <div class="viewer-foto"><img id="vw-img" alt=""><span class="viewer-carga" hidden><span class="spin"></span></span>
+        ${v && puedoEditar(v) ? `<button class="icon-btn viewer-ov viewer-rot" id="vw-rot" aria-label="Girar foto" title="Girar">${icon("rotate")}</button>` : ""}
+        <button class="icon-btn viewer-ov viewer-dl" id="vw-dl" aria-label="Descargar (mantené apretado para descargar todas)" title="Descargar · mantené apretado para todas">${icon("download")}</button>
+        ${fotos.length > 1 ? `<button class="icon-btn viewer-ov viewer-prev" data-p aria-label="Anterior">${icon("back")}</button>
+        <button class="icon-btn viewer-ov viewer-next" data-n aria-label="Siguiente">${icon("next")}</button>` : ""}</div>
       <div class="viewer-bar">
-        <button class="icon-btn" data-p aria-label="Anterior">${icon("back")}</button>
+        <span class="viewer-bar-lado"></span>
         <span id="vw-n"></span>
-        ${v && puedoEditar(v) ? `<button class="icon-btn" id="vw-rot" aria-label="Girar foto" title="Girar">${icon("rotate")}</button>` : ""}
-        ${v ? `<button class="icon-btn danger" id="vw-del" aria-label="Quitar esta foto">${icon("trash")}</button>` : ""}
-        <button class="icon-btn" data-n aria-label="Siguiente">${icon("next")}</button>
+        <span class="viewer-bar-lado">${v ? `<button class="icon-btn danger" id="vw-del" aria-label="Quitar esta foto">${icon("trash")}</button>` : ""}</span>
       </div>
-      ${v ? `<div class="viewer-add">${botonesFotos({ id: "vw-add" })}</div>` : ""}
+      ${v ? `<div class="viewer-add"><button type="button" class="btn btn-ghost btn-block" id="vw-mas">${icon("plus")}Añadir más fotos</button>
+        <div class="viewer-mas" id="vw-mas-op" hidden>${botonesFotos({ id: "vw-add" })}</div></div>` : ""}
       </div>`
   });
+  const img0 = $("#vw-img", s.el), carga = $(".viewer-carga", s.el);
+  img0.addEventListener("load", () => { carga.hidden = true; img0.classList.remove("cargando"); });
+  img0.addEventListener("error", () => { carga.hidden = true; img0.classList.remove("cargando"); });
   const show = () => {
-    $("#vw-img", s.el).src = grande(fotos[i].url, 1600, fotos[i].rot);
-    const f = fotos[i];
-    $("#vw-n", s.el).textContent = `${i + 1} de ${fotos.length}` + (f.via === "whatsapp" ? ` · por WhatsApp${f.byName ? " (" + f.byName + ")" : ""}` : "");
+    const url = grande(fotos[i].url, 1600, fotos[i].rot);
+    if (img0.getAttribute("src") !== url) {
+      // Animación de carga mientras llega la foto (a veces tarda 1-3 s)
+      img0.classList.add("cargando"); carga.hidden = false;
+      img0.src = url;
+      if (img0.complete && img0.naturalWidth) { carga.hidden = true; img0.classList.remove("cargando"); }
+    }
+    $("#vw-n", s.el).textContent = `${i + 1} de ${fotos.length}`;
   };
+  // "Añadir más fotos": abre la elección Cámara / Galería
+  $("#vw-mas", s.el)?.addEventListener("click", e => {
+    const op = $("#vw-mas-op", s.el); op.hidden = !op.hidden; e.currentTarget.hidden = !op.hidden;
+  });
   // Descargar: un toque baja la foto actual; mantener apretado 0,6 s baja todas
   const nombreFoto = n => `${(v?.patente || v?.modelo || "foto").replace(/\s+/g, "_")}_${String(n + 1).padStart(2, "0")}.jpg`;
   const bajar = async n => {
@@ -520,8 +538,8 @@ function visor(fotos = [], inicio = 0, v = null) {
   ["pointerup", "pointerleave", "pointercancel"].forEach(ev => dl.addEventListener(ev, () => clearTimeout(largo)));
   dl.addEventListener("contextmenu", e => e.preventDefault());
   dl.addEventListener("click", () => { if (!todas) bajar(i); });
-  $("[data-p]", s.el).onclick = () => { i = (i - 1 + fotos.length) % fotos.length; show(); };
-  $("[data-n]", s.el).onclick = () => { i = (i + 1) % fotos.length; show(); };
+  if ($("[data-p]", s.el)) $("[data-p]", s.el).onclick = () => { i = (i - 1 + fotos.length) % fotos.length; show(); };
+  if ($("[data-n]", s.el)) $("[data-n]", s.el).onclick = () => { i = (i + 1) % fotos.length; show(); };
   let x0 = null;
   const img = $("#vw-img", s.el);
   img.addEventListener("touchstart", e => { x0 = e.touches[0].clientX; }, { passive: true });
@@ -555,8 +573,8 @@ function visor(fotos = [], inicio = 0, v = null) {
     if (idx >= 0) await quitarAdjunto(getVehiculo(v.id), "fotos", idx);
   });
   s.el.addEventListener("keydown", e => {
-    if (e.key === "ArrowRight") $("[data-n]", s.el).click();
-    if (e.key === "ArrowLeft") $("[data-p]", s.el).click();
+    if (e.key === "ArrowRight") $("[data-n]", s.el)?.click();
+    if (e.key === "ArrowLeft") $("[data-p]", s.el)?.click();
   });
   show();
 }

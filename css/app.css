@@ -1045,3 +1045,26 @@ details.vform-det .field + .field { margin-top: 12px; }
 
 /* Firma en pantalla grande: la ventana arranca arriba (a la altura del encabezado) en vez de centrada */
 @media (min-width: 700px) { .sheet-backdrop.sheet-arriba { align-items: flex-start; padding-top: calc(var(--top) + var(--safe-t, 0px) + 12px); } }
+
+/* Detalle: grado justo debajo del dibujo; sin dibujo cuando no hay paños */
+.map-col { display: flex; flex-direction: column; align-items: center; gap: 8px; flex-shrink: 0; }
+.map-col .grado-fila { margin-top: 0; width: auto; }
+.sin-panos { margin: 4px 0 0; }
+.d-piezas > .grado-fila { justify-content: flex-start; margin-top: 8px; }
+
+/* Visor de fotos: fondo del color de la web, botones sobre la foto y carga animada */
+.viewer img { background: transparent; border-radius: 12px; transition: opacity .15s; }
+.viewer img.cargando { opacity: .25; }
+.viewer-carga { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; }
+.viewer-carga[hidden] { display: none; }
+.viewer-carga .spin { width: 34px; height: 34px; border-width: 3px; }
+.viewer-ov { position: absolute; background: rgba(10,20,32,.55); color: #fff; border-radius: 50%; -webkit-touch-callout: none; user-select: none; }
+.viewer-ov:hover { background: rgba(10,20,32,.8); }
+.viewer-dl { top: 10px; right: 10px; }
+.viewer-rot { top: 10px; left: 10px; }
+.viewer-prev, .viewer-next { top: 50%; transform: translateY(-50%); }
+.viewer-prev { left: 4px; } .viewer-next { right: 4px; }
+.viewer-bar { justify-content: space-between; }
+.viewer-bar-lado { width: 44px; display: flex; justify-content: flex-end; }
+.viewer-mas { margin-top: 0; }
+.viewer-carga { color: var(--ink); }
