@@ -30,6 +30,11 @@ service cloud.firestore {
             || !('whatsapp' in request.resource.data));   // solo se puede desvincular, no poner otro número
     }
 
+    // ── Configuración general de la app (solo la cambia el creador, desde el bot) ──
+    match /config/{doc} {
+      allow read: if signedIn();
+    }
+
     // ── Nombres de usuario únicos → { uid, name } ────────────
     match /usernames/{name} {
       allow read: if signedIn();

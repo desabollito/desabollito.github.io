@@ -601,6 +601,8 @@ export async function panelCreador() {
   const pintar = () => {
     const { operativos, usuarios } = datos;
     caja.innerHTML = `
+      <label class="toggle adm-toggle"><input type="checkbox" id="adm-aviso" ${datos.config?.avisoReparado !== false ? "checked" : ""}>
+        <span>Avisar al cliente cuando el auto queda reparado</span></label>
       <div class="seg seg-sm adm-tabs">
         <button type="button" class="seg-btn ${tab === "operativos" ? "on" : ""}" data-tab="operativos">Operativos <small>${operativos.length}</small></button>
         <button type="button" class="seg-btn ${tab === "usuarios" ? "on" : ""}" data-tab="usuarios">Usuarios <small>${usuarios.length}</small></button>
@@ -614,9 +616,23 @@ export async function panelCreador() {
           ${u.username === "gzmatte" ? "" : `<button type="button" class="icon-btn sm danger" data-borrar="${esc(u.uid)}" aria-label="Eliminar usuario" title="Eliminar de la app">${icon("trash")}</button>`}</li>`).join("")}</ul>`}`;
   };
   const cargar = async () => {
-    try { datos = await llamarAdmin("datos"); pintar(); }
+    try {
+      const [d, c] = await Promise.all([llamarAdmin("datos"), llamarAdmin("config").catch(() => ({ config: { avisoReparado: true } }))]);
+      datos = { ...d, config: c.config }; pintar();
+    }
     catch (e) { caja.innerHTML = `<p class="muted center">${esc(e.message)}</p>`; }
   };
+  caja.addEventListener("change", async e => {
+    if (e.target.id !== "adm-aviso") return;
+    const on = e.target.checked;
+    e.target.disabled = true;
+    try {
+      const r = await llamarAdmin("config", { avisoReparado: on });
+      datos.config = r.config; S.config = { ...S.config, ...r.config };
+      toast(on ? "Aviso al cliente activado" : "Aviso al cliente desactivado", "success");
+    } catch (err) { e.target.checked = !on; toast(err.message, "error"); }
+    e.target.disabled = false;
+  });
   caja.addEventListener("click", async e => {
     const t = e.target.closest("[data-tab]");
     if (t) { tab = t.dataset.tab; return pintar(); }

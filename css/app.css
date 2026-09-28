@@ -1156,3 +1156,4 @@ a[href="#/ajustes"] { -webkit-touch-callout: none; user-select: none; }
 
 .p-chip .f-n { margin-left: 4px; font-weight: 800; opacity: .75; font-variant-numeric: tabular-nums; }
 
+.adm-toggle { margin-bottom: 14px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; }

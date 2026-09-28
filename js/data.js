@@ -226,6 +226,7 @@ function escucharEmpresas() {
     ultimaFirma = firma;
     emit("companies");
     sincronizarUsuario(); revisarAgregados();
+    escucharConfig();
     if (!unsubPedidos && S.companies.some(c => ["owner", "admin"].includes(c.roles?.[S.user.uid]))) escucharPedidosParaMi();
     if (cambio) { escucharVehiculos(); escucharGastos(); }
     escucharSolicitudes();
@@ -601,4 +602,13 @@ export async function responderPedidoUnion(p, cid) {
     await agregarMiembro(p.username, "tecnico", c);
   }
   await deleteDoc(doc(db, "pedidosUnion", p.id));
+}
+
+// ── Configuración general de la app (config/app) ─────────────────
+S.config = { avisoReparado: true };
+let unsubConfig = null;
+export function escucharConfig() {
+  if (unsubConfig) return;
+  unsubConfig = onSnapshot(doc(db, "config", "app"), d => { S.config = { avisoReparado: d.data()?.avisoReparado !== false }; },
+    () => { unsubConfig = null; });
 }

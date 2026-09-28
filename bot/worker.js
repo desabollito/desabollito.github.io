@@ -41,7 +41,7 @@ export default {
     if (url.pathname === "/diagnostico") return diagnostico(url, env);
     if (url.pathname === "/evolution") return webhookEvolution(req, url, env, ctx);
     const API = { "/registro": nuevoRegistro, "/avisar": avisarCliente, "/solicitud": avisarSolicitud, "/agregado": avisarAgregado, "/pedido-union": avisarPedidoUnion,
-      "/admin/datos": adminDatos, "/admin/borrar-usuario": adminBorrarUsuario };
+      "/admin/datos": adminDatos, "/admin/borrar-usuario": adminBorrarUsuario, "/admin/config": adminConfig };
     if (API[url.pathname]) {
       if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
       if (req.method !== "POST") return json({ ok: false, error: "Método no permitido" }, 405);
@@ -1651,6 +1651,7 @@ async function avisarCliente(env, { cid, vid, por }) {
   if (!v || v.deleted) return json({ ok: false, error: "No encontré el vehículo" }, 404);
   if (v.estado !== "reparado") return json({ ok: false, error: "El vehículo no está marcado como reparado" });
   if (v.avisoReparado) return json({ ok: false, error: "Al cliente ya se le avisó" });
+  if ((await fsGet(env, "config/app").catch(() => null))?.avisoReparado === false) return json({ ok: false, error: "El aviso al cliente está desactivado" });
   const tel = telefonoAR(v.telefono);
   if (!tel) return json({ ok: false, error: "El teléfono del cliente no parece un celular válido" });
   const c = await fsGet(env, `companies/${cid}`);
@@ -1717,6 +1718,14 @@ async function adminDatos(env, { idToken }) {
     operativos: comps.map(c => ({ id: c.__id, name: c.name || "Sin nombre",
       miembros: (c.members || []).map(m => ({ uid: m, quien: nombreDe[m] || c.memberNames?.[m] || "(usuario borrado)", rol: c.roles?.[m] || "" })) }))
       .sort((a, b) => a.name.localeCompare(b.name)) });
+}
+
+// Ajustes generales (por ahora: aviso al cliente cuando el auto queda reparado)
+async function adminConfig(env, { idToken, avisoReparado }) {
+  if (!(await soloCreador(env, idToken))) return json({ ok: false, error: "No autorizado" }, 403);
+  if (typeof avisoReparado === "boolean") await fsSet(env, "config/app", { avisoReparado });
+  const c = await fsGet(env, "config/app");
+  return json({ ok: true, config: { avisoReparado: c?.avisoReparado !== false } });
 }
 
 // Elimina un usuario de la app: cuenta de acceso, perfil, nombre de usuario, WhatsApp y membresías

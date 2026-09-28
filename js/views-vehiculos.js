@@ -408,7 +408,7 @@ function textoAviso(v) {
 }
 async function ofrecerAvisoCliente(v) {
   v = getVehiculo(v.id) || v;
-  if (!v.telefono) return;
+  if (!v.telefono || S.config?.avisoReparado === false) return;   // el creador puede apagar esta función
   if (!(await confirmar({ title: "¿Avisarle al cliente?", message: `Le mandamos un WhatsApp a ${v.asegurado || "el cliente"} (${v.telefono}) diciendo que el auto está listo.`, ok: "Sí, avisar" }))) return;
   if (!(await confirmar({ title: "¿Confirmás el envío?", message: `Se va a enviar este mensaje a ${v.telefono}:\n\n“${textoAviso(v)}”`, ok: "Enviar mensaje" }))) return;
   try {
