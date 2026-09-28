@@ -273,7 +273,7 @@ function renderDetalle(root, v, embebido) {
     ${v.repuestos ? `<section class="d-sec"><h3>Repuestos</h3><p class="prose">${esc(v.repuestos)}</p></section>` : ""}
 
     <details class="d-sec d-adic" ${adicAbierto ? "open" : ""}>
-      <summary><h3>Adicionales</h3><small class="muted">Pintura, Documentos, Firma</small></summary>
+      <summary><h3>Adicionales</h3></summary>
 
     ${pinturaItems(v).length ? `<section class="d-sub">
       <div class="sec-head"><h3>Pintura</h3></div>
@@ -772,7 +772,7 @@ export function vistaFormulario(view, id = null) {
         </fieldset>
         </div>
         <details class="card vform-det">
-          <summary>Adicionales <small class="muted">Grado, Observaciones, Repuestos, Pintura${v ? "" : ", Fecha de peritaje"}</small></summary>
+          <summary>Adicionales</summary>
           <div class="grado-pick">
             <span>Grado de daño</span>
             <div class="seg seg-sm" id="grado" role="radiogroup" aria-label="Grado de daño">
