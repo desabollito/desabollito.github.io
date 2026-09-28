@@ -197,8 +197,11 @@ function waLink(tel, texto = "") {
 }
 
 // "capot, techo y puerta" → ["Capot", "Techo", "Puerta"]
-const pinturaItems = v => String(v.pintura || "").split(/\n|,|;|\s+y\s+/i).map(x => x.trim()).filter(Boolean)
+const itemsTexto = t => String(t || "").split(/\n|,|;|\s+y\s+/i).map(x => x.trim()).filter(Boolean)
   .map(x => x.charAt(0).toUpperCase() + x.slice(1));
+
+const chipsSec = (titulo, t) => itemsTexto(t).length ? `<section class="d-sec"><h3>${titulo}</h3>
+  <ul class="piezas-list pintura-list">${itemsTexto(t).map(x => `<li>${esc(x)}</li>`).join("")}</ul></section>` : "";
 
 function renderDetalle(root, v, embebido) {
   if (vid3D !== v.id) { vid3D = v.id; modo3D = false; } // al abrir otro vehículo, arranca en 2D
@@ -252,7 +255,7 @@ function renderDetalle(root, v, embebido) {
         .map(([l, x]) => `<div class="kv"><span>${l}</span><strong>${esc(x || "—")}</strong></div>`).join("")}
     </section>
 
-    <section class="d-sec d-piezas">
+    ${!marcadas.length ? (v.grado ? `<section class="d-sec d-piezas">${gradoHTML(v)}</section>` : "") : `<section class="d-sec d-piezas">
       <div class="sec-head"><h3>Paños afectados ${todos ? "<small>todos</small>" : marcadas.length ? `<small>${marcadas.length}</small>` : ""}</h3>
         ${marcadas.length ? `<button class="btn btn-ghost btn-sm vista-btn" data-act="vista3d">${modo3D ? "2D" : "3D"}</button>` : ""}</div>
       ${!marcadas.length ? `<p class="muted sin-panos">Sin paños marcados</p>${gradoHTML(v)}` : `
@@ -267,18 +270,15 @@ function renderDetalle(root, v, embebido) {
       </div>
       <p class="piezas-caption caption-3d" ${modo3D ? "" : "hidden"}>Arrastrá para girar · tocá un paño</p>
       ${modo3D ? gradoHTML(v) : ""}`}
-    </section>
+    </section>`}
 
     ${v.observaciones ? `<section class="d-sec"><h3>Observaciones</h3><p class="prose">${esc(v.observaciones)}</p></section>` : ""}
-    ${v.repuestos ? `<section class="d-sec"><h3>Repuestos</h3><p class="prose">${esc(v.repuestos)}</p></section>` : ""}
+    ${chipsSec("Repuestos", v.repuestos)}
+    ${chipsSec("Pintura", v.pintura)}
 
     <details class="d-sec d-adic" ${adicAbierto ? "open" : ""}>
       <summary><h3>Adicionales</h3></summary>
 
-    ${pinturaItems(v).length ? `<section class="d-sub">
-      <div class="sec-head"><h3>Pintura</h3></div>
-      <ul class="piezas-list pintura-list">${pinturaItems(v).map(x => `<li>${esc(x)}</li>`).join("")}</ul>
-    </section>` : ""}
 
     <section class="d-sub">
       <div class="sec-head"><h3>Documentos <small>${v.archivos?.length || 0}</small></h3>
