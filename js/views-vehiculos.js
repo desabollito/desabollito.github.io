@@ -214,8 +214,19 @@ function waLink(tel, texto = "") {
 const itemsTexto = t => String(t || "").split(/\n|,|;|\.(?!\d)/).map(x => x.trim()).filter(Boolean)
   .map(x => x.charAt(0).toUpperCase() + x.slice(1));
 
-const chipsSec = (titulo, t) => itemsTexto(t).length ? `<section class="d-sec"><h3>${titulo}</h3>
-  <ul class="piezas-list pintura-list">${itemsTexto(t).map(x => `<li>${esc(x)}</li>`).join("")}</ul></section>` : "";
+// Estado de repuestos y pintura: un botón que avanza al tocarlo
+const ETAPAS = {
+  estadoRepuestos: [["pedido", "Pedido", "#e0a526"], ["recibido", "Recibido", "#4f8ff7"], ["colocado", "Colocado", "#22b07d"]],
+  estadoPintura: [["pendiente", "Pendiente", "#e0a526"], ["turnado", "Turnado", "#9b7bf2"], ["pintado", "Pintado", "#22b07d"]]
+};
+const etapaDe = (v, campo) => ETAPAS[campo].find(e => e[0] === v[campo]) || ETAPAS[campo][0];
+const chipsSec = (titulo, t, v, campo) => {
+  if (!itemsTexto(t).length) return "";
+  const [, label, color] = etapaDe(v, campo);
+  return `<section class="d-sec"><div class="sec-head"><h3>${titulo}</h3>
+    <button type="button" class="etapa-btn" data-etapa="${campo}" style="--c:${color}" title="Tocá para cambiar el estado">${label}</button></div>
+  <ul class="piezas-list pintura-list">${itemsTexto(t).map(x => `<li>${esc(x)}</li>`).join("")}</ul></section>`;
+};
 
 function renderDetalle(root, v, embebido) {
   if (vid3D !== v.id) { vid3D = v.id; modo3D = false; } // al abrir otro vehículo, arranca en 2D
@@ -291,8 +302,8 @@ function renderDetalle(root, v, embebido) {
     </section>`}
 
     ${v.observaciones ? `<section class="d-sec"><h3>Observaciones</h3><p class="prose">${esc(v.observaciones)}</p></section>` : ""}
-    ${chipsSec("Repuestos", v.repuestos)}
-    ${chipsSec("Pintura", v.pintura)}
+    ${chipsSec("Repuestos", v.repuestos, v, "estadoRepuestos")}
+    ${chipsSec("Pintura", v.pintura, v, "estadoPintura")}
 
     ${v.archivos?.length || v.fechas?.reparado || v.fechas?.facturado || v.firma ? `<details class="d-sec d-adic" ${adicAbierto ? "open" : ""}>
       <summary><h3>Adicionales</h3></summary>
@@ -330,6 +341,14 @@ function renderDetalle(root, v, embebido) {
     const t = e.target;
     const step = t.closest("[data-estado]");
     if (step) return elegirFechaEstado(v, step.dataset.estado);
+    const et = t.closest("[data-etapa]");
+    if (et) {
+      const campo = et.dataset.etapa, lista = ETAPAS[campo];
+      const sig = lista[(lista.indexOf(etapaDe(v, campo)) + 1) % lista.length];
+      et.textContent = sig[1]; et.style.setProperty("--c", sig[2]);
+      return actualizarVehiculo(v.id, { [campo]: sig[0] }, `${campo === "estadoRepuestos" ? "Repuestos" : "Pintura"}: ${sig[1]}`)
+        .catch(err => toast(mensajeError(err), "error"));
+    }
     const act = t.closest("[data-act]")?.dataset.act;
     if (act === "pdf") return compartir(v);
     if (act === "galeria") return visor(v.fotos, 0, v);
