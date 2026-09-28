@@ -276,18 +276,18 @@ function renderDetalle(root, v, embebido) {
     ${chipsSec("Repuestos", v.repuestos)}
     ${chipsSec("Pintura", v.pintura)}
 
-    <details class="d-sec d-adic" ${adicAbierto ? "open" : ""}>
+    ${v.archivos?.length || v.fechas?.reparado || v.fechas?.facturado || v.firma ? `<details class="d-sec d-adic" ${adicAbierto ? "open" : ""}>
       <summary><h3>Adicionales</h3></summary>
 
 
-    <section class="d-sub">
+    ${v.archivos?.length ? `<section class="d-sub">
       <div class="sec-head"><h3>Documentos <small>${v.archivos?.length || 0}</small></h3>
         <label class="btn btn-ghost btn-sm">${icon("file")}Adjuntar
           <input type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,image/*" multiple hidden data-up="doc"></label></div>
       <ul class="docs">${(v.archivos || []).map((a, i) => `
         <li><a href="${esc(a.url)}" target="_blank" rel="noopener">${icon("file")}<span>${esc(a.name)}</span></a>
           <button class="icon-btn sm" data-del-doc="${i}" aria-label="Quitar documento">${icon("x")}</button></li>`).join("")}</ul>
-    </section>
+    </section>` : ""}
 
     ${v.fechas?.reparado || v.fechas?.facturado || v.firma ? `<section class="d-sub">
       <div class="sec-head"><h3>Firma del cliente</h3>
@@ -296,11 +296,13 @@ function renderDetalle(root, v, embebido) {
         : ""}
     </section>` : ""}
 
-    </details>
+    </details>` : ""}
 
     <footer class="d-foot">
       <span>Cargado por ${esc(cargadoPor(v))}</span>
       <span class="d-foot-btns">
+        <label class="icon-btn sm hist-btn" aria-label="Adjuntar documento" title="Adjuntar documento">${icon("file")}
+          <input type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,image/*" multiple hidden data-up="doc"></label>
         <button class="icon-btn sm hist-btn" data-act="historial" aria-label="Historial" title="Historial">${icon("clock")}</button>
         <button class="icon-btn danger" data-act="borrar" aria-label="Eliminar vehículo" title="Eliminar">${icon("trash")}</button>
       </span>
@@ -765,6 +767,12 @@ export function vistaFormulario(view, id = null) {
             <div class="pieza-chips"></div>
           </div>
           <p class="pieza-resumen" aria-live="polite"></p>
+          <div class="grado-pick">
+            <span>Grado de daño</span>
+            <div class="seg seg-sm" id="grado" role="radiogroup" aria-label="Grado de daño">
+              ${[1, 2, 3].map(g => `<button type="button" class="seg-btn ${v?.grado === g ? "on" : ""}" data-g="${g}" role="radio" aria-checked="${v?.grado === g}">Grado ${g}</button>`).join("")}
+            </div>
+          </div>
         </fieldset>
         <fieldset class="card vform-precio">
           <legend>Precio</legend>
@@ -773,16 +781,10 @@ export function vistaFormulario(view, id = null) {
         </div>
         <details class="card vform-det">
           <summary>Adicionales</summary>
-          <div class="grado-pick">
-            <span>Grado de daño</span>
-            <div class="seg seg-sm" id="grado" role="radiogroup" aria-label="Grado de daño">
-              ${[1, 2, 3].map(g => `<button type="button" class="seg-btn ${v?.grado === g ? "on" : ""}" data-g="${g}" role="radio" aria-checked="${v?.grado === g}">Grado ${g}</button>`).join("")}
-            </div>
-          </div>
           <label class="field"><span>Observaciones</span>
             <textarea name="observaciones" rows="3" placeholder="Detalles adicionales">${esc(v?.observaciones)}</textarea></label>
           <label class="field"><span>Repuestos</span>
-            <textarea name="repuestos" rows="2" placeholder="Un repuesto por línea">${esc(v?.repuestos)}</textarea></label>
+            <textarea name="repuestos" rows="2" placeholder="Ej: moldura, espejo">${esc(v?.repuestos)}</textarea></label>
           <label class="field"><span>Pintura</span>
             <input name="pintura" autocomplete="off" placeholder="Ej: capot, techo" value="${esc(v?.pintura)}"></label>
           ${v ? "" : `<label class="field"><span>Fecha de peritaje</span>
