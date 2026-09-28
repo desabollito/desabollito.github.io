@@ -40,7 +40,7 @@ export default {
     if (url.pathname === "/") return new Response("Desabollito bot funcionando ✅");
     if (url.pathname === "/diagnostico") return diagnostico(url, env);
     if (url.pathname === "/evolution") return webhookEvolution(req, url, env, ctx);
-    const API = { "/registro": nuevoRegistro, "/avisar": avisarCliente, "/solicitud": avisarSolicitud, "/agregado": avisarAgregado,
+    const API = { "/registro": nuevoRegistro, "/avisar": avisarCliente, "/solicitud": avisarSolicitud, "/agregado": avisarAgregado, "/pedido-union": avisarPedidoUnion,
       "/admin/datos": adminDatos, "/admin/borrar-usuario": adminBorrarUsuario };
     if (API[url.pathname]) {
       if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
@@ -1730,6 +1730,20 @@ async function avisarAgregado(env, { cid, uid }) {
   const r = await enviar(env, destinoNumero(env, u.whatsapp), { type: "text", text: { preview_url: false, body:
     `👋 ${nombre ? nombre + ", " : ""}${quien} te agregó al operativo *${c.name || ""}*.\n\nYa podés cargar vehículos ahí desde la app o por acá.` } });
   await fsMerge(env, `users/${uid}`, { avisosOperativos: [...(u.avisosOperativos || []), cid] });
+  return json({ ok: !!r?.ok });
+}
+
+// Alguien sin operativo pide unirse: aviso por WhatsApp al administrador que eligió
+async function avisarPedidoUnion(env, { uid }) {
+  if (!idValido(uid)) return json({ ok: false, error: "Datos inválidos" }, 400);
+  const p = await fsGet(env, `pedidosUnion/${uid}`);
+  if (!p?.para || p.avisado) return json({ ok: false });
+  const a = await fsGet(env, `users/${p.para}`);
+  if (!a?.whatsapp) return json({ ok: false, error: "Sin WhatsApp vinculado" });
+  const nombre = String(a.name || "").trim().split(/\s+/)[0];
+  const r = await enviar(env, destinoNumero(env, a.whatsapp), { type: "text", text: { preview_url: false, body:
+    `📩 ${nombre ? nombre + ", " : ""}*${p.name || ""}* (@${p.username || ""}) quiere unirse a tu operativo.\n\nPara sumarlo entrá a la app: ${APP_URL}` } });
+  await fsMerge(env, `pedidosUnion/${uid}`, { avisado: true }).catch(() => {});
   return json({ ok: !!r?.ok });
 }
 

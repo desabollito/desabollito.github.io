@@ -233,12 +233,10 @@ function escucharEmpresas() {
   unsubCompanies = onSnapshot(q, { includeMetadataChanges: true }, async snap => {
     S.companies = snap.docs.map(d => ({ id: d.id, ...d.data() }))
       .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
-    // Primera vez: se crea un taller propio para empezar a trabajar
-    if (!S.companies.length && !snap.metadata.fromCache && !creando) {
-      creando = true;
-      await crearEmpresa(`Operativo de ${S.profile?.name || "mi equipo"}`);
-      return; // el snapshot siguiente trae la empresa nueva
-    }
+    // Sin operativos: la app ofrece pedir unirse a uno o crear uno (ya no se crea solo)
+    const sinOp = !S.companies.length && !snap.metadata.fromCache;
+    if (sinOp !== !!S.sinOperativo) { S.sinOperativo = sinOp; emit("sin-operativo"); }
+    if (!S.companies.length) return;
     const preferida = localStorage.getItem("empresaActiva") || S.profile?.activeCompanyId;
     const actual = S.companies.find(c => c.id === (S.company?.id || preferida)) || S.companies[0] || null;
     const cambio = actual?.id !== S.company?.id;
@@ -249,6 +247,7 @@ function escucharEmpresas() {
     ultimaFirma = firma;
     emit("companies");
     sincronizarFoto(); sincronizarUsuario(); revisarAgregados();
+    if (!unsubPedidos && S.companies.some(c => ["owner", "admin"].includes(c.roles?.[S.user.uid]))) escucharPedidosParaMi();
     if (cambio) { escucharVehiculos(); escucharGastos(); }
     escucharSolicitudes();
   }, e => { console.error(e); if (e?.code !== "permission-denied") emit("error"); });
@@ -294,14 +293,14 @@ export async function guardarSello(sello) {
   await updateDoc(doc(db, "companies", S.company.id), { seal: sello });
 }
 
-export async function agregarMiembro(usuario, rol = "tecnico") {
+export async function agregarMiembro(usuario, rol = "tecnico", empresa = S.company) {
   const u = limpiarUsuario(usuario);
   const s = await getDoc(doc(db, "usernames", u));
   if (!s.exists()) throw new Error(`No existe el usuario “${u}”. Pedile que entre a la app una vez y te pase su usuario.`);
   const { uid, name, pendiente } = s.data();
   if (pendiente) throw new Error(`La cuenta “${u}” todavía no fue aprobada.`);
-  if (S.company.members.includes(uid)) throw new Error("Ya es parte del operativo");
-  await updateDoc(doc(db, "companies", S.company.id), {
+  if (empresa.members.includes(uid)) throw new Error("Ya es parte del operativo");
+  await updateDoc(doc(db, "companies", empresa.id), {
     members: arrayUnion(uid),
     [`roles.${uid}`]: rol,
     [`memberNames.${uid}`]: name || u,
@@ -310,7 +309,7 @@ export async function agregarMiembro(usuario, rol = "tecnico") {
   });
   // Aviso por WhatsApp a la persona agregada (si tiene el número vinculado)
   fetch(`${BOT_API}/agregado`, { method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ cid: S.company.id, uid }) }).catch(() => {});
+    body: JSON.stringify({ cid: empresa.id, uid }) }).catch(() => {});
   return name || u;
 }
 
@@ -587,4 +586,40 @@ export async function llamarAdmin(ruta, datos = {}) {
   const j = await r.json().catch(() => ({}));
   if (!j.ok) throw new Error(j.error || "No se pudo completar");
   return j;
+}
+
+// ── Pedidos para unirse a un operativo ─────────────────────────
+// Quien no tiene operativo elige a un administrador (por su @usuario) y le pide que lo sume.
+export async function pedirUnion(usuarioAdmin) {
+  const u = limpiarUsuario(usuarioAdmin);
+  if (!u) throw new Error("Escribí el usuario del administrador");
+  if (u === S.profile?.username) throw new Error("Ese es tu propio usuario");
+  const s = await getDoc(doc(db, "usernames", u));
+  if (!s.exists()) throw new Error(`No existe el usuario “${u}”`);
+  await setDoc(doc(db, "pedidosUnion", S.user.uid), {
+    uid: S.user.uid, name: S.profile?.name || "", username: S.profile?.username || "",
+    para: s.data().uid, paraUser: u, paraName: s.data().name || "", t: Date.now()
+  });
+  fetch(`${BOT_API}/pedido-union`, { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ uid: S.user.uid }) }).catch(() => {});
+}
+export const cancelarPedidoUnion = () => deleteDoc(doc(db, "pedidosUnion", S.user.uid));
+export function escucharMiPedido(cb) {
+  return onSnapshot(doc(db, "pedidosUnion", S.user.uid), d => cb(d.exists() ? d.data() : null), () => cb(null));
+}
+// Pedidos que me hicieron a mí (para sumarlos a alguno de mis operativos)
+let unsubPedidos = null;
+export function escucharPedidosParaMi() {
+  unsubPedidos?.();
+  unsubPedidos = onSnapshot(query(collection(db, "pedidosUnion"), where("para", "==", S.user.uid)), snap => {
+    S.pedidosUnion = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    emit({ tipo: "pedidos-union" });
+  }, e => console.warn("pedidos", e));
+}
+export async function responderPedidoUnion(p, cid) {
+  if (cid) {
+    const c = S.companies.find(x => x.id === cid);
+    await agregarMiembro(p.username, "tecnico", c);
+  }
+  await deleteDoc(doc(db, "pedidosUnion", p.id));
 }

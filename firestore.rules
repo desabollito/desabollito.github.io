@@ -44,6 +44,13 @@ service cloud.firestore {
     // bot_sesiones y bot_mensajes: solo los usa el bot (cuenta de servicio).
 
     // ── Operativos (colección companies) ─────────────────────
+    // ── Pedidos para unirse a un operativo (quien no tiene ninguno) ──
+    match /pedidosUnion/{pid} {
+      allow read, delete: if signedIn() && (uid() == pid || resource.data.para == uid());
+      allow create, update: if signedIn() && aprobado() && uid() == pid
+        && request.resource.data.uid == uid() && request.resource.data.para is string;
+    }
+
     match /companies/{cid} {
       allow read: if signedIn() && uid() in resource.data.members;
 

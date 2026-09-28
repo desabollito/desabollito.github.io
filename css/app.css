@@ -1150,3 +1150,7 @@ a[href="#/ajustes"] { -webkit-touch-callout: none; user-select: none; }
 .ff-doc { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
 .ff-doc .spin { width: 16px; height: 16px; border-width: 2px; }
 .ff-docs-btn { align-self: flex-start; }
+
+/* Sin operativo */
+.so-ops { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; margin-top: 6px; }
+.so-form { width: 100%; display: flex; flex-direction: column; gap: 12px; text-align: left; margin-top: 4px; }

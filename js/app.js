@@ -1,10 +1,10 @@
 import {
   S, onChange, iniciarSesion, ingresar, crearCuenta, mensajeError, elegirEmpresa
 } from "./data.js";
-import { $, $$, toast, busy, openSheet } from "./ui.js";
+import { $, $$, esc, toast, busy, openSheet } from "./ui.js";
 import { FIREBASE } from "./config.js";
 import { iniciarFechas } from "./fecha.js";
-import { cuentaPendiente, salir, marcarOperativosVistos, soyCreador } from "./data.js";
+import { cuentaPendiente, salir, marcarOperativosVistos, soyCreador, crearEmpresa, pedirUnion, cancelarPedidoUnion, escucharMiPedido, responderPedidoUnion } from "./data.js";
 import { marcarNav, pintarLateral, esAncho } from "./shell.js";
 import { vistaVehiculos, vistaDetalle, vistaFormulario, reiniciarVista3D } from "./views-vehiculos.js";
 import {
@@ -45,7 +45,7 @@ const RUTAS = [
 ];
 
 function render({ conservarScroll = false } = {}) {
-  if (!S.user || !S.profile) return;
+  if (!S.user || !S.profile || S.sinOperativo) return;
   const h = location.hash || "#/";
   const hit = RUTAS.find(([re]) => re.test(h)) || RUTAS[0];
   const arg = hit[1] === "operativo" ? null : (h.match(hit[0])?.[1] || null);
@@ -88,6 +88,8 @@ matchMedia("(min-width: 1100px)").addEventListener("change", () => render({ cons
 // Cambios de datos en vivo (otro técnico cargó algo, llegó la sincronización, etc.)
 onChange(what => {
   if (what?.tipo === "agregado") { avisarAgregado(what.operativos); return; }
+  if (what?.tipo === "pedidos-union") { mostrarPedidosUnion(); return; }
+  if (what === "sin-operativo") { mostrarSinOperativo(); if (!S.sinOperativo) { pintarLateral(); render(); } return; }
   if (what === "perfil") { mostrarSegunAprobacion(); if (!cuentaPendiente()) render({ conservarScroll: true }); return; }
   if (what === "companies" || what === "profile") pintarLateral();
   if (!S.profile) return;
@@ -151,6 +153,7 @@ iniciarSesion((logueado, error) => {
   }
   if (error) toast("No se pudo cargar tu perfil: " + mensajeError(error), "error");
   if (mostrarSegunAprobacion()) return;
+  mostrarSinOperativo();
   pintarLateral();
   render();
 });
@@ -277,4 +280,87 @@ function avisarAgregado(ops) {
   ["pointerup", "pointercancel"].forEach(ev => document.addEventListener(ev, () => clearTimeout(reloj), true));
   document.addEventListener("click", e => { if (abrio && e.target.closest('a[href="#/ajustes"]')) { e.preventDefault(); abrio = false; } }, true);
   document.addEventListener("contextmenu", e => { if (e.target.closest('a[href="#/ajustes"]') && soyCreador()) e.preventDefault(); });
+}
+
+// ── Sin operativo: pedir unirse a uno o crear uno propio ─────────
+let unsubMiPedido = null, pedidoActual = null, pintarSinOp = () => {};
+function mostrarSinOperativo() {
+  let el = $("#sin-op");
+  if (!S.sinOperativo || cuentaPendiente()) {
+    if (el && !el.hidden) { el.hidden = true; el.dataset.listo = ""; $("#shell").hidden = false; }
+    unsubMiPedido?.(); unsubMiPedido = null; pedidoActual = null;
+    return;
+  }
+  if (!el) {
+    el = document.createElement("section");
+    el.id = "sin-op"; el.className = "espera";
+    document.body.appendChild(el);
+    el.addEventListener("submit", async e => {
+      e.preventDefault();
+      const f = e.target, b = $("button[type=submit]", f);
+      busy(b, true, "Enviando…");
+      try {
+        if (f.id === "so-unir") { await pedirUnion(f.admin.value); toast("Pedido enviado", "success"); }
+        else { await crearEmpresa(f.nombre.value.trim()); toast("Operativo creado", "success"); }
+      } catch (err) { toast(err.message || mensajeError(err), "error"); }
+      busy(b, false);
+    });
+    el.addEventListener("click", e => {
+      if (e.target.closest("[data-salir]")) salir();
+      if (e.target.closest("[data-cancelar]")) cancelarPedidoUnion().catch(() => {});
+      const op = e.target.closest("button[data-op]");
+      if (op) { el.dataset.modo = op.dataset.op; pintarSinOp(pedidoActual); }
+    });
+  }
+  if (!el.hidden && el.dataset.listo) return; // ya se está mostrando: no se repinta (se perdería lo escrito)
+  el.dataset.listo = "1";
+  const pintar = p => {
+    pedidoActual = p;
+    const op = el.dataset.modo || "";
+    el.innerHTML = `<div class="espera-caja">
+      <img src="img/logo-oscuro.png" alt="" class="espera-logo">
+      <h1>Todavía no tenés ningún operativo</h1>
+      ${p ? `<p>Le pediste a <strong>@${esc(p.paraUser)}</strong> que te sume a su operativo.</p>
+             <p>Cuando lo haga, esta pantalla se abre sola.</p>
+             <div class="espera-btns"><button class="btn btn-ghost" data-cancelar>Cancelar pedido</button></div>`
+      : `<p>¿Querés pedir unirte a uno o crear el tuyo?</p>
+      <div class="so-ops">
+        <button type="button" class="btn ${op === "unir" ? "btn-primary" : "btn-ghost"}" data-op="unir">Unirme a uno</button>
+        <button type="button" class="btn ${op === "crear" ? "btn-primary" : "btn-ghost"}" data-op="crear">Crear uno</button>
+      </div>
+      ${op === "unir" ? `<form id="so-unir" class="so-form">
+          <label class="field"><span>Usuario de quien administra el operativo</span>
+            <input name="admin" required autocomplete="off" autocapitalize="none" placeholder="Ej: juanperez"></label>
+          <button class="btn btn-primary btn-block" type="submit">Pedir unirme</button></form>` : ""}
+      ${op === "crear" ? `<form id="so-crear" class="so-form">
+          <label class="field"><span>Nombre del operativo</span>
+            <input name="nombre" required autocomplete="off" placeholder="Ej: Granizo Córdoba 2026"></label>
+          <button class="btn btn-primary btn-block" type="submit">Crear operativo</button></form>` : ""}`}
+      <div class="espera-btns"><button class="btn btn-ghost btn-sm" data-salir>Cerrar sesión</button></div></div>`;
+  };
+  pintarSinOp = pintar;
+  pintar(null);
+  el.hidden = false; $("#shell").hidden = true;
+  if (!unsubMiPedido) unsubMiPedido = escucharMiPedido(p => { if (JSON.stringify(p) !== JSON.stringify(pedidoActual)) pintar(p); });
+}
+
+// Administradores: alguien sin operativo pidió que lo sumen
+const pedidosVistos = new Set();
+function mostrarPedidosUnion() {
+  const p = (S.pedidosUnion || []).find(x => !pedidosVistos.has(x.id));
+  if (!p) return;
+  pedidosVistos.add(p.id);
+  const mios = S.companies.filter(c => ["owner", "admin"].includes(c.roles?.[S.user.uid]));
+  if (!mios.length) return;
+  const s = openSheet({ title: "Pedido para unirse", body: `<form class="stack">
+      <p><strong>${esc(p.name || "")}</strong> (@${esc(p.username || "")}) quiere unirse a tu operativo.</p>
+      <label class="field"><span>Sumarlo a</span><select name="cid">${mios.map(c => `<option value="${esc(c.id)}" ${c.id === S.company?.id ? "selected" : ""}>${esc(c.name)}</option>`).join("")}</select></label>
+      <div class="row-btns"><button type="button" class="btn btn-ghost" data-no>Rechazar</button>
+        <button class="btn btn-primary" type="submit">Sumar</button></div></form>` });
+  $("form", s.el).onsubmit = async e => {
+    e.preventDefault();
+    try { await responderPedidoUnion(p, e.target.cid.value); toast(`${p.name || "@" + p.username} ahora es parte del operativo`, "success"); s.close(); }
+    catch (err) { toast(err.message || mensajeError(err), "error"); }
+  };
+  $("[data-no]", s.el).onclick = async () => { await responderPedidoUnion(p, null).catch(() => {}); s.close(); };
 }
