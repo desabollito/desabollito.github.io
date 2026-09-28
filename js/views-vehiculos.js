@@ -50,6 +50,7 @@ function historialHTML(v) {
   return `<ol class="hist">${h.map(e => `<li><span class="hist-txt"><strong>${esc(e.por || "Alguien")}</strong> ${esc(String(e.txt || "").replace(/ por WhatsApp/g, ""))}</span><time>${cuando(e.t)}</time></li>`).join("")}</ol>`;
 }
 
+const gradoTag = v => v.grado ? `<span class="grado-tag g${v.grado} d-grado-tag">Grado ${v.grado}</span>` : "";
 const gradoHTML = v => v.grado ? `<div class="grado-fila"><span class="grado-tag g${v.grado}">Grado ${v.grado}</span></div>` : "";
 
 // Paños agrupados para el detalle en escritorio: centro y parantes, lateral izquierdo, lateral derecho
@@ -66,8 +67,8 @@ function tarjeta(v, sel) {
     <span class="vthumb">${foto ? `<img src="${esc(thumb(foto, 160, rot0))}" alt="" loading="lazy">` : icon("car")}</span>
     <span class="vbody">
       <span class="vtop"><strong class="vmodel">${esc(v.modelo || "Sin modelo")}</strong>${estadoPill(v)}</span>
-      <span class="vmid">${plate(v.patente, "sm")}${v._pending ? `<span class="sync" title="Pendiente de sincronizar"></span>` : ""}</span>
-      <span class="vsub"><span class="vcli">${esc(v.compania || "")}</span><span class="vfechas">${v.fechas?.reparado && !v.fechas?.anulado ? `<span class="vf vrep"><time>${fechaCorta(v.fechas.reparado)}</time>${horaDe(v, "reparado") ? `<time>${horaDe(v, "reparado")}</time>` : ""}</span>` : ""}<span class="vf"><time>${fechaCorta(v.fechas?.peritado)}</time>${horaDe(v, "peritado") ? `<time>${horaDe(v, "peritado")}</time>` : ""}</span></span></span>
+      <span class="vmid">${plate(v.patente, "sm")}${v._pending ? `<span class="sync" title="Pendiente de sincronizar"></span>` : ""}<time class="vfecha">${fechaCorta(v.fechas?.peritado)}</time></span>
+      <span class="vsub"><span class="vcli">${esc(v.compania || "")}</span>${horaDe(v, "peritado") ? `<time>${horaDe(v, "peritado")}</time>` : ""}</span>
     </span>
   </a>`;
 }
@@ -221,7 +222,6 @@ function renderDetalle(root, v, embebido) {
              <label class="d-cover-gal" aria-label="Agregar fotos de la galería">${icon("image")}<span class="gal-plus">+</span><input type="file" accept="image/*" multiple hidden data-galeria></label>
            </div>`}
       <div class="d-title">
-        ${v.grado ? `<div class="d-grado"><span class="grado-tag g${v.grado}">Grado ${v.grado}</span></div>` : ""}
         <h2>${esc(v.modelo || "Sin modelo")}</h2>
         <div class="d-plate">${plate(v.patente, "lg")}</div>
         ${v.precio ? `<div class="d-price"><strong>${money(v.precio)}</strong></div>` : ""}
@@ -259,8 +259,8 @@ function renderDetalle(root, v, embebido) {
         .map(([l, x]) => `<div class="kv"><span>${l}</span><strong>${esc(x || "—")}</strong></div>`).join("")}
     </section>
 
-    ${!marcadas.length ? "" : `<section class="d-sec d-piezas">
-      <div class="sec-head"><h3>Paños afectados ${todos ? "<small>todos</small>" : marcadas.length ? `<small>${marcadas.length}</small>` : ""}</h3>
+    ${!marcadas.length ? (v.grado ? `<section class="d-sec d-piezas"><div class="sec-head"><h3>Paños afectados</h3>${gradoTag(v)}</div></section>` : "") : `<section class="d-sec d-piezas">
+      <div class="sec-head"><h3>Paños afectados ${todos ? "<small>todos</small>" : marcadas.length ? `<small>${marcadas.length}</small>` : ""}</h3>${gradoTag(v)}
         ${marcadas.length ? `<button class="btn btn-ghost btn-sm vista-btn" data-act="vista3d">${modo3D ? "2D" : "3D"}</button>` : ""}</div>
       ${!marcadas.length ? `<p class="muted sin-panos">Sin paños marcados</p>` : `
       <div class="vista-3d" ${modo3D ? "" : "hidden"}></div>
@@ -858,6 +858,10 @@ export function vistaFormulario(view, id = null) {
             <textarea name="repuestos" rows="2" placeholder="Ej: moldura, espejo">${esc(v?.repuestos)}</textarea></label>
           <label class="field"><span>Pintura</span>
             <input name="pintura" autocomplete="off" placeholder="Ej: capot, techo" value="${esc(v?.pintura)}"></label>
+          <div class="field"><span>Documentos</span>
+            <ul class="docs ff-docs" id="ff-docs"></ul>
+            <label class="btn btn-ghost btn-sm ff-docs-btn">${icon("file")}Adjuntar documento
+              <input type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,image/*" multiple hidden id="ff-doc-in"></label></div>
           ${v ? "" : `<label class="field"><span>Fecha de peritaje</span>
             <input name="fecha" type="date" value="${hoyISO()}"></label>`}
         </details>
@@ -959,6 +963,46 @@ export function vistaFormulario(view, id = null) {
     }
     pintarFotos();
   });
+  // Documentos desde el formulario: se suben en segundo plano igual que las fotos
+  const docsNuevos = []; // { key, name, estado, doc }
+  const pintarDocs = () => {
+    $("#ff-docs", view).innerHTML = docsNuevos.map(d => `
+      <li><span class="ff-doc ${d.estado}">${d.estado === "subiendo" ? `<span class="spin"></span>` : icon("file")}<span>${esc(d.name)}</span></span>
+        <button type="button" class="icon-btn sm" data-quitar-doc="${d.key}" aria-label="Quitar documento">${icon("x")}</button></li>`).join("");
+  };
+  $("#ff-doc-in", view).addEventListener("change", e => {
+    const files = [...e.target.files]; e.target.value = "";
+    if (!files.length) return;
+    if (!cloudinaryListo()) { toast("Falta configurar Cloudinary en js/config.js", "error"); return; }
+    for (const file of files) {
+      const d = { key: Math.random().toString(36).slice(2), name: file.name, estado: "subiendo", doc: null };
+      docsNuevos.push(d);
+      const p = (async () => {
+        try {
+          if (file.size > 10 * 1024 * 1024) throw new Error(`${file.name}: supera 10 MB`);
+          const r = await subir(file, `${S.company.id}/${vid}`, { tipo: "auto", nombre: file.name });
+          if (r.deleteToken) tokensBorrado.set(r.publicId, r.deleteToken);
+          d.doc = { url: r.url, publicId: r.publicId, name: file.name, bytes: r.bytes, format: r.format, at: Date.now() };
+          d.estado = "ok";
+        } catch (err) {
+          console.error(err); toast(err.message, "error");
+          docsNuevos.splice(docsNuevos.indexOf(d), 1);
+        }
+        pintarDocs();
+      })();
+      pendientes.add(p); p.finally(() => pendientes.delete(p));
+    }
+    pintarDocs();
+  });
+  $("#ff-docs", view).addEventListener("click", e => {
+    const b = e.target.closest("[data-quitar-doc]"); if (!b) return;
+    const i = docsNuevos.findIndex(d => d.key === b.dataset.quitarDoc);
+    if (i < 0) return;
+    const [d] = docsNuevos.splice(i, 1);
+    if (d.doc && tokensBorrado.has(d.doc.publicId)) borrarConToken(tokensBorrado.get(d.doc.publicId));
+    pintarDocs();
+  });
+
   $("#ff-grid", view).addEventListener("click", e => {
     const b = e.target.closest("[data-quitar-nueva]"); if (!b) return;
     const i = nuevas.findIndex(n => n.key === b.dataset.quitarNueva);
@@ -998,12 +1042,14 @@ export function vistaFormulario(view, id = null) {
     if (!v) data.fechas = { peritado: f.fecha.value || hoyISO() };
     if (pendientes.size) {
       const b = $("button[type=submit]", form);
-      busy(b, true, "Subiendo fotos…");
+      busy(b, true, "Subiendo archivos…");
       await Promise.allSettled([...pendientes]);
       busy(b, false);
     }
     const listas = nuevas.filter(n => n.foto).map(n => n.foto);
     if (listas.length) data.fotos = [...(getVehiculo(vid)?.fotos || v?.fotos || []), ...listas];
+    const docsListos = docsNuevos.filter(d => d.doc).map(d => d.doc);
+    if (docsListos.length) data.archivos = [...(getVehiculo(vid)?.archivos || v?.archivos || []), ...docsListos];
     // Con la caché offline el cambio se ve al instante; la red sincroniza sola.
     guardarVehiculo(nuevoId, data, !v).catch(err => toast("No se guardó: " + mensajeError(err), "error"));
     toast(v ? "Cambios guardados" : "Vehículo guardado", "success");

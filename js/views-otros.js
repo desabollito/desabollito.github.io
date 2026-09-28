@@ -6,7 +6,7 @@ import {
 import { ESTADOS, ESTADO, ROLES, estadoActual } from "./domain.js";
 import {
   $, $$, esc, money, fechaCorta, fechaLarga, hoyISO, plate, estadoPill, icon, toast, openSheet, confirmar,
-  pedirTexto, busy, debounce, initials, tsToISO, elegirDescarga
+  pedirTexto, busy, debounce, initials, tsToISO, elegirDescarga, horaDe
 } from "./ui.js";
 import { imagenChica, avatar } from "./media.js";
 import { planillaPDF } from "./pdf.js";
@@ -22,7 +22,6 @@ const COLS = [
   ["patente", "Patente", v => v.patente || ""],
   ["modelo", "Modelo", v => v.modelo || ""],
   ["fecha", "Peritaje", v => v.fechas?.peritado || ""],
-  ["asegurado", "Asegurado", v => v.asegurado || ""],
   ["compania", "Compañía", v => v.compania || ""],
   ["localidad", "Localidad", v => v.localidad || ""],
   ["estado", "Estado", v => ESTADOS.findIndex(e => e.key === estadoActual(v))],
@@ -86,7 +85,7 @@ export function vistaPlanilla(view) {
       <a class="p-row" href="#/v/${v.id}" style="--c:${ESTADO[estadoActual(v)].color}">
         <span class="p-l">
           <span class="p-top">${plate(v.patente, "sm")}<strong>${esc(v.modelo || "Sin modelo")}</strong></span>
-          <small>${esc([fechaCorta(v.fechas?.peritado), v.asegurado, v.compania].filter(Boolean).join(" · "))}</small>
+          <small>${esc([fechaCorta(v.fechas?.peritado), v.compania].filter(Boolean).join(" · "))}</small>
         </span>
         <span class="p-r">
           <strong>${money(v.precio) || "—"}</strong>
@@ -98,11 +97,11 @@ export function vistaPlanilla(view) {
     $("#tb", view).innerHTML = filas.length ? filas.map(v => `
       <tr data-id="${v.id}" tabindex="0">
         <td>${plate(v.patente, "sm")}</td><td><strong>${esc(v.modelo || "—")}</strong></td>
-        <td>${fechaCorta(v.fechas?.peritado)}</td><td>${esc(v.asegurado || "—")}</td>
+        <td>${fechaCorta(v.fechas?.peritado)}</td>
         <td>${esc(v.compania || "—")}</td><td>${esc(v.localidad || "—")}</td>
         <td>${estadoPill(v)}</td><td class="num">${money(v.precio) || "—"}</td></tr>`).join("")
-      : `<tr><td colspan="8" class="empty-cell">Sin resultados.</td></tr>`;
-    $("#tf", view).innerHTML = `<tr><td colspan="7">${filas.length} ${filas.length === 1 ? "vehículo" : "vehículos"}</td><td class="num">${money(total) || "$0"}</td></tr>`;
+      : `<tr><td colspan="7" class="empty-cell">Sin resultados.</td></tr>`;
+    $("#tf", view).innerHTML = `<tr><td colspan="6">${filas.length} ${filas.length === 1 ? "vehículo" : "vehículos"}</td><td class="num">${money(total) || "$0"}</td></tr>`;
   };
   pintar();
 
@@ -231,7 +230,7 @@ export function vistaCalendario(view) {
           <span class="vbody"><span class="vtop"><strong class="vmodel">${esc(v.modelo || "Sin modelo")}</strong>
             ${v.precio ? `<span class="vprice">${money(v.precio)}</span>` : ""}</span>
           <span class="vmid">${plate(v.patente, "sm")}${estadoPill(v)}</span>
-          <span class="vsub">${esc(v.asegurado || "")}</span></span></a>`).join("")}</div>`
+          <span class="vsub"><span class="vcli">${esc(v.compania || "")}</span>${horaDe(v, C.campo) ? `<time>${horaDe(v, C.campo)}</time>` : ""}</span></span></a>`).join("")}</div>`
         : `<p class="muted">Nada agendado este día.</p>`) : ""}
     </section>
   </div>`;

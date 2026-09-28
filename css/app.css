@@ -1101,9 +1101,10 @@ details.vform-det .field + .field { margin-top: 12px; }
 }
 
 /* Detalle: Compartir + Contactar (WhatsApp / Llamar en un menú) */
-.d-actions { display: flex; flex-wrap: nowrap; gap: 8px; }
-.d-actions .btn-primary, .d-actions .d-contacto { flex: 1 1 0; min-width: 0; }
-.d-actions .btn-icon { flex: 0 0 auto; }
+.d-actions { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 8px; }
+.d-actions .btn-primary { grid-column: auto; }
+.d-actions:has(.btn-icon) { grid-template-columns: repeat(var(--n, 1), minmax(0, 1fr)) auto; grid-auto-columns: auto; }
+.d-actions:has(.d-contacto):has(.btn-icon) { --n: 2; }
 .d-contacto { position: relative; }
 .d-contacto > .btn { width: 100%; }
 .d-menu { position: absolute; z-index: 15; top: calc(100% + 6px); left: 0; right: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow-lg); padding: 6px; display: flex; flex-direction: column; }
@@ -1139,3 +1140,13 @@ a[href="#/ajustes"] { -webkit-touch-callout: none; user-select: none; }
 .d-autor { display: inline-flex; align-items: center; gap: 4px; }
 .doc-mas { position: relative; }
 .doc-mas .gal-plus { position: absolute; right: 2px; bottom: 2px; }
+
+.vmid .vfecha { margin-left: auto; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.d-grado-tag { margin-left: auto; margin-right: 8px; }
+.sec-head .d-grado-tag + .vista-btn { margin-left: 0; }
+.doc-mas .gal-plus { background: var(--muted); }
+.ff-docs:empty { display: none; }
+.ff-docs { margin: 6px 0 8px; }
+.ff-doc { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+.ff-doc .spin { width: 16px; height: 16px; border-width: 2px; }
+.ff-docs-btn { align-self: flex-start; }
