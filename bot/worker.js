@@ -863,7 +863,7 @@ async function alRecibirArchivo(env, m, quien) {
       { url: subido.secure_url, publicId: subido.public_id, name: nombre, bytes: subido.bytes || null, format: subido.format || null, at: Date.now(), ...origen });
   }
   await fsIncrementar(env, `bot_sesiones/${numero}`, campoConteo(destino.vid)).catch(() => {});
-  // Vehículo abierto del grupo: con la primera foto, el ⏸️ del mensaje pasa a ✅
+  // Vehículo abierto del grupo: con la primera foto, el ▶️ del mensaje pasa a ✅
   if (m._grupo) {
     const g = await grupoAbierto(env, m);
     if (g && g.vid === destino.vid && !g.tildado) {
@@ -1669,5 +1669,5 @@ async function grupoAbierto(env, m) {
 async function abrirParaGrupo(env, m, s) {
   await fsSet(env, `bot_grupos/${idGrupo(m)}`, { cid: s.cid, vid: s.vid, patente: s.patente, modelo: s.modelo || "",
     operativo: s.operativo || "", por: normalizarNumero(m.from), ts: Date.now(), desde: horaDe(m), msgId: m.id, msgKey: m._key || null, tildado: false });
-  return reaccionar(env, dest(m), m.id, "⏸️", m._key);   // esperando fotos
+  return reaccionar(env, dest(m), m.id, "▶️", m._key);   // esperando fotos
 }
