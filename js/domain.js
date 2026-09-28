@@ -1,9 +1,9 @@
 // Estados del trabajo, en orden. "anulado" queda fuera de la secuencia.
 export const ESTADOS = [
   { key: "peritado",  label: "Peritado",  color: "#4f8ff7" },
-  { key: "turnado",   label: "Turnado",   color: "#9b7bf2" },
+  { key: "turnado",   label: "Turnado",   color: "#e0a526" },
   { key: "reparado",  label: "Reparado",  color: "#22b07d" },
-  { key: "facturado", label: "Facturado", color: "#e0a526" },
+  { key: "facturado", label: "Facturado", color: "#9b7bf2" },
   { key: "ausente",   label: "Ausente",   color: "#5f6b7a" },   // turnado que no vino (mantener apretado "Turnado")
   { key: "anulado",   label: "Anulado",   color: "#e5484d" }
 ];
