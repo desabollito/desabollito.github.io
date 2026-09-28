@@ -1186,7 +1186,9 @@ async function registrar(env, datos) {
 
 async function fsMerge(env, ruta, data) {
   const campos = Object.keys(data);
-  const qs = campos.map(c => "updateMask.fieldPaths=" + encodeURIComponent(c)).join("&");
+  let qs = campos.map(c => "updateMask.fieldPaths=" + encodeURIComponent(c)).join("&");
+  // Nunca crear operativos ni vehículos "a medias" por escribir sobre uno que ya no existe
+  if (/^companies\//.test(ruta)) qs += "&currentDocument.exists=true";
   const r = await fs(env, `${base(env)}/${ruta}?${qs}`, {
     method: "PATCH",
     body: JSON.stringify({ fields: Object.fromEntries(Object.entries(data).map(([k, v]) => [k, aValor(v)])) })

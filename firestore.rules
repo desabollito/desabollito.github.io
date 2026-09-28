@@ -81,14 +81,14 @@ service cloud.firestore {
       // ── Vehículos del operativo ────────────────────────────
       match /vehicles/{vid} {
         function esDueno(cid) {
-          return resource.data.createdBy == uid() || resource.data.get('createdByUid', '') == uid() || isAdmin(cid);
+          return resource.data.get('createdBy', '') == uid() || resource.data.get('createdByUid', '') == uid() || isAdmin(cid);
         }
         allow read: if isMember(cid);
         allow create: if isMember(cid) && request.resource.data.createdBy == uid();
         // Quien lo cargó y los administradores pueden todo; quien recibió acceso de edición
         // puede editar los datos. El resto solo cambia el estado, agrega fotos/documentos y firma.
         allow update: if isMember(cid)
-          && request.resource.data.createdBy == resource.data.createdBy
+          && request.resource.data.get('createdBy', '') == resource.data.get('createdBy', '')
           && request.resource.data.get('createdByUid', '') == resource.data.get('createdByUid', '')
           && (esDueno(cid) || request.resource.data.get('deleted', false) == resource.data.get('deleted', false))
           && (esDueno(cid) || request.resource.data.get('editores', []) == resource.data.get('editores', []))
@@ -98,7 +98,7 @@ service cloud.firestore {
                   && request.resource.data.get('fotos', []).size() >= resource.data.get('fotos', []).size()
                   && request.resource.data.get('archivos', []).size() >= resource.data.get('archivos', []).size()));
         allow delete: if isAdmin(cid)
-          || (isMember(cid) && (resource.data.createdBy == uid() || resource.data.get('createdByUid', '') == uid()));
+          || (isMember(cid) && (resource.data.get('createdBy', '') == uid() || resource.data.get('createdByUid', '') == uid()));
       }
 
       // ── Solicitudes de eliminación (las resuelven los administradores)

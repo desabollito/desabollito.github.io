@@ -1,0 +1,16 @@
+name: Limpiar vehículos incompletos (una vez)
+on:
+  push:
+    branches: [main]
+    paths: [".github/workflows/limpiar-vehiculos.yml"]
+jobs:
+  limpiar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - name: Borrar vehículos sin creador (restos de un error del bot)
+        env:
+          SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: node .github/scripts/limpiar-vehiculos.mjs
