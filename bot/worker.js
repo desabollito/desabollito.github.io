@@ -809,7 +809,9 @@ async function alRecibirArchivo(env, m, quien) {
   if (m._grupo) {
     const g = await grupoAbierto(env, m);
     // Si venía subiendo al vehículo abierto del grupo y ese ya se cerró (o cambió), se suelta
-    if (abierta(sesion) && sesion.deGrupo === sesion.vid && g?.vid !== sesion.vid) {
+    // Un @abierto posterior manda: cierra el vehículo que la persona tenía abierto de antes
+    const previoAlAbierto = g && abierta(sesion) && sesion.vid !== g.vid && Number(sesion.desde || 0) < Number(g.desde || 0);
+    if (previoAlAbierto || (abierta(sesion) && sesion.deGrupo === sesion.vid && g?.vid !== sesion.vid)) {
       await cerrarEnSilencio(env, numero, hora - 1); sesion = await leerSesion(env, numero);
     }
     if (g && !abierta(sesion)) {
@@ -1659,6 +1661,6 @@ async function grupoAbierto(env, m) {
 }
 async function abrirParaGrupo(env, m, s) {
   await fsSet(env, `bot_grupos/${idGrupo(m)}`, { cid: s.cid, vid: s.vid, patente: s.patente, modelo: s.modelo || "",
-    operativo: s.operativo || "", por: normalizarNumero(m.from), ts: Date.now(), msgId: m.id, msgKey: m._key || null, tildado: false });
+    operativo: s.operativo || "", por: normalizarNumero(m.from), ts: Date.now(), desde: horaDe(m), msgId: m.id, msgKey: m._key || null, tildado: false });
   return reaccionar(env, dest(m), m.id, "⏸️", m._key);   // esperando fotos
 }
