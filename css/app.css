@@ -1099,3 +1099,21 @@ details.vform-det .field + .field { margin-top: 12px; }
   .sheet-visor .viewer-dl { right: 64px; }
   .sheet-visor .viewer-foto { position: relative; }
 }
+
+/* Detalle: Compartir + Contactar (WhatsApp / Llamar en un menú) */
+.d-actions { display: flex; flex-wrap: nowrap; gap: 8px; }
+.d-actions .btn-primary, .d-actions .d-contacto { flex: 1 1 0; min-width: 0; }
+.d-actions .btn-icon { flex: 0 0 auto; }
+.d-contacto { position: relative; }
+.d-contacto > .btn { width: 100%; }
+.d-menu { position: absolute; z-index: 15; top: calc(100% + 6px); left: 0; right: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow-lg); padding: 6px; display: flex; flex-direction: column; }
+.d-menu[hidden] { display: none; }
+.d-menu a { display: flex; align-items: center; gap: 10px; padding: 11px 12px; border-radius: 10px; font-weight: 600; color: var(--ink); text-decoration: none; }
+.d-menu a:hover { background: var(--surface-2); }
+.d-menu .ic { width: 18px; height: 18px; }
+/* Seguimiento: "Anular vehículo" en la misma línea del título */
+.seg-head { display: flex; align-items: center; gap: 14px; margin-bottom: 12px; }
+.seg-head h3 { margin: 0; }
+.seg-head .link-btn { padding: 2px 0; font-size: 13px; }
+.perfil-wa .wa-desv { color: var(--danger); width: 26px; height: 26px; min-width: 0; padding: 0; }
+.perfil-wa .wa-desv .ic { width: 15px; height: 15px; }

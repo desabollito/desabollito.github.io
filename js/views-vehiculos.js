@@ -230,13 +230,18 @@ function renderDetalle(root, v, embebido) {
 
     <div class="d-actions">
       <button class="btn btn-primary" data-act="pdf">${icon("share")}Compartir</button>
-      ${v.telefono ? `<a class="btn btn-ghost d-half" href="${waLink(v.telefono)}" target="_blank" rel="noopener">${icon("chat")}WhatsApp</a>
-        <a class="btn btn-ghost d-half" href="tel:${esc(v.telefono)}">${icon("phone")}Llamar</a>` : ""}
+      ${v.telefono ? `<div class="d-contacto">
+        <button class="btn btn-ghost" data-act="contactar" aria-haspopup="true" aria-expanded="false">${icon("phone")}Contactar</button>
+        <div class="d-menu" hidden>
+          <a href="${waLink(v.telefono)}" target="_blank" rel="noopener">${icon("chat")}WhatsApp</a>
+          <a href="tel:${esc(v.telefono)}">${icon("phone")}Llamar</a>
+        </div></div>` : ""}
       ${embebido ? `<a class="btn btn-ghost btn-icon" href="#/editar/${v.id}" aria-label="Editar" title="Editar">${icon("edit")}</a>` : ""}
     </div>
 
     <section class="d-sec">
-      <h3>Seguimiento</h3>
+      <div class="seg-head"><h3>Seguimiento</h3>
+        <button class="link-btn small ${anulado ? "" : "danger"}" data-act="anular">${anulado ? "Reactivar vehículo" : "Anular vehículo"}</button></div>
       <ol class="stepper ${anulado ? "is-anulado" : ""}">
         ${SECUENCIA.map(k => {
           const e = ESTADO[k], hecho = !!v.fechas?.[k] && !anulado, actual = k === est;
@@ -246,8 +251,7 @@ function renderDetalle(root, v, embebido) {
             <span class="step-d">${v.fechas?.[k] ? fechaCorta(v.fechas[k]) : "—"}</span></button></li>`;
         }).join("")}
       </ol>
-      <button class="link-btn ${anulado ? "" : "danger"}" data-act="anular">
-        ${anulado ? `Reactivar trabajo (anulado el ${fechaCorta(v.fechas?.anulado)})` : "Anular trabajo"}</button>
+      ${anulado ? `<p class="muted small">Anulado el ${fechaCorta(v.fechas?.anulado)}</p>` : ""}
     </section>
 
     <section class="d-sec d-grid">
@@ -330,6 +334,16 @@ function renderDetalle(root, v, embebido) {
       return;
     }
     if (act === "firma") return firmar(v);
+    if (act === "contactar") {
+      const m = $(".d-menu", root), abrir = m.hidden;
+      const btn = t.closest("[data-act]");
+      m.hidden = !abrir; btn.setAttribute("aria-expanded", abrir);
+      if (abrir) setTimeout(() => document.addEventListener("click", function fuera(ev) {
+        if (!ev.target.closest(".d-contacto")) { m.hidden = true; btn.setAttribute("aria-expanded", "false"); }
+        document.removeEventListener("click", fuera);
+      }), 0);
+      return;
+    }
     if (act === "anular") {
       if (anulado) {
         const ultimo = SECUENCIA.filter(k => v.fechas?.[k]).pop() || "peritado";
