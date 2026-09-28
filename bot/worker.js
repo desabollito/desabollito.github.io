@@ -510,11 +510,11 @@ async function alRecibirTexto(env, m, quien, texto) {
     const g = await grupoAbierto(env, m);
     if (!g) return;
     await fsDelete(env, `bot_grupos/${idGrupo(m)}`);
-    return responder(env, dest(m), `🔒 ${etiqueta(g)} ya no recibe fotos del grupo.`);
+    return reaccionar(env, dest(m), m.id, "🆗", m._key);
   }
   if (pideAbierto && !buscarPatenteEnTexto(texto)) {
     if (!abierta(s)) return responder(env, dest(m), "📌 Primero mandá los datos del vehículo (con la patente) y después *@abierto*.");
-    return responder(env, dest(m), await abrirParaGrupo(env, m, s));
+    return abrirParaGrupo(env, m, s);
   }
 
   // Cancelar la carga en curso (cada persona cancela solo lo suyo, también en grupos)
@@ -591,13 +591,13 @@ async function alRecibirTexto(env, m, quien, texto) {
   if (datos.patente) {
     if (abierta(s) && s.patente === datos.patente) {
       await actualizarDatos(env, s, datos, quien);
-      if (pideAbierto) return responder(env, dest(m), await abrirParaGrupo(env, m, s));
+      if (pideAbierto) return abrirParaGrupo(env, m, s);
       return tilde(env, m);
     }
     if (abierta(s)) await cerrarEnSilencio(env, numero, hora);
     const pregunta = await prepararVehiculo(env, numero, datos, hora, await leerSesion(env, numero), quien);
     if (pregunta) return responder(env, dest(m), pregunta);
-    if (pideAbierto) { const s2 = await leerSesion(env, numero); if (abierta(s2)) return responder(env, dest(m), await abrirParaGrupo(env, m, s2)); }
+    if (pideAbierto) { const s2 = await leerSesion(env, numero); if (abierta(s2)) return abrirParaGrupo(env, m, s2); }
     return tilde(env, m);
   }
 
@@ -856,6 +856,14 @@ async function alRecibirArchivo(env, m, quien) {
       { url: subido.secure_url, publicId: subido.public_id, name: nombre, bytes: subido.bytes || null, format: subido.format || null, at: Date.now(), ...origen });
   }
   await fsIncrementar(env, `bot_sesiones/${numero}`, campoConteo(destino.vid)).catch(() => {});
+  // Vehículo abierto del grupo: con la primera foto, el ⏸️ del mensaje pasa a ✅
+  if (m._grupo) {
+    const g = await grupoAbierto(env, m);
+    if (g && g.vid === destino.vid && !g.tildado) {
+      await fsMerge(env, `bot_grupos/${idGrupo(m)}`, { tildado: true });
+      await reaccionar(env, dest(m), g.msgId, "✅", g.msgKey || undefined);
+    }
+  }
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -1651,6 +1659,6 @@ async function grupoAbierto(env, m) {
 }
 async function abrirParaGrupo(env, m, s) {
   await fsSet(env, `bot_grupos/${idGrupo(m)}`, { cid: s.cid, vid: s.vid, patente: s.patente, modelo: s.modelo || "",
-    operativo: s.operativo || "", por: normalizarNumero(m.from), ts: Date.now() });
-  return `📂 ${etiqueta(s)} quedó abierto: cualquiera del grupo puede mandar las fotos.\n\nSe cierra con *OK* de quien lo abrió o con *@cerrado*.`;
+    operativo: s.operativo || "", por: normalizarNumero(m.from), ts: Date.now(), msgId: m.id, msgKey: m._key || null, tildado: false });
+  return reaccionar(env, dest(m), m.id, "⏸️", m._key);   // esperando fotos
 }
