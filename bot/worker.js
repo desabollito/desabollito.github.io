@@ -836,7 +836,10 @@ async function alRecibirArchivo(env, m, quien) {
   const ruta = `companies/${destino.cid}/vehicles/${destino.vid}`;
   const vehiculo = await fsGet(env, ruta);
   if (!vehiculo || vehiculo.deleted) {
-    return responder(env, dest(m), `🗑️ El vehículo ${destino.patente} ya no está disponible. ${OTRO}`);
+    // Un solo aviso por tanda de fotos (avisarUnaVez agrupa en ventanas de 90 s); también en grupos
+    // Un solo aviso por vehículo y por día, aunque sigan llegando fotos (también en grupos)
+    if (!(await primeraVez(env, `aviso-borrado-${destino.vid}-${numero}-${new Date().toISOString().slice(0, 10)}`))) return;
+    return responder(env, dest(m), `🗑️ ${destino.patente} está en la papelera: no guardé estas fotos. ${OTRO}`);
   }
 
   // Bajar el archivo de WhatsApp
