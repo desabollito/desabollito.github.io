@@ -1,5 +1,4 @@
 import { S } from "./data.js";
-import { APP_VERSION } from "./config.js";
 import { $, $$, esc, icon, initials } from "./ui.js";
 import { ROLES } from "./domain.js";
 import { avatar } from "./media.js";
@@ -46,5 +45,3 @@ export function logoOperativo(tam = "", nombre = S.company?.name) {
   return `<span class="company-avatar ${tam}">${esc(letraOperativo(nombre))}</span>`;
 }
 
-// Versión abajo del usuario (solo se ve en computadora: la barra lateral no existe en celular)
-{ const el = document.getElementById("side-ver"); if (el) el.textContent = `Desabollito v${APP_VERSION}`; }
