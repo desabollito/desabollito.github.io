@@ -502,13 +502,30 @@ const tilde = (env, m) => reaccionar(env, dest(m), m.id, "✅", m._key);
 async function alRecibirTexto(env, m, quien, texto) {
   const numero = quien.numero;
   const grupo = !!m._grupo, mencion = mencionaBot(texto);
-  const sinMencion = quitarMencion(texto);
+  const sinMencion = quitarMencion(texto).replace(ABIERTO_G, " ").trim();
   const t = limpio(texto);
   const hora = horaDe(m);
   const s = await leerSesion(env, numero);
 
+  // Grupos: "@abierto" deja el vehículo abierto para que cualquiera del grupo mande las fotos
+  const pideAbierto = grupo && ABIERTO.test(texto);
+  if (grupo && CERRADO.test(texto)) {
+    const g = await grupoAbierto(env, m);
+    if (!g) return;
+    await fsDelete(env, `bot_grupos/${idGrupo(m)}`);
+    return responder(env, dest(m), `🔒 ${etiqueta(g)} ya no recibe fotos del grupo.`);
+  }
+  if (pideAbierto && !buscarPatenteEnTexto(texto)) {
+    if (!abierta(s)) return responder(env, dest(m), "📌 Primero mandá los datos del vehículo (con la patente) y después *@abierto*.");
+    return responder(env, dest(m), await abrirParaGrupo(env, m, s));
+  }
+
   // Cancelar la carga en curso (cada persona cancela solo lo suyo, también en grupos)
-  if (abierta(s) && esCancelar(sinMencion)) return responder(env, dest(m), await cancelarCarga(env, numero, s, quien));
+  if (abierta(s) && esCancelar(sinMencion)) {
+    const g = grupo ? await grupoAbierto(env, m) : null;
+    if (g?.vid === s.vid) await fsDelete(env, `bot_grupos/${idGrupo(m)}`);
+    return responder(env, dest(m), await cancelarCarga(env, numero, s, quien));
+  }
 
   // En grupos solo se saluda/ayuda si le hablan al bot ("hola desabollito", "@desabollito", "bot")
   if (!grupo || mencion) {
@@ -577,17 +594,22 @@ async function alRecibirTexto(env, m, quien, texto) {
   if (datos.patente) {
     if (abierta(s) && s.patente === datos.patente) {
       await actualizarDatos(env, s, datos, quien);
+      if (pideAbierto) return responder(env, dest(m), await abrirParaGrupo(env, m, s));
       return tilde(env, m);
     }
     if (abierta(s)) await cerrarEnSilencio(env, numero, hora);
     const pregunta = await prepararVehiculo(env, numero, datos, hora, await leerSesion(env, numero), quien);
-    return pregunta ? responder(env, dest(m), pregunta) : tilde(env, m);
+    if (pregunta) return responder(env, dest(m), pregunta);
+    if (pideAbierto) { const s2 = await leerSesion(env, numero); if (abierta(s2)) return responder(env, dest(m), await abrirParaGrupo(env, m, s2)); }
+    return tilde(env, m);
   }
 
   // Texto sin patente: OK (o cualquier texto después de mandar fotos) → resumen de la tanda
   const fotosDelActual = abierta(s) ? Number(s[campoConteo(s.vid)] || 0) : 0;
   // En grupos solo cierra un OK explícito; en privado, cualquier texto después de las fotos
   if ((s?.tanda?.length && (grupo ? esCierreGrupo(texto) : esCierre(texto))) || (!grupo && fotosDelActual > 0)) {
+    // El OK de quien lo abrió también cierra el vehículo compartido del grupo
+    if (grupo) { const g = await grupoAbierto(env, m); if (g?.por === numero) await fsDelete(env, `bot_grupos/${idGrupo(m)}`); }
     return responder(env, dest(m), await resumenDeTanda(env, numero, s, hora));
   }
   if (s?.crear?.datos?.patente && !grupo) {
@@ -787,6 +809,18 @@ async function alRecibirArchivo(env, m, quien) {
     sesion = await leerSesion(env, numero);
   }
 
+  if (m._grupo) {
+    const g = await grupoAbierto(env, m);
+    // Si venía subiendo al vehículo abierto del grupo y ese ya se cerró (o cambió), se suelta
+    if (abierta(sesion) && sesion.deGrupo === sesion.vid && g?.vid !== sesion.vid) {
+      await cerrarEnSilencio(env, numero, hora - 1); sesion = await leerSesion(env, numero);
+    }
+    if (g && !abierta(sesion)) {
+      await abrir(env, numero, g, hora, sesion, false);
+      await fsMerge(env, `bot_sesiones/${numero}`, { deGrupo: g.vid });
+      sesion = await leerSesion(env, numero);
+    }
+  }
   const destino = destinoDe(sesion, hora);
   if (!destino) {
     if (sesion?.crear?.datos?.patente) {
@@ -1605,4 +1639,21 @@ async function cancelarCarga(env, numero, s, quien) {
   const tanda = (s.tanda || []).filter(x => x.vid !== s.vid);
   await fsSet(env, `bot_sesiones/${numero}`, { ts: Date.now(), ...(tanda.length ? { tanda } : {}) });
   return txt;
+}
+
+// ── Vehículo abierto para todo el grupo ("@abierto") ─────────────────────────
+const ABIERTO = /(^|\s)@abierto\b/i;
+const ABIERTO_G = /(^|\s)@abierto\b/gi;
+const CERRADO = /(^|\s)@cerrado\b/i;
+const idGrupo = m => String(m._to || "").replace(/[^A-Za-z0-9_-]/g, "_");
+async function grupoAbierto(env, m) {
+  if (!m._grupo) return null;
+  const g = await fsGet(env, `bot_grupos/${idGrupo(m)}`);
+  if (!g?.vid || Date.now() - Number(g.ts || 0) > SESION_HORAS * 3600 * 1000) return null;
+  return g;
+}
+async function abrirParaGrupo(env, m, s) {
+  await fsSet(env, `bot_grupos/${idGrupo(m)}`, { cid: s.cid, vid: s.vid, patente: s.patente, modelo: s.modelo || "",
+    operativo: s.operativo || "", por: normalizarNumero(m.from), ts: Date.now() });
+  return `📂 ${etiqueta(s)} quedó abierto: cualquiera del grupo puede mandar las fotos.\n\nSe cierra con *OK* de quien lo abrió o con *@cerrado*.`;
 }
