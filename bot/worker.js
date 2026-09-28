@@ -370,7 +370,7 @@ export function interpretar(texto, extra = {}) {
     }).join(" ");
   }
 
-  // Lo que no se reconoció: primero completa modelo, después localidad, el resto queda como observación
+  // Lo que no se reconoció: completa modelo o asegurado; el resto se descarta (a detalles solo va lo etiquetado)
   const grupos = [];
   palabras.forEach((w, i) => {
     if (tipo[i]) return;
@@ -378,7 +378,8 @@ export function interpretar(texto, extra = {}) {
   });
   for (const g of grupos) {
     const t = g.join(" ");
-    const pareceNombre = g.length >= 1 && g.length <= 4 && g.every(palabraNombre);
+    // Nombre: 1 a 4 palabras solo con letras (en cualquier formato: "victoria", "Juan Perez", "JUAN")
+    const pareceNombre = g.length >= 1 && g.length <= 4 && g.every(w => palabraNombre(w) || /^[a-záéíóúñü']{2,}$/i.test(w));
     if (!r.asegurado && pareceNombre && r.modelo) { r.asegurado = titulo(t); continue; }
     if (!r.modelo) r.modelo = titulo(t);
     else r.otros = (r.otros ? r.otros + " " : "") + t;
@@ -777,7 +778,7 @@ async function crearVehiculo(env, op, d, quien) {
   const hoy = new Date(Date.now() - 3 * 3600 * 1000).toISOString().slice(0, 10); // fecha de Argentina (UTC-3)
   const datos = {
     modelo: d.modelo || "", patente: d.patente, asegurado: d.asegurado || "", telefono: d.telefono || "", compania: d.compania || "",
-    localidad: op.operativo || "", observaciones: [d.observaciones, d.otros].filter(Boolean).join("\n"), repuestos: d.repuestos || "", pintura: d.pintura || "", precio: d.precio || 0, piezas: d.piezas || {}, grado: d.grado || null,
+    localidad: op.operativo || "", observaciones: d.observaciones || "", repuestos: d.repuestos || "", pintura: d.pintura || "", precio: d.precio || 0, piezas: d.piezas || {}, grado: d.grado || null,
     estado: "peritado", fechas: { peritado: hoy }, fotos: [], archivos: [], firma: null, deleted: false,
     createdBy: `whatsapp:${quien.numero}`, createdByName: `${quien.nombre || quien.numero} (WhatsApp)`,
     ...(quien.uid ? { createdByUid: quien.uid } : {}),
