@@ -17,7 +17,7 @@ import { armarZip } from "./zip.js";
 import { setTopbar, go, esAncho } from "./shell.js";
 
 // Filtros de la lista (se conservan al navegar)
-const F = { estado: "todos", q: "", mios: false, orden: "fecha", dir: -1, grado: null }; // grado: null = todos, 0 = sin grado
+const F = { estado: "todos", q: "", mios: false, orden: "fecha", dir: -1, grado: null, repuestos: null, pintura: null }; // grado: null = todos, 0 = sin grado
 const ORDENES = [["fecha", "Fecha"], ["patente", "Patente"], ["modelo", "Modelo"], ["estado", "Estado"]];
 function ordenar(lista) {
   if (F.orden === "fecha" && F.dir === -1) return lista;   // ya viene ordenada por fecha, la más nueva arriba
@@ -30,12 +30,16 @@ const tokensBorrado = new Map(); // publicId → delete_token (válido 10 min)
 // ═════════════════════════════════════════════════════════════
 //  LISTA
 // ═════════════════════════════════════════════════════════════
+// ¿Algún repuesto / paño de pintura del vehículo está en esa fase?
+const tieneEtapa = (v, tipo, fase) => itemsTexto(v[tipo]).some(x => etapaItem(v, tipo, x)[0] === fase);
 function filtrar(lista) {
   const q = F.q.trim().toLowerCase();
   return lista.filter(v =>
     (F.estado === "todos" || estadoActual(v) === F.estado) &&
     (!F.mios || esMioV(v)) &&
     (F.grado === null || (v.grado || 0) === F.grado) &&
+    (!F.repuestos || tieneEtapa(v, "repuestos", F.repuestos)) &&
+    (!F.pintura || tieneEtapa(v, "pintura", F.pintura)) &&
     (!q || [v.modelo, v.patente, v.asegurado, v.compania, v.localidad, v.telefono]
       .some(x => (x || "").toLowerCase().includes(q))));
 }
@@ -80,7 +84,7 @@ export function vistaVehiculos(view, selId = null) {
   const sel = selId ? getVehiculo(selId) : null;
   if (selId && !ancho) return vistaDetalle(view, selId);
 
-  const filtroActivo = () => F.mios || F.grado !== null || F.orden !== "fecha" || F.dir !== -1;
+  const filtroActivo = () => F.mios || F.grado !== null || F.repuestos || F.pintura || F.orden !== "fecha" || F.dir !== -1;
   setTopbar({
     title: "Vehículos",
     sub: S.company?.name,
@@ -124,7 +128,7 @@ export function vistaVehiculos(view, selId = null) {
       ? lista.map(v => tarjeta(v, v.id === selId)).join("")
       : `<div class="empty small"><p>Ningún vehículo coincide con la búsqueda.</p>
          <button class="btn btn-ghost" id="limpiar">Limpiar filtros</button></div>`;
-    $("#limpiar", box)?.addEventListener("click", () => { F.q = ""; F.estado = "todos"; F.mios = false; F.grado = null; $("#tb-filtros")?.classList.remove("activo"); $("#q", view).value = ""; pintar(); });
+    $("#limpiar", box)?.addEventListener("click", () => { F.q = ""; F.estado = "todos"; F.mios = false; F.grado = null; F.repuestos = null; F.pintura = null; $("#tb-filtros")?.classList.remove("activo"); $("#q", view).value = ""; pintar(); });
   };
 
   $("#q", view).addEventListener("input", debounce(e => { F.q = e.target.value; pintar(); }, 120));
@@ -136,6 +140,8 @@ export function vistaVehiculos(view, selId = null) {
   $("#tb-filtros")?.addEventListener("click", () => {
     const s = openSheet({ title: "Filtros", body: `<div class="stack filtros">
       <span class="muted small">Grado</span><div class="p-chips" id="f-grado"></div>
+      <span class="muted small">Repuestos</span><div class="p-chips" id="f-repuestos"></div>
+      <span class="muted small">Pintura</span><div class="p-chips" id="f-pintura"></div>
       <span class="muted small">Ordenar por</span><div class="p-chips" id="f-orden"></div>
       <label class="toggle"><input type="checkbox" id="f-mios" ${F.mios ? "checked" : ""}><span>Cargados por mí</span></label>
       <button class="btn btn-ghost btn-sm" id="f-reset">Quitar filtros</button></div>` });
@@ -146,6 +152,17 @@ export function vistaVehiculos(view, selId = null) {
         `<button type="button" class="p-chip ${F.grado === g ? "on" : ""}" data-grado="${g}">${t} <b class="f-n">${n(g)}</b></button>`).join("");
     };
     chipsGrado();
+    const chipsEtapas = () => ["repuestos", "pintura"].forEach(tipo => {
+      $(`#f-${tipo}`, s.el).innerHTML = ETAPAS[tipo].map(([k, t, color]) =>
+        `<button type="button" class="p-chip ${F[tipo] === k ? "on" : ""}" data-fase="${k}" data-tipo="${tipo}" style="--c:${color}"><i class="f-dot"></i>${t} <b class="f-n">${activos().filter(v => tieneEtapa(v, tipo, k)).length}</b></button>`).join("");
+    });
+    chipsEtapas();
+    ["repuestos", "pintura"].forEach(tipo => {
+      $(`#f-${tipo}`, s.el).onclick = e => {
+        const b = e.target.closest("[data-fase]"); if (!b) return;
+        F[tipo] = F[tipo] === b.dataset.fase ? null : b.dataset.fase; chipsEtapas(); aplicar();
+      };
+    });
     $("#f-grado", s.el).onclick = e => {
       const b = e.target.closest("[data-grado]"); if (!b) return;
       const g = Number(b.dataset.grado);
@@ -159,7 +176,7 @@ export function vistaVehiculos(view, selId = null) {
       aplicar();
     };
     $("#f-mios", s.el).onchange = e => { F.mios = e.target.checked; aplicar(); };
-    $("#f-reset", s.el).onclick = () => { F.mios = false; F.grado = null; F.orden = "fecha"; F.dir = -1; $("#f-mios", s.el).checked = false; chipsGrado(); aplicar(); };
+    $("#f-reset", s.el).onclick = () => { F.mios = false; F.grado = null; F.repuestos = null; F.pintura = null; chipsEtapas(); F.orden = "fecha"; F.dir = -1; $("#f-mios", s.el).checked = false; chipsGrado(); aplicar(); };
   });
   pintar();
 

@@ -1171,3 +1171,5 @@ a[href="#/ajustes"] { -webkit-touch-callout: none; user-select: none; }
 body[data-detalle="1"] .main { padding-bottom: calc(var(--tab) + var(--safe-b) + 16px); }
 @media (min-width: 900px) { body[data-detalle="1"] .main { padding-bottom: 32px; } }
 html, body { overscroll-behavior-y: none; }
+.p-chip .f-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--c); margin-right: 6px; }
+.p-chip.on .f-dot { background: #fff; }
