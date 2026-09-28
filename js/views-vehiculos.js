@@ -610,29 +610,50 @@ function visor(fotos = [], inicio = 0, v = null) {
   });
   // Nombre: PATENTE_01.jpg, PATENTE_02.jpg…
   const nombreFoto = n => `${String(v?.patente || v?.modelo || "foto").toUpperCase().replace(/[^A-Z0-9]+/g, "_")}_${String(n + 1).padStart(2, "0")}.jpg`;
-  // Cloudinary manda el archivo como descarga (fl_attachment)
+  const celular = matchMedia("(pointer: coarse)").matches;
   const bajar = async n => {
     const f = fotos[n], nombre = nombreFoto(n);
-    // Celular: descarga directa (más rápida, sin renombrar). Computadora: con el nombre PATENTE_NN
-    const celular = matchMedia("(pointer: coarse)").matches;
+    if (celular) {
+      // Celular (como antes): baja la foto directo y la guarda, sin pasos extra en Cloudinary
+      try {
+        const r = await fetch(grande(f.url, 4000, f.rot).replace("f_auto", "f_jpg")); if (!r.ok) throw new Error(r.status);
+        const a = document.createElement("a"); a.href = URL.createObjectURL(await r.blob()); a.download = nombre; a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+      } catch { open(f.url, "_blank", "noopener"); }
+      return;
+    }
+    // Computadora: Cloudinary la manda como descarga con el nombre PATENTE_NN (fl_attachment)
     const url = grande(f.url, 4000, f.rot).replace("f_auto", "f_jpg")
-      .replace("/upload/", celular ? "/upload/fl_attachment/" : `/upload/fl_attachment:${nombre.replace(/\.jpg$/, "")}/`);
+      .replace("/upload/", `/upload/fl_attachment:${nombre.replace(/\.jpg$/, "")}/`);
     const a = document.createElement("a"); a.href = url; a.download = nombre; a.rel = "noopener";
     document.body.appendChild(a); a.click(); a.remove();
   };
-  // Descargar: pregunta si bajar solo esta foto o todas las del vehículo
-  $("#vw-dl", s.el).addEventListener("click", () => {
-    if (fotos.length === 1) return bajar(i);
-    const q = openSheet({ title: "Descargar", body: `<div class="stack">
-      <button type="button" class="btn btn-ghost btn-block" data-una>${icon("image")}Esta foto</button>
-      <button type="button" class="btn btn-primary btn-block" data-todas>${icon("download")}Todas las fotos del vehículo (${fotos.length})</button></div>` });
-    $("[data-una]", q.el).onclick = () => { q.close(); bajar(i); };
-    $("[data-todas]", q.el).onclick = async () => {
-      q.close();
-      toast(`Descargando ${fotos.length} fotos…`);
-      for (let n = 0; n < fotos.length; n++) { await bajar(n); await new Promise(r => setTimeout(r, 350)); }
-    };
-  });
+  const bajarTodas = async () => {
+    toast(`Descargando ${fotos.length} ${fotos.length === 1 ? "foto" : "fotos"}…`);
+    for (let n = 0; n < fotos.length; n++) { await bajar(n); await new Promise(r => setTimeout(r, 350)); }
+  };
+  const dl = $("#vw-dl", s.el);
+  if (celular) {
+    // Celular: un toque baja esta foto; mantener apretado baja todas
+    let largo = null, todas = false;
+    dl.addEventListener("pointerdown", () => {
+      todas = false;
+      largo = setTimeout(() => { todas = true; navigator.vibrate?.(30); bajarTodas(); }, 600);
+    });
+    ["pointerup", "pointerleave", "pointercancel"].forEach(ev => dl.addEventListener(ev, () => clearTimeout(largo)));
+    dl.addEventListener("contextmenu", e => e.preventDefault());
+    dl.addEventListener("click", () => { if (!todas) bajar(i); });
+  } else {
+    // Computadora: pregunta si bajar solo esta foto o todas las del vehículo
+    dl.addEventListener("click", () => {
+      if (fotos.length === 1) return bajar(i);
+      const q = openSheet({ title: "Descargar", body: `<div class="stack">
+        <button type="button" class="btn btn-ghost btn-block" data-una>${icon("image")}Esta foto</button>
+        <button type="button" class="btn btn-primary btn-block" data-todas>${icon("download")}Todas las fotos del vehículo (${fotos.length})</button></div>` });
+      $("[data-una]", q.el).onclick = () => { q.close(); bajar(i); };
+      $("[data-todas]", q.el).onclick = () => { q.close(); bajarTodas(); };
+    });
+  }
   if ($("[data-p]", s.el)) $("[data-p]", s.el).onclick = () => { i = (i - 1 + fotos.length) % fotos.length; show(); };
   if ($("[data-n]", s.el)) $("[data-n]", s.el).onclick = () => { i = (i + 1) % fotos.length; show(); };
   let x0 = null, deslizo = false;
