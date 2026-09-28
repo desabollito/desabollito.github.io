@@ -298,9 +298,7 @@ function renderDetalle(root, v, embebido) {
 
 
     ${v.archivos?.length ? `<section class="d-sub">
-      <div class="sec-head"><h3>Documentos <small>${v.archivos?.length || 0}</small></h3>
-        <label class="btn btn-ghost btn-sm">${icon("file")}Adjuntar
-          <input type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,image/*" multiple hidden data-up="doc"></label></div>
+      <div class="sec-head"><h3>Documentos <small>${v.archivos?.length || 0}</small></h3></div>
       <ul class="docs">${(v.archivos || []).map((a, i) => `
         <li><a href="${esc(a.url)}" target="_blank" rel="noopener">${icon("file")}<span>${esc(a.name)}</span></a>
           <button class="icon-btn sm" data-del-doc="${i}" aria-label="Quitar documento">${icon("x")}</button></li>`).join("")}</ul>
@@ -318,8 +316,6 @@ function renderDetalle(root, v, embebido) {
     <footer class="d-foot">
       <span class="d-autor"><button class="icon-btn sm hist-btn" data-act="historial" aria-label="Historial" title="Historial">${icon("clock")}</button>Cargado por ${esc(cargadoPor(v))}</span>
       <span class="d-foot-btns">
-        ${v.archivos?.length ? "" : `<label class="icon-btn sm hist-btn doc-mas" aria-label="Adjuntar documento" title="Adjuntar documento">${icon("file")}<span class="gal-plus">+</span>
-          <input type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,image/*" multiple hidden data-up="doc"></label>`}
         <button class="icon-btn danger" data-act="borrar" aria-label="Eliminar vehículo" title="Eliminar">${icon("trash")}</button>
       </span>
     </footer>
