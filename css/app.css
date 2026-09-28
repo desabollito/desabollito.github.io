@@ -1174,3 +1174,5 @@ html, body { overscroll-behavior-y: none; }
 .p-chip .f-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--c); margin-right: 6px; }
 .p-chip.on .f-dot { background: #fff; }
 .step { -webkit-touch-callout: none; user-select: none; }
+/* Repuestos y pintura: el ítem en gris para que resalte solo el color del estado */
+.etapa-item { background: var(--surface-2); color: var(--ink); border: 1px solid var(--line); }
