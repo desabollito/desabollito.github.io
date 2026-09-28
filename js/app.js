@@ -180,8 +180,7 @@ function mostrarSegunAprobacion() {
       <h1>${rechazada ? "Tu solicitud no fue aprobada" : "Solicitud enviada"}</h1>
       ${rechazada ? `<p>Si creés que es un error, comunicate con nosotros a <a href="mailto:desabollito@gmail.com">desabollito@gmail.com</a></p>`
         : `<p>Recibimos tu registro como <strong>${S.profile?.username || ""}</strong>.</p>
-           <p>Un administrador lo tiene que aprobar; cuando lo haga, esta pantalla se abre sola.</p>`}
-      ${rechazada ? "" : `<p class="muted small">Después de la aprobación también vas a poder usar el bot de WhatsApp: escribile tu usuario para empezar.</p>`}
+           <p>Una vez aprobado, esta pantalla se abre sola.</p>`}
       <div class="espera-btns">
         <button class="btn btn-ghost" data-salir>Cerrar sesión</button>
       </div></div>`;
