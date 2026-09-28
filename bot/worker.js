@@ -460,6 +460,34 @@ const AYUDA =
 
 const lineaOperativo = fijo => `\n\n> Operativo actual: ${fijo ? fijo.operativo : "ninguno (escribí *operativo* para elegirlo)"}`;
 
+const NOMBRE_PANO = { capot: "Capot", techo: "Techo", baul: "Baúl", parante_izq: "Parante izq.", parante_der: "Parante der.",
+  gf_izq: "Guardabarro del. izq.", pd_izq: "Puerta del. izq.", pt_izq: "Puerta tras. izq.", gt_izq: "Guardabarro tras. izq.",
+  gf_der: "Guardabarro del. der.", pd_der: "Puerta del. der.", pt_der: "Puerta tras. der.", gt_der: "Guardabarro tras. der." };
+const ESTADO_TXT = { peritado: "Peritado", turnado: "Turnado", reparado: "Reparado", facturado: "Facturado", anulado: "Anulado" };
+const fechaTxt = iso => { const [a, mm, d] = String(iso || "").split("-"); return d ? `${d}/${mm}/${a.slice(2)}` : ""; };
+// Ficha del vehículo por escrito (para "localizá")
+function detalleVehiculo(v, operativo) {
+  const est = v.fechas?.anulado ? "anulado" : ["facturado", "reparado", "turnado", "peritado"].find(k => v.fechas?.[k]) || v.estado || "peritado";
+  const cuando = k => v.fechas?.[k] ? `${fechaTxt(v.fechas[k])}${v.horas?.[k] ? " " + v.horas[k] : ""}` : "";
+  const panos = Object.keys(v.piezas || {}).filter(k => v.piezas[k]);
+  const filas = [
+    `🚗 *${v.modelo || "Sin modelo"}* · ${v.patente || ""}`,
+    operativo ? `📂 ${operativo}` : "",
+    `📌 ${ESTADO_TXT[est] || est}${cuando(est) ? ` · ${cuando(est)}` : ""}`,
+    est !== "peritado" && cuando("peritado") ? `Peritado: ${cuando("peritado")}` : "",
+    v.asegurado ? `👤 ${v.asegurado}` : "",
+    v.telefono ? `📞 ${v.telefono}` : "",
+    v.compania ? `🛡️ ${v.compania}` : "",
+    v.grado ? `Grado ${v.grado}` : "",
+    panos.length ? `Paños: ${panos.length === TODOS_LOS_PANOS.length ? "todos" : panos.map(k => NOMBRE_PANO[k] || k).join(", ")}` : "",
+    v.pintura ? `Pintura: ${v.pintura}` : "",
+    v.repuestos ? `Repuestos: ${String(v.repuestos).replace(/\n+/g, ", ")}` : "",
+    v.observaciones ? `Detalles: ${v.observaciones}` : "",
+    v.precio ? `💲 $${Number(v.precio).toLocaleString("es-AR")}` : "",
+    `📷 ${(v.fotos || []).length} ${(v.fotos || []).length === 1 ? "foto" : "fotos"}`
+  ];
+  return filas.filter(Boolean).join("\n");
+}
 const etiqueta = s => s.modelo ? `*${s.modelo}* (${s.patente})` : `*${s.patente}*`;
 const PALABRAS_CIERRE = ["ok", "oka", "okey", "okay", "okk", "listo", "lista", "ya", "ya está", "ya esta", "fin", "terminé", "termine",
   "cerrar", "chau", "gracias", "dale", "perfecto", "joya", "bien", "👍", "👌", "✅"];
@@ -623,13 +651,26 @@ async function alRecibirTexto(env, m, quien, texto) {
     return v.fotos ? responder(env, dest(m), `⚠️ ${etiqueta(v)} ya tiene ${resumen(v.fotos)} subidas. Si mandás más, se suman a esas.`) : tilde(env, m);
   }
 
-  // Localizar: "Ubicame NTK100" → link al vehículo en la app
-  if (esLocalizar(texto) && buscarPatenteEnTexto(texto)) {
-    const patente = buscarPatenteEnTexto(texto).patente;
-    const encontrados = await buscarPatente(env, patente, quien.uid);
-    if (!encontrados.length) return responder(env, dest(m), `🔎 No encontré la patente *${patente}*.`);
-    return responder(env, dest(m), encontrados.map(v =>
-      `📍 ${etiqueta(v)} · ${v.operativo}\n${APP_URL}/#/o/${v.cid}/v/${v.vid}`).join("\n\n"));
+  // Localizar: "Localizá NTK100" → detalle del vehículo por escrito + link (sin vista previa).
+  // "Localizá" solo → el vehículo que está abierto.
+  const soloLocalizar = /^(localiz[aá]|localizalo|ubic[aá]|ubicalo|ubicame)$/i.test(sinTildes(limpio(sinMencion || texto)));
+  if (esLocalizar(sinMencion || texto) && (buscarPatenteEnTexto(texto) || soloLocalizar)) {
+    let encontrados;
+    if (buscarPatenteEnTexto(texto)) {
+      const patente = buscarPatenteEnTexto(texto).patente;
+      encontrados = await buscarPatente(env, patente, quien.uid);
+      if (!encontrados.length) return responder(env, dest(m), `🔎 No encontré la patente *${patente}*.`);
+    } else {
+      if (!abierta(s)) return responder(env, dest(m), "Decime la patente, por ejemplo: *localizá AB123CD*");
+      encontrados = [{ cid: s.cid, vid: s.vid, operativo: s.operativo || "" }];
+    }
+    const textos = [];
+    for (const e of encontrados.slice(0, 5)) {
+      const v = await fsGet(env, `companies/${e.cid}/vehicles/${e.vid}`);
+      const op = e.operativo || (await fsGet(env, `companies/${e.cid}`).catch(() => null))?.name || "";
+      if (v && !v.deleted) textos.push(detalleVehiculo(v, op) + `\n${APP_URL}/#/o/${e.cid}/v/${e.vid}`);
+    }
+    return responder(env, dest(m), textos.join("\n\n———\n\n") || "🔎 No lo encontré.");
   }
 
   // Datos de un vehículo (tiene patente). Si nombra un operativo, se usa ese.
@@ -965,7 +1006,7 @@ async function enviarEvolution(env, to, payload) {
     ? await fetch(`${base}/message/sendReaction/${inst}`, { method: "POST", headers: h,
         body: JSON.stringify({ key: payload._key, reaction: payload.reaction.emoji }) })
     : await fetch(`${base}/message/sendText/${inst}`, { method: "POST", headers: h,
-        body: JSON.stringify({ number: chat, text: payload.text.body }) });
+        body: JSON.stringify({ number: chat, text: payload.text.body, linkPreview: payload.text.preview_url === true }) });
   if (!r.ok) {
     const d = await r.text();
     console.error("Evolution no aceptó el mensaje:", r.status, d);
