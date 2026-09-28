@@ -692,35 +692,22 @@ async function alRecibirTexto(env, m, quien, texto) {
     await fsMerge(env, `bot_sesiones/${numero}`, { repuestosDe: { cid: e.cid, vid: e.vid, op, t: Date.now() } });
     return responder(env, dest(m), textoRepuestos(v, op));
   }
-  // Si manda otro vehículo, se deja de ver los repuestos
-  if (s?.repuestosDe && buscarPatenteEnTexto(texto)) await fsMerge(env, `bot_sesiones/${numero}`, { repuestosDe: null }).catch(() => {});
-  // Respuestas mientras se están viendo los repuestos (15 minutos)
-  if (s?.repuestosDe && Date.now() - Number(s.repuestosDe.t || 0) < 15 * 60_000 && !buscarPatenteEnTexto(texto)) {
+  // Respuesta mientras se ven los repuestos (5 minutos): solo "número + estado" (ej: "1 recibido").
+  // Cualquier otra cosa, o pasado el tiempo, el bot se olvida en silencio y el mensaje sigue su curso normal.
+  if (s?.repuestosDe) {
     const { cid, vid, op } = s.repuestosDe, ruta = `companies/${cid}/vehicles/${vid}`;
-    const tx = sinMencion.trim();
-    const fin = /^(listo|lista|nada|no|ninguno|chau|gracias|ok|oka|okey|fin|terminar|termine|terminé)$/i.test(limpio(tx));
-    const agrega = tx.match(/^(?:agreg\w*|sum\w*|a[nñ]ad\w*|\+)\s+(.+)$/i);
-    const cambia = tx.match(/^(\d{1,2})[\s.:)-]+(.+)$/);
-    if (fin) {
-      await fsMerge(env, `bot_sesiones/${numero}`, { repuestosDe: null });
-      if (!abierta(s)) return responder(env, dest(m), "👍 Listo.");   // con un vehículo abierto, el "ok" sigue su curso (resumen de fotos)
-    }
-    if (agrega || cambia) {
-      const v = await fsGet(env, ruta);
-      if (!v || v.deleted) { await fsMerge(env, `bot_sesiones/${numero}`, { repuestosDe: null }); return responder(env, dest(m), "Ese vehículo ya no está disponible."); }
-      const por = quien.nombre || quien.numero;
-      if (agrega) {
-        const nuevos = itemsRep(agrega[1]);
-        await fsMerge(env, ruta, { repuestos: [...itemsRep(v.repuestos), ...nuevos].join(", "), updatedBy: `whatsapp:${numero}` });
-        await fsAppend(env, ruta, "historial", { t: Date.now(), uid: quien.uid || "", por, txt: `Agregó repuesto: ${nuevos.join(", ")}` }).catch(() => {});
-      } else {
-        const items = itemsRep(v.repuestos), n = Number(cambia[1]), fase = faseDeTexto(cambia[2]);
-        if (!items[n - 1]) return responder(env, dest(m), `Elegí un número del 1 al ${items.length}.`);
-        if (!fase) return responder(env, dest(m), "Estados posibles: *sin pedir*, *pedido*, *recibido* o *colocado*. Ej: *1 recibido*");
-        const item = items[n - 1];
-        await fsMerge(env, ruta, { etapasRepuestos: { ...(v.etapasRepuestos || {}), [claveRep(item)]: fase }, updatedBy: `whatsapp:${numero}` });
-        await fsAppend(env, ruta, "historial", { t: Date.now(), uid: quien.uid || "", por, txt: `${item}: ${FASES_REP.find(f => f[0] === fase)[1]}` }).catch(() => {});
-      }
+    const cambia = Date.now() - Number(s.repuestosDe.t || 0) < 5 * 60_000 && sinMencion.trim().match(/^(\d{1,2})[\s.:)-]+(.+)$/);
+    const fase = cambia && faseDeTexto(cambia[2]);
+    const v = fase ? await fsGet(env, ruta) : null;
+    const items = v && !v.deleted ? itemsRep(v.repuestos) : [];
+    const item = fase ? items[Number(cambia[1]) - 1] : null;
+    if (!item) {
+      await fsMerge(env, `bot_sesiones/${numero}`, { repuestosDe: null }).catch(() => {});
+      // Dentro de los 5 minutos, lo que no sea "número + estado" (ni otra patente) se ignora en silencio
+      if (Date.now() - Number(s.repuestosDe.t || 0) < 5 * 60_000 && !buscarPatenteEnTexto(texto) && !abierta(s)) return;
+    } else {
+      await fsMerge(env, ruta, { etapasRepuestos: { ...(v.etapasRepuestos || {}), [claveRep(item)]: fase }, updatedBy: `whatsapp:${numero}` });
+      await fsAppend(env, ruta, "historial", { t: Date.now(), uid: quien.uid || "", por: quien.nombre || quien.numero, txt: `${item}: ${FASES_REP.find(f => f[0] === fase)[1]}` }).catch(() => {});
       await fsMerge(env, `bot_sesiones/${numero}`, { repuestosDe: { ...s.repuestosDe, t: Date.now() } });
       return responder(env, dest(m), "✅ Actualizado\n\n" + textoRepuestos(await fsGet(env, ruta), op));
     }
