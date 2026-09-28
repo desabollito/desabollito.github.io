@@ -497,15 +497,15 @@ const RE_PIDE_REP = /^(?:localiz\w*\s+)?repuestos?\s+(\S+(?:\s+\S+)?)$/i;
 function textoRepuestos(v, operativo) {
   const est = v.fechas?.anulado ? "anulado" : v.estado === "ausente" ? "ausente" : ["facturado", "reparado", "turnado", "peritado"].find(k => v.fechas?.[k]) || "peritado";
   const items = itemsRep(v.repuestos);
-  return [`🔧 *${v.modelo || "Sin modelo"}* · ${v.patente || ""}`,
-    [v.compania ? `🛡️ ${v.compania}` : "", `📌 ${ESTADO_TXT[est] || est}`, operativo ? `📂 ${operativo}` : ""].filter(Boolean).join(" · "),
+  return [`🚗 *${v.modelo || "Sin modelo"}* · ${v.patente || ""}`,
+    v.compania ? `🛡 ${v.compania}` : null,
+    `📌 ${ESTADO_TXT[est] || est}`,
+    operativo ? `📁 ${operativo}` : null,
     "",
     items.length ? "*Repuestos:*\n" + items.map((x, i) => { const f = faseDe(v, x); return `${i + 1}. ${x} — ${f[2]} ${f[1]}`; }).join("\n") : "_Todavía no tiene repuestos cargados._",
-    "",
-    "¿Querés agregar un repuesto o actualizar el estado de alguno?",
-    "• Agregar: *agregar espejo derecho*",
-    items.length ? "• Cambiar estado: *1 recibido* (sin pedir · pedido · recibido · colocado)" : null,
-    "• *listo* para terminar"].filter(x => x !== null).join("\n");
+    items.length ? "" : null,
+    items.length ? "Podes actualizar el estado Indicando el numero y el estado nuevo (pedido · recibido · colocado)" : null
+  ].filter(x => x !== null).join("\n");
 }
 function faseDeTexto(t) {
   const x = sinTildes(t).replace(/\s+/g, "");
