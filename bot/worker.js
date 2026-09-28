@@ -504,8 +504,8 @@ function textoRepuestos(v, operativo) {
     "",
     "¿Querés agregar un repuesto o actualizar el estado de alguno?",
     "• Agregar: *agregar espejo derecho*",
-    items.length ? "• Cambiar estado: *1 recibido* (sin pedir · pedido · recibido · colocado)" : "",
-    "• *listo* para terminar"].filter(x => x !== null && x !== undefined).join("\n").replace(/\n{3,}/g, "\n\n");
+    items.length ? "• Cambiar estado: *1 recibido* (sin pedir · pedido · recibido · colocado)" : null,
+    "• *listo* para terminar"].filter(x => x !== null).join("\n");
 }
 function faseDeTexto(t) {
   const x = sinTildes(t).replace(/\s+/g, "");
