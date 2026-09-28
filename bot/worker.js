@@ -504,7 +504,7 @@ function textoRepuestos(v, operativo) {
     "",
     items.length ? "*Repuestos:*\n" + items.map((x, i) => { const f = faseDe(v, x); return `${i + 1}. ${x} — ${f[2]} ${f[1]}`; }).join("\n") : "_Todavía no tiene repuestos cargados._",
     items.length ? "" : null,
-    items.length ? "Podes actualizar el estado Indicando el numero y el estado nuevo (pedido · recibido · colocado)" : null
+    items.length ? "Podes actualizar el estado.\nIndicame el numero y el estado nuevo (pedido/recibido /colocado)" : null
   ].filter(x => x !== null).join("\n");
 }
 function faseDeTexto(t) {
