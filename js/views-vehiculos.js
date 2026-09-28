@@ -610,10 +610,13 @@ function visor(fotos = [], inicio = 0, v = null) {
   });
   // Nombre: PATENTE_01.jpg, PATENTE_02.jpg…
   const nombreFoto = n => `${String(v?.patente || v?.modelo || "foto").toUpperCase().replace(/[^A-Z0-9]+/g, "_")}_${String(n + 1).padStart(2, "0")}.jpg`;
-  // Cloudinary manda el archivo con el nombre elegido (fl_attachment), así el celular no le pone la fecha
+  // Cloudinary manda el archivo como descarga (fl_attachment)
   const bajar = async n => {
     const f = fotos[n], nombre = nombreFoto(n);
-    const url = grande(f.url, 4000, f.rot).replace("f_auto", "f_jpg").replace("/upload/", `/upload/fl_attachment:${nombre.replace(/\.jpg$/, "")}/`);
+    // Celular: descarga directa (más rápida, sin renombrar). Computadora: con el nombre PATENTE_NN
+    const celular = matchMedia("(pointer: coarse)").matches;
+    const url = grande(f.url, 4000, f.rot).replace("f_auto", "f_jpg")
+      .replace("/upload/", celular ? "/upload/fl_attachment/" : `/upload/fl_attachment:${nombre.replace(/\.jpg$/, "")}/`);
     const a = document.createElement("a"); a.href = url; a.download = nombre; a.rel = "noopener";
     document.body.appendChild(a); a.click(); a.remove();
   };
