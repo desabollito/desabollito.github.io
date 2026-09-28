@@ -1176,3 +1176,10 @@ html, body { overscroll-behavior-y: none; }
 .step { -webkit-touch-callout: none; user-select: none; }
 /* Repuestos y pintura: el ítem en gris para que resalte solo el color del estado */
 .etapa-item { background: var(--surface-2); color: var(--ink); border: 1px solid var(--line); }
+
+/* Ventanas emergentes: el fondo se ve desenfocado (en vez de oscurecido) */
+.sheet-backdrop { background: rgba(8, 15, 26, .15); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+/* Visor de fotos en celular: la pantalla de atrás también se ve desenfocada */
+@media (max-width: 699px) {
+  .sheet.sheet-visor { background: color-mix(in srgb, var(--surface) 72%, transparent); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+}
