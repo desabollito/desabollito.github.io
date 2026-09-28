@@ -235,6 +235,20 @@ function sacarPanos(texto) {
   return { piezas, resto: original };
 }
 
+// "$150.000", "150000", "150 mil", "150k", "1,5 millones" → número
+function aPrecio(t) {
+  const s2 = sinTildes(String(t));
+  const m = s2.match(/(\d+(?:[.,]\d+)*)\s*(millon(?:es)?|mil|k|m\b)?/);
+  if (!m) return null;
+  let num = m[1];
+  // Separadores: "150.000" / "150,000" son miles; "1,5" / "1.5" con multiplicador son decimales
+  if (m[2] && /^\d+[.,]\d{1,2}$/.test(num)) num = Number(num.replace(",", "."));
+  else num = Number(num.replace(/[.,]/g, ""));
+  const mult = !m[2] ? 1 : /^(k|mil)$/.test(m[2]) ? 1000 : 1000000;
+  const n = Math.round(num * mult);
+  return n > 0 ? n : null;
+}
+
 // Palabra con forma de nombre propio: "Juan" o, si escriben todo en mayúsculas, "JUAN"
 const palabraNombre = w => /^[A-ZÁÉÍÓÚÑ][a-záéíóúñü']+$/.test(w) || /^[A-ZÁÉÍÓÚÑÜ']{2,}$/.test(w);
 // ── Nombre del cliente: "cliente Juan Pérez", "asegurado: Ana Ruiz", "titular …"
@@ -248,11 +262,27 @@ const titulo = t => t.split(/\s+/).map(p => /\d/.test(p) || p.length <= 3 && p =
  */
 export function interpretar(texto, extra = {}) {
   let resto = ` ${String(texto || "")} `;
-  const r = { patente: null, modelo: "", compania: "", telefono: "", localidad: "", grado: null, otros: "", asegurado: "", piezas: {} };
+  const r = { patente: null, modelo: "", compania: "", telefono: "", localidad: "", grado: null, otros: "", asegurado: "", piezas: {},
+    observaciones: "", repuestos: "", precio: null };
 
   // 1. Patente
   const p = buscarPatenteEnTexto(resto);
   if (p) { r.patente = p.patente; resto = resto.slice(0, p.desde) + " " + resto.slice(p.desde + p.largo); }
+
+  // 1b. Campos con etiqueta: "detalle: …", "adicional …", "repuestos: …", "precio: …".
+  //     El texto va desde la etiqueta hasta la próxima etiqueta o el final del mensaje.
+  const RE_ETIQ = /(?:^|\s)(detalles?|adicional(?:es)?|observaci[oó]n(?:es)?|obs|repuestos?|precio)(?![a-záéíóúñ])\s*[:\-=]?\s*/gi;
+  const marcas = [...resto.matchAll(RE_ETIQ)];
+  if (marcas.length) {
+    const partes = marcas.map((mm, k) => ({ tipo: sinTildes(mm[1]), texto: resto.slice(mm.index + mm[0].length, k + 1 < marcas.length ? marcas[k + 1].index : resto.length).trim() }));
+    resto = resto.slice(0, marcas[0].index) + " ";
+    for (const { tipo, texto: t } of partes) {
+      if (!t) continue;
+      if (tipo.startsWith("repuesto")) r.repuestos = r.repuestos ? r.repuestos + "\n" + t : t;
+      else if (tipo === "precio") r.precio = aPrecio(t);
+      else r.observaciones = r.observaciones ? r.observaciones + "\n" + t : t;
+    }
+  }
 
   // 2. Grado: "grado 2", "g2", "G 3"
   resto = resto.replace(/\b(?:grado|g)\s*([123])\b/i, (_, g) => { r.grado = Number(g); return " "; });
@@ -663,7 +693,8 @@ async function abrirExistente(env, numero, v, datos, hora, previa, fijar = true,
 
 // Completa en la web los datos que vinieron en el mensaje (solo los que cambian)
 async function actualizarDatos(env, v, datos, quien) {
-  const campos = { modelo: "modelo", compania: "compañía", telefono: "teléfono", grado: "grado", asegurado: "cliente" };
+  const campos = { modelo: "modelo", compania: "compañía", telefono: "teléfono", grado: "grado", asegurado: "cliente",
+    observaciones: "detalles", repuestos: "repuestos", precio: "precio" };
   const nuevos = {}, nombres = [];
   for (const [k, nombre] of Object.entries(campos)) {
     if (datos[k] && datos[k] !== v[k]) { nuevos[k] = datos[k]; nombres.push(nombre); v[k] = datos[k]; }
@@ -745,7 +776,7 @@ async function crearVehiculo(env, op, d, quien) {
   const hoy = new Date(Date.now() - 3 * 3600 * 1000).toISOString().slice(0, 10); // fecha de Argentina (UTC-3)
   const datos = {
     modelo: d.modelo || "", patente: d.patente, asegurado: d.asegurado || "", telefono: d.telefono || "", compania: d.compania || "",
-    localidad: op.operativo || "", observaciones: d.otros || "", repuestos: "", precio: 0, piezas: d.piezas || {}, grado: d.grado || null,
+    localidad: op.operativo || "", observaciones: [d.observaciones, d.otros].filter(Boolean).join("\n"), repuestos: d.repuestos || "", precio: d.precio || 0, piezas: d.piezas || {}, grado: d.grado || null,
     estado: "peritado", fechas: { peritado: hoy }, fotos: [], archivos: [], firma: null, deleted: false,
     createdBy: `whatsapp:${quien.numero}`, createdByName: `${quien.nombre || quien.numero} (WhatsApp)`,
     ...(quien.uid ? { createdByUid: quien.uid } : {}),
