@@ -1,5 +1,5 @@
 import { BOT_API } from "./config.js";
-import { botonesFotos, conectarFotos, buscarPatenteEnFoto } from "./camara.js";
+import { botonesFotos, conectarFotos } from "./camara.js";
 import {
   S, activos, getVehiculo, guardarVehiculo, actualizarVehiculo, cambiarEstado, moverAPapelera,
   solicitarEliminacion, cargadoPor, esDeWhatsApp, puedoEditar, esMioV, crearSolicitud, yaPedi,
@@ -944,20 +944,6 @@ export function vistaFormulario(view, id = null) {
   };
   conectarFotos($("#ff-in", view), files => {
     if (!files.length) return;
-    // Vehículo nuevo sin patente: se busca en la primera foto (en segundo plano)
-    if (!v && !form.patente.value.trim()) {
-      const aviso = $("#aviso-ocr", view) || Object.assign(document.createElement("p"), { id: "aviso-ocr", className: "aviso-ocr" });
-      aviso.textContent = "Buscando la patente en la primera foto…";
-      $("#f-patente", view).appendChild(aviso);
-      buscarPatenteEnFoto(files[0]).then(p => {
-        aviso.remove();
-        if (!p) { toast("No encontré la patente en la foto; cargala a mano", "info"); return; }
-        if (form.patente.value.trim()) return;
-        form.patente.value = p;
-        form.patente.dispatchEvent(new Event("input", { bubbles: true }));
-        toast(`Patente ${p} detectada: revisala`, "success");
-      }).catch(e => { aviso.remove(); console.warn("ocr", e); });
-    }
     if (!cloudinaryListo()) { toast("Falta configurar Cloudinary en js/config.js", "error"); return; }
     for (const file of files) {
       const n = { key: Math.random().toString(36).slice(2), preview: URL.createObjectURL(file), estado: "subiendo", foto: null };

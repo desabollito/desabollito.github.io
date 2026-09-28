@@ -1,7 +1,6 @@
-// Cámara en ráfaga dentro de la app + lector de patentes gratuito en el celular (Tesseract, self-hosted)
+// Cámara en ráfaga dentro de la app
 import { icon, plate, toast, confirmar } from "./ui.js";
 
-const OCR_DIR = new URL("../vendor/ocr/", import.meta.url).href;
 
 // ── Normalización de patentes argentinas (AA000AA y AAA000) con corrección de letras/números confundidos
 const A_LETRA = { 0: "O", 1: "I", 2: "Z", 4: "A", 5: "S", 6: "G", 7: "T", 8: "B" };
@@ -30,23 +29,6 @@ export function patenteDeTexto(texto) {
     }
   }
   return null;
-}
-
-// ── Motor OCR (se carga una sola vez, solo cuando se usa)
-let motor = null;
-function cargarOCR() {
-  if (motor) return motor;
-  motor = (async () => {
-    if (!window.Tesseract) await new Promise((ok, mal) => {
-      const s = document.createElement("script"); s.src = OCR_DIR + "tesseract.min.js"; s.onload = ok; s.onerror = mal; document.head.appendChild(s);
-    });
-    const w = await window.Tesseract.createWorker("eng", 1, {
-      workerPath: OCR_DIR + "worker.min.js", corePath: OCR_DIR, langPath: OCR_DIR.replace(/\/$/, ""), gzip: true, workerBlobURL: false
-    });
-    await w.setParameters({ tessedit_char_whitelist: "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 ", tessedit_pageseg_mode: "6" });
-    return w;
-  })().catch(e => { motor = null; throw e; });
-  return motor;
 }
 
 // Zona del video que cae dentro del recuadro (el video se muestra con object-fit: cover)
@@ -232,35 +214,6 @@ async function abrirCamara_() {
     pintar(); prepararControles();
     video.play?.().catch(() => {});
   });
-}
-
-/**
- * Busca la patente en una foto (la primera que se sacó). Gratis, en el celular.
- * Prueba varias zonas (la patente suele estar abajo al centro) y variantes de contraste.
- */
-export async function buscarPatenteEnFoto(file) {
-  const bmp = await createImageBitmap(file);
-  const W = bmp.width, H = bmp.height;
-  const zonas = [
-    [0.18, 0.45, 0.82, 0.95], [0.1, 0.3, 0.9, 1], [0.25, 0.55, 0.75, 0.9], [0, 0, 1, 1]
-  ];
-  const w = await cargarOCR();
-  await w.setParameters({ tessedit_pageseg_mode: "11" });
-  const lienzo = document.createElement("canvas");
-  try {
-    for (const [x0, y0, x1, y1] of zonas) {
-      const z = { sx: x0 * W, sy: y0 * H, sw: (x1 - x0) * W, sh: (y1 - y0) * H };
-      for (const v of [{ ancho: 1400 }, { ancho: 1400, invertir: true }, { ancho: 1000, bn: true }]) {
-        const { data } = await w.recognize(preparar(bmp, z, lienzo, v));
-        const p = patenteDeTexto(data.text);
-        if (p) return p;
-      }
-    }
-    return null;
-  } finally {
-    await w.setParameters({ tessedit_pageseg_mode: "6" });
-    bmp.close?.();
-  }
 }
 
 /** Botón "Cámara" grande + botón chico de galería. */
