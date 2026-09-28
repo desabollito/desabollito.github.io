@@ -1112,8 +1112,16 @@ details.vform-det .field + .field { margin-top: 12px; }
 .d-menu a:hover { background: var(--surface-2); }
 .d-menu .ic { width: 18px; height: 18px; }
 /* Seguimiento: "Anular vehículo" en la misma línea del título */
-.seg-head { display: flex; align-items: center; gap: 14px; margin-bottom: 12px; }
+.seg-head { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 12px; }
 .seg-head h3 { margin: 0; }
 .seg-head .link-btn { padding: 2px 0; font-size: 13px; }
 .perfil-wa .wa-desv { color: var(--danger); width: 26px; height: 26px; min-width: 0; padding: 0; }
 .perfil-wa .wa-desv .ic { width: 15px; height: 15px; }
+
+/* Horas (peritado / reparado) */
+.step-h { display: block; font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.vfechas { display: inline-flex; flex-direction: column; align-items: flex-end; gap: 1px; font-variant-numeric: tabular-nums; }
+.vfechas .vrep { color: #22b07d; }
+.d-grado { display: flex; }
+.vsub .vfechas { margin-left: auto; flex-shrink: 0; }
+.vsub .vfechas time { margin-left: 0; }

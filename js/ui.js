@@ -19,6 +19,24 @@ export function hoyISO() {
   return d.toISOString().slice(0, 10);
 }
 
+// Hora local en formato 24 h "HH:MM"
+export function horaAhora(d = new Date()) {
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
+// Hora en que se marcó peritado / reparado. Vehículos viejos: se deduce del historial si coincide la fecha.
+export function horaDe(v, k) {
+  if (v?.horas?.[k]) return v.horas[k];
+  const f = v?.fechas?.[k];
+  if (!f) return "";
+  const h = (v.historial || []).filter(e => e?.t && (k === "peritado" ? /^Carg[oó]/.test(e.txt || "") : (e.txt || "").startsWith("Pasó a Reparado")));
+  let t = h.length ? h[k === "peritado" ? 0 : h.length - 1].t : null;
+  if (!t && k === "peritado" && v.createdAt?.toMillis) t = v.createdAt.toMillis();
+  if (!t) return "";
+  const d = new Date(t), iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  return iso === f ? horaAhora(d) : "";
+}
+
 export function fechaCorta(iso) {
   if (!iso) return "";
   const [y, m, d] = iso.split("-");

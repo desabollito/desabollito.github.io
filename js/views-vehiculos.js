@@ -8,8 +8,7 @@ import {
 import { ESTADOS, ESTADO, SECUENCIA, PIEZA, ORDEN_PIEZAS, estadoActual, piezasMarcadas } from "./domain.js";
 import {
   $, $$, esc, money, fechaCorta, fechaLarga, hoyISO, plate, estadoPill, icon, toast, openSheet,
-  confirmar, busy, debounce, marcarError
-} from "./ui.js";
+  confirmar, busy, debounce, marcarError, horaDe } from "./ui.js";
 import { carMapSVG, montarMapa } from "./carmap.js";
 import { montar3D } from "./car3d.js";
 import { subir, comprimir, borrarConToken, thumb, grande, cloudinaryListo } from "./media.js";
@@ -68,7 +67,7 @@ function tarjeta(v, sel) {
     <span class="vbody">
       <span class="vtop"><strong class="vmodel">${esc(v.modelo || "Sin modelo")}</strong>${estadoPill(v)}</span>
       <span class="vmid">${plate(v.patente, "sm")}${v._pending ? `<span class="sync" title="Pendiente de sincronizar"></span>` : ""}${esDeWhatsApp(v) ? `<small class="vbot">Bot</small>` : ""}</span>
-      <span class="vsub"><span class="vcli">${esc(v.compania || "")}</span><time>${fechaCorta(v.fechas?.peritado)}</time></span>
+      <span class="vsub"><span class="vcli">${esc(v.compania || "")}</span><span class="vfechas"><time>${fechaCorta(v.fechas?.peritado)}${horaDe(v, "peritado") ? ` ${horaDe(v, "peritado")}` : ""}</time>${v.fechas?.reparado && !v.fechas?.anulado ? `<time class="vrep">${fechaCorta(v.fechas.reparado)}${horaDe(v, "reparado") ? ` ${horaDe(v, "reparado")}` : ""}</time>` : ""}</span></span>
     </span>
   </a>`;
 }
@@ -224,6 +223,7 @@ function renderDetalle(root, v, embebido) {
       <div class="d-title">
         <h2>${esc(v.modelo || "Sin modelo")}</h2>
         <div class="d-plate">${plate(v.patente, "lg")}</div>
+        ${v.grado ? `<div class="d-grado"><span class="grado-tag g${v.grado}">Grado ${v.grado}</span></div>` : ""}
         ${v.precio ? `<div class="d-price"><strong>${money(v.precio)}</strong></div>` : ""}
       </div>
     </header>
@@ -248,7 +248,8 @@ function renderDetalle(root, v, embebido) {
           return `<li><button class="step ${hecho ? "done" : ""} ${actual ? "now" : ""}" data-estado="${k}" style="--c:${e.color}">
             <span class="dot">${hecho ? icon("check") : ""}</span>
             <span class="step-l">${e.label}</span>
-            <span class="step-d">${v.fechas?.[k] ? fechaCorta(v.fechas[k]) : "—"}</span></button></li>`;
+            <span class="step-d">${v.fechas?.[k] ? fechaCorta(v.fechas[k]) : "—"}</span>
+            ${(k === "peritado" || k === "reparado") && v.fechas?.[k] && horaDe(v, k) ? `<span class="step-h">${horaDe(v, k)}</span>` : ""}</button></li>`;
         }).join("")}
       </ol>
       ${anulado ? `<p class="muted small">Anulado el ${fechaCorta(v.fechas?.anulado)}</p>` : ""}
@@ -259,13 +260,13 @@ function renderDetalle(root, v, embebido) {
         .map(([l, x]) => `<div class="kv"><span>${l}</span><strong>${esc(x || "—")}</strong></div>`).join("")}
     </section>
 
-    ${!marcadas.length ? (v.grado ? `<section class="d-sec d-piezas">${gradoHTML(v)}</section>` : "") : `<section class="d-sec d-piezas">
+    ${!marcadas.length ? "" : `<section class="d-sec d-piezas">
       <div class="sec-head"><h3>Paños afectados ${todos ? "<small>todos</small>" : marcadas.length ? `<small>${marcadas.length}</small>` : ""}</h3>
         ${marcadas.length ? `<button class="btn btn-ghost btn-sm vista-btn" data-act="vista3d">${modo3D ? "2D" : "3D"}</button>` : ""}</div>
-      ${!marcadas.length ? `<p class="muted sin-panos">Sin paños marcados</p>${gradoHTML(v)}` : `
+      ${!marcadas.length ? `<p class="muted sin-panos">Sin paños marcados</p>` : `
       <div class="vista-3d" ${modo3D ? "" : "hidden"}></div>
       <div class="piezas-view" ${modo3D ? "hidden" : ""}>
-        <div class="map-col">${carMapSVG(v.piezas || {}, { size: "carmap-sm" })}${gradoHTML(v)}</div>
+        <div class="map-col">${carMapSVG(v.piezas || {}, { size: "carmap-sm" })}</div>
         <p class="piezas-caption" aria-live="polite">${todos ? "<strong>Todos</strong>" : marcadas.length ? "Tocá un paño para ver su nombre" : "Sin paños marcados"}</p>
         <div class="piezas-grupos">${todos ? `<ul class="piezas-list"><li>Todos</li></ul>`
           : !marcadas.length ? `<ul class="piezas-list"><li class="muted">Sin paños marcados</li></ul>`
@@ -273,7 +274,7 @@ function renderDetalle(root, v, embebido) {
               .map(g => `<ul class="piezas-list">${g.map(k => `<li>${esc(PIEZA[k].label)}</li>`).join("")}</ul>`).join("")}</div>
       </div>
       <p class="piezas-caption caption-3d" ${modo3D ? "" : "hidden"}>Arrastrá para girar · tocá un paño</p>
-      ${modo3D ? gradoHTML(v) : ""}`}
+`}
     </section>`}
 
     ${v.observaciones ? `<section class="d-sec"><h3>Observaciones</h3><p class="prose">${esc(v.observaciones)}</p></section>` : ""}

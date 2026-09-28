@@ -5,7 +5,7 @@ import {
   query, where, serverTimestamp, arrayUnion, writeBatch, deleteField
 } from "./firebase.js";
 import { USER_DOMAIN, BOT_API } from "./config.js";
-import { hoyISO } from "./ui.js";
+import { hoyISO, horaAhora } from "./ui.js";
 import { SECUENCIA, ESTADO, PIEZA } from "./domain.js";
 import { subir, recorteCuadrado } from "./media.js";
 
@@ -444,6 +444,7 @@ export async function guardarVehiculo(id, data, esNuevo) {
       ...base,
       estado: data.estado || "peritado",
       fechas: data.fechas || { peritado: hoyISO() },
+      horas: data.horas || { peritado: horaAhora() },
       fotos: data.fotos || [],
       archivos: data.archivos || [],
       deleted: false,
@@ -473,8 +474,12 @@ export async function cambiarEstado(v, estado, fecha = hoyISO()) {
     });
   }
   fechas[estado] = fecha;
+  // Hora en que se marcó (solo peritado y reparado)
+  const horas = { ...(v.horas || {}) };
+  for (const k of Object.keys(horas)) if (!fechas[k]) delete horas[k];
+  if (estado === "peritado" || estado === "reparado") horas[estado] = horaAhora();
   const [a, m, d] = String(fecha).split("-");
-  await actualizarVehiculo(v.id, { estado, fechas }, `Pasó a ${ESTADO[estado]?.label || estado}${d ? ` (${d}/${m}/${a})` : ""}`);
+  await actualizarVehiculo(v.id, { estado, fechas, horas }, `Pasó a ${ESTADO[estado]?.label || estado}${d ? ` (${d}/${m}/${a})` : ""}`);
 }
 
 export const moverAPapelera = id => actualizarVehiculo(id, { deleted: true, deletedAt: serverTimestamp(), deletedBy: S.user.uid }, "Lo envió a la papelera");

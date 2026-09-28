@@ -779,7 +779,7 @@ async function crearVehiculo(env, op, d, quien) {
   const datos = {
     modelo: d.modelo || "", patente: d.patente, asegurado: d.asegurado || "", telefono: d.telefono || "", compania: d.compania || "",
     localidad: op.operativo || "", observaciones: d.observaciones || "", repuestos: d.repuestos || "", pintura: d.pintura || "", precio: d.precio || 0, piezas: d.piezas || {}, grado: d.grado || null,
-    estado: "peritado", fechas: { peritado: hoy }, fotos: [], archivos: [], firma: null, deleted: false,
+    estado: "peritado", fechas: { peritado: hoy }, horas: { peritado: new Date(Date.now() - 3 * 3600 * 1000).toISOString().slice(11, 16) }, fotos: [], archivos: [], firma: null, deleted: false,
     createdBy: `whatsapp:${quien.numero}`, createdByName: `${quien.nombre || quien.numero} (WhatsApp)`,
     ...(quien.uid ? { createdByUid: quien.uid } : {}),
     ...(quien.username ? { createdByUser: quien.username } : {}),
