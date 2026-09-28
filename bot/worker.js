@@ -392,7 +392,7 @@ export function quitarFrase(texto, frase) {
 
 const INSTRUCCIONES =
   "Enviame los datos del vehículo y luego las fotos.\n\n" +
-  "Para finalizar, enviá *OK* o continuá con otro vehículo.";
+  "Todo se carga en la nube al momento que lo envías, para tener un resumen enviá *OK*.";
 const SALUDO = "¡Hola, soy Desabollito 🚘!\n\n" + INSTRUCCIONES;
 
 // Saludo según la hora de Argentina (UTC-3): con el nombre de la cuenta de la app;
@@ -423,6 +423,11 @@ const esCierre = t => PALABRAS_CIERRE.includes(limpio(t));
 const esSaludo = t => /^(hola+|buenas|buen d[ií]a|buenas tardes|buenas noches|hey|hi|start|inicio)$/.test(limpio(t));
 const esAyuda = t => /^(ayuda|help|\?|menu|menú|comandos|info)$/.test(limpio(t));
 const esLocalizar = t => /^(localiz|ubic|encontr|busc|d[oó]nde\s+est|mostr|pas[aá]me\s+el\s+link|link)/i.test(limpio(t));
+// Menciones al bot en grupos: "desabollito", "@desabollito" o la palabra "bot"
+const mencionaBot = t => /desabollito|\bbot\b/i.test(sinTildes(String(t || "")));
+const quitarMencion = t => String(t || "").replace(/@?desabollito|\bbot\b/gi, " ").replace(/\s+/g, " ").trim();
+const esCancelar = t => /^(cancelar|cancela|cancelalo|cancel|fue un error|error|me equivoque|no)$/.test(sinTildes(limpio(t)));
+const esCierreGrupo = t => /^(ok+|okey|okay|listo|lista|fin|termine)$/.test(sinTildes(limpio(t)));
 const esCambioOperativo = t => /^(cambiar\s+(de\s+)?)?operativos?$/.test(limpio(t));
 const resumen = n => `${n} ${n === 1 ? "foto" : "fotos"}`;
 const esperar = ms => new Promise(r => setTimeout(r, ms));
@@ -496,15 +501,23 @@ const tilde = (env, m) => reaccionar(env, dest(m), m.id, "✅", m._key);
 
 async function alRecibirTexto(env, m, quien, texto) {
   const numero = quien.numero;
+  const grupo = !!m._grupo, mencion = mencionaBot(texto);
+  const sinMencion = quitarMencion(texto);
   const t = limpio(texto);
   const hora = horaDe(m);
   const s = await leerSesion(env, numero);
 
-  if (esSaludo(texto)) return responder(env, dest(m), saludoHora(quien));
-  if (esAyuda(texto)) return responder(env, dest(m), AYUDA);
+  // Cancelar la carga en curso (cada persona cancela solo lo suyo, también en grupos)
+  if (abierta(s) && esCancelar(sinMencion)) return responder(env, dest(m), await cancelarCarga(env, numero, s, quien));
 
-  // Comando: cambiar de operativo
-  if (esCambioOperativo(texto)) {
+  // En grupos solo se saluda/ayuda si le hablan al bot ("hola desabollito", "@desabollito", "bot")
+  if (!grupo || mencion) {
+    if (esSaludo(sinMencion) || (grupo && mencion && !limpio(sinMencion))) return responder(env, dest(m), saludoHora(quien));
+    if (esAyuda(sinMencion)) return responder(env, dest(m), AYUDA);
+  }
+
+  // Comando: cambiar de operativo (en grupos, solo la palabra "operativo" sola)
+  if (grupo ? limpio(sinMencion) === "operativo" : esCambioOperativo(texto)) {
     const ops = await listaOperativos(env, quien.uid);
     if (!ops.length) return responder(env, dest(m), "No hay operativos creados en la app todavía.");
     const fijo = await operativoFijo(env, numero, quien.uid);
@@ -559,10 +572,8 @@ async function alRecibirTexto(env, m, quien, texto) {
 
   // Datos de un vehículo (tiene patente). Si nombra un operativo, se usa ese.
   const patenteEnTexto = buscarPatenteEnTexto(texto);
-  let mencion = null, textoDatos = texto;
   // (el operativo solo se cambia con el comando "operativo"; nombres en el mensaje no lo cambian)
-  const datos = interpretar(textoDatos);
-  if (mencion) datos.operativo = mencion.op;
+  const datos = interpretar(sinMencion);
   if (datos.patente) {
     if (abierta(s) && s.patente === datos.patente) {
       await actualizarDatos(env, s, datos, quien);
@@ -575,14 +586,15 @@ async function alRecibirTexto(env, m, quien, texto) {
 
   // Texto sin patente: OK (o cualquier texto después de mandar fotos) → resumen de la tanda
   const fotosDelActual = abierta(s) ? Number(s[campoConteo(s.vid)] || 0) : 0;
-  if ((s?.tanda?.length && esCierre(texto)) || fotosDelActual > 0) {
+  // En grupos solo cierra un OK explícito; en privado, cualquier texto después de las fotos
+  if ((s?.tanda?.length && (grupo ? esCierreGrupo(texto) : esCierre(texto))) || (!grupo && fotosDelActual > 0)) {
     return responder(env, dest(m), await resumenDeTanda(env, numero, s, hora));
   }
-  if (s?.crear?.datos?.patente) {
+  if (s?.crear?.datos?.patente && !grupo) {
     return responder(env, dest(m), `Respondé con el número del operativo donde creo *${s.crear.datos.patente}*, o 0 para cancelar.`);
   }
-  if (abierta(s)) return; // vehículo abierto, todavía sin fotos: el bot espera en silencio
-  if (m._grupo) return; // en grupos solo se responde a patentes, fotos, OK y comandos
+  if (abierta(s)) return; // vehículo abierto: el bot espera en silencio
+  if (grupo) return mencion ? responder(env, dest(m), saludoHora(quien)) : undefined; // charla del grupo: silencio
   if (esCierre(texto)) return responder(env, dest(m), "👌 " + OTRO);
   return responder(env, dest(m), "No encontré una patente en tu mensaje 🤔\n\nEnviame los datos del vehículo, por ejemplo:\n_Corolla AB099BA Riv 1137709755 Monte_\n\nO escribí *ayuda*.");
 }
@@ -1384,6 +1396,8 @@ const responderLink = (env, to, texto) => enviar(env, to, { type: "text", text: 
 async function vincular(env, m, quien) {
   const numero = quien.numero;
   if (m._grupo) {
+    const txt = m.type === "text" ? String(m.text?.body || "") : String(m.image?.caption || "");
+    if (!mencionaBot(txt) && !buscarPatenteEnTexto(txt)) return;   // charla del grupo: no se responde
     return avisarUnaVez(env, { ...m, _grupo: false }, numero, "vincular",
       "👋 Para usar el bot primero escribime por privado tu *usuario* de Desabollito.");
   }
@@ -1573,4 +1587,22 @@ async function estadoEvolution(env, inst) {
     const j = await r.json().catch(() => ({}));
     return j?.instance?.state || j?.state || `error ${r.status}`;
   } catch { return null; }
+}
+
+// Cancela la carga abierta: si el bot recién creó el vehículo, lo borra (sin fotos) o lo manda a
+// la papelera de quien lo cargó (con fotos). Si el vehículo ya existía, solo deja de recibir fotos.
+async function cancelarCarga(env, numero, s, quien) {
+  const ruta = `companies/${s.cid}/vehicles/${s.vid}`;
+  const item = (s.tanda || []).find(x => x.vid === s.vid);
+  const fotos = Number(s[campoConteo(s.vid)] || 0);
+  let txt;
+  if (item?.nuevo) {
+    const v = await fsGet(env, ruta);
+    if (v && !(v.fotos || []).length) { await fsDelete(env, ruta); txt = `❌ Cancelado: borré ${etiqueta(s)}.`; }
+    else if (v) { await fsMerge(env, ruta, { deleted: true, deletedBy: quien?.uid || "" }); txt = `❌ Cancelado: ${etiqueta(s)} fue a tu papelera (tenía fotos).`; }
+    else txt = "❌ Cancelado.";
+  } else txt = `❌ Cancelado: dejé de cargar fotos en ${etiqueta(s)}${fotos ? ` (las ${fotos} que ya llegaron quedan guardadas)` : ""}.`;
+  const tanda = (s.tanda || []).filter(x => x.vid !== s.vid);
+  await fsSet(env, `bot_sesiones/${numero}`, { ts: Date.now(), ...(tanda.length ? { tanda } : {}) });
+  return txt;
 }
