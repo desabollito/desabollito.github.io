@@ -158,9 +158,9 @@ export async function presupuestoPDF(v, empresa, { conFotos = false, onProgreso 
   }
 
   // Observaciones y repuestos
-  const bloques = [["Observaciones", v.observaciones], ["Repuestos", v.repuestos]].filter(b => b[1]);
+  const bloques = [["Observaciones", v.observaciones], ["Repuestos", v.repuestos], ["Pintura", v.pintura]].filter(b => b[1]);
   if (bloques.length) {
-    const bw = bloques.length === 2 ? (CW - 8) / 2 : CW;
+    const bw = (CW - 8 * (bloques.length - 1)) / bloques.length;
     let maxY = y;
     bloques.forEach(([t, txt], i) => {
       const bx = M + i * (bw + 8);

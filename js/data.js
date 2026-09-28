@@ -402,7 +402,7 @@ export function nuevoIdVehiculo() {
 const entrada = txt => ({ t: Date.now(), uid: S.user.uid, por: S.profile?.name || "", txt });
 const plata = n => "$" + Number(n || 0).toLocaleString("es-AR");
 const CAMPOS_HIST = { modelo: "el modelo", patente: "la patente", asegurado: "el asegurado", telefono: "el teléfono",
-  compania: "la compañía", localidad: "la localidad", observaciones: "las observaciones", repuestos: "los repuestos" };
+  compania: "la compañía", localidad: "la localidad", observaciones: "las observaciones", repuestos: "los repuestos", pintura: "la pintura" };
 function cambiosDe(viejo, nuevo) {
   if (!viejo) return [];
   const out = [];

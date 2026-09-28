@@ -196,6 +196,10 @@ function waLink(tel, texto = "") {
   return `https://wa.me/${d}${texto ? "?text=" + encodeURIComponent(texto) : ""}`;
 }
 
+// "capot, techo y puerta" → ["Capot", "Techo", "Puerta"]
+const pinturaItems = v => String(v.pintura || "").split(/\n|,|;|\s+y\s+/i).map(x => x.trim()).filter(Boolean)
+  .map(x => x.charAt(0).toUpperCase() + x.slice(1));
+
 function renderDetalle(root, v, embebido) {
   if (vid3D !== v.id) { vid3D = v.id; modo3D = false; } // al abrir otro vehículo, arranca en 2D
   const est = estadoActual(v);
@@ -269,7 +273,12 @@ function renderDetalle(root, v, embebido) {
     ${v.repuestos ? `<section class="d-sec"><h3>Repuestos</h3><p class="prose">${esc(v.repuestos)}</p></section>` : ""}
 
     <details class="d-sec d-adic" ${adicAbierto ? "open" : ""}>
-      <summary><h3>Adicionales</h3><small class="muted">Documentos, Firma</small></summary>
+      <summary><h3>Adicionales</h3><small class="muted">Pintura, Documentos, Firma</small></summary>
+
+    ${pinturaItems(v).length ? `<section class="d-sub">
+      <div class="sec-head"><h3>Pintura</h3></div>
+      <ul class="piezas-list pintura-list">${pinturaItems(v).map(x => `<li>${esc(x)}</li>`).join("")}</ul>
+    </section>` : ""}
 
     <section class="d-sub">
       <div class="sec-head"><h3>Documentos <small>${v.archivos?.length || 0}</small></h3>
@@ -763,7 +772,7 @@ export function vistaFormulario(view, id = null) {
         </fieldset>
         </div>
         <details class="card vform-det">
-          <summary>Adicionales <small class="muted">Grado, Observaciones, Repuestos${v ? "" : ", Fecha de peritaje"}</small></summary>
+          <summary>Adicionales <small class="muted">Grado, Observaciones, Repuestos, Pintura${v ? "" : ", Fecha de peritaje"}</small></summary>
           <div class="grado-pick">
             <span>Grado de daño</span>
             <div class="seg seg-sm" id="grado" role="radiogroup" aria-label="Grado de daño">
@@ -774,6 +783,8 @@ export function vistaFormulario(view, id = null) {
             <textarea name="observaciones" rows="3" placeholder="Detalles adicionales">${esc(v?.observaciones)}</textarea></label>
           <label class="field"><span>Repuestos</span>
             <textarea name="repuestos" rows="2" placeholder="Un repuesto por línea">${esc(v?.repuestos)}</textarea></label>
+          <label class="field"><span>Pintura</span>
+            <input name="pintura" autocomplete="off" placeholder="Ej: capot, techo" value="${esc(v?.pintura)}"></label>
           ${v ? "" : `<label class="field"><span>Fecha de peritaje</span>
             <input name="fecha" type="date" value="${hoyISO()}"></label>`}
         </details>
@@ -905,6 +916,7 @@ export function vistaFormulario(view, id = null) {
       localidad: f.localidad.value.trim() || (v ? "" : S.company?.name || ""),
       observaciones: f.observaciones.value.trim(),
       repuestos: f.repuestos.value.trim(),
+      pintura: f.pintura.value.trim(),
       precio: Number(f.precio.value.replace(/\D/g, "")) || 0,
       piezas: Object.fromEntries(Object.entries(piezas).filter(([, on]) => on)),
       grado

@@ -263,7 +263,7 @@ const titulo = t => t.split(/\s+/).map(p => /\d/.test(p) || p.length <= 3 && p =
 export function interpretar(texto, extra = {}) {
   let resto = ` ${String(texto || "")} `;
   const r = { patente: null, modelo: "", compania: "", telefono: "", localidad: "", grado: null, otros: "", asegurado: "", piezas: {},
-    observaciones: "", repuestos: "", precio: null };
+    observaciones: "", repuestos: "", pintura: "", precio: null };
 
   // 1. Patente
   const p = buscarPatenteEnTexto(resto);
@@ -271,7 +271,7 @@ export function interpretar(texto, extra = {}) {
 
   // 1b. Campos con etiqueta: "detalle: …", "adicional …", "repuestos: …", "precio: …".
   //     El texto va desde la etiqueta hasta la próxima etiqueta o el final del mensaje.
-  const RE_ETIQ = /(?:^|\s)(detalles?|adicional(?:es)?|observaci[oó]n(?:es)?|obs|repuestos?|precio)(?![a-záéíóúñ])\s*[:\-=]?\s*/gi;
+  const RE_ETIQ = /(?:^|\s)(detalles?|adicional(?:es)?|observaci[oó]n(?:es)?|obs|repuestos?|pintura|precio)(?![a-záéíóúñ])\s*[:\-=]?\s*/gi;
   const marcas = [...resto.matchAll(RE_ETIQ)];
   if (marcas.length) {
     const partes = marcas.map((mm, k) => ({ tipo: sinTildes(mm[1]), texto: resto.slice(mm.index + mm[0].length, k + 1 < marcas.length ? marcas[k + 1].index : resto.length).trim() }));
@@ -280,6 +280,7 @@ export function interpretar(texto, extra = {}) {
       if (!t) continue;
       if (tipo.startsWith("repuesto")) r.repuestos = r.repuestos ? r.repuestos + "\n" + t : t;
       else if (tipo === "precio") r.precio = aPrecio(t);
+      else if (tipo === "pintura") r.pintura = r.pintura ? r.pintura + ", " + t : t;
       else r.observaciones = r.observaciones ? r.observaciones + "\n" + t : t;
     }
   }
@@ -694,7 +695,7 @@ async function abrirExistente(env, numero, v, datos, hora, previa, fijar = true,
 // Completa en la web los datos que vinieron en el mensaje (solo los que cambian)
 async function actualizarDatos(env, v, datos, quien) {
   const campos = { modelo: "modelo", compania: "compañía", telefono: "teléfono", grado: "grado", asegurado: "cliente",
-    observaciones: "detalles", repuestos: "repuestos", precio: "precio" };
+    observaciones: "detalles", repuestos: "repuestos", pintura: "pintura", precio: "precio" };
   const nuevos = {}, nombres = [];
   for (const [k, nombre] of Object.entries(campos)) {
     if (datos[k] && datos[k] !== v[k]) { nuevos[k] = datos[k]; nombres.push(nombre); v[k] = datos[k]; }
@@ -776,7 +777,7 @@ async function crearVehiculo(env, op, d, quien) {
   const hoy = new Date(Date.now() - 3 * 3600 * 1000).toISOString().slice(0, 10); // fecha de Argentina (UTC-3)
   const datos = {
     modelo: d.modelo || "", patente: d.patente, asegurado: d.asegurado || "", telefono: d.telefono || "", compania: d.compania || "",
-    localidad: op.operativo || "", observaciones: [d.observaciones, d.otros].filter(Boolean).join("\n"), repuestos: d.repuestos || "", precio: d.precio || 0, piezas: d.piezas || {}, grado: d.grado || null,
+    localidad: op.operativo || "", observaciones: [d.observaciones, d.otros].filter(Boolean).join("\n"), repuestos: d.repuestos || "", pintura: d.pintura || "", precio: d.precio || 0, piezas: d.piezas || {}, grado: d.grado || null,
     estado: "peritado", fechas: { peritado: hoy }, fotos: [], archivos: [], firma: null, deleted: false,
     createdBy: `whatsapp:${quien.numero}`, createdByName: `${quien.nombre || quien.numero} (WhatsApp)`,
     ...(quien.uid ? { createdByUid: quien.uid } : {}),

@@ -1068,3 +1068,6 @@ details.vform-det .field + .field { margin-top: 12px; }
 .viewer-bar-lado { width: 44px; display: flex; justify-content: flex-end; }
 .viewer-mas { margin-top: 0; }
 .viewer-carga { color: var(--ink); }
+
+/* Pintura (Adicionales): mismo formato que los paños marcados */
+.pintura-list { flex-direction: row; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
