@@ -1162,3 +1162,8 @@ a[href="#/ajustes"] { -webkit-touch-callout: none; user-select: none; }
 .etapa-btn { border: 0; cursor: pointer; font: inherit; font-size: 12.5px; font-weight: 800; padding: 5px 12px; border-radius: 999px;
   color: var(--c); background: color-mix(in srgb, var(--c) 18%, transparent); display: inline-flex; align-items: center; gap: 6px; }
 .etapa-btn::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--c); }
+
+/* Sin espacio de más al final del vehículo (el botón + no se muestra ahí) y sin "rebote" al llegar al borde */
+body[data-detalle="1"] .main { padding-bottom: calc(var(--tab) + var(--safe-b) + 16px); }
+@media (min-width: 900px) { body[data-detalle="1"] .main { padding-bottom: 32px; } }
+html, body { overscroll-behavior-y: none; }
