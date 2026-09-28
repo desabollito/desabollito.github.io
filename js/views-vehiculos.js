@@ -578,7 +578,7 @@ function visor(fotos = [], inicio = 0, v = null) {
       <div class="viewer-foto"><img id="vw-img" alt=""><span class="viewer-carga" hidden><span class="spin"></span></span>
         ${v && puedoEditar(v) ? `<button class="icon-btn viewer-ov viewer-rot" id="vw-rot" aria-label="Girar foto" title="Girar">${icon("rotate")}</button>` : ""}
         <button class="icon-btn viewer-ov viewer-x" data-close aria-label="Cerrar">${icon("x")}</button>
-        <button class="icon-btn viewer-ov viewer-dl" id="vw-dl" aria-label="Descargar (mantené apretado para descargar todas)" title="Descargar · mantené apretado para todas">${icon("download")}</button>
+        <button class="icon-btn viewer-ov viewer-dl" id="vw-dl" aria-label="Descargar" title="Descargar">${icon("download")}</button>
 </div>
       <div class="viewer-bar">
         <button class="icon-btn" data-p aria-label="Anterior" ${fotos.length > 1 ? "" : "disabled"}>${icon("back")}</button>
@@ -608,8 +608,8 @@ function visor(fotos = [], inicio = 0, v = null) {
   $("#vw-mas", s.el)?.addEventListener("click", e => {
     const op = $("#vw-mas-op", s.el); op.hidden = !op.hidden; e.currentTarget.hidden = !op.hidden;
   });
-  // Descargar: un toque baja la foto actual; mantener apretado 0,6 s baja todas
-  const nombreFoto = n => `${(v?.patente || v?.modelo || "foto").replace(/\s+/g, "_")}_${String(n + 1).padStart(2, "0")}.jpg`;
+  // Nombre: PATENTE_01.jpg, PATENTE_02.jpg…
+  const nombreFoto = n => `${String(v?.patente || v?.modelo || "foto").toUpperCase().replace(/[^A-Z0-9]+/g, "_")}_${String(n + 1).padStart(2, "0")}.jpg`;
   const bajar = async n => {
     const f = fotos[n];
     try {
@@ -618,19 +618,19 @@ function visor(fotos = [], inicio = 0, v = null) {
       setTimeout(() => URL.revokeObjectURL(a.href), 4000);
     } catch { open(f.url, "_blank", "noopener"); }
   };
-  const dl = $("#vw-dl", s.el);
-  let largo = null, todas = false;
-  dl.addEventListener("pointerdown", () => {
-    todas = false;
-    largo = setTimeout(async () => {
-      todas = true; navigator.vibrate?.(30);
-      toast(`Descargando ${fotos.length} ${fotos.length === 1 ? "foto" : "fotos"}…`);
+  // Descargar: pregunta si bajar solo esta foto o todas las del vehículo
+  $("#vw-dl", s.el).addEventListener("click", () => {
+    if (fotos.length === 1) return bajar(i);
+    const q = openSheet({ title: "Descargar", body: `<div class="stack">
+      <button type="button" class="btn btn-ghost btn-block" data-una>${icon("image")}Esta foto</button>
+      <button type="button" class="btn btn-primary btn-block" data-todas>${icon("download")}Todas las fotos del vehículo (${fotos.length})</button></div>` });
+    $("[data-una]", q.el).onclick = () => { q.close(); bajar(i); };
+    $("[data-todas]", q.el).onclick = async () => {
+      q.close();
+      toast(`Descargando ${fotos.length} fotos…`);
       for (let n = 0; n < fotos.length; n++) { await bajar(n); await new Promise(r => setTimeout(r, 350)); }
-    }, 600);
+    };
   });
-  ["pointerup", "pointerleave", "pointercancel"].forEach(ev => dl.addEventListener(ev, () => clearTimeout(largo)));
-  dl.addEventListener("contextmenu", e => e.preventDefault());
-  dl.addEventListener("click", () => { if (!todas) bajar(i); });
   if ($("[data-p]", s.el)) $("[data-p]", s.el).onclick = () => { i = (i - 1 + fotos.length) % fotos.length; show(); };
   if ($("[data-n]", s.el)) $("[data-n]", s.el).onclick = () => { i = (i + 1) % fotos.length; show(); };
   let x0 = null, deslizo = false;
