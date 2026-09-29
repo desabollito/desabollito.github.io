@@ -26,13 +26,14 @@ const esUSD = g => g.moneda === "USD";
 export const montoTxt = g => esUSD(g) ? "US$ " + Number(g.monto || 0).toLocaleString("es-AR") : (money(g.monto) || "$0");
 const MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
 
-const G = { y: new Date().getFullYear(), m: new Date().getMonth(), q: "", cat: null };
+const G = { y: new Date().getFullYear(), m: new Date().getMonth(), q: "", cat: null, metodo: null };
 const claveMes = () => `${G.y}-${String(G.m + 1).padStart(2, "0")}`;
 
 function delMes() {
   const q = G.q.toLowerCase();
   return S.gastos.filter(g => (g.fecha || "").startsWith(claveMes())
     && (!G.cat || g.categoria === G.cat)
+    && (!G.metodo || (g.metodo || "Efectivo") === G.metodo)
     && (!q || [g.concepto, catMap()[g.categoria]?.label, g.metodo, g.tecnicoNombre, g.vehiculoTxt, g.createdByName]
       .some(x => (x || "").toLowerCase().includes(q))));
 }
@@ -40,7 +41,7 @@ function delMes() {
 export function vistaGastos(view) {
   setTopbar({
     title: "Gastos", sub: S.company?.name,
-    actions: `<button class="btn btn-ghost btn-sm" id="g-dl" aria-label="Descargar">${icon("download")}<span class="hide-sm">Descargar</span></button>`
+    actions: `<button class="icon-btn filtro-btn ${G.cat || G.metodo ? "activo" : ""}" id="g-filtros" aria-label="Filtros" title="Filtros">${icon("filter")}</button><button class="btn btn-ghost btn-sm" id="g-dl" aria-label="Descargar">${icon("download")}<span class="hide-sm">Descargar</span></button>`
   });
 
   view.innerHTML = `
@@ -109,6 +110,29 @@ export function vistaGastos(view) {
   $("#g-prev", view).onclick = () => { if (--G.m < 0) { G.m = 11; G.y--; } pintar(); };
   $("#g-next", view).onclick = () => { if (++G.m > 11) { G.m = 0; G.y++; } pintar(); };
   $("#g-q", view).oninput = debounce(e => { G.q = e.target.value; pintar(); }, 120);
+  // Filtros: categoría y método de pago (con la cantidad de gastos del mes)
+  $("#g-filtros")?.addEventListener("click", () => {
+    const hoja = openSheet({ title: "Filtros", body: `<div class="stack filtros">
+      <span class="muted small">Categoría</span><div class="p-chips" id="gf-cat"></div>
+      <span class="muted small">Método de pago</span><div class="p-chips" id="gf-met"></div>
+      <button class="btn btn-ghost btn-sm" id="gf-reset">Quitar filtros</button></div>` });
+    const chips = () => {
+      const mes = S.gastos.filter(g => (g.fecha || "").startsWith(claveMes()));
+      const cats = [...CATEGORIAS, ...propias()].filter(c => mes.some(g => g.categoria === c.key) || G.cat === c.key);
+      $("#gf-cat", hoja.el).innerHTML = cats.map(c => `<button type="button" class="p-chip ${G.cat === c.key ? "on" : ""}" data-cat="${esc(c.key)}" style="--c:${c.color}"><i class="f-dot"></i>${esc(c.label)} <b class="f-n">${mes.filter(g => g.categoria === c.key).length}</b></button>`).join("") || `<span class="muted small">Sin gastos este mes</span>`;
+      $("#gf-met", hoja.el).innerHTML = METODOS.map(m => `<button type="button" class="p-chip ${G.metodo === m ? "on" : ""}" data-met="${m}">${m} <b class="f-n">${mes.filter(g => (g.metodo || "Efectivo") === m).length}</b></button>`).join("");
+      $("#g-filtros")?.classList.toggle("activo", !!(G.cat || G.metodo));
+    };
+    chips();
+    hoja.el.addEventListener("click", e => {
+      const c = e.target.closest("[data-cat]"), m = e.target.closest("[data-met]");
+      if (c) G.cat = G.cat === c.dataset.cat ? null : c.dataset.cat;
+      else if (m) G.metodo = G.metodo === m.dataset.met ? null : m.dataset.met;
+      else if (e.target.closest("#gf-reset")) { G.cat = null; G.metodo = null; }
+      else return;
+      chips(); pintar();
+    });
+  });
   $("#g-bars", view).onclick = e => { const b = e.target.closest("[data-cat]"); if (b) { G.cat = G.cat === b.dataset.cat ? null : b.dataset.cat; pintar(); } };
   $("#g-list", view).onclick = e => { const r = e.target.closest("[data-id]"); if (r) formGasto(S.gastos.find(g => g.id === r.dataset.id)); };
   $("#g-nuevo", view).onclick = () => formGasto();
