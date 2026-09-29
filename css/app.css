@@ -1194,3 +1194,9 @@ html, body { overscroll-behavior-y: none; }
 .viewer-pdf { top: 10px; right: 64px; }
 @media (max-width: 699px) { .sheet-visor .viewer-pdf { right: 118px; } }
 .viewer-pdf.cargando { opacity: .5; }
+
+/* Adicionales post-reparación: una línea que se agranda con el texto */
+.d-post h3 { margin-bottom: 8px; }
+.post-rep { width: 100%; resize: none; overflow: hidden; min-height: 44px; line-height: 1.45; padding: 10px 12px; border-radius: 12px;
+  border: 1px solid var(--line); background: var(--surface-2); color: var(--ink); font: inherit; font-size: 15px; }
+.post-rep:focus { outline: none; border-color: var(--primary); }

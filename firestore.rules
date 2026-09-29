@@ -106,7 +106,7 @@ service cloud.firestore {
           && (esDueno(cid) || request.resource.data.get('editores', []) == resource.data.get('editores', []))
           && (esDueno(cid) || uid() in resource.data.get('editores', [])
               || (request.resource.data.diff(resource.data).affectedKeys()
-                    .hasOnly(['estado', 'fechas', 'horas', 'etapasRepuestos', 'etapasPintura', 'fotos', 'archivos', 'firma', 'historial', 'updatedAt', 'updatedBy'])
+                    .hasOnly(['estado', 'fechas', 'horas', 'etapasRepuestos', 'etapasPintura', 'postReparacion', 'fotos', 'archivos', 'firma', 'historial', 'updatedAt', 'updatedBy'])
                   && request.resource.data.get('fotos', []).size() >= resource.data.get('fotos', []).size()
                   && request.resource.data.get('archivos', []).size() >= resource.data.get('archivos', []).size()));
         allow delete: if isAdmin(cid)

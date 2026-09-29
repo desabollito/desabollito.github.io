@@ -95,6 +95,7 @@ onChange(what => {
   if (!S.profile) return;
   // Nunca repintar un formulario a mitad de carga: se perdería lo escrito
   if (["nuevo", "editar"].includes(ruta.nombre) && $("#vform")) return; // sí se pinta si todavía estaba cargando
+  if (document.activeElement?.classList?.contains("post-rep") && what === "vehicles") return;   // escribiendo post-reparación
   if (what === "gastos") { if (ruta.nombre === "gastos") ctrl?.soloLista?.(); return; }
   if (what === "solicitudes") { if (["papelera", "ajustes"].includes(ruta.nombre)) render({ conservarScroll: true }); return; }
   if (what === "vehicles" && ruta.nombre === "gastos") return;

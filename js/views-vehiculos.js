@@ -324,6 +324,11 @@ function renderDetalle(root, v, embebido) {
       ${anulado ? `<p class="muted small">Anulado el ${fechaCorta(v.fechas?.anulado)}</p>` : ""}
     </section>
 
+    ${v.fechas?.reparado || v.fechas?.facturado ? `<section class="d-sec d-post">
+      <h3>Adicionales post-reparación</h3>
+      <textarea class="post-rep" rows="1" placeholder="Se quebró la pintura en tal lado, El cliente pidió tal repuesto, Se quejó por x motivo, Regresó por quinta vez, etc.">${esc(v.postReparacion || "")}</textarea>
+    </section>` : ""}
+
     <section class="d-sec d-grid">
       ${[["Asegurado", v.asegurado], ["Teléfono", v.telefono], ["Compañía de seguro", v.compania], ["Localidad", v.localidad]]
         .map(([l, x]) => `<div class="kv"><span>${l}</span><strong>${esc(x || "—")}</strong></div>`).join("")}
@@ -379,6 +384,23 @@ function renderDetalle(root, v, embebido) {
   </article>`;
 
   $(".d-adic", root)?.addEventListener("toggle", e => { adicAbierto = e.target.open; });
+  // Adicionales post-reparación: una línea que crece sola; se guarda al dejar de escribir
+  const post = $(".post-rep", root);
+  if (post) {
+    const crecer = () => { post.style.height = "auto"; post.style.height = post.scrollHeight + 2 + "px"; };
+    requestAnimationFrame(crecer);
+    let reloj = null;
+    const guardar = () => {
+      clearTimeout(reloj);
+      const txt = post.value.trim();
+      if (txt === String(v.postReparacion || "").trim()) return;
+      v.postReparacion = txt;
+      actualizarVehiculo(v.id, { postReparacion: txt }, txt ? "Anotó adicionales post-reparación" : "Borró los adicionales post-reparación")
+        .catch(err => toast(mensajeError(err), "error"));
+    };
+    post.addEventListener("input", () => { crecer(); clearTimeout(reloj); reloj = setTimeout(guardar, 1500); });
+    post.addEventListener("blur", guardar);
+  }
   if (modo3D && marcadas.length) iniciar3D(root, v);
 
   // Mantener apretado "Turnado" (con el auto turnado): lo marca Ausente; otra vez, vuelve a Turnado
