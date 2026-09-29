@@ -21,7 +21,7 @@ const ANTERIORES = [
 const propias = () => S.company?.gastoCats || [];
 const catMap = () => Object.fromEntries([...CATEGORIAS, ...ANTERIORES, ...propias()].map(c => [c.key, c]));
 const COLORES_ETQ = ["#e5484d", "#22b07d", "#e0a526", "#4f8ff7", "#9b7bf2", "#0ea5a4", "#d9559b", "#ef7d57", "#5f6b7a", "#84cc16"];
-const METODOS = ["Efectivo", "Transferencia", "Dólares"];
+const METODOS = ["Efectivo", "Transferencia", "Tarjeta", "Dólares"];
 const esUSD = g => g.moneda === "USD";
 export const montoTxt = g => esUSD(g) ? "US$ " + Number(g.monto || 0).toLocaleString("es-AR") : (money(g.monto) || "$0");
 const MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
@@ -98,8 +98,8 @@ export function vistaGastos(view) {
       return `<button class="g-row" data-id="${g.id}" style="--c:${c.color}">
         <span class="g-dot"></span>
         <span class="g-main"><strong>${esc(g.concepto || c.label)}</strong>
-          <small>${[c.label, g.metodo, g.tecnicoNombre || g.vehiculoTxt].filter(Boolean).map(esc).join(" · ")}</small></span>
-        <span class="g-side"><strong class="${esUSD(g) ? "usd" : ""}">${montoTxt(g)}</strong>
+          <small>${[c.label, g.tecnicoNombre || g.vehiculoTxt].filter(Boolean).map(esc).join(" · ")}</small></span>
+        <span class="g-side"><span class="g-monto">${g.metodo ? `<small>${esc(g.metodo)}</small>` : ""}<strong class="${esUSD(g) ? "usd" : ""}">${montoTxt(g)}</strong></span>
           <small>${fechaCorta(g.fecha)}${S.company?.members?.length > 1 ? " · " + esc((g.createdByName || "").split(" ")[0]) : ""}</small></span>
         ${g._pending ? `<span class="sync" title="Pendiente de sincronizar"></span>` : ""}
       </button>`;
@@ -163,6 +163,39 @@ async function crearEtiquetaGasto(nombre) {
   return key;
 }
 
+// Renombrar o borrar las etiquetas propias del operativo (las fijas no se tocan)
+function modificarEtiquetas(alCambiar) {
+  const s = openSheet({ title: "Etiquetas de gastos", body: `<div class="stack" id="etq-lista"></div>` });
+  const pintar = () => {
+    const lista = propias();
+    $("#etq-lista", s.el).innerHTML = lista.length ? `<ul class="adm-list">${lista.map(c => `
+      <li><span class="etq-nom"><i class="g-dot" style="--c:${c.color}"></i>${esc(c.label)}</span>
+        <span><button type="button" class="icon-btn sm" data-ren="${esc(c.key)}" aria-label="Renombrar">${icon("edit")}</button>
+        <button type="button" class="icon-btn sm danger" data-del="${esc(c.key)}" aria-label="Borrar">${icon("trash")}</button></span></li>`).join("")}</ul>
+      <p class="muted small">Las categorías fijas (Herramientas, Repuestos, etc.) no se pueden cambiar.</p>`
+      : `<p class="muted">Todavía no hay etiquetas propias. Creá una con “+ Etiqueta” al cargar un gasto.</p>`;
+  };
+  pintar();
+  s.el.addEventListener("click", async e => {
+    const ren = e.target.closest("[data-ren]"), del = e.target.closest("[data-del]");
+    if (!ren && !del) return;
+    const key = (ren || del).dataset[ren ? "ren" : "del"], c = propias().find(x => x.key === key);
+    if (!c) return;
+    try {
+      if (ren) {
+        const nombre = await pedirTexto({ title: "Renombrar etiqueta", label: "Nombre", value: c.label, ok: "Guardar" });
+        if (!nombre?.trim() || nombre.trim() === c.label) return;
+        await guardarEtiquetasGasto(propias().map(x => x.key === key ? { ...x, label: nombre.trim().slice(0, 30) } : x));
+      } else {
+        const usados = S.gastos.filter(g => g.categoria === key).length;
+        if (!(await confirmar({ title: `¿Borrar “${c.label}”?`, message: usados ? `Hay ${usados} ${usados === 1 ? "gasto" : "gastos"} con esta etiqueta: van a pasar a “Otros”.` : "", ok: "Borrar", danger: true }))) return;
+        await guardarEtiquetasGasto(propias().filter(x => x.key !== key));
+      }
+      pintar(); alCambiar?.(); toast("Etiquetas actualizadas", "success");
+    } catch (err) { toast(mensajeError(err), "error"); }
+  });
+}
+
 // Hoja para cargar o editar un gasto
 export function formGasto(g = null) {
   const puedeBorrar = g && (soyAdmin() || g.createdBy === S.user.uid);
@@ -188,10 +221,14 @@ export function formGasto(g = null) {
         <input name="tecnico" list="dl-tec" value="${esc(g?.tecnicoNombre)}" placeholder="Nombre o @usuario" autocomplete="off" autocapitalize="none">
         <datalist id="dl-tec">${miembros.map(n => `<option value="${esc(n)}">`).join("")}</datalist></label>
       ${puedeEditar ? `<button class="btn btn-primary btn-block btn-lg">${g ? "Guardar cambios" : "Guardar gasto"}</button>` : `<p class="muted small center">Solo quien lo cargó o un administrador puede editarlo.</p>`}
-      ${puedeBorrar ? `<button type="button" class="link-btn danger" id="g-borrar">${icon("trash")}Eliminar gasto</button>` : ""}
+      <div class="g-form-links">
+        ${puedeBorrar ? `<button type="button" class="link-btn danger" id="g-borrar">${icon("trash")}Eliminar gasto</button>` : ""}
+        <button type="button" class="link-btn" id="g-etiquetas">${icon("edit")}Modificar etiquetas</button>
+      </div>
     </form>`
   });
   const f = $("#gf", s.el);
+  $("#g-etiquetas", s.el).onclick = () => modificarEtiquetas(() => { $("#cat", s.el).innerHTML = chipsCat(cat, puedeEditar); });
   f.metodo.addEventListener("change", () => { $("#g-sim", s.el).textContent = f.metodo.value === "Dólares" ? "US$" : "$"; });
   f.monto.addEventListener("input", e => {
     const d = e.target.value.replace(/\D/g, ""); e.target.value = d ? Number(d).toLocaleString("es-AR") : "";
