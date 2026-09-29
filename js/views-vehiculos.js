@@ -326,8 +326,8 @@ function renderDetalle(root, v, embebido) {
     </section>
 
     ${v.fechas?.reparado || v.fechas?.facturado ? `<section class="d-sec d-post">
-      <h3>Adicionales post-reparación</h3>
-      <textarea class="post-rep" rows="1" placeholder="Se quebró la pintura en tal lado, El cliente pidió tal repuesto, Se quejó por x motivo, Regresó por quinta vez, etc.">${esc(v.postReparacion || "")}</textarea>
+      <h3>Notas post-reparación</h3>
+      <textarea class="post-rep" rows="1" placeholder="Regresó por tal motivo, etc">${esc(v.postReparacion || "")}</textarea>
     </section>` : ""}
 
     <section class="d-sec d-grid">
@@ -396,7 +396,7 @@ function renderDetalle(root, v, embebido) {
       const txt = post.value.trim();
       if (txt === String(v.postReparacion || "").trim()) return;
       v.postReparacion = txt;
-      actualizarVehiculo(v.id, { postReparacion: txt }, txt ? "Anotó adicionales post-reparación" : "Borró los adicionales post-reparación")
+      actualizarVehiculo(v.id, { postReparacion: txt }, txt ? "Anotó notas post-reparación" : "Borró las notas post-reparación")
         .catch(err => toast(mensajeError(err), "error"));
     };
     post.addEventListener("input", () => { crecer(); clearTimeout(reloj); reloj = setTimeout(guardar, 1500); });
