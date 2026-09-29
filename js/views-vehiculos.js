@@ -1068,12 +1068,14 @@ export function vistaFormulario(view, id = null) {
             <textarea name="repuestos" rows="2" placeholder="Ej: moldura, espejo">${esc(v?.repuestos)}</textarea></label>
           <label class="field"><span>Pintura</span>
             <input name="pintura" autocomplete="off" placeholder="Ej: capot, techo" value="${esc(v?.pintura)}"></label>
-          <div class="field" ${docsOn() ? "" : "hidden"}><span>Documentos</span>
-            <ul class="docs ff-docs" id="ff-docs"></ul>
-            <label class="btn btn-ghost btn-sm ff-docs-btn">${icon("file")}Adjuntar documento
-              <input type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,image/*" multiple hidden id="ff-doc-in"></label></div>
-          ${v ? "" : `<label class="field"><span>Fecha de peritaje</span>
-            <input name="fecha" type="date" value="${hoyISO()}"></label>`}
+          <div class="grid-2 ff-ultima">
+            ${v ? "" : `<label class="field"><span>Fecha de peritaje</span>
+              <input name="fecha" type="date" value="${hoyISO()}"></label>`}
+            <div class="field" ${docsOn() ? "" : "hidden"}><span>Documentos</span>
+              <label class="btn btn-ghost ff-docs-btn">${icon("file")}Adjuntar
+                <input type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,image/*" multiple hidden id="ff-doc-in"></label></div>
+          </div>
+          <ul class="docs ff-docs" id="ff-docs"></ul>
         </details>
     </div>
 

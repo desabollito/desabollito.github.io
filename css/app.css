@@ -1249,3 +1249,5 @@ html, body { overscroll-behavior-y: none; }
 .hist li.hc { border-left: 3px solid var(--c); padding-left: 10px; }
 .hist li.hc .hist-txt { color: var(--c); }
 .hist li.hc .hist-txt strong { color: var(--ink); }
+.ff-ultima { grid-template-columns: 1fr 1fr; margin-top: 12px; }
+.ff-ultima .ff-docs-btn { width: 100%; min-height: 48px; justify-content: center; }
