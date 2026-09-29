@@ -110,11 +110,12 @@ export function vistaVehiculos(view, selId = null) {
   const sel = selId ? getVehiculo(selId) : null;
   if (selId && !ancho) return vistaDetalle(view, selId);
 
-  const filtroActivo = () => F.mios || F.grado !== null || F.repuestos || F.pintura || F.turno || F.orden !== "fecha" || F.dir !== -1;
+  const filtroActivo = () => F.mios || F.grado !== null || F.repuestos || F.pintura || F.turno;
+  const ordenActivo = () => F.orden !== "fecha" || F.dir !== -1;
   setTopbar({
     title: "Vehículos",
     sub: S.company?.name,
-    actions: `<button class="icon-btn filtro-btn ${filtroActivo() ? "activo" : ""}" id="tb-filtros" aria-label="Filtros" title="Filtros">${icon("filter")}</button>`
+    actions: `<button class="icon-btn filtro-btn ${filtroActivo() ? "activo" : ""}" id="tb-filtros" aria-label="Filtros" title="Filtros">${icon("filter")}</button><button class="icon-btn filtro-btn ${ordenActivo() ? "activo" : ""}" id="tb-orden" aria-label="Ordenar" title="Ordenar">${icon("sort")}</button>`
   });
 
   view.innerHTML = `
@@ -165,13 +166,11 @@ export function vistaVehiculos(view, selId = null) {
   // Filtros: orden (como en la planilla) y "Cargados por mí"
   $("#tb-filtros")?.addEventListener("click", () => {
     const s = openSheet({ title: "Filtros", body: `<div class="stack filtros">
-      <span class="muted small">Ordenar por</span><div class="p-chips" id="f-orden"></div>
       <span class="muted small">Grado</span><div class="p-chips" id="f-grado"></div>
       <span class="muted small">Turnos</span><div class="p-chips" id="f-turno"></div>
       <span class="muted small">Pintura</span><div class="p-chips" id="f-pintura"></div>
       <span class="muted small">Repuestos</span><div class="p-chips" id="f-repuestos"></div>
       <button class="btn btn-ghost btn-sm" id="f-reset">Quitar filtros</button></div>` });
-    const chips = () => { $("#f-orden", s.el).innerHTML = ORDENES.map(([k, t]) => `<button type="button" class="p-chip ${F.orden === k ? "on" : ""}" data-orden="${k}">${t}${F.orden === k ? `<i>${F.dir > 0 ? "↑" : "↓"}</i>` : ""}</button>`).join(""); };
     const chipsGrado = () => {
       const n = g => activos().filter(v => (v.grado || 0) === g).length;
       $("#f-grado", s.el).innerHTML = [[1, "Grado 1"], [2, "Grado 2"], [3, "Grado 3"], [0, "Sin grado"]].map(([g, t]) =>
@@ -204,14 +203,22 @@ export function vistaVehiculos(view, selId = null) {
       const g = Number(b.dataset.grado);
       F.grado = F.grado === g ? null : g; chipsGrado(); aplicar();
     };
-    const aplicar = () => { chips(); pintar(); $("#tb-filtros")?.classList.toggle("activo", filtroActivo()); };
+    const aplicar = () => { pintar(); $("#tb-filtros")?.classList.toggle("activo", filtroActivo()); };
+    $("#f-reset", s.el).onclick = () => { F.mios = false; F.grado = null; F.repuestos = null; F.pintura = null; F.turno = null; chipsTurno(); chipsEtapas(); chipsGrado(); aplicar(); };
+  });
+  // Ordenar (botón al lado de Filtros): tocar un criterio lo elige; tocarlo de nuevo invierte el orden
+  $("#tb-orden")?.addEventListener("click", () => {
+    const hoja = openSheet({ title: "Ordenar por", body: `<div class="p-chips" id="o-chips"></div>` });
+    const chips = () => {
+      $("#o-chips", hoja.el).innerHTML = ORDENES.map(([k, t]) => `<button type="button" class="p-chip ${F.orden === k ? "on" : ""}" data-orden="${k}">${t}${F.orden === k ? `<i>${F.dir > 0 ? "↑" : "↓"}</i>` : ""}</button>`).join("");
+      $("#tb-orden")?.classList.toggle("activo", ordenActivo());
+    };
     chips();
-    $("#f-orden", s.el).onclick = e => {
+    hoja.el.addEventListener("click", e => {
       const b = e.target.closest("[data-orden]"); if (!b) return;
       if (F.orden === b.dataset.orden) F.dir *= -1; else { F.orden = b.dataset.orden; F.dir = F.orden === "fecha" ? -1 : 1; }
-      aplicar();
-    };
-    $("#f-reset", s.el).onclick = () => { F.mios = false; F.grado = null; F.repuestos = null; F.pintura = null; F.turno = null; chipsTurno(); chipsEtapas(); F.orden = "fecha"; F.dir = -1; chipsGrado(); aplicar(); };
+      chips(); pintar();
+    });
   });
   pintar();
 
