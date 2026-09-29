@@ -533,7 +533,7 @@ function elegirFechaEstado(v, estado) {
         <input type="date" name="f" value="${v.fechas?.[estado] || hoyISO()}" required></label>
       ${estado === "turnado" ? `<div class="turno-conf"><span>¿El cliente confirmó el turno?</span>
         <button type="button" class="switch ${v.turnoConfirmado === true ? "on" : ""}" id="t-conf" role="switch" aria-checked="${v.turnoConfirmado === true}">
-          <span class="sw-txt sw-no">No</span><span class="sw-txt sw-si">Sí</span><i class="sw-bola"></i></button></div>` : ""}
+          <span class="sw-txt sw-si">Sí</span><span class="sw-txt sw-no">No</span><i class="sw-bola"></i></button></div>` : ""}
       <button class="btn btn-primary btn-block" style="--btn:${e.color}">Guardar</button></form>`
   });
   let confirmado = v.turnoConfirmado === true;

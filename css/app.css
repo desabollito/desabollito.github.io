@@ -1216,3 +1216,6 @@ html, body { overscroll-behavior-y: none; }
 .switch.on .sw-bola { transform: translateX(45px); }
 .switch.on .sw-si { color: #fff; }
 .switch.on .sw-bola { background: #22b07d; }
+/* Sí a la izquierda, No a la derecha (por defecto en No) */
+.switch .sw-bola { transform: translateX(45px); }
+.switch.on .sw-bola { transform: translateX(0); }
