@@ -738,8 +738,8 @@ async function alRecibirTexto(env, m, quien, texto) {
   // Datos de un vehículo (tiene patente). Si nombra un operativo, se usa ese.
   const patenteEnTexto = buscarPatenteEnTexto(texto);
   // (el operativo solo se cambia con el comando "operativo"; nombres en el mensaje no lo cambian)
-  // "agregar AB123CD …": suma los datos a un vehículo ya cargado (no crea uno nuevo)
-  const RE_AGREGAR = /(^|\s)agreg(?:a|ar|á|ale|alo|ame|ale)?(?=\s|$|[:,.])/i;
+  // "agregar/añadir AB123CD …": suma los datos a un vehículo ya cargado (no crea uno nuevo)
+  const RE_AGREGAR = /(^|\s)(?:agreg(?:a|ar|á|ale|alo|ame|ale|ue)?|a[nñ]ad(?:ir|i|í|e|ile|ilo|ime|a))(?=\s|$|[:,.])/i;
   if (RE_AGREGAR.test(sinMencion) && buscarPatenteEnTexto(sinMencion)) {
     const extra = interpretar(sinMencion.replace(RE_AGREGAR, " "));
     return responder(env, dest(m), await agregarAVehiculo(env, numero, extra, hora, s, quien));
@@ -823,7 +823,7 @@ async function abrirExistente(env, numero, v, datos, hora, previa, fijar = true,
 // se agregan a lo que ya había; paños se suman; el resto se completa o reemplaza.
 async function agregarAVehiculo(env, numero, datos, hora, previa, quien) {
   const encontrados = await buscarPatente(env, datos.patente, quien?.uid);
-  if (!encontrados.length) return `🔎 No encontré la patente *${datos.patente}*. Para cargarla como nueva, mandá los datos sin "agregar".`;
+  if (!encontrados.length) return `🔎 No encontré la patente *${datos.patente}*. Para cargarla como nueva, mandá los datos sin "agregar" ni "añadir".`;
   const fijo = await operativoFijo(env, numero, quien?.uid);
   const e = encontrados.find(x => x.cid === fijo?.cid) || encontrados[0];
   const ruta = `companies/${e.cid}/vehicles/${e.vid}`;
