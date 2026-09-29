@@ -333,7 +333,7 @@ function mostrarSinOperativo() {
           <label class="field"><span>Nombre del operativo</span>
             <input name="nombre" required autocomplete="off" placeholder="Ej: Granizo Córdoba 2026"></label>
           <button class="btn btn-primary btn-block" type="submit">Crear operativo</button></form>` : ""}`}
-      <div class="espera-btns"><button class="btn btn-ghost btn-sm" data-salir>Cerrar sesión</button></div></div>`;
+</div>`;
   };
   pintarSinOp = pintar;
   pintar(null);
