@@ -331,29 +331,3 @@ export function gastosPDF(lista, empresa, periodo, CAT) {
 export function nombreArchivo(v) {
   return `Presupuesto_${(v.patente || v.modelo || "vehiculo").replace(/[^\w-]+/g, "_")}.pdf`;
 }
-
-// Solo las fotos del vehículo, sin textos: mismo armado que el "Registro fotográfico" del presupuesto
-export async function fotosPDF(v, { onProgreso } = {}) {
-  const fotos = v.fotos || [];
-  const doc = nuevoDoc();
-  const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), M = 8;
-  const imgs = [];
-  for (let i = 0; i < fotos.length; i++) {
-    onProgreso?.(i + 1, fotos.length);
-    try { imgs.push(await cargarImagen(paraPDF(fotos[i].url, fotos[i].rot))); } catch (e) { console.warn(e); }
-  }
-  if (!imgs.length) throw new Error("No se pudieron bajar las fotos");
-  const cols = 3, gap = 3, cw = (W - M * 2 - gap * (cols - 1)) / cols, ch = cw * 0.75;
-  let fy = M, c = 0;
-  for (const im of imgs) {
-    if (fy + ch > H - M) { doc.addPage(); fy = M; c = 0; }
-    const cx = M + c * (cw + gap);
-    doc.setFillColor(...SUAVE); doc.rect(cx, fy, cw, ch, "F");
-    let w = cw, h = im.h / im.w * cw;
-    if (h > ch) { h = ch; w = im.w / im.h * ch; }
-    try { doc.addImage(im.data, "JPEG", cx + (cw - w) / 2, fy + (ch - h) / 2, w, h, undefined, "FAST"); }
-    catch (e) { console.warn("foto no compatible", e); }
-    if (++c === cols) { c = 0; fy += ch + gap; }
-  }
-  return doc;
-}

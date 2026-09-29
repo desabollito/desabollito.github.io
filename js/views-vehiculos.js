@@ -12,7 +12,7 @@ import {
 import { carMapSVG, montarMapa } from "./carmap.js";
 import { montar3D } from "./car3d.js";
 import { subir, comprimir, borrarConToken, thumb, grande, cloudinaryListo } from "./media.js";
-import { presupuestoPDF, nombreArchivo, fotosPDF } from "./pdf.js";
+import { presupuestoPDF, nombreArchivo } from "./pdf.js";
 import { armarZip } from "./zip.js";
 import { setTopbar, go, esAncho } from "./shell.js";
 
@@ -420,6 +420,23 @@ function renderDetalle(root, v, embebido) {
   ["pointerup", "pointerleave", "pointercancel"].forEach(ev => pasoTurno?.addEventListener(ev, () => clearTimeout(relojPaso)));
   pasoTurno?.addEventListener("contextmenu", e => e.preventDefault());
 
+  // Mantener apretado el tacho: ofrece borrar solo las fotos del vehículo
+  const tacho = $('[data-act="borrar"]', root);
+  let tachoLargo = false, relojTacho = null;
+  tacho?.addEventListener("pointerdown", () => {
+    tachoLargo = false;
+    relojTacho = setTimeout(async () => {
+      tachoLargo = true; navigator.vibrate?.(30);
+      const n = (getVehiculo(v.id) || v).fotos?.length || 0;
+      if (!n) return toast("Este vehículo no tiene fotos");
+      if (!esMio && !soyAdmin()) return toast("Solo quien cargó el vehículo puede borrar sus fotos", "error");
+      if (await confirmar({ title: `¿Borrar solo las fotos?`, message: `Se borran las ${n} ${n === 1 ? "foto" : "fotos"} de ${v.modelo || v.patente || "este vehículo"}. Los datos del vehículo quedan.`, ok: "Borrar fotos", danger: true }))
+        actualizarVehiculo(v.id, { fotos: [] }, `Borró las ${n} fotos`).then(() => toast("Fotos borradas", "success")).catch(err => toast(mensajeError(err), "error"));
+    }, 600);
+  });
+  ["pointerup", "pointerleave", "pointercancel"].forEach(ev => tacho?.addEventListener(ev, () => clearTimeout(relojTacho)));
+  tacho?.addEventListener("contextmenu", e => e.preventDefault());
+
   // Acciones
   root.addEventListener("click", async e => {
     const t = e.target;
@@ -462,6 +479,7 @@ function renderDetalle(root, v, embebido) {
       return;
     }
     if (act === "historial") { abrirHistorial(v); return; }
+    if (act === "borrar" && tachoLargo) { tachoLargo = false; return; }
     if (act === "borrar" && !esMio && !soyAdmin()) {
       // Solo quien lo cargó puede borrarlo: los demás piden la eliminación a los administradores
       if (await confirmar({ title: "Este vehículo no es tuyo",
@@ -622,7 +640,7 @@ async function quitarAdjunto(v, campo, idx) {
 function zoomFoto(url, previa) {
   const el = document.createElement("div");
   el.className = "zoom-foto";
-  el.innerHTML = `<img alt="" src="${esc(previa || url)}"><button class="icon-btn zoom-x" aria-label="Cerrar">${icon("x")}</button>`;
+  el.innerHTML = `<img alt="" src="${esc(previa || url)}"><button class="zoom-x" aria-label="Volver">${icon("back")}Volver</button>`;
   document.body.appendChild(el);
   const im = $("img", el);
   if (previa && previa !== url) { const hd = new Image(); hd.onload = () => { im.src = url; }; hd.src = url; }
@@ -681,13 +699,11 @@ function visor(fotos = [], inicio = 0, v = null) {
       <div class="viewer-foto"><img id="vw-img" alt=""><span class="viewer-carga" hidden><span class="spin"></span></span>
         ${v && puedoEditar(v) ? `<button class="icon-btn viewer-ov viewer-rot" id="vw-rot" aria-label="Girar foto" title="Girar">${icon("rotate")}</button>` : ""}
         <button class="icon-btn viewer-ov viewer-x" data-close aria-label="Cerrar">${icon("x")}</button>
-        <button class="icon-btn viewer-ov viewer-pdf" id="vw-pdf" aria-label="Ver todas las fotos en un PDF" title="Todas las fotos en PDF">${icon("file")}</button>
         <button class="icon-btn viewer-ov viewer-dl" id="vw-dl" aria-label="Descargar" title="Descargar">${icon("download")}</button>
 </div>
       <div class="viewer-bar">
         <button class="icon-btn" data-p aria-label="Anterior" ${fotos.length > 1 ? "" : "disabled"}>${icon("back")}</button>
         <span id="vw-n"></span>
-        ${v ? `<button class="icon-btn danger" id="vw-del" aria-label="Quitar esta foto">${icon("trash")}</button>` : ""}
         <button class="icon-btn" data-n aria-label="Siguiente" ${fotos.length > 1 ? "" : "disabled"}>${icon("next")}</button>
       </div>
       ${v ? `<div class="viewer-add"><button type="button" class="btn btn-ghost btn-block" id="vw-mas">${icon("plus")}Añadir más fotos</button>
@@ -790,23 +806,6 @@ function visor(fotos = [], inicio = 0, v = null) {
       });
     });
   }
-  // PDF con todas las fotos juntas (sin textos): se descarga directo
-  $("#vw-pdf", s.el).addEventListener("click", async e => {
-    const b = e.currentTarget;
-    if (b.disabled) return;
-    b.disabled = true; b.classList.add("cargando");
-    toast(`Armando el PDF con ${fotos.length} ${fotos.length === 1 ? "foto" : "fotos"}…`);
-    try {
-      const doc = await fotosPDF({ fotos });
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(doc.output("blob"));
-      a.download = `${String(v?.patente || v?.modelo || "fotos").toUpperCase().replace(/[^A-Z0-9]+/g, "_")}_fotos.pdf`;
-      document.body.appendChild(a); a.click(); a.remove();
-      setTimeout(() => URL.revokeObjectURL(a.href), 10000);
-      toast("PDF descargado", "success");
-    } catch (err) { toast(err.message || "No se pudo armar el PDF", "error"); }
-    b.disabled = false; b.classList.remove("cargando");
-  });
   if ($("[data-p]", s.el)) $("[data-p]", s.el).onclick = () => { i = (i - 1 + fotos.length) % fotos.length; show(); };
   if ($("[data-n]", s.el)) $("[data-n]", s.el).onclick = () => { i = (i + 1) % fotos.length; show(); };
   let x0 = null, deslizo = false;
@@ -837,12 +836,7 @@ function visor(fotos = [], inicio = 0, v = null) {
     show();
     actualizarVehiculo(v.id, { fotos: lista }).catch(e => toast(mensajeError(e), "error"));
   });
-  $("#vw-del", s.el)?.addEventListener("click", async () => {
-    const f = fotos[i];
-    const idx = (getVehiculo(v.id)?.fotos || []).findIndex(x => x.url === f.url);
-    s.close();
-    if (idx >= 0) await quitarAdjunto(getVehiculo(v.id), "fotos", idx);
-  });
+
   s.el.addEventListener("keydown", e => {
     if (e.key === "ArrowRight") $("[data-n]", s.el)?.click();
     if (e.key === "ArrowLeft") $("[data-p]", s.el)?.click();

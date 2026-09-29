@@ -1091,7 +1091,9 @@ details.vform-det .field + .field { margin-top: 12px; }
 /* Foto a pantalla completa con zoom */
 .zoom-foto { position: fixed; inset: 0; z-index: 90; background: #000; display: flex; align-items: center; justify-content: center; touch-action: none; overflow: hidden; }
 .zoom-foto img { max-width: 100%; max-height: 100%; object-fit: contain; transform-origin: center; user-select: none; -webkit-user-drag: none; pointer-events: none; }
-.zoom-foto .zoom-x { position: absolute; top: calc(10px + var(--safe-t, 0px)); right: 10px; background: rgba(255,255,255,.14); color: #fff; border-radius: 50%; }
+.zoom-foto .zoom-x { position: absolute; top: 0; left: 0; right: 0; z-index: 1; border: 0; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;
+  padding: calc(14px + var(--safe-t, 0px)) 16px 14px; background: rgba(20, 30, 45, .85); color: #fff; font: inherit; font-size: 16px; font-weight: 800; }
+.zoom-foto .zoom-x .ic { width: 20px; height: 20px; }
 .viewer-x { display: none; }
 @media (max-width: 699px) {
   .sheet-visor .viewer-x { display: inline-grid; top: 10px; right: 10px; }
@@ -1219,3 +1221,4 @@ html, body { overscroll-behavior-y: none; }
 /* Sí a la izquierda, No a la derecha (por defecto en No) */
 .switch .sw-bola { transform: translateX(45px); }
 .switch.on .sw-bola { transform: translateX(0); }
+[data-act="borrar"] { -webkit-touch-callout: none; user-select: none; }
