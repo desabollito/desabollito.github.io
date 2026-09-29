@@ -738,6 +738,13 @@ async function alRecibirTexto(env, m, quien, texto) {
   // Datos de un vehículo (tiene patente). Si nombra un operativo, se usa ese.
   const patenteEnTexto = buscarPatenteEnTexto(texto);
   // (el operativo solo se cambia con el comando "operativo"; nombres en el mensaje no lo cambian)
+  // "agregar AB123CD …": suma los datos a un vehículo ya cargado (no crea uno nuevo)
+  const RE_AGREGAR = /(^|\s)agreg(?:a|ar|á|ale|alo|ame|ale)?(?=\s|$|[:,.])/i;
+  if (RE_AGREGAR.test(sinMencion) && buscarPatenteEnTexto(sinMencion)) {
+    const extra = interpretar(sinMencion.replace(RE_AGREGAR, " "));
+    return responder(env, dest(m), await agregarAVehiculo(env, numero, extra, hora, s, quien));
+  }
+
   const datos = interpretar(sinMencion);
   if (datos.patente) {
     // Si el vehículo abierto se borró desde la app, no se sigue cargando ahí: se crea de nuevo
@@ -810,6 +817,44 @@ async function abrirExistente(env, numero, v, datos, hora, previa, fijar = true,
   await abrir(env, numero, v, hora, previa, false);
   // El operativo del vehículo abierto pasa a ser el actual (salvo que se haya nombrado otro)
   if (fijar) await fijarOperativo(env, numero, v);
+}
+
+// "agregar PATENTE …": suma los datos a un vehículo existente. Los textos (detalles, repuestos, pintura)
+// se agregan a lo que ya había; paños se suman; el resto se completa o reemplaza.
+async function agregarAVehiculo(env, numero, datos, hora, previa, quien) {
+  const encontrados = await buscarPatente(env, datos.patente, quien?.uid);
+  if (!encontrados.length) return `🔎 No encontré la patente *${datos.patente}*. Para cargarla como nueva, mandá los datos sin "agregar".`;
+  const fijo = await operativoFijo(env, numero, quien?.uid);
+  const e = encontrados.find(x => x.cid === fijo?.cid) || encontrados[0];
+  const ruta = `companies/${e.cid}/vehicles/${e.vid}`;
+  const v = await fsGet(env, ruta);
+  if (!v || v.deleted) return `🔎 No encontré la patente *${datos.patente}*.`;
+  const nuevos = {}, nombres = [];
+  const sumarLista = (viejo, nuevo, sep) => {
+    const ya = itemsRep(viejo).map(x => sinTildes(x));
+    const agregar = itemsRep(nuevo).filter(x => !ya.includes(sinTildes(x)));
+    return agregar.length ? [...itemsRep(viejo), ...agregar].join(sep) : null;
+  };
+  for (const [k, nombre] of [["repuestos", "repuestos"], ["pintura", "pintura"]]) {
+    if (!datos[k]) continue;
+    const r = sumarLista(v[k], datos[k], ", ");
+    if (r) { nuevos[k] = r; nombres.push(nombre); }
+  }
+  const obs = [datos.observaciones, datos.otros].filter(Boolean).join("\n");
+  if (obs && !String(v.observaciones || "").includes(obs)) { nuevos.observaciones = [v.observaciones, obs].filter(Boolean).join("\n"); nombres.push("detalles"); }
+  for (const [k, nombre] of [["modelo", "modelo"], ["compania", "compañía"], ["telefono", "teléfono"], ["asegurado", "cliente"], ["grado", "grado"], ["precio", "precio"]]) {
+    if (datos[k] && datos[k] !== v[k]) { nuevos[k] = datos[k]; nombres.push(nombre); }
+  }
+  const panos = Object.keys(datos.piezas || {}).filter(k => !v.piezas?.[k]);
+  if (panos.length) { nuevos.piezas = { ...(v.piezas || {}), ...Object.fromEntries(panos.map(k => [k, true])) }; nombres.push("paños"); }
+  const etq = `*${nuevos.modelo || v.modelo || "Vehículo"}* (${v.patente})`;
+  // Queda abierto: si después manda fotos, van a este vehículo
+  if (abierta(previa) && previa.vid !== e.vid) { await cerrarEnSilencio(env, numero, hora); previa = await leerSesion(env, numero); }
+  await abrir(env, numero, { ...e, modelo: nuevos.modelo || v.modelo || "", patente: v.patente }, hora, previa, false);
+  if (!nombres.length) return `👌 ${etq} ya tenía esos datos. Si mandás fotos, se suman a ese vehículo.`;
+  await fsMerge(env, ruta, { ...nuevos, updatedBy: `whatsapp:${numero}` });
+  await fsAppend(env, ruta, "historial", { t: Date.now(), uid: quien?.uid || "", por: quien?.nombre || "", txt: `Agregó ${nombres.join(", ")} por WhatsApp` }).catch(() => {});
+  return `✅ Agregué ${nombres.join(", ")} a ${etq}${e.operativo ? ` · ${e.operativo}` : ""}.`;
 }
 
 // Completa en la web los datos que vinieron en el mensaje (solo los que cambian)
