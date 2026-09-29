@@ -471,7 +471,7 @@ export async function actualizarVehiculo(id, campos, hist) {
   await updateDoc(doc(colVehiculos(), id), { ...campos, ...extra, updatedAt: serverTimestamp(), updatedBy: S.user.uid });
 }
 
-export async function cambiarEstado(v, estado, fecha = hoyISO()) {
+export async function cambiarEstado(v, estado, fecha = hoyISO(), extra = {}) {
   const fechas = { ...(v.fechas || {}) };
   if (estado !== "anulado" && estado !== "ausente") {
     delete fechas.ausente;
@@ -488,7 +488,7 @@ export async function cambiarEstado(v, estado, fecha = hoyISO()) {
   for (const k of Object.keys(horas)) if (!fechas[k]) delete horas[k];
   if (estado === "peritado" || estado === "reparado") horas[estado] = horaAhora();
   const [a, m, d] = String(fecha).split("-");
-  await actualizarVehiculo(v.id, { estado, fechas, horas }, `Pasó a ${ESTADO[estado]?.label || estado}${d ? ` (${d}/${m}/${a})` : ""}`);
+  await actualizarVehiculo(v.id, { estado, fechas, horas, ...extra }, `Pasó a ${ESTADO[estado]?.label || estado}${d ? ` (${d}/${m}/${a})` : ""}`);
 }
 
 export const moverAPapelera = id => actualizarVehiculo(id, { deleted: true, deletedAt: serverTimestamp(), deletedBy: S.user.uid }, "Lo envió a la papelera");

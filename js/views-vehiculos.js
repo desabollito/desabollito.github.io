@@ -318,7 +318,8 @@ function renderDetalle(root, v, embebido) {
           return `<li><button class="step ${hecho ? "done" : ""} ${actual ? "now" : ""} ${aus ? "is-ausente" : ""}" data-estado="${k}" style="--c:${e.color}">
             <span class="dot">${hecho ? icon(aus ? "x" : "check") : ""}</span>
             <span class="step-l">${e.label}</span>
-            <span class="step-d">${v.fechas?.[k] ? fechaCorta(v.fechas[k]) : "—"}${(k === "peritado" || k === "reparado") && v.fechas?.[k] && horaDe(v, k) ? `<br>${horaDe(v, k)}` : ""}</span></button></li>`;
+            <span class="step-d">${v.fechas?.[k] ? fechaCorta(v.fechas[k]) : "—"}${(k === "peritado" || k === "reparado") && v.fechas?.[k] && horaDe(v, k) ? `<br>${horaDe(v, k)}` : ""}</span>
+            ${k === "turnado" && est === "turnado" ? `<span class="step-conf ${v.turnoConfirmado ? "ok" : ""}">${v.turnoConfirmado ? "Confirmado" : "Esperando confirmación"}</span>` : ""}</button></li>`;
         }).join("")}
       </ol>
       ${anulado ? `<p class="muted small">Anulado el ${fechaCorta(v.fechas?.anulado)}</p>` : ""}
@@ -530,12 +531,21 @@ function elegirFechaEstado(v, estado) {
     body: `<form class="stack">
       <label class="field"><span>${estado === "turnado" ? "Fecha del turno" : "Fecha"}</span>
         <input type="date" name="f" value="${v.fechas?.[estado] || hoyISO()}" required></label>
-      ${estado === "turnado" ? `<p class="muted small">El turno aparece en el calendario.</p>` : ""}
+      ${estado === "turnado" ? `<div class="turno-conf"><span>¿El cliente confirmó el turno?</span>
+        <div class="seg seg-sm" id="t-conf">
+          <button type="button" class="seg-btn ${v.turnoConfirmado === true ? "on" : ""}" data-c="si">Sí</button>
+          <button type="button" class="seg-btn ${v.turnoConfirmado === true ? "" : "on"}" data-c="no">No</button></div></div>` : ""}
       <button class="btn btn-primary btn-block" style="--btn:${e.color}">Guardar</button></form>`
+  });
+  let confirmado = v.turnoConfirmado === true;
+  $("#t-conf", s.el)?.addEventListener("click", e => {
+    const b = e.target.closest("[data-c]"); if (!b) return;
+    confirmado = b.dataset.c === "si";
+    $$("#t-conf .seg-btn", s.el).forEach(x => x.classList.toggle("on", x === b));
   });
   $("form", s.el).onsubmit = ev => {
     ev.preventDefault();
-    cambiarEstado(v, estado, ev.target.f.value).catch(err => toast(mensajeError(err), "error"));
+    cambiarEstado(v, estado, ev.target.f.value, estado === "turnado" ? { turnoConfirmado: confirmado } : {}).catch(err => toast(mensajeError(err), "error"));
     toast(`${e.label} · ${fechaCorta(ev.target.f.value)}`, "success");
     s.close();
     if (estado === "reparado") setTimeout(() => ofrecerAvisoCliente(v), 350);

@@ -1200,3 +1200,8 @@ html, body { overscroll-behavior-y: none; }
 .post-rep { width: 100%; resize: none; overflow: hidden; min-height: 44px; line-height: 1.45; padding: 10px 12px; border-radius: 12px;
   border: 1px solid var(--line); background: var(--surface-2); color: var(--ink); font: inherit; font-size: 15px; }
 .post-rep:focus { outline: none; border-color: var(--primary); }
+
+/* Confirmación del turno */
+.turno-conf { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; font-weight: 600; }
+.step-conf { display: block; margin-top: 3px; font-size: 10.5px; font-weight: 700; line-height: 1.2; color: #d19613; }
+.step-conf.ok { color: #22b07d; }
