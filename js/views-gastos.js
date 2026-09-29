@@ -26,22 +26,28 @@ const esUSD = g => g.moneda === "USD";
 export const montoTxt = g => esUSD(g) ? "US$ " + Number(g.monto || 0).toLocaleString("es-AR") : (money(g.monto) || "$0");
 const MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
 
-const G = { y: new Date().getFullYear(), m: new Date().getMonth(), q: "", cat: null, metodo: null };
+const G = { y: new Date().getFullYear(), m: new Date().getMonth(), q: "", cat: null, metodo: null, orden: "fecha", dir: -1 };
 const claveMes = () => `${G.y}-${String(G.m + 1).padStart(2, "0")}`;
 
+const ORDEN_G = [["fecha", "Fecha"], ["monto", "Monto"], ["categoria", "Categoría"], ["metodo", "Método"]];
+function ordenarG(lista) {
+  const clave = g => G.orden === "monto" ? Number(g.monto || 0) : G.orden === "categoria" ? (catMap()[g.categoria]?.label || "")
+    : G.orden === "metodo" ? (g.metodo || "") : (g.fecha || "") + (g.createdAt?.seconds || "");
+  return [...lista].sort((a, b) => { const x = clave(a), y = clave(b); return (typeof x === "number" ? x - y : String(x).localeCompare(String(y), "es")) * G.dir; });
+}
 function delMes() {
   const q = G.q.toLowerCase();
-  return S.gastos.filter(g => (g.fecha || "").startsWith(claveMes())
+  return ordenarG(S.gastos.filter(g => (g.fecha || "").startsWith(claveMes())
     && (!G.cat || g.categoria === G.cat)
     && (!G.metodo || (g.metodo || "Efectivo") === G.metodo)
     && (!q || [g.concepto, catMap()[g.categoria]?.label, g.metodo, g.tecnicoNombre, g.vehiculoTxt, g.createdByName]
-      .some(x => (x || "").toLowerCase().includes(q))));
+      .some(x => (x || "").toLowerCase().includes(q)))));
 }
 
 export function vistaGastos(view) {
   setTopbar({
     title: "Gastos", sub: S.company?.name,
-    actions: `<button class="icon-btn filtro-btn ${G.cat || G.metodo ? "activo" : ""}" id="g-filtros" aria-label="Filtros" title="Filtros">${icon("filter")}</button><button class="btn btn-ghost btn-sm" id="g-dl" aria-label="Descargar">${icon("download")}<span class="hide-sm">Descargar</span></button>`
+    actions: `<button class="icon-btn filtro-btn ${G.cat || G.metodo ? "activo" : ""}" id="g-filtros" aria-label="Filtros" title="Filtros">${icon("filter")}</button><button class="icon-btn filtro-btn ${G.orden !== "fecha" || G.dir !== -1 ? "activo" : ""}" id="g-orden" aria-label="Ordenar" title="Ordenar">${icon("sort")}</button><button class="btn btn-ghost btn-sm" id="g-dl" aria-label="Descargar">${icon("download")}<span class="hide-sm">Descargar</span></button>`
   });
 
   view.innerHTML = `
@@ -110,6 +116,21 @@ export function vistaGastos(view) {
   $("#g-prev", view).onclick = () => { if (--G.m < 0) { G.m = 11; G.y--; } pintar(); };
   $("#g-next", view).onclick = () => { if (++G.m > 11) { G.m = 0; G.y++; } pintar(); };
   $("#g-q", view).oninput = debounce(e => { G.q = e.target.value; pintar(); }, 120);
+  // Ordenar: tocar un criterio lo elige; tocarlo de nuevo invierte el orden
+  $("#g-orden")?.addEventListener("click", () => {
+    const hoja = openSheet({ title: "Ordenar por", body: `<div class="p-chips" id="go-chips"></div>` });
+    const chips = () => {
+      $("#go-chips", hoja.el).innerHTML = ORDEN_G.map(([k, t]) => `<button type="button" class="p-chip ${G.orden === k ? "on" : ""}" data-o="${k}">${t}${G.orden === k ? `<i>${G.dir > 0 ? "↑" : "↓"}</i>` : ""}</button>`).join("");
+      $("#g-orden")?.classList.toggle("activo", G.orden !== "fecha" || G.dir !== -1);
+    };
+    chips();
+    hoja.el.addEventListener("click", e => {
+      const b = e.target.closest("[data-o]"); if (!b) return;
+      if (G.orden === b.dataset.o) G.dir *= -1; else { G.orden = b.dataset.o; G.dir = ["fecha", "monto"].includes(G.orden) ? -1 : 1; }
+      chips(); pintar();
+    });
+  });
+
   // Filtros: categoría y método de pago (con la cantidad de gastos del mes)
   $("#g-filtros")?.addEventListener("click", () => {
     const hoja = openSheet({ title: "Filtros", body: `<div class="stack filtros">
