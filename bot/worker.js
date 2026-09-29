@@ -1783,11 +1783,13 @@ async function adminDatos(env, { idToken }) {
 }
 
 // Ajustes generales (por ahora: aviso al cliente cuando el auto queda reparado)
-async function adminConfig(env, { idToken, avisoReparado }) {
-  if (!(await soloCreador(env, idToken))) return json({ ok: false, error: "No autorizado" }, 403);
-  if (typeof avisoReparado === "boolean") await fsSet(env, "config/app", { avisoReparado });
+const CONFIG_CLAVES = ["avisoReparado", "documentos"];   // interruptores del creador (todos arrancan encendidos)
+async function adminConfig(env, body) {
+  if (!(await soloCreador(env, body.idToken))) return json({ ok: false, error: "No autorizado" }, 403);
+  const cambios = Object.fromEntries(CONFIG_CLAVES.filter(k => typeof body[k] === "boolean").map(k => [k, body[k]]));
+  if (Object.keys(cambios).length) await fsMerge(env, "config/app", cambios);
   const c = await fsGet(env, "config/app");
-  return json({ ok: true, config: { avisoReparado: c?.avisoReparado !== false } });
+  return json({ ok: true, config: Object.fromEntries(CONFIG_CLAVES.map(k => [k, c?.[k] !== false])) });
 }
 
 // Elimina un usuario de la app: cuenta de acceso, perfil, nombre de usuario, WhatsApp y membresías

@@ -267,18 +267,16 @@ function avisarAgregado(ops) {
   if (ir) ir.onclick = () => { elegirEmpresa(ops[0].id); s.close(); location.hash = "#/"; };
 }
 
-// Mantener apretado el botón de Ajustes (solo el creador de la app): panel con todos los operativos y usuarios
+// Dos toques seguidos en el botón de Ajustes (solo el creador de la app): panel con todos los operativos y usuarios
 {
-  let reloj = null, abrio = false;
-  document.addEventListener("pointerdown", e => {
-    const a = e.target.closest('a[href="#/ajustes"]');
-    abrio = false;
-    if (!a || !soyCreador()) return;
-    reloj = setTimeout(() => { abrio = true; navigator.vibrate?.(30); panelCreador(); }, 650);
-  });
-  ["pointerup", "pointercancel"].forEach(ev => document.addEventListener(ev, () => clearTimeout(reloj), true));
-  document.addEventListener("click", e => { if (abrio && e.target.closest('a[href="#/ajustes"]')) { e.preventDefault(); abrio = false; } }, true);
-  document.addEventListener("contextmenu", e => { if (e.target.closest('a[href="#/ajustes"]') && soyCreador()) e.preventDefault(); });
+  // Un toque va a Ajustes (con una espera cortita); dos toques abren el panel
+  let reloj = null;
+  document.addEventListener("click", e => {
+    if (!e.target.closest('a[href="#/ajustes"]') || !soyCreador()) return;
+    e.preventDefault();
+    if (reloj) { clearTimeout(reloj); reloj = null; panelCreador(); return; }
+    reloj = setTimeout(() => { reloj = null; location.hash = "#/ajustes"; }, 320);
+  }, true);
 }
 
 // ── Sin operativo: pedir unirse a uno o crear uno propio ─────────
@@ -363,3 +361,4 @@ function mostrarPedidosUnion() {
   };
   $("[data-no]", s.el).onclick = async () => { await responderPedidoUnion(p, null).catch(() => {}); s.close(); };
 }
+addEventListener("hashchange", () => document.querySelector(".menu-velo")?.remove());

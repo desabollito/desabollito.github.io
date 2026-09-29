@@ -378,7 +378,32 @@ export function nuevoIdVehiculo() {
 }
 
 // ── Historial de cambios de cada vehículo ─────────────────────
-const entrada = txt => ({ t: Date.now(), uid: S.user.uid, por: S.profile?.name || "", txt });
+const entrada = (txt, antes) => ({ t: Date.now(), uid: S.user.uid, por: S.profile?.name || "", txt, ...(antes ? { antes } : {}) });
+
+// ── Deshacer: cada cambio guarda cómo estaban los campos antes (no fotos ni documentos) ──
+const SIN_DESHACER = new Set(["fotos", "archivos", "firma", "historial", "updatedAt", "updatedBy", "deleted", "deletedAt", "deletedBy", "avisoReparado"]);
+const valorEn = (obj, ruta) => ruta.split(".").reduce((o, k) => o?.[k], obj);
+function antesDe(v, campos) {
+  if (!v) return null;
+  const out = {};
+  for (const k of Object.keys(campos)) {
+    if (SIN_DESHACER.has(k.split(".")[0])) continue;
+    const val = valorEn(v, k);
+    out[k.replace(/\./g, "|")] = val === undefined ? null : JSON.parse(JSON.stringify(val));
+  }
+  return Object.keys(out).length ? out : null;
+}
+// El último cambio que se puede deshacer (que no se haya deshecho ya)
+export function ultimoDeshacible(v) {
+  const h = v?.historial || [], hechos = new Set(h.filter(e => e.deshace).map(e => e.deshace));
+  return [...h].sort((a, b) => (b.t || 0) - (a.t || 0)).find(e => e.antes && !e.deshace && !hechos.has(e.t)) || null;
+}
+export async function deshacerCambio(v, e) {
+  const campos = {};
+  for (const [k, val] of Object.entries(e.antes || {})) campos[k.replace(/\|/g, ".")] = val === null ? deleteField() : val;
+  await updateDoc(doc(colVehiculos(), v.id), { ...campos,
+    historial: arrayUnion({ ...entrada(`Deshizo: ${e.txt}`), deshace: e.t }), updatedAt: serverTimestamp(), updatedBy: S.user.uid });
+}
 const plata = n => "$" + Number(n || 0).toLocaleString("es-AR");
 const CAMPOS_HIST = { modelo: "el modelo", patente: "la patente", asegurado: "el asegurado", telefono: "el teléfono",
   compania: "la compañía", localidad: "la localidad", observaciones: "las observaciones", repuestos: "los repuestos", pintura: "la pintura" };
@@ -414,8 +439,12 @@ export async function guardarVehiculo(id, data, esNuevo) {
   const base = { ...data, updatedAt: serverTimestamp(), updatedBy: S.user.uid };
   if (esNuevo) base.historial = [entrada("Cargó el vehículo")];
   else {
-    const cambios = cambiosDe(getVehiculo(id), data);
-    if (cambios.length) base.historial = arrayUnion(...cambios.map(entrada));
+    const viejo = getVehiculo(id), cambios = cambiosDe(viejo, data);
+    if (cambios.length) {
+      // El deshacer de una edición revierte todo lo que se cambió al guardar
+      const cambiados = Object.fromEntries(Object.keys(data).filter(k => JSON.stringify(data[k] ?? null) !== JSON.stringify(viejo?.[k] ?? null)).map(k => [k, 1]));
+      base.historial = arrayUnion(entrada(cambios.join(" · "), antesDe(viejo, cambiados)));
+    }
   }
   if (esNuevo) {
     // setDoc sin await de red: con caché offline se guarda al instante
@@ -438,7 +467,7 @@ export async function guardarVehiculo(id, data, esNuevo) {
 }
 
 export async function actualizarVehiculo(id, campos, hist) {
-  const extra = hist ? { historial: arrayUnion(entrada(hist)) } : {};
+  const extra = hist ? { historial: arrayUnion(entrada(hist, antesDe(getVehiculo(id), campos))) } : {};
   await updateDoc(doc(colVehiculos(), id), { ...campos, ...extra, updatedAt: serverTimestamp(), updatedBy: S.user.uid });
 }
 
@@ -606,10 +635,14 @@ export async function responderPedidoUnion(p, cid) {
 }
 
 // ── Configuración general de la app (config/app) ─────────────────
-S.config = { avisoReparado: true };
+S.config = { avisoReparado: true, documentos: true };
 let unsubConfig = null;
 export function escucharConfig() {
   if (unsubConfig) return;
-  unsubConfig = onSnapshot(doc(db, "config", "app"), d => { S.config = { avisoReparado: d.data()?.avisoReparado !== false }; },
+  unsubConfig = onSnapshot(doc(db, "config", "app"), d => {
+    const antes = JSON.stringify(S.config);
+    S.config = { avisoReparado: d.data()?.avisoReparado !== false, documentos: d.data()?.documentos !== false };
+    if (JSON.stringify(S.config) !== antes) emit("config");
+  },
     () => { unsubConfig = null; });
 }

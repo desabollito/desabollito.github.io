@@ -601,8 +601,12 @@ export async function panelCreador() {
   const pintar = () => {
     const { operativos, usuarios } = datos;
     caja.innerHTML = `
-      <label class="toggle adm-toggle"><input type="checkbox" id="adm-aviso" ${datos.config?.avisoReparado !== false ? "checked" : ""}>
-        <span>Avisar al cliente cuando el auto queda reparado</span></label>
+      <div class="adm-toggles">
+        <label class="toggle"><input type="checkbox" data-config="avisoReparado" ${datos.config?.avisoReparado !== false ? "checked" : ""}>
+          <span>Avisar al cliente cuando el auto queda reparado</span></label>
+        <label class="toggle"><input type="checkbox" data-config="documentos" ${datos.config?.documentos !== false ? "checked" : ""}>
+          <span>Documentos en los vehículos</span></label>
+      </div>
       <div class="seg seg-sm adm-tabs">
         <button type="button" class="seg-btn ${tab === "operativos" ? "on" : ""}" data-tab="operativos">Operativos <small>${operativos.length}</small></button>
         <button type="button" class="seg-btn ${tab === "usuarios" ? "on" : ""}" data-tab="usuarios">Usuarios <small>${usuarios.length}</small></button>
@@ -617,19 +621,20 @@ export async function panelCreador() {
   };
   const cargar = async () => {
     try {
-      const [d, c] = await Promise.all([llamarAdmin("datos"), llamarAdmin("config").catch(() => ({ config: { avisoReparado: true } }))]);
+      const [d, c] = await Promise.all([llamarAdmin("datos"), llamarAdmin("config").catch(() => ({ config: { avisoReparado: true, documentos: true } }))]);
       datos = { ...d, config: c.config }; pintar();
     }
     catch (e) { caja.innerHTML = `<p class="muted center">${esc(e.message)}</p>`; }
   };
   caja.addEventListener("change", async e => {
-    if (e.target.id !== "adm-aviso") return;
+    const clave = e.target.dataset.config;
+    if (!clave) return;
     const on = e.target.checked;
     e.target.disabled = true;
     try {
-      const r = await llamarAdmin("config", { avisoReparado: on });
+      const r = await llamarAdmin("config", { [clave]: on });
       datos.config = r.config; S.config = { ...S.config, ...r.config };
-      toast(on ? "Aviso al cliente activado" : "Aviso al cliente desactivado", "success");
+      toast(`${clave === "documentos" ? "Documentos" : "Aviso al cliente"} ${on ? "activado" : "desactivado"}`, "success");
     } catch (err) { e.target.checked = !on; toast(err.message, "error"); }
     e.target.disabled = false;
   });

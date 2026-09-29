@@ -3,7 +3,7 @@ import { botonesFotos, conectarFotos } from "./camara.js";
 import {
   S, activos, getVehiculo, guardarVehiculo, actualizarVehiculo, cambiarEstado, moverAPapelera,
   solicitarEliminacion, cargadoPor, esDeWhatsApp, puedoEditar, esMioV, crearSolicitud, yaPedi,
-  nuevoIdVehiculo, soyAdmin, mensajeError
+  nuevoIdVehiculo, soyAdmin, mensajeError, ultimoDeshacible, deshacerCambio
 } from "./data.js";
 import { ESTADOS, ESTADO, SECUENCIA, PIEZA, ORDEN_PIEZAS, estadoActual, piezasMarcadas } from "./domain.js";
 import {
@@ -31,6 +31,7 @@ const tokensBorrado = new Map(); // publicId → delete_token (válido 10 min)
 //  LISTA
 // ═════════════════════════════════════════════════════════════
 // ¿Algún repuesto / paño de pintura del vehículo está en esa fase?
+const docsOn = () => S.config?.documentos !== false;   // el creador puede apagar los documentos
 const tieneEtapa = (v, tipo, fase) => itemsTexto(v[tipo]).some(x => etapaItem(v, tipo, x)[0] === fase);
 function filtrar(lista) {
   const q = F.q.trim().toLowerCase();
@@ -45,6 +46,17 @@ function filtrar(lista) {
 }
 
 // Historial del vehículo (lo más nuevo arriba). Los vehículos viejos arrancan con la carga.
+// Historial con botón para deshacer el último cambio
+function abrirHistorial(v0) {
+  const v = getVehiculo(v0.id) || v0, ult = ultimoDeshacible(v);
+  const s = openSheet({ title: "Historial", body: `${ult ? `<button type="button" class="btn btn-ghost btn-block hist-undo" data-deshacer>${icon("rotate")}Deshacer: ${esc(ult.txt)}</button>` : ""}${historialHTML(v)}` });
+  $("[data-deshacer]", s.el)?.addEventListener("click", async () => {
+    if (!(await confirmar({ title: "¿Deshacer el último cambio?", message: `“${ult.txt}” vuelve a como estaba antes.`, ok: "Deshacer" }))) return;
+    s.close();
+    deshacerCambio(v, ult).then(() => toast("Cambio deshecho", "success")).catch(err => toast(mensajeError(err), "error"));
+  });
+}
+
 function historialHTML(v) {
   const h = [...(v.historial || [])];
   if (!h.some(e => /^Carg/.test(e.txt))) {
@@ -139,11 +151,10 @@ export function vistaVehiculos(view, selId = null) {
   // Filtros: orden (como en la planilla) y "Cargados por mí"
   $("#tb-filtros")?.addEventListener("click", () => {
     const s = openSheet({ title: "Filtros", body: `<div class="stack filtros">
-      <span class="muted small">Grado</span><div class="p-chips" id="f-grado"></div>
-      <span class="muted small">Repuestos</span><div class="p-chips" id="f-repuestos"></div>
-      <span class="muted small">Pintura</span><div class="p-chips" id="f-pintura"></div>
       <span class="muted small">Ordenar por</span><div class="p-chips" id="f-orden"></div>
-      <label class="toggle"><input type="checkbox" id="f-mios" ${F.mios ? "checked" : ""}><span>Cargados por mí</span></label>
+      <span class="muted small">Grado</span><div class="p-chips" id="f-grado"></div>
+      <span class="muted small">Pintura</span><div class="p-chips" id="f-pintura"></div>
+      <span class="muted small">Repuestos</span><div class="p-chips" id="f-repuestos"></div>
       <button class="btn btn-ghost btn-sm" id="f-reset">Quitar filtros</button></div>` });
     const chips = () => { $("#f-orden", s.el).innerHTML = ORDENES.map(([k, t]) => `<button type="button" class="p-chip ${F.orden === k ? "on" : ""}" data-orden="${k}">${t}${F.orden === k ? `<i>${F.dir > 0 ? "↑" : "↓"}</i>` : ""}</button>`).join(""); };
     const chipsGrado = () => {
@@ -175,8 +186,7 @@ export function vistaVehiculos(view, selId = null) {
       if (F.orden === b.dataset.orden) F.dir *= -1; else { F.orden = b.dataset.orden; F.dir = F.orden === "fecha" ? -1 : 1; }
       aplicar();
     };
-    $("#f-mios", s.el).onchange = e => { F.mios = e.target.checked; aplicar(); };
-    $("#f-reset", s.el).onclick = () => { F.mios = false; F.grado = null; F.repuestos = null; F.pintura = null; chipsEtapas(); F.orden = "fecha"; F.dir = -1; $("#f-mios", s.el).checked = false; chipsGrado(); aplicar(); };
+    $("#f-reset", s.el).onclick = () => { F.mios = false; F.grado = null; F.repuestos = null; F.pintura = null; chipsEtapas(); F.orden = "fecha"; F.dir = -1; chipsGrado(); aplicar(); };
   });
   pintar();
 
@@ -300,7 +310,7 @@ function renderDetalle(root, v, embebido) {
 
     <section class="d-sec">
       <div class="seg-head"><h3>Seguimiento</h3>
-        <button class="link-btn small ${anulado ? "" : "danger"}" data-act="anular">${anulado ? "Reactivar vehículo" : "Anular vehículo"}</button></div>
+        <button class="link-btn small ${anulado ? "" : "danger"}" data-act="anular">${anulado ? "Reactivar" : "Anular"}</button></div>
       <ol class="stepper ${anulado ? "is-anulado" : ""}">
         ${SECUENCIA.map(k => {
           const aus = k === "turnado" && est === "ausente";
@@ -340,11 +350,11 @@ function renderDetalle(root, v, embebido) {
     ${chipsSec("Repuestos", v, "repuestos")}
     ${chipsSec("Pintura", v, "pintura")}
 
-    ${v.archivos?.length || v.fechas?.reparado || v.fechas?.facturado || v.firma ? `<details class="d-sec d-adic" ${adicAbierto ? "open" : ""}>
+    ${(docsOn() && v.archivos?.length) || v.fechas?.reparado || v.fechas?.facturado || v.firma ? `<details class="d-sec d-adic" ${adicAbierto ? "open" : ""}>
       <summary><h3>Adicionales</h3></summary>
 
 
-    ${v.archivos?.length ? `<section class="d-sub">
+    ${docsOn() && v.archivos?.length ? `<section class="d-sub">
       <div class="sec-head"><h3>Documentos <small>${v.archivos?.length || 0}</small></h3></div>
       <ul class="docs">${(v.archivos || []).map((a, i) => `
         <li><a href="${esc(a.url)}" target="_blank" rel="noopener">${icon("file")}<span>${esc(a.name)}</span></a>
@@ -410,11 +420,13 @@ function renderDetalle(root, v, embebido) {
     if (act === "contactar") {
       const m = $(".d-menu", root), abrir = m.hidden;
       const btn = t.closest("[data-act]");
-      m.hidden = !abrir; btn.setAttribute("aria-expanded", abrir);
-      if (abrir) setTimeout(() => document.addEventListener("click", function fuera(ev) {
-        if (!ev.target.closest(".d-contacto")) { m.hidden = true; btn.setAttribute("aria-expanded", "false"); }
-        document.removeEventListener("click", fuera);
-      }), 0);
+      const cerrar = () => { m.hidden = true; btn.setAttribute("aria-expanded", "false"); $(".menu-velo")?.remove(); };
+      if (!abrir) return cerrar();
+      m.hidden = false; btn.setAttribute("aria-expanded", "true");
+      // Fondo desenfocado detrás del menú; tocarlo lo cierra
+      const velo = document.createElement("div"); velo.className = "menu-velo"; velo.onclick = cerrar;
+      document.body.appendChild(velo);
+      $$("a", m).forEach(a => a.addEventListener("click", () => setTimeout(cerrar, 50), { once: true }));
       return;
     }
     if (act === "anular") {
@@ -426,7 +438,7 @@ function renderDetalle(root, v, embebido) {
         cambiarEstado(v, "anulado").catch(err => toast(mensajeError(err), "error"));
       return;
     }
-    if (act === "historial") { openSheet({ title: "Historial", body: historialHTML(getVehiculo(v.id) || v) }); return; }
+    if (act === "historial") { abrirHistorial(v); return; }
     if (act === "borrar" && !esMio && !soyAdmin()) {
       // Solo quien lo cargó puede borrarlo: los demás piden la eliminación a los administradores
       if (await confirmar({ title: "Este vehículo no es tuyo",
@@ -987,7 +999,7 @@ export function vistaFormulario(view, id = null) {
             <textarea name="repuestos" rows="2" placeholder="Ej: moldura, espejo">${esc(v?.repuestos)}</textarea></label>
           <label class="field"><span>Pintura</span>
             <input name="pintura" autocomplete="off" placeholder="Ej: capot, techo" value="${esc(v?.pintura)}"></label>
-          <div class="field"><span>Documentos</span>
+          <div class="field" ${docsOn() ? "" : "hidden"}><span>Documentos</span>
             <ul class="docs ff-docs" id="ff-docs"></ul>
             <label class="btn btn-ghost btn-sm ff-docs-btn">${icon("file")}Adjuntar documento
               <input type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,image/*" multiple hidden id="ff-doc-in"></label></div>

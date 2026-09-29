@@ -1156,7 +1156,7 @@ a[href="#/ajustes"] { -webkit-touch-callout: none; user-select: none; }
 
 .p-chip .f-n { margin-left: 4px; font-weight: 800; opacity: .75; font-variant-numeric: tabular-nums; }
 
-.adm-toggle { margin-bottom: 14px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; }
+.adm-toggles { display: flex; flex-direction: column; gap: 4px; margin-bottom: 14px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 12px; }
 
 /* Estado de cada repuesto / paño de pintura */
 .pintura-list.etapas li { padding: 0; background: none; }
@@ -1183,3 +1183,9 @@ html, body { overscroll-behavior-y: none; }
 @media (max-width: 699px) {
   .sheet.sheet-visor { background: color-mix(in srgb, var(--surface) 72%, transparent); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
 }
+.hist-undo { margin-bottom: 12px; justify-content: flex-start; text-align: left; white-space: normal; }
+
+/* Menú Contactar: fondo desenfocado */
+.menu-velo { position: fixed; inset: 0; z-index: 14; background: rgba(8, 15, 26, .15); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+.d-contacto { z-index: 15; }
+.d-contacto:has(.d-menu:not([hidden])) { position: relative; z-index: 16; }
