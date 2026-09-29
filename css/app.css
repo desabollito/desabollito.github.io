@@ -1222,3 +1222,9 @@ html, body { overscroll-behavior-y: none; }
 .switch .sw-bola { transform: translateX(45px); }
 .switch.on .sw-bola { transform: translateX(0); }
 [data-act="borrar"] { -webkit-touch-callout: none; user-select: none; }
+
+/* Barra "Volver" de la foto grande: vidrio esmerilado del color del tema; texto centrado y flecha a su izquierda */
+.zoom-foto .zoom-x { background: color-mix(in srgb, var(--surface) 86%, transparent); color: var(--ink);
+  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); border-bottom: 1px solid color-mix(in srgb, var(--line) 60%, transparent); }
+.zoom-foto .zoom-x span { position: relative; }
+.zoom-foto .zoom-x .ic { position: absolute; right: calc(100% + 6px); top: 50%; transform: translateY(-50%); }

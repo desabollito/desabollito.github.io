@@ -640,7 +640,7 @@ async function quitarAdjunto(v, campo, idx) {
 function zoomFoto(url, previa) {
   const el = document.createElement("div");
   el.className = "zoom-foto";
-  el.innerHTML = `<img alt="" src="${esc(previa || url)}"><button class="zoom-x" aria-label="Volver">${icon("back")}Volver</button>`;
+  el.innerHTML = `<img alt="" src="${esc(previa || url)}"><button class="zoom-x" aria-label="Volver"><span>${icon("back")}Volver</span></button>`;
   document.body.appendChild(el);
   const im = $("img", el);
   if (previa && previa !== url) { const hd = new Image(); hd.onload = () => { im.src = url; }; hd.src = url; }
