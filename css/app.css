@@ -1234,3 +1234,7 @@ html, body { overscroll-behavior-y: none; }
   padding: 10px 14px; border-radius: 12px; background: var(--surface); color: var(--ink); box-shadow: var(--shadow-lg); opacity: 0; transform: translateY(-6px); transition: opacity .2s, transform .2s; }
 .update-hint.in { opacity: 1; transform: none; }
 @media (min-width: 900px) { .update-hint { left: auto; right: 24px; top: 84px; width: 420px; } }
+/* Elegir Cámara o Galería (vehículo sin fotos): mitad y mitad, con texto */
+#cov-op .foto-gal { flex: 1 1 0; padding: 0 16px; gap: 10px; }
+#cov-op [data-camara] { flex: 1 1 0; }
+#cov-op .foto-gal .gal-txt { display: inline; }

@@ -298,9 +298,8 @@ function renderDetalle(root, v, embebido) {
       ${v.fotos?.length
         ? `<button class="d-cover" data-act="galeria" aria-label="Ver las ${v.fotos.length} fotos">
              <img src="${esc(thumb(v.fotos[0].url, 240, v.fotos[0].rot))}" alt=""><span class="d-cover-n">${icon("camera")}${v.fotos.length}</span></button>`
-        : `<div class="d-cover vacio" id="d-cover-cam">
-             <button type="button" class="d-cover-cam" data-camara aria-label="Abrir la cámara">${icon("camera")}<small>Cámara</small></button>
-             <label class="d-cover-gal" aria-label="Agregar fotos de la galería">${icon("image")}<span class="gal-plus">+</span><input type="file" accept="image/*" multiple hidden data-galeria></label>
+        : `<div class="d-cover vacio">
+             <button type="button" class="d-cover-cam" id="d-cover-fotos" aria-label="Agregar fotos">${icon("image")}<small>Fotos</small></button>
            </div>`}
       <div class="d-title">
         <h2>${esc(v.modelo || "Sin modelo")}</h2>
@@ -522,8 +521,11 @@ function renderDetalle(root, v, embebido) {
     const dd = t.closest("[data-del-doc]");
     if (dd) return quitarAdjunto(v, "archivos", +dd.dataset.delDoc);
   });
-  const cov = $("#d-cover-cam", root);
-  if (cov) conectarFotos(cov, files => files.length && subirAdjuntos(v, files, "foto", root));
+  // Sin fotos: "Fotos" pregunta si usar la cámara o la galería
+  $("#d-cover-fotos", root)?.addEventListener("click", () => {
+    const hoja = openSheet({ title: "Agregar fotos", body: botonesFotos({ id: "cov-op" }) });
+    conectarFotos($("#cov-op", hoja.el), files => { hoja.close(); if (files.length) subirAdjuntos(v, files, "foto", root); });
+  });
   $$("[data-up]", root).forEach(inp => inp.addEventListener("change", e => {
     const files = [...e.target.files]; e.target.value = "";
     if (files.length) subirAdjuntos(v, files, inp.dataset.up, root);
