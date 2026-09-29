@@ -221,7 +221,18 @@ if ("serviceWorker" in navigator) {
     bar.className = "update-bar";
     bar.setAttribute("role", "status");
     bar.innerHTML = `<span>Hay una versión nueva de Desabollito</span><button class="btn btn-primary btn-sm">Actualizar</button>`;
-    bar.querySelector("button").onclick = () => { busy(bar.querySelector("button"), true, "Actualizando…"); recargarAlCambiar = true; sw.postMessage("activar"); };
+    bar.querySelector("button").onclick = () => {
+      busy(bar.querySelector("button"), true, "Actualizando…"); recargarAlCambiar = true; sw.postMessage("activar");
+      // Aviso abajo de la barra, por si el navegador no recarga solo
+      if (!$(".update-hint")) {
+        const hint = document.createElement("button");
+        hint.type = "button"; hint.className = "update-hint";
+        hint.textContent = "Si se queda cargando, recargá la página";
+        hint.onclick = () => location.reload();
+        bar.after(hint);
+        requestAnimationFrame(() => hint.classList.add("in"));
+      }
+    };
     document.body.appendChild(bar);
     requestAnimationFrame(() => bar.classList.add("in"));
   };

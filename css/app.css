@@ -1228,3 +1228,9 @@ html, body { overscroll-behavior-y: none; }
   -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); border-bottom: 1px solid color-mix(in srgb, var(--line) 60%, transparent); }
 .zoom-foto .zoom-x span { position: relative; }
 .zoom-foto .zoom-x .ic { position: absolute; right: calc(100% + 6px); top: 50%; transform: translateY(-50%); }
+
+/* Aviso debajo de "Actualizar" */
+.update-hint { position: fixed; z-index: 80; left: 12px; right: 12px; top: calc(var(--safe-t) + 78px); border: 0; cursor: pointer; font: inherit; font-size: 13.5px; font-weight: 600;
+  padding: 10px 14px; border-radius: 12px; background: var(--surface); color: var(--ink); box-shadow: var(--shadow-lg); opacity: 0; transform: translateY(-6px); transition: opacity .2s, transform .2s; }
+.update-hint.in { opacity: 1; transform: none; }
+@media (min-width: 900px) { .update-hint { left: auto; right: 24px; top: 84px; width: 420px; } }
