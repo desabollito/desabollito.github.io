@@ -331,3 +331,55 @@ export function gastosPDF(lista, empresa, periodo, CAT) {
 export function nombreArchivo(v) {
   return `Presupuesto_${(v.patente || v.modelo || "vehiculo").replace(/[^\w-]+/g, "_")}.pdf`;
 }
+
+// Todas las fotos del vehículo en una o dos hojas (A4 apaisada), grandes y en grilla
+export async function fotosPDF(v, empresa, { onProgreso } = {}) {
+  const fotos = v.fotos || [];
+  const doc = nuevoDoc("landscape");
+  const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), M = 8, TOP = 16, GAP = 3;
+  // Se bajan en paralelo (de a 6), en calidad liviana para que abra rápido
+  const imgs = new Array(fotos.length);
+  let hechas = 0, i = 0;
+  const trabajador = async () => {
+    while (i < fotos.length) {
+      const n = i++;
+      try { imgs[n] = await cargarImagen(paraPDF(fotos[n].url, fotos[n].rot)); } catch { imgs[n] = null; }
+      onProgreso?.(++hechas, fotos.length);
+    }
+  };
+  await Promise.all(Array.from({ length: 6 }, trabajador));
+  const n = fotos.length;
+  const porHoja = Math.ceil(n / Math.ceil(n / 12));   // hasta 12 por hoja, repartidas parejo
+  // Columnas que dejan las fotos (4:3) lo más grandes posible
+  let cols = 1, mejor = 0;
+  for (let c = 1; c <= porHoja; c++) {
+    const r = Math.ceil(porHoja / c), w = (W - M * 2 - GAP * (c - 1)) / c, h = (H - TOP - M - GAP * (r - 1)) / r;
+    const lado = Math.min(w / 4, h / 3);
+    if (lado > mejor) { mejor = lado; cols = c; }
+  }
+  const filas = Math.ceil(porHoja / cols);
+  const cw = (W - M * 2 - GAP * (cols - 1)) / cols, ch = (H - TOP - M - GAP * (filas - 1)) / filas;
+  const hojas = Math.ceil(n / porHoja);
+  for (let h = 0; h < hojas; h++) {
+    if (h) doc.addPage();
+    doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.setTextColor(...INK);
+    doc.text(`${v.modelo || "Vehículo"}${v.patente ? "  ·  " + v.patente : ""}`, M, 10);
+    doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(...GRIS);
+    doc.text(`${n} ${n === 1 ? "foto" : "fotos"}${hojas > 1 ? `  ·  hoja ${h + 1} de ${hojas}` : ""}${empresa?.name ? "  ·  " + empresa.name : ""}`, W - M, 10, { align: "right" });
+    for (let k = 0; k < porHoja; k++) {
+      const idx = h * porHoja + k;
+      if (idx >= n) break;
+      const c = k % cols, f = Math.floor(k / cols);
+      const x = M + c * (cw + GAP), y = TOP + f * (ch + GAP);
+      doc.setFillColor(...SUAVE); doc.rect(x, y, cw, ch, "F");
+      const im = imgs[idx];
+      if (im) {
+        const esc = Math.min(cw / im.w, ch / im.h), w = im.w * esc, hh = im.h * esc;
+        doc.addImage(im.data, "JPEG", x + (cw - w) / 2, y + (ch - hh) / 2, w, hh, undefined, "FAST");
+      }
+      doc.setFontSize(7); doc.setTextColor(255, 255, 255); doc.setFillColor(14, 27, 44);
+      doc.rect(x, y, 7, 4.5, "F"); doc.text(String(idx + 1), x + 3.5, y + 3.3, { align: "center" });
+    }
+  }
+  return doc;
+}

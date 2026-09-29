@@ -1189,3 +1189,7 @@ html, body { overscroll-behavior-y: none; }
 .menu-velo { position: fixed; inset: 0; z-index: 14; background: rgba(8, 15, 26, .15); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
 .d-contacto { z-index: 15; }
 .d-contacto:has(.d-menu:not([hidden])) { position: relative; z-index: 16; }
+
+/* Visor: botón PDF con todas las fotos, al lado del de descargar */
+.viewer-pdf { top: 10px; right: 64px; }
+@media (max-width: 699px) { .sheet-visor .viewer-pdf { right: 118px; } }

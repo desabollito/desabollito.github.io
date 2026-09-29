@@ -12,7 +12,7 @@ import {
 import { carMapSVG, montarMapa } from "./carmap.js";
 import { montar3D } from "./car3d.js";
 import { subir, comprimir, borrarConToken, thumb, grande, cloudinaryListo } from "./media.js";
-import { presupuestoPDF, nombreArchivo } from "./pdf.js";
+import { presupuestoPDF, nombreArchivo, fotosPDF } from "./pdf.js";
 import { armarZip } from "./zip.js";
 import { setTopbar, go, esAncho } from "./shell.js";
 
@@ -651,6 +651,7 @@ function visor(fotos = [], inicio = 0, v = null) {
       <div class="viewer-foto"><img id="vw-img" alt=""><span class="viewer-carga" hidden><span class="spin"></span></span>
         ${v && puedoEditar(v) ? `<button class="icon-btn viewer-ov viewer-rot" id="vw-rot" aria-label="Girar foto" title="Girar">${icon("rotate")}</button>` : ""}
         <button class="icon-btn viewer-ov viewer-x" data-close aria-label="Cerrar">${icon("x")}</button>
+        <button class="icon-btn viewer-ov viewer-pdf" id="vw-pdf" aria-label="Ver todas las fotos en un PDF" title="Todas las fotos en PDF">${icon("file")}</button>
         <button class="icon-btn viewer-ov viewer-dl" id="vw-dl" aria-label="Descargar" title="Descargar">${icon("download")}</button>
 </div>
       <div class="viewer-bar">
@@ -759,6 +760,20 @@ function visor(fotos = [], inicio = 0, v = null) {
       });
     });
   }
+  // PDF con todas las fotos juntas (una o dos hojas): abre más rápido que ir una por una
+  $("#vw-pdf", s.el).addEventListener("click", async () => {
+    const ventana = window.open("", "_blank");   // se abre ya (si se abre después, el celular lo bloquea)
+    ventana?.document.write("<title>Armando PDF…</title><p style='font:16px system-ui;padding:24px'>Armando el PDF con las fotos…</p>");
+    const aviso = toast(`Armando el PDF con ${fotos.length} ${fotos.length === 1 ? "foto" : "fotos"}…`);
+    try {
+      const doc = await fotosPDF({ ...(v || {}), fotos }, S.company);
+      const nombre = `${String(v?.patente || v?.modelo || "fotos").toUpperCase().replace(/[^A-Z0-9]+/g, "_")}_fotos.pdf`;
+      const url = URL.createObjectURL(doc.output("blob"));
+      if (ventana && !ventana.closed) ventana.location.href = url;
+      else { const a = document.createElement("a"); a.href = url; a.download = nombre; a.click(); }
+      setTimeout(() => URL.revokeObjectURL(url), 120000);
+    } catch (e) { ventana?.close(); toast(e.message || "No se pudo armar el PDF", "error"); }
+  });
   if ($("[data-p]", s.el)) $("[data-p]", s.el).onclick = () => { i = (i - 1 + fotos.length) % fotos.length; show(); };
   if ($("[data-n]", s.el)) $("[data-n]", s.el).onclick = () => { i = (i + 1) % fotos.length; show(); };
   let x0 = null, deslizo = false;
