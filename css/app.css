@@ -1205,3 +1205,14 @@ html, body { overscroll-behavior-y: none; }
 .turno-conf { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; font-weight: 600; }
 .step-conf { display: block; margin-top: 3px; font-size: 10.5px; font-weight: 700; line-height: 1.2; color: #d19613; }
 .step-conf.ok { color: #22b07d; }
+
+/* Interruptor Sí / No */
+.switch { position: relative; width: 96px; height: 38px; border-radius: 999px; border: 0; padding: 0; cursor: pointer;
+  background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--line); display: flex; align-items: center; justify-content: space-between; transition: background .2s; flex-shrink: 0; }
+.switch .sw-txt { width: 48px; text-align: center; font-weight: 800; font-size: 13.5px; color: var(--muted); position: relative; z-index: 1; transition: color .2s; }
+.switch .sw-bola { position: absolute; top: 3px; left: 3px; width: 45px; height: 32px; border-radius: 999px; background: var(--surface); box-shadow: 0 1px 4px rgba(0,0,0,.25); transition: transform .2s; }
+.switch:not(.on) .sw-no { color: var(--ink); }
+.switch.on { background: color-mix(in srgb, #22b07d 30%, var(--surface-2)); }
+.switch.on .sw-bola { transform: translateX(45px); }
+.switch.on .sw-si { color: #fff; }
+.switch.on .sw-bola { background: #22b07d; }

@@ -532,16 +532,14 @@ function elegirFechaEstado(v, estado) {
       <label class="field"><span>${estado === "turnado" ? "Fecha del turno" : "Fecha"}</span>
         <input type="date" name="f" value="${v.fechas?.[estado] || hoyISO()}" required></label>
       ${estado === "turnado" ? `<div class="turno-conf"><span>¿El cliente confirmó el turno?</span>
-        <div class="seg seg-sm" id="t-conf">
-          <button type="button" class="seg-btn ${v.turnoConfirmado === true ? "on" : ""}" data-c="si">Sí</button>
-          <button type="button" class="seg-btn ${v.turnoConfirmado === true ? "" : "on"}" data-c="no">No</button></div></div>` : ""}
+        <button type="button" class="switch ${v.turnoConfirmado === true ? "on" : ""}" id="t-conf" role="switch" aria-checked="${v.turnoConfirmado === true}">
+          <span class="sw-txt sw-no">No</span><span class="sw-txt sw-si">Sí</span><i class="sw-bola"></i></button></div>` : ""}
       <button class="btn btn-primary btn-block" style="--btn:${e.color}">Guardar</button></form>`
   });
   let confirmado = v.turnoConfirmado === true;
   $("#t-conf", s.el)?.addEventListener("click", e => {
-    const b = e.target.closest("[data-c]"); if (!b) return;
-    confirmado = b.dataset.c === "si";
-    $$("#t-conf .seg-btn", s.el).forEach(x => x.classList.toggle("on", x === b));
+    confirmado = !confirmado;
+    e.currentTarget.classList.toggle("on", confirmado); e.currentTarget.setAttribute("aria-checked", confirmado);
   });
   $("form", s.el).onsubmit = ev => {
     ev.preventDefault();
