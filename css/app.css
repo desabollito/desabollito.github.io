@@ -1238,3 +1238,5 @@ html, body { overscroll-behavior-y: none; }
 #cov-op .foto-gal { flex: 1 1 0; padding: 0 16px; gap: 10px; }
 #cov-op [data-camara] { flex: 1 1 0; }
 #cov-op .foto-gal .gal-txt { display: inline; }
+.chip-nueva { border-style: dashed; display: inline-flex; align-items: center; gap: 4px; }
+.chip-nueva .ic { width: 14px; height: 14px; }

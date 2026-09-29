@@ -81,6 +81,10 @@ service cloud.firestore {
         && !(uid() in request.resource.data.members)
         && request.resource.data.members.size() == resource.data.members.size() - 1;
 
+      // Cualquier miembro puede agregar etiquetas de gastos
+      allow update: if signedIn() && uid() in resource.data.members
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['gastoCats']);
+
       // Cada miembro puede actualizar solo su propia foto y su @usuario en el operativo
       allow update: if signedIn()
         && uid() in resource.data.members

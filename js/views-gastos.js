@@ -1,6 +1,6 @@
-import { S, guardarGasto, borrarGasto, soyAdmin, mensajeError, buscarMiembro } from "./data.js";
+import { S, guardarGasto, borrarGasto, soyAdmin, mensajeError, buscarMiembro, guardarEtiquetasGasto } from "./data.js";
 import { exportarExcel } from "./excel.js";
-import { $, $$, esc, money, fechaCorta, hoyISO, icon, toast, openSheet, confirmar, debounce, busy, elegirDescarga, marcarError } from "./ui.js";
+import { $, $$, esc, money, fechaCorta, hoyISO, icon, toast, openSheet, confirmar, debounce, busy, elegirDescarga, marcarError, pedirTexto } from "./ui.js";
 import { setTopbar } from "./shell.js";
 import { gastosPDF } from "./pdf.js";
 
@@ -17,7 +17,10 @@ const ANTERIORES = [
   { key: "combustible", label: "Combustible", color: "#e0a526" },
   { key: "viaticos", label: "Viáticos", color: "#22b07d" }
 ];
-const CAT = Object.fromEntries([...CATEGORIAS, ...ANTERIORES].map(c => [c.key, c]));
+// Etiquetas propias del operativo (se crean desde el formulario del gasto)
+const propias = () => S.company?.gastoCats || [];
+const catMap = () => Object.fromEntries([...CATEGORIAS, ...ANTERIORES, ...propias()].map(c => [c.key, c]));
+const COLORES_ETQ = ["#e5484d", "#22b07d", "#e0a526", "#4f8ff7", "#9b7bf2", "#0ea5a4", "#d9559b", "#ef7d57", "#5f6b7a", "#84cc16"];
 const METODOS = ["Efectivo", "Transferencia", "Dólares"];
 const esUSD = g => g.moneda === "USD";
 export const montoTxt = g => esUSD(g) ? "US$ " + Number(g.monto || 0).toLocaleString("es-AR") : (money(g.monto) || "$0");
@@ -30,7 +33,7 @@ function delMes() {
   const q = G.q.toLowerCase();
   return S.gastos.filter(g => (g.fecha || "").startsWith(claveMes())
     && (!G.cat || g.categoria === G.cat)
-    && (!q || [g.concepto, CAT[g.categoria]?.label, g.metodo, g.tecnicoNombre, g.vehiculoTxt, g.createdByName]
+    && (!q || [g.concepto, catMap()[g.categoria]?.label, g.metodo, g.tecnicoNombre, g.vehiculoTxt, g.createdByName]
       .some(x => (x || "").toLowerCase().includes(q))));
 }
 
@@ -74,7 +77,7 @@ export function vistaGastos(view) {
     const filas = Object.entries(porCat).sort((a, b) => b[1] - a[1]);
     const max = filas[0]?.[1] || 1;
     $("#g-bars", view).innerHTML = filas.length ? filas.map(([k, v]) => {
-      const c = CAT[k] || CAT.otros;
+      const c = catMap()[k] || catMap().otros;
       return `<button class="g-bar ${G.cat === k ? "on" : ""} ${G.cat && G.cat !== k ? "dim" : ""}" data-cat="${k}" style="--c:${c.color}">
         <span class="g-bar-l">${c.label}</span>
         <span class="g-bar-track"><i style="width:${Math.max(4, v / max * 100)}%"></i></span>
@@ -91,7 +94,7 @@ export function vistaGastos(view) {
       return;
     }
     box.innerHTML = lista.map(g => {
-      const c = CAT[g.categoria] || CAT.otros;
+      const c = catMap()[g.categoria] || catMap().otros;
       return `<button class="g-row" data-id="${g.id}" style="--c:${c.color}">
         <span class="g-dot"></span>
         <span class="g-main"><strong>${esc(g.concepto || c.label)}</strong>
@@ -121,7 +124,7 @@ export function vistaGastos(view) {
         columnas: [
           { titulo: "Fecha", ancho: 13, tipo: "fecha", valor: g => g.fecha },
           { titulo: "Concepto", ancho: 30, valor: g => g.concepto },
-          { titulo: "Categoría", ancho: 15, valor: g => CAT[g.categoria]?.label },
+          { titulo: "Categoría", ancho: 15, valor: g => catMap()[g.categoria]?.label },
           { titulo: "Método de pago", ancho: 16, valor: g => g.metodo },
           { titulo: "Técnico", ancho: 20, valor: g => g.tecnicoNombre },
           { titulo: "Monto en pesos", ancho: 16, tipo: "moneda", valor: g => esUSD(g) ? null : g.monto },
@@ -133,7 +136,7 @@ export function vistaGastos(view) {
       });
     } catch (err) { toast(err.message, "error"); }
   };
-  const pdf = () => gastosPDF(delMes(), S.company, `${MESES[G.m]} ${G.y}`, CAT).save(`Gastos_${claveMes()}.pdf`);
+  const pdf = () => gastosPDF(delMes(), S.company, `${MESES[G.m]} ${G.y}`, catMap()).save(`Gastos_${claveMes()}.pdf`);
   $("#g-dl").onclick = () => {
     if (!delMes().length) return toast("No hay gastos para descargar", "warning");
     elegirDescarga(`Gastos de ${MESES[G.m]} ${G.y}`, { excel, pdf });
@@ -141,6 +144,23 @@ export function vistaGastos(view) {
 
   pintar();
   return { soloLista: pintar };
+}
+
+function chipsCat(cat, puedeEditar) {
+  return [...CATEGORIAS, ...propias()].map(c => `
+    <button type="button" class="chip ${cat === c.key ? "on" : ""}" data-c="${esc(c.key)}" style="--c:${c.color}">${esc(c.label)}</button>`).join("")
+    + (puedeEditar ? `<button type="button" class="chip chip-nueva" data-nueva>${icon("plus")}Etiqueta</button>` : "");
+}
+
+// Crea una etiqueta del operativo y devuelve su clave (si ya existe con ese nombre, usa esa)
+async function crearEtiquetaGasto(nombre) {
+  const todas = [...CATEGORIAS, ...propias()];
+  const igual = todas.find(c => c.label.toLowerCase() === nombre.toLowerCase());
+  if (igual) return igual.key;
+  const key = "e_" + nombre.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "_").slice(0, 30) + "_" + Date.now().toString(36).slice(-4);
+  const color = COLORES_ETQ[propias().length % COLORES_ETQ.length];
+  await guardarEtiquetasGasto([...propias(), { key, label: nombre.slice(0, 30), color }]);
+  return key;
 }
 
 // Hoja para cargar o editar un gasto
@@ -156,8 +176,7 @@ export function formGasto(g = null) {
         <span class="money-in big"><i id="g-sim">${g && esUSD(g) ? "US$" : "$"}</i><input name="monto" inputmode="numeric" required placeholder="0"
           value="${g?.monto ? Number(g.monto).toLocaleString("es-AR") : ""}" ${puedeEditar ? "" : "disabled"}></span></label>
       <div class="field"><span>Categoría</span>
-        <div class="cat-pick" id="cat">${CATEGORIAS.map(c => `
-          <button type="button" class="chip ${cat === c.key ? "on" : ""}" data-c="${c.key}" style="--c:${c.color}">${c.label}</button>`).join("")}</div></div>
+        <div class="cat-pick" id="cat">${chipsCat(cat, puedeEditar)}</div></div>
       <label class="field"><span>Concepto</span>
         <input name="concepto" value="${esc(g?.concepto)}" placeholder="Ej: Cinta, otros" maxlength="80"></label>
       <div class="grid-2">
@@ -177,8 +196,16 @@ export function formGasto(g = null) {
   f.monto.addEventListener("input", e => {
     const d = e.target.value.replace(/\D/g, ""); e.target.value = d ? Number(d).toLocaleString("es-AR") : "";
   });
-  $("#cat", s.el).onclick = e => {
-    const b = e.target.closest("[data-c]"); if (!b || !puedeEditar) return;
+  $("#cat", s.el).onclick = async e => {
+    if (!puedeEditar) return;
+    if (e.target.closest("[data-nueva]")) {
+      const nombre = await pedirTexto({ title: "Nueva etiqueta", label: "Nombre de la etiqueta", placeholder: "Ej: Peajes", ok: "Crear" });
+      if (!nombre?.trim()) return;
+      try { cat = await crearEtiquetaGasto(nombre.trim()); $("#cat", s.el).innerHTML = chipsCat(cat, true); toast("Etiqueta creada", "success"); }
+      catch (err) { toast(mensajeError(err), "error"); }
+      return;
+    }
+    const b = e.target.closest("[data-c]"); if (!b) return;
     cat = b.dataset.c; $$("#cat .chip", s.el).forEach(x => x.classList.toggle("on", x === b));
   };
   f.onsubmit = async e => {
@@ -201,7 +228,7 @@ export function formGasto(g = null) {
     s.close();
   };
   $("#g-borrar", s.el)?.addEventListener("click", async () => {
-    if (await confirmar({ title: "¿Eliminar este gasto?", message: `${g.concepto || CAT[g.categoria]?.label} · ${montoTxt(g)}`, ok: "Eliminar", danger: true })) {
+    if (await confirmar({ title: "¿Eliminar este gasto?", message: `${g.concepto || catMap()[g.categoria]?.label} · ${montoTxt(g)}`, ok: "Eliminar", danger: true })) {
       borrarGasto(g.id).catch(err => toast(mensajeError(err), "error"));
       s.close();
     }

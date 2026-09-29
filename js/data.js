@@ -646,3 +646,9 @@ export function escucharConfig() {
   },
     () => { unsubConfig = null; });
 }
+
+// Etiquetas de gastos propias del operativo (cualquier miembro puede crearlas)
+export async function guardarEtiquetasGasto(lista) {
+  await updateDoc(doc(db, "companies", S.company.id), { gastoCats: lista });
+  S.company.gastoCats = lista;
+}
