@@ -50,12 +50,25 @@ function filtrar(lista) {
 // Historial con botón para deshacer el último cambio
 function abrirHistorial(v0) {
   const v = getVehiculo(v0.id) || v0, ult = ultimoDeshacible(v);
-  const s = openSheet({ title: "Historial", body: `${ult ? `<button type="button" class="btn btn-ghost btn-block hist-undo" data-deshacer>${icon("rotate")}Deshacer: ${esc(ult.txt)}</button>` : ""}${historialHTML(v)}` });
+  const s = openSheet({ title: "Historial", body: `${ult ? `<button type="button" class="btn btn-ghost btn-block hist-undo" data-deshacer>${icon("rotate")}Deshacer último cambio</button>` : ""}${historialHTML(v)}` });
   $("[data-deshacer]", s.el)?.addEventListener("click", async () => {
-    if (!(await confirmar({ title: "¿Deshacer el último cambio?", message: `“${ult.txt}” vuelve a como estaba antes.`, ok: "Deshacer" }))) return;
+    if (!(await confirmar({ title: "¿Estás seguro?", message: `Se deshace: “${ult.txt}”.`, ok: "Deshacer" }))) return;
     s.close();
     deshacerCambio(v, ult).then(() => toast("Cambio deshecho", "success")).catch(err => toast(mensajeError(err), "error"));
   });
+}
+
+// Color de cada línea del historial según de qué se trata (mismos colores que en la app)
+function colorHist(txt = "") {
+  const m = txt.match(/^Pasó a (\w+)/);
+  if (m) return ESTADO[m[1].toLowerCase()]?.color || "";
+  const f = txt.match(/: ([^:]+)$/);
+  if (f) {
+    const fase = f[1].trim().toLowerCase();
+    for (const lista of Object.values(ETAPAS)) { const e = lista.find(x => x[1].toLowerCase() === fase); if (e) return e[2]; }
+  }
+  if (/^Deshizo/.test(txt)) return "#5f6b7a";
+  return "";
 }
 
 function historialHTML(v) {
@@ -66,7 +79,7 @@ function historialHTML(v) {
   }
   h.sort((a, b) => (b.t || 0) - (a.t || 0));
   const cuando = t => t ? new Date(t).toLocaleString("es-AR", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" }) : "";
-  return `<ol class="hist">${h.map(e => `<li><span class="hist-txt"><strong>${esc(e.por || "Alguien")}</strong> ${esc(String(e.txt || "").replace(/ por WhatsApp/g, ""))}</span><time>${cuando(e.t)}</time></li>`).join("")}</ol>`;
+  return `<ol class="hist">${h.map(e => `<li class="${colorHist(e.txt) ? "hc" : ""}" style="${colorHist(e.txt) ? `--c:${colorHist(e.txt)}` : ""}"><span class="hist-txt"><strong>${esc(e.por || "Alguien")}</strong> ${esc(String(e.txt || "").replace(/ por WhatsApp/g, ""))}</span><time>${cuando(e.t)}</time></li>`).join("")}</ol>`;
 }
 
 const gradoTag = v => v.grado ? `<span class="grado-tag g${v.grado} d-grado-tag">Grado ${v.grado}</span>` : "";
