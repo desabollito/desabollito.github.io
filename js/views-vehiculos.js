@@ -760,19 +760,22 @@ function visor(fotos = [], inicio = 0, v = null) {
       });
     });
   }
-  // PDF con todas las fotos juntas (una o dos hojas): abre más rápido que ir una por una
-  $("#vw-pdf", s.el).addEventListener("click", async () => {
-    const ventana = window.open("", "_blank");   // se abre ya (si se abre después, el celular lo bloquea)
-    ventana?.document.write("<title>Armando PDF…</title><p style='font:16px system-ui;padding:24px'>Armando el PDF con las fotos…</p>");
-    const aviso = toast(`Armando el PDF con ${fotos.length} ${fotos.length === 1 ? "foto" : "fotos"}…`);
+  // PDF con todas las fotos juntas (sin textos): se descarga directo
+  $("#vw-pdf", s.el).addEventListener("click", async e => {
+    const b = e.currentTarget;
+    if (b.disabled) return;
+    b.disabled = true; b.classList.add("cargando");
+    toast(`Armando el PDF con ${fotos.length} ${fotos.length === 1 ? "foto" : "fotos"}…`);
     try {
-      const doc = await fotosPDF({ ...(v || {}), fotos }, S.company);
-      const nombre = `${String(v?.patente || v?.modelo || "fotos").toUpperCase().replace(/[^A-Z0-9]+/g, "_")}_fotos.pdf`;
-      const url = URL.createObjectURL(doc.output("blob"));
-      if (ventana && !ventana.closed) ventana.location.href = url;
-      else { const a = document.createElement("a"); a.href = url; a.download = nombre; a.click(); }
-      setTimeout(() => URL.revokeObjectURL(url), 120000);
-    } catch (e) { ventana?.close(); toast(e.message || "No se pudo armar el PDF", "error"); }
+      const doc = await fotosPDF({ fotos });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(doc.output("blob"));
+      a.download = `${String(v?.patente || v?.modelo || "fotos").toUpperCase().replace(/[^A-Z0-9]+/g, "_")}_fotos.pdf`;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+      toast("PDF descargado", "success");
+    } catch (err) { toast(err.message || "No se pudo armar el PDF", "error"); }
+    b.disabled = false; b.classList.remove("cargando");
   });
   if ($("[data-p]", s.el)) $("[data-p]", s.el).onclick = () => { i = (i - 1 + fotos.length) % fotos.length; show(); };
   if ($("[data-n]", s.el)) $("[data-n]", s.el).onclick = () => { i = (i + 1) % fotos.length; show(); };
