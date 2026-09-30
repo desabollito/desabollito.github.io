@@ -490,7 +490,7 @@ function detalleVehiculo(v, operativo) {
 }
 // ── Repuestos por WhatsApp: "repuestos AB123CD" → lista con estados; después agregar o cambiar estados
 const FASES_REP = [["sinpedir", "Sin pedir", "🔴"], ["pedido", "Pedido", "🟡"], ["recibido", "Recibido", "🔵"], ["colocado", "Colocado", "🟢"]];
-const itemsRep = t => String(t || "").split(/\n|,|;|\.(?!\d)/).map(x => x.trim()).filter(Boolean).map(x => x.charAt(0).toUpperCase() + x.slice(1));
+const itemsRep = t => String(t || "").split(/\n|,/).map(x => x.trim()).filter(Boolean).map(x => x.charAt(0).toUpperCase() + x.slice(1));
 const claveRep = x => sinTildes(String(x)).replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "").slice(0, 60) || "item";
 const faseDe = (v, x) => FASES_REP.find(f => f[0] === v.etapasRepuestos?.[claveRep(x)]) || FASES_REP[0];
 const RE_PIDE_REP = /^(?:localiz\w*\s+)?repuestos?\s+(\S+(?:\s+\S+)?)$/i;
