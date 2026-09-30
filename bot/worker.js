@@ -686,9 +686,9 @@ async function alRecibirTexto(env, m, quien, texto) {
   }
 
   // "AB123CD asegurado?" → solo el nombre del asegurado según la planilla
-  const patAseg = /asegurad/i.test(sinMencion) ? buscarPatenteEnTexto(sinMencion) : null;
+  const patAseg = /asegurad|nombre/i.test(sinMencion) ? buscarPatenteEnTexto(sinMencion) : null;
   if (patAseg && (sinMencion.slice(0, patAseg.desde) + " " + sinMencion.slice(patAseg.desde + patAseg.largo)).replace(/[¿?!.,:]/g, " ").trim().split(/\s+/)
-      .filter(w => w && !/^(el|la|de|del|quien|quién|es|cual|cuál|asegurad\w*)$/i.test(w)).length === 0) {
+      .filter(w => w && !/^(el|la|de|del|quien|quién|es|cual|cuál|asegurad\w*|nombre|decime|dame|pasame)$/i.test(w)).length === 0) {
     const patente = buscarPatenteEnTexto(sinMencion).patente;
     const n = await aseguradoDePadron(env, patente);
     if (n) return responder(env, dest(m), n);
