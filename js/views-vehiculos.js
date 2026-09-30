@@ -272,8 +272,10 @@ function waLink(tel, texto = "") {
 // "capot y techo, puerta" → ["Capot y techo", "Puerta"] (se separa solo con comas)
 // Repuestos / pintura prolijos: "capot, espejo derecho" → "Capot, Espejo derecho"
 const listaProlija = t => itemsTexto(t).join(", ");
-const itemsTexto = t => String(t || "").split(/\n|,/).map(x => x.trim()).filter(Boolean)
-  .map(x => x.charAt(0).toUpperCase() + x.slice(1));
+// Cada ítem: primera letra mayúscula, el resto en minúscula (salvo siglas como ABS o palabras con números) y sin punto final
+const prolijo = x => x.trim().replace(/[.;:\s]+$/, "").split(/\s+/)
+  .map((w, i) => /\d/.test(w) || (/^[A-ZÁÉÍÓÚÑ]{2,4}$/.test(w)) ? w : (i ? w.toLowerCase() : w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())).join(" ");
+const itemsTexto = t => String(t || "").split(/\n|,/).map(prolijo).filter(Boolean);
 
 // Estado de cada repuesto y de cada paño de pintura: se toca el ítem y se elige
 const ETAPAS = {
