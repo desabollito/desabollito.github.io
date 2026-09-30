@@ -270,6 +270,8 @@ function waLink(tel, texto = "") {
 }
 
 // "capot y techo, puerta" → ["Capot y techo", "Puerta"] (se separa solo con comas)
+// Repuestos / pintura prolijos: "capot, espejo derecho" → "Capot, Espejo derecho"
+const listaProlija = t => itemsTexto(t).join(", ");
 const itemsTexto = t => String(t || "").split(/\n|,/).map(x => x.trim()).filter(Boolean)
   .map(x => x.charAt(0).toUpperCase() + x.slice(1));
 
@@ -1237,8 +1239,8 @@ export function vistaFormulario(view, id = null) {
       compania: f.compania.value.trim(),
       localidad: f.localidad.value.trim() || (v ? "" : S.company?.name || ""),
       observaciones: f.observaciones.value.trim(),
-      repuestos: f.repuestos.value.trim(),
-      pintura: f.pintura.value.trim(),
+      repuestos: listaProlija(f.repuestos.value),
+      pintura: listaProlija(f.pintura.value),
       precio: Number(f.precio.value.replace(/\D/g, "")) || 0,
       piezas: Object.fromEntries(Object.entries(piezas).filter(([, on]) => on)),
       grado

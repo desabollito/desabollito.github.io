@@ -288,6 +288,9 @@ export function interpretar(texto, extra = {}) {
       else r.observaciones = r.observaciones ? r.observaciones + "\n" + t : t;
     }
   }
+  if (r.repuestos) r.repuestos = itemsRep(r.repuestos).join(", ");
+  if (r.pintura) r.pintura = itemsRep(r.pintura).join(", ");
+
 
   // 2. Grado: "grado 2", "g2", "G 3"
   resto = resto.replace(/\b(?:grado|g)\s*([123])\b/i, (_, g) => { r.grado = Number(g); return " "; });
@@ -942,7 +945,7 @@ async function crearVehiculo(env, op, d, quien) {
   const hoy = new Date(Date.now() - 3 * 3600 * 1000).toISOString().slice(0, 10); // fecha de Argentina (UTC-3)
   const datos = {
     modelo: d.modelo || "", patente: d.patente, asegurado: d.asegurado || "", telefono: d.telefono || "", compania: d.compania || "",
-    localidad: op.operativo || "", observaciones: d.observaciones || "", repuestos: d.repuestos || "", pintura: d.pintura || "", precio: d.precio || 0, piezas: d.piezas || {}, grado: d.grado || null,
+    localidad: op.operativo || "", observaciones: d.observaciones || "", repuestos: itemsRep(d.repuestos).join(", "), pintura: itemsRep(d.pintura).join(", "), precio: d.precio || 0, piezas: d.piezas || {}, grado: d.grado || null,
     estado: "peritado", fechas: { peritado: hoy }, horas: { peritado: new Date(Date.now() - 3 * 3600 * 1000).toISOString().slice(11, 16) }, fotos: [], archivos: [], firma: null, deleted: false,
     createdBy: `whatsapp:${quien.numero}`, createdByName: `${quien.nombre || quien.numero} (WhatsApp)`,
     ...(quien.uid ? { createdByUid: quien.uid } : {}),
