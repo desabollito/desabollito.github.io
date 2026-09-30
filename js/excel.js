@@ -8,7 +8,7 @@ const FUENTES = [
 ];
 let cargando = null;
 
-function cargarExcelJS() {
+export function cargarExcelJS() {
   if (window.ExcelJS) return Promise.resolve(window.ExcelJS);
   if (cargando) return cargando;
   cargando = (async () => {

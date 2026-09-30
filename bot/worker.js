@@ -41,7 +41,7 @@ export default {
     if (url.pathname === "/diagnostico") return diagnostico(url, env);
     if (url.pathname === "/evolution") return webhookEvolution(req, url, env, ctx);
     const API = { "/registro": nuevoRegistro, "/avisar": avisarCliente, "/solicitud": avisarSolicitud, "/agregado": avisarAgregado, "/pedido-union": avisarPedidoUnion,
-      "/admin/datos": adminDatos, "/admin/borrar-usuario": adminBorrarUsuario, "/admin/config": adminConfig };
+      "/admin/datos": adminDatos, "/admin/borrar-usuario": adminBorrarUsuario, "/admin/config": adminConfig, "/admin/padron": adminPadron };
     if (API[url.pathname]) {
       if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
       if (req.method !== "POST") return json({ ok: false, error: "Método no permitido" }, 405);
@@ -685,6 +685,16 @@ async function alRecibirTexto(env, m, quien, texto) {
     return v.fotos ? responder(env, dest(m), `⚠️ ${etiqueta(v)} ya tiene ${resumen(v.fotos)} subidas. Si mandás más, se suman a esas.`) : tilde(env, m);
   }
 
+  // "AB123CD asegurado?" → solo el nombre del asegurado según la planilla
+  const patAseg = /asegurad/i.test(sinMencion) ? buscarPatenteEnTexto(sinMencion) : null;
+  if (patAseg && (sinMencion.slice(0, patAseg.desde) + " " + sinMencion.slice(patAseg.desde + patAseg.largo)).replace(/[¿?!.,:]/g, " ").trim().split(/\s+/)
+      .filter(w => w && !/^(el|la|de|del|quien|quién|es|cual|cuál|asegurad\w*)$/i.test(w)).length === 0) {
+    const patente = buscarPatenteEnTexto(sinMencion).patente;
+    const n = await aseguradoDePadron(env, patente);
+    if (n) return responder(env, dest(m), n);
+    return responder(env, dest(m), `No encontré *${patente}* en la planilla de asegurados.`);
+  }
+
   // Repuestos: "repuestos AB123CD" / "localizá repuesto AB123CD" → lista con estados y opciones
   const pideRep = sinMencion.match(RE_PIDE_REP);
   if (pideRep && buscarPatenteEnTexto(pideRep[1])) {
@@ -943,7 +953,20 @@ async function buscarPatente(env, patente, uid) {
 }
 
 // Crea el vehículo en la web, con los mismos campos que usa la app
+// Mismo nombre aunque cambie el orden, las mayúsculas o las tildes ("Perez Juan" = "Juan Pérez")
+const mismoNombre = (a, b) => { const t = x => sinTildes(String(x || "")).split(/\s+/).filter(Boolean).sort().join(" "); return t(a) === t(b); };
+async function aseguradoDePadron(env, patente) {
+  const p = await fsGet(env, `padron/${patente}`).catch(() => null);
+  return p?.nombre || null;
+}
+
 async function crearVehiculo(env, op, d, quien) {
+  // Planilla de asegurados del operativo: manda el nombre de la planilla; si el mensaje trae otro, queda en detalles
+  const delPadron = d.patente ? await aseguradoDePadron(env, d.patente) : null;
+  if (delPadron) {
+    if (d.asegurado && !mismoNombre(d.asegurado, delPadron)) d.observaciones = [d.observaciones, `Asegurado ${d.asegurado}`].filter(Boolean).join("\n");
+    d.asegurado = delPadron;
+  }
   const vid = [...crypto.getRandomValues(new Uint8Array(15))].map(b => "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"[b % 62]).join("") + "wa";
   const hoy = new Date(Date.now() - 3 * 3600 * 1000).toISOString().slice(0, 10); // fecha de Argentina (UTC-3)
   const datos = {
@@ -1834,13 +1857,29 @@ async function adminDatos(env, { idToken }) {
 }
 
 // Ajustes generales (por ahora: aviso al cliente cuando el auto queda reparado)
+// Planilla de asegurados: reemplaza toda la planilla (filas vacías = borrarla)
+async function adminPadron(env, { idToken, filas }) {
+  if (!(await soloCreador(env, idToken))) return json({ ok: false, error: "No autorizado" }, 403);
+  const nuevas = (Array.isArray(filas) ? filas : []).filter(f => /^[A-Z0-9]{6,7}$/.test(f?.patente || "") && f.nombre)
+    .map(f => ({ patente: f.patente, nombre: String(f.nombre).slice(0, 80) })).slice(0, 20000);
+  const commit = writes => fs(env, `${base(env)}:commit`, { method: "POST", body: JSON.stringify({ writes }) });
+  // borrar las patentes que ya no están
+  const viejas = (await fsList(env, "padron")).map(d => d.__id), quedan = new Set(nuevas.map(f => f.patente));
+  const borrar = viejas.filter(p => !quedan.has(p));
+  for (let i = 0; i < borrar.length; i += 400) await commit(borrar.slice(i, i + 400).map(p => ({ delete: nombreDoc(env, `padron/${p}`) })));
+  for (let i = 0; i < nuevas.length; i += 400)
+    await commit(nuevas.slice(i, i + 400).map(f => ({ update: { name: nombreDoc(env, `padron/${f.patente}`), fields: { nombre: aValor(f.nombre) } } })));
+  await fsMerge(env, "config/app", { padronN: nuevas.length, padronFecha: Date.now() });
+  return json({ ok: true, n: nuevas.length });
+}
+
 const CONFIG_CLAVES = ["avisoReparado", "documentos"];   // interruptores del creador (todos arrancan encendidos)
 async function adminConfig(env, body) {
   if (!(await soloCreador(env, body.idToken))) return json({ ok: false, error: "No autorizado" }, 403);
   const cambios = Object.fromEntries(CONFIG_CLAVES.filter(k => typeof body[k] === "boolean").map(k => [k, body[k]]));
   if (Object.keys(cambios).length) await fsMerge(env, "config/app", cambios);
   const c = await fsGet(env, "config/app");
-  return json({ ok: true, config: Object.fromEntries(CONFIG_CLAVES.map(k => [k, c?.[k] !== false])) });
+  return json({ ok: true, config: { ...Object.fromEntries(CONFIG_CLAVES.map(k => [k, c?.[k] !== false])), padronN: c?.padronN || 0 } });
 }
 
 // Elimina un usuario de la app: cuenta de acceso, perfil, nombre de usuario, WhatsApp y membresías

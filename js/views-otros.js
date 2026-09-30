@@ -3,6 +3,7 @@ import {
   agregarMiembro, cambiarRol, quitarMiembro, guardarEtiquetas, resolverSolicitud, desvincularWhatsApp, salirDeEmpresa, eliminarEmpresa, crearEmpresa, elegirEmpresa,
   actualizarPerfil, salir, mensajeError, llamarAdmin
 } from "./data.js";
+import { cargarExcelJS } from "./excel.js";
 import { ESTADOS, ESTADO, ROLES, estadoActual } from "./domain.js";
 import {
   $, $$, esc, money, fechaCorta, fechaLarga, hoyISO, plate, estadoPill, icon, toast, openSheet, confirmar,
@@ -607,6 +608,13 @@ export async function panelCreador() {
         <label class="toggle"><input type="checkbox" data-config="documentos" ${datos.config?.documentos !== false ? "checked" : ""}>
           <span>Documentos en los vehículos</span></label>
       </div>
+      <div class="adm-toggles adm-padron">
+        <span><b>Planilla de asegurados</b><br><small class="muted">${datos.config?.padronN ? `${datos.config.padronN} patentes cargadas` : "Sin cargar"} · columna 1 nombre, columna 2 patente</small></span>
+        <span class="row-btns">
+          <label class="btn btn-ghost btn-sm">${icon("import")}${datos.config?.padronN ? "Actualizar" : "Subir"}<input type="file" accept=".csv,.xlsx,.txt" hidden id="adm-padron"></label>
+          ${datos.config?.padronN ? `<button type="button" class="btn btn-ghost btn-sm danger" id="adm-padron-del">${icon("trash")}Borrar</button>` : ""}
+        </span>
+      </div>
       <div class="seg seg-sm adm-tabs">
         <button type="button" class="seg-btn ${tab === "operativos" ? "on" : ""}" data-tab="operativos">Operativos <small>${operativos.length}</small></button>
         <button type="button" class="seg-btn ${tab === "usuarios" ? "on" : ""}" data-tab="usuarios">Usuarios <small>${usuarios.length}</small></button>
@@ -627,6 +635,20 @@ export async function panelCreador() {
     catch (e) { caja.innerHTML = `<p class="muted center">${esc(e.message)}</p>`; }
   };
   caja.addEventListener("change", async e => {
+    if (e.target.id === "adm-padron") {
+      const file = e.target.files[0]; e.target.value = "";
+      if (!file) return;
+      try {
+        const filas = await leerPadron(file);
+        if (!filas.length) return toast("No encontré filas con nombre (columna 1) y patente (columna 2)", "error");
+        if (!(await confirmar({ title: `¿Cargar ${filas.length} asegurados?`, message: `Reemplaza la planilla anterior. Ej: ${filas.slice(0, 2).map(f => `${f.nombre} → ${f.patente}`).join(" · ")}`, ok: "Cargar" }))) return;
+        toast("Subiendo la planilla…");
+        const r = await llamarAdmin("padron", { filas });
+        datos.config = { ...datos.config, padronN: r.n }; pintar();
+        toast(`${r.n} asegurados cargados`, "success");
+      } catch (err) { toast(err.message || mensajeError(err), "error"); }
+      return;
+    }
     const clave = e.target.dataset.config;
     if (!clave) return;
     const on = e.target.checked;
@@ -639,6 +661,12 @@ export async function panelCreador() {
     e.target.disabled = false;
   });
   caja.addEventListener("click", async e => {
+    if (e.target.closest("#adm-padron-del")) {
+      if (!(await confirmar({ title: "¿Borrar la planilla de asegurados?", ok: "Borrar", danger: true }))) return;
+      try { await llamarAdmin("padron", { filas: [] }); datos.config = { ...datos.config, padronN: 0 }; pintar(); toast("Planilla borrada", "success"); }
+      catch (err) { toast(err.message, "error"); }
+      return;
+    }
     const t = e.target.closest("[data-tab]");
     if (t) { tab = t.dataset.tab; return pintar(); }
     const b = e.target.closest("[data-borrar]");
@@ -650,4 +678,27 @@ export async function panelCreador() {
     catch (err) { b.disabled = false; toast(err.message, "error"); }
   });
   cargar();
+}
+
+// Lee la planilla de asegurados (CSV o Excel) → [{ patente, nombre }]
+const RE_PAT = /^([A-Z]{3}\d{3}|[A-Z]{2}\d{3}[A-Z]{2})$/;
+const normPat = p => String(p ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+async function leerPadron(file) {
+  let filas = [];
+  if (/\.xlsx$/i.test(file.name)) {
+    const ExcelJS = await cargarExcelJS();
+    const wb = new ExcelJS.Workbook(); await wb.xlsx.load(await file.arrayBuffer());
+    wb.worksheets[0].eachRow(r => filas.push(r.values.slice(1).map(v => v?.text ?? v?.result ?? v ?? "")));
+  } else {
+    const txt = await file.text();
+    const sep = [";", ",", "\t"].sort((a, b) => txt.split(b).length - txt.split(a).length)[0];
+    filas = txt.split(/\r?\n/).filter(l => l.trim()).map(l => l.split(sep).map(x => x.trim().replace(/^"|"$/g, "")));
+  }
+  // Siempre: primera columna = nombre, segunda columna = patente (la fila de títulos se saltea sola)
+  const vistas = new Map();
+  for (const f of filas) {
+    const nombre = String(f[0] ?? "").trim().replace(/\s+/g, " "), patente = normPat(f[1]);
+    if (RE_PAT.test(patente) && nombre) vistas.set(patente, nombre);
+  }
+  return [...vistas].map(([patente, nombre]) => ({ patente, nombre }));
 }

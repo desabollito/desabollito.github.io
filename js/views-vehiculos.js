@@ -3,7 +3,7 @@ import { botonesFotos, conectarFotos } from "./camara.js";
 import {
   S, activos, getVehiculo, guardarVehiculo, actualizarVehiculo, cambiarEstado, moverAPapelera,
   solicitarEliminacion, cargadoPor, esDeWhatsApp, puedoEditar, esMioV, crearSolicitud, yaPedi,
-  nuevoIdVehiculo, soyAdmin, mensajeError, ultimoDeshacible, deshacerCambio
+  nuevoIdVehiculo, soyAdmin, mensajeError, ultimoDeshacible, deshacerCambio, aseguradoDePadron
 } from "./data.js";
 import { ESTADOS, ESTADO, SECUENCIA, PIEZA, ORDEN_PIEZAS, estadoActual, piezasMarcadas } from "./domain.js";
 import {
@@ -1139,6 +1139,12 @@ export function vistaFormulario(view, id = null) {
     aviso.innerHTML = `Ya está cargada en este operativo: <a href="#/v/${otro.id}">${esc(otro.modelo || otro.patente)}</a>`;
   };
   form.patente.addEventListener("input", e => { e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9 ]/g, ""); avisoRepetida(); });
+  // Vehículo nuevo: si la patente está en la planilla de asegurados, completa el asegurado
+  form.patente.addEventListener("change", async () => {
+    if (v || form.asegurado.value.trim()) return;
+    const nombre = await aseguradoDePadron(form.patente.value);
+    if (nombre && !form.asegurado.value.trim()) { form.asegurado.value = nombre; toast(`Asegurado: ${nombre}`, "success"); }
+  });
 
   // Fotos cargadas desde el formulario: se suben mientras completás los datos
   const vid = v?.id || nuevoIdVehiculo();

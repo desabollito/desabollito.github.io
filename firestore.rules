@@ -30,6 +30,11 @@ service cloud.firestore {
             || !('whatsapp' in request.resource.data));   // solo se puede desvincular, no poner otro número
     }
 
+    // ── Planilla de asegurados (la escribe solo el bot, a pedido del creador) ──
+    match /padron/{pat} {
+      allow read: if signedIn() && aprobado();
+    }
+
     // ── Configuración general de la app (solo la cambia el creador, desde el bot) ──
     match /config/{doc} {
       allow read: if signedIn();

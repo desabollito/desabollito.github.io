@@ -652,3 +652,11 @@ export async function guardarEtiquetasGasto(lista) {
   await updateDoc(doc(db, "companies", S.company.id), { gastoCats: lista });
   S.company.gastoCats = lista;
 }
+
+// ── Planilla de asegurados (patente → nombre), la carga el creador desde su panel ──
+export async function aseguradoDePadron(patente) {
+  const p = String(patente || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+  if (!p) return null;
+  const d = await getDoc(doc(db, "padron", p)).catch(() => null);
+  return d?.exists() ? d.data().nombre : null;
+}
