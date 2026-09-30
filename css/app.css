@@ -1251,3 +1251,5 @@ html, body { overscroll-behavior-y: none; }
 .hist li.hc .hist-txt strong { color: var(--ink); }
 .ff-ultima { grid-template-columns: 1fr 1fr; margin-top: 12px; }
 .ff-ultima .ff-docs-btn { width: 100%; min-height: 48px; justify-content: center; }
+.conf-tag { font-size: 11.5px; font-weight: 700; padding: 3px 9px; border-radius: 999px; color: #d19613; background: color-mix(in srgb, #e0a526 18%, transparent); white-space: nowrap; }
+.conf-tag.ok { color: #22b07d; background: color-mix(in srgb, #22b07d 18%, transparent); }
