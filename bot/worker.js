@@ -474,11 +474,11 @@ const lineaOperativo = fijo => `\n\n> Operativo actual: ${fijo ? fijo.operativo 
 const NOMBRE_PANO = { capot: "Capot", techo: "Techo", baul: "Baúl", parante_izq: "Parante izq.", parante_der: "Parante der.",
   gf_izq: "Guardabarro del. izq.", pd_izq: "Puerta del. izq.", pt_izq: "Puerta tras. izq.", gt_izq: "Guardabarro tras. izq.",
   gf_der: "Guardabarro del. der.", pd_der: "Puerta del. der.", pt_der: "Puerta tras. der.", gt_der: "Guardabarro tras. der." };
-const ESTADO_TXT = { peritado: "Peritado", turnado: "Turnado", reparado: "Reparado", facturado: "Facturado", ausente: "Ausente", anulado: "Anulado" };
+const ESTADO_TXT = { peritado: "Peritado", turnado: "Turnado", enreparacion: "En reparación", reparado: "Reparado", facturado: "Facturado", ausente: "Ausente", anulado: "Anulado" };
 const fechaTxt = iso => { const [a, mm, d] = String(iso || "").split("-"); return d ? `${d}/${mm}/${a.slice(2)}` : ""; };
 // Ficha del vehículo por escrito (para "localizá")
 function detalleVehiculo(v, operativo) {
-  const est = v.fechas?.anulado ? "anulado" : v.estado === "ausente" ? "ausente" : ["facturado", "reparado", "turnado", "peritado"].find(k => v.fechas?.[k]) || v.estado || "peritado";
+  const est = v.fechas?.anulado ? "anulado" : ["ausente", "enreparacion"].includes(v.estado) ? v.estado : ["facturado", "reparado", "turnado", "peritado"].find(k => v.fechas?.[k]) || v.estado || "peritado";
   const cuando = k => v.fechas?.[k] ? `${fechaTxt(v.fechas[k])}${v.horas?.[k] ? " " + v.horas[k] : ""}` : "";
   const panos = Object.keys(v.piezas || {}).filter(k => v.piezas[k]);
   const filas = [
@@ -509,7 +509,7 @@ const claveRep = x => sinTildes(String(x)).replace(/[^a-z0-9]+/g, "_").replace(/
 const faseDe = (v, x) => FASES_REP.find(f => f[0] === v.etapasRepuestos?.[claveRep(x)]) || FASES_REP[0];
 const RE_PIDE_REP = /^(?:localiz\w*\s+)?repuestos?\s+(\S+(?:\s+\S+)?)$/i;
 function textoRepuestos(v, operativo) {
-  const est = v.fechas?.anulado ? "anulado" : v.estado === "ausente" ? "ausente" : ["facturado", "reparado", "turnado", "peritado"].find(k => v.fechas?.[k]) || "peritado";
+  const est = v.fechas?.anulado ? "anulado" : ["ausente", "enreparacion"].includes(v.estado) ? v.estado : ["facturado", "reparado", "turnado", "peritado"].find(k => v.fechas?.[k]) || "peritado";
   const items = itemsRep(v.repuestos);
   return [`🚗 *${v.modelo || "Sin modelo"}* · ${v.patente || ""}`,
     v.compania ? `🛡 ${v.compania}` : null,

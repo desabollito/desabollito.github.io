@@ -349,11 +349,12 @@ function renderDetalle(root, v, embebido) {
       <ol class="stepper ${anulado ? "is-anulado" : ""}">
         ${SECUENCIA.map(k => {
           const aus = k === "turnado" && est === "ausente";
-          const e = aus ? ESTADO.ausente : ESTADO[k], hecho = !!v.fechas?.[k] && !anulado, actual = k === est || aus;
+          const enRep = k === "reparado" && est === "enreparacion";
+          const e = aus ? ESTADO.ausente : enRep ? ESTADO.enreparacion : ESTADO[k], hecho = !!v.fechas?.[k] && !anulado, actual = k === est || aus || enRep;
           return `<li><button class="step ${hecho ? "done" : ""} ${actual ? "now" : ""} ${aus ? "is-ausente" : ""}" data-estado="${k}" style="--c:${e.color}">
             <span class="dot">${hecho ? icon(aus ? "x" : "check") : ""}</span>
             <span class="step-l">${e.label}</span>
-            <span class="step-d">${v.fechas?.[k] ? fechaCorta(v.fechas[k]) : "—"}${(k === "peritado" || k === "reparado") && v.fechas?.[k] && horaDe(v, k) ? `<br>${horaDe(v, k)}` : ""}</span>
+            <span class="step-d">${enRep && v.fechas?.enreparacion ? fechaCorta(v.fechas.enreparacion) : v.fechas?.[k] ? fechaCorta(v.fechas[k]) : "—"}${(k === "peritado" || k === "reparado") && v.fechas?.[k] && horaDe(v, k) ? `<br>${horaDe(v, k)}` : ""}</span>
             ${k === "turnado" && est === "turnado" ? `<span class="step-conf ${v.turnoConfirmado ? "ok" : ""}">${v.turnoConfirmado ? "Confirmado" : "Esperando confirmación"}</span>` : ""}</button></li>`;
         }).join("")}
       </ol>
@@ -479,7 +480,12 @@ function renderDetalle(root, v, embebido) {
   root.addEventListener("click", async e => {
     const t = e.target;
     const step = t.closest("[data-estado]");
-    if (step) { if (pasoLargo) { pasoLargo = false; return; } return elegirFechaEstado(v, step.dataset.estado); }
+    if (step) {
+      if (pasoLargo) { pasoLargo = false; return; }
+      // "Reparado": el primer toque lo pone En reparación; el segundo, Reparado
+      if (step.dataset.estado === "reparado" && !v.fechas?.reparado && estadoActual(v) !== "enreparacion") return elegirFechaEstado(v, "enreparacion");
+      return elegirFechaEstado(v, step.dataset.estado);
+    }
     const et = t.closest(".etapa-item");
     if (et) return elegirEtapa(v, et.dataset.tipo, et.dataset.item);
     const act = t.closest("[data-act]")?.dataset.act;

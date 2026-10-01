@@ -2,6 +2,7 @@
 export const ESTADOS = [
   { key: "peritado",  label: "Peritado",  color: "#4f8ff7" },
   { key: "turnado",   label: "Turnado",   color: "#e0a526" },
+  { key: "enreparacion", label: "En reparación", color: "#0ea5a4" },   // primer toque en "Reparado"
   { key: "reparado",  label: "Reparado",  color: "#22b07d" },
   { key: "facturado", label: "Facturado", color: "#9b7bf2" },
   { key: "ausente",   label: "Ausente",   color: "#5f6b7a" },   // turnado que no vino (mantener apretado "Turnado")
