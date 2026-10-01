@@ -1257,3 +1257,7 @@ html, body { overscroll-behavior-y: none; }
 /* En reparación: círculo lleno en color tenue, sin tilde */
 .step.is-enrep .dot { background: var(--c); border-color: var(--c); opacity: .75; }
 .turno-hora .link-btn { padding: 2px 0; }
+.adm-wa { gap: 8px; }
+.adm-wa textarea { width: 100%; resize: vertical; min-height: 70px; }
+.adm-wa .row-btns { justify-content: flex-end; }
+.chip-var { border: 1px solid var(--line); background: transparent; color: inherit; border-radius: 999px; padding: 1px 8px; margin: 2px 0; font-size: 12px; cursor: pointer; }

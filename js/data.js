@@ -635,13 +635,13 @@ export async function responderPedidoUnion(p, cid) {
 }
 
 // ── Configuración general de la app (config/app) ─────────────────
-S.config = { avisoReparado: true, documentos: true };
+S.config = { avisoReparado: true, documentos: true, mensajeWa: "" };
 let unsubConfig = null;
 export function escucharConfig() {
   if (unsubConfig) return;
   unsubConfig = onSnapshot(doc(db, "config", "app"), d => {
     const antes = JSON.stringify(S.config);
-    S.config = { avisoReparado: d.data()?.avisoReparado !== false, documentos: d.data()?.documentos !== false };
+    S.config = { avisoReparado: d.data()?.avisoReparado !== false, documentos: d.data()?.documentos !== false, mensajeWa: d.data()?.mensajeWa || "" };
     if (JSON.stringify(S.config) !== antes) emit("config");
   },
     () => { unsubConfig = null; });

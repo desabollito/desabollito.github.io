@@ -261,6 +261,28 @@ function iniciar3D(root, v) {
     .catch(err => { caja.innerHTML = `<p class="muted small center">${esc(err.message)}</p>`; });
 }
 
+// Mensaje configurable desde el panel del dueño: {Vehiculo}, {Patente}, {Asegurado}… se completan con el vehículo
+const VARS_WA = {
+  vehiculo: v => v.modelo, modelo: v => v.modelo, patente: v => v.patente, asegurado: v => v.asegurado, cliente: v => v.asegurado,
+  nombre: v => v.asegurado, telefono: v => v.telefono, compania: v => v.compania, aseguradora: v => v.compania,
+  operativo: () => S.company?.name, localidad: v => v.localidad, grado: v => v.grado, precio: v => v.precio ? money(v.precio) : "",
+  estado: v => ESTADO[estadoActual(v)]?.label || "", repuestos: v => v.repuestos, pintura: v => v.pintura,
+  observaciones: v => v.observaciones, detalles: v => v.observaciones,
+  fecha: v => fechaLarga(v.fechas?.peritado), peritaje: v => fechaLarga(v.fechas?.peritado),
+  turno: v => fechaLarga(v.fechas?.turnado), horaturno: v => v.horaTurno, hora: v => v.horaTurno,
+  usuario: () => S.profile?.name, yo: () => S.profile?.name
+};
+const claveVar = t => t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z]/g, "");
+export function textoWa(plantilla, v) {
+  let t = String(plantilla || "").trim();
+  const q = t.match(/[?&]text=([\s\S]*)$/i);   // se puede pegar el link entero (wa.me/numero?text=…)
+  if (q) { t = q[1]; try { t = decodeURIComponent(t.replace(/\+/g, " ")); } catch { /* texto ya legible */ } }
+  else if (/^(https?:\/\/)?(wa\.me|api\.whatsapp\.com)\//i.test(t)) t = "";
+  return t.replace(/\{([^{}]+)\}/g, (m, k) => { const f = VARS_WA[claveVar(k)]; return f ? String(f(v) ?? "").trim() : m; })
+    .replace(/[ \t]{2,}/g, " ").trim();
+}
+const mensajeWa = v => textoWa(S.config?.mensajeWa, v);
+
 function waLink(tel, texto = "") {
   let d = (tel || "").replace(/\D/g, "");
   if (!d) return "";
@@ -337,7 +359,7 @@ function renderDetalle(root, v, embebido) {
       ${v.telefono ? `<div class="d-contacto">
         <button class="btn btn-ghost" data-act="contactar" aria-haspopup="true" aria-expanded="false">${icon("phone")}Contactar</button>
         <div class="d-menu" hidden>
-          <a href="${waLink(v.telefono)}" target="_blank" rel="noopener">${icon("chat")}WhatsApp</a>
+          <a href="${waLink(v.telefono, mensajeWa(v))}" target="_blank" rel="noopener">${icon("chat")}WhatsApp</a>
           <a href="tel:${esc(v.telefono)}">${icon("phone")}Llamar</a>
         </div></div>` : ""}
       ${embebido ? `<a class="btn btn-ghost btn-icon" href="#/editar/${v.id}" aria-label="Editar" title="Editar">${icon("edit")}</a>` : ""}

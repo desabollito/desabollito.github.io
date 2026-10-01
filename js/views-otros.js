@@ -610,6 +610,12 @@ export async function panelCreador() {
         <label class="toggle"><input type="checkbox" data-config="documentos" ${datos.config?.documentos !== false ? "checked" : ""}>
           <span>Documentos en los vehículos</span></label>
       </div>
+      <div class="adm-toggles adm-wa">
+        <label class="field"><span><b>Mensaje del botón WhatsApp</b> <small class="muted">(Contactar → WhatsApp)</small></span>
+          <textarea id="adm-wa" rows="3" placeholder="Hola {Asegurado}! Te escribimos por tu {Vehiculo} patente {Patente}…">${esc(datos.config?.mensajeWa || "")}</textarea></label>
+        <small class="muted">Podés pegar el link entero (wa.me/numero?text=…) o solo el texto. Datos: ${["Vehiculo", "Patente", "Asegurado", "Telefono", "Compania", "Operativo", "Grado", "Precio", "Estado", "Repuestos", "Pintura", "Fecha", "Turno", "HoraTurno", "Usuario"].map(x => `<button type="button" class="chip-var" data-var="{${x}}">{${x}}</button>`).join(" ")}</small>
+        <span class="row-btns"><button type="button" class="btn btn-primary btn-sm" id="adm-wa-ok">Guardar mensaje</button></span>
+      </div>
       <div class="adm-toggles adm-padron">
         <span><b>Planilla de asegurados</b><br><small class="muted">${datos.config?.padronN ? `${datos.config.padronN} patentes cargadas` : "Sin cargar"} · columna 1 nombre, columna 2 patente</small></span>
         <span class="row-btns">
@@ -663,6 +669,23 @@ export async function panelCreador() {
     e.target.disabled = false;
   });
   caja.addEventListener("click", async e => {
+    const chip = e.target.closest("[data-var]");
+    if (chip) {
+      const ta = $("#adm-wa", caja), i = ta.selectionStart ?? ta.value.length;
+      ta.value = ta.value.slice(0, i) + chip.dataset.var + ta.value.slice(ta.selectionEnd ?? i);
+      ta.focus(); ta.selectionStart = ta.selectionEnd = i + chip.dataset.var.length;
+      return;
+    }
+    if (e.target.closest("#adm-wa-ok")) {
+      const b = e.target.closest("#adm-wa-ok"); b.disabled = true;
+      try {
+        const r = await llamarAdmin("config", { mensajeWa: $("#adm-wa", caja).value.trim() });
+        datos.config = r.config; S.config = { ...S.config, ...r.config };
+        toast("Mensaje guardado", "success");
+      } catch (err) { toast(err.message, "error"); }
+      b.disabled = false;
+      return;
+    }
     if (e.target.closest("#adm-padron-del")) {
       if (!(await confirmar({ title: "¿Borrar la planilla de asegurados?", ok: "Borrar", danger: true }))) return;
       try { await llamarAdmin("padron", { filas: [] }); datos.config = { ...datos.config, padronN: 0 }; pintar(); toast("Planilla borrada", "success"); }
