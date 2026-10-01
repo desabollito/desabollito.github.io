@@ -12,11 +12,12 @@ const base = `https://firestore.googleapis.com/v1/projects/${sa.project_id}/data
 const listar = async ruta => { const out = []; let t = ""; do { const j = await (await fetch(`${base}/${ruta}?pageSize=300${t ? "&pageToken=" + t : ""}`, { headers: H })).json(); out.push(...(j.documents || [])); t = j.nextPageToken || ""; } while (t); return out; };
 // Quita las fotos de perfil guardadas: users.photoURL y companies.memberPhotos
 const get = async p => (await fetch(`${base}/${p}`, { headers: H })).json();
-const val = f => f && (f.stringValue ?? f.integerValue ?? f.booleanValue ?? (f.mapValue ? "map" : JSON.stringify(f)));
-const est = await get("bot_estado/diagnostico");
-for (const [k, v] of Object.entries(est.fields || {})) if (/ultimoCrudoEvo/.test(k)) console.log(`::notice::${k}: ${String(val(v)).slice(0, 3000).replace(/\n/g, " ")}`);
+const m = await get("bot_mensajes/evo_AC5555303821031699AE7CFDE7AEEB41");
+console.log("::notice::original procesado: " + (m.fields ? "si" : "no " + JSON.stringify(m).slice(0,100)));
+const s = await get("bot_sesiones/5491137709755");
+const f = s.fields || {};
+console.log("::notice::sesion: " + ["patente","vid","cid","desde","cerradaEn","ts"].map(k => k + "=" + JSON.stringify(f[k])).join(" "));
 const ed = await listar("bot_ediciones");
-console.log(`::notice::bot_ediciones: ${ed.length} → ` + ed.map(d => new Date(Number(val(d.fields.ts))).toISOString()).join(", "));
-const ms = await listar("bot_mensajes");
-console.log(`::notice::evo_eventos: ` + ms.filter(d => d.name.includes("evo_eventos") || d.name.includes("/edit_")).map(d => d.name.split("/").pop()).join(", "));
-// 1790888087
+console.log("::notice::ediciones: " + ed.map(d => d.name.split("/").pop() + " " + JSON.stringify(d.fields.texto)).join(" | "));
+const grupos = await listar("bot_grupos");
+console.log("::notice::grupos: " + grupos.map(d => d.name.split("/").pop() + " " + JSON.stringify(d.fields.patente)).join(" | "));
