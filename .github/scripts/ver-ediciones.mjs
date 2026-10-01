@@ -13,6 +13,6 @@ const listar = async ruta => { const out = []; let t = ""; do { const j = await 
 // Quita las fotos de perfil guardadas: users.photoURL y companies.memberPhotos
 const get = async p => (await fetch(`${base}/${p}`, { headers: H })).json();
 const est = (await get("bot_estado/diagnostico")).fields || {};
-for (const k of ["ultimoError", "ultimoCrudoEvo"]) console.log(`::notice::${k}: ${JSON.stringify(est[k]).slice(0, 700)}`);
+for (const k of ["ultimoError", "ultimoCrudoEvo"]) console.log(`::notice::${k}: ${String(JSON.stringify(est[k])).slice(0, 1500)}`);
 const ed = await listar("bot_ediciones");
 console.log("::notice::ediciones: " + ed.map(d => d.name.split("/").pop() + " " + JSON.stringify(d.fields.texto) + " sec=" + !!d.fields.secreto + " " + JSON.stringify(d.fields.jids || null)).join(" | "));
