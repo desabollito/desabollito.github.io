@@ -196,8 +196,13 @@ const IDX_MODELOS = indice(MODELOS);
 
 // Patentes argentinas: AA000AA (Mercosur) y AAA000 (anterior)
 const RE_PATENTE = /\b([A-Za-z]{2})[\s.-]?(\d{3})[\s.-]?([A-Za-z]{2})\b|\b([A-Za-z]{3})[\s.-]?(\d{3})\b/;
+// "BMW118", "KIA 125"… tienen forma de patente vieja pero son marca + modelo: no se toman como patente
+const esMarcaModelo = letras => typeof IDX_MARCAS !== "undefined" && IDX_MARCAS.has(String(letras).toLowerCase());
 export function buscarPatenteEnTexto(texto) {
-  const m = String(texto).match(RE_PATENTE);
+  const cands = [...String(texto).matchAll(new RegExp(RE_PATENTE.source, "g"))]
+    .filter(m => m[1] || !esMarcaModelo(m[4]));
+  // Si hay varias, gana la del formato nuevo (AB123CD)
+  const m = cands.find(x => x[1]) || cands[0];
   if (!m) return null;
   return { patente: (m[1] ? m[1] + m[2] + m[3] : m[4] + m[5]).toUpperCase(), desde: m.index, largo: m[0].length };
 }
@@ -268,6 +273,7 @@ export function interpretar(texto, extra = {}) {
 
   // 0. "P208", "P3008", "p 2008"… (una P y 3 o 4 números) es un Peugeot
   resto = resto.replace(/(^|\s)p\s?-?(\d{3,4})(?=\s|[.,;]|$)/gi, "$1Peugeot $2");
+  resto = resto.replace(/(^|\s)([a-z]{2,4})(\d{2,4})(?=\s|[.,;]|$)/gi, (t, a, l, n) => esMarcaModelo(l) ? `${a}${l} ${n}` : t);
 
   // 1. Patente
   const p = buscarPatenteEnTexto(resto);
@@ -296,7 +302,7 @@ export function interpretar(texto, extra = {}) {
   resto = resto.replace(/\b(?:grado|g)\s*([123])\b/i, (_, g) => { r.grado = Number(g); return " "; });
 
   // 3. Teléfono: 8 a 13 dígitos (con o sin +54, espacios o guiones)
-  resto = resto.replace(/(?:\+?\s?\d[\d\s-]{6,16}\d)/g, m => {
+  resto = resto.replace(/(?<![A-Za-zÁÉÍÓÚÑáéíóúñ\d])(?:\+?\s?\d[\d\s-]{6,16}\d)/g, m => {
     let d = m.replace(/\D/g, "");
     // Número de modelo pegado al teléfono ("2008 3515551234"): se deja el primero y se toma el resto
     if (!r.telefono && d.length > 13 && /\s/.test(m.trim())) {
@@ -375,6 +381,8 @@ export function interpretar(texto, extra = {}) {
     const esNombre = palabraNombre;
     let libres = 0;
     while (fin + 1 + libres < palabras.length && !tipo[fin + 1 + libres]) libres++;
+    // Números pegados al modelo ("BMW 118", "Etios 1.5") van con el modelo
+    while (libres > 0 && /\d/.test(palabras[fin + 1])) { fin++; libres--; }
     const grupo = palabras.slice(fin + 1, fin + 1 + libres);
     const pareceNombre = grupo.length >= 2 && grupo.slice(0, 2).every(esNombre);
     if (!pareceNombre) {
