@@ -1724,6 +1724,10 @@ async function webhookEvolution(req, url, env, ctx) {
   }
   if (evento !== "messages.upsert") return new Response("ok");
   const mensajes = lista.map(deEvolution).filter(Boolean);
+  // Temporal: guarda la forma de los mensajes no reconocidos (sin archivos) para diagnosticar
+  const raro = lista.find((d, i) => deEvolution(d)?.type === "unsupported");
+  if (raro) ctx.waitUntil(registrar(env, { ultimoCrudoEvo: `${new Date().toISOString()} · ${evento} · ` +
+    JSON.stringify({ ...raro, message: raro.message }, (k, v) => (k === "base64" || k === "jpegThumbnail" ? "…" : v)).slice(0, 3000) }).catch(() => {}));
   ctx.waitUntil(registrar(env, { ultimoEvolution: `${new Date().toISOString()} · ${mensajes.length} mensaje(s)` }));
   ctx.waitUntil(Promise.all(mensajes.map(m => procesar(m, env).catch(e => {
     console.error("Error con mensaje de Evolution", m.id, e?.stack || e);

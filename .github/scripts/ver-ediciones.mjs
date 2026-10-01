@@ -14,7 +14,7 @@ const listar = async ruta => { const out = []; let t = ""; do { const j = await 
 const get = async p => (await fetch(`${base}/${p}`, { headers: H })).json();
 const val = f => f && (f.stringValue ?? f.integerValue ?? f.booleanValue ?? (f.mapValue ? "map" : JSON.stringify(f)));
 const est = await get("bot_estado/diagnostico");
-for (const [k, v] of Object.entries(est.fields || {})) if (/ultimo(Error|Evolution|TipoIgnorado|ErrorEnvio)/.test(k)) console.log(`::notice::${k}: ${String(val(v)).slice(0, 300).replace(/\n/g, " ")}`);
+for (const [k, v] of Object.entries(est.fields || {})) if (/ultimoCrudoEvo/.test(k)) console.log(`::notice::${k}: ${String(val(v)).slice(0, 3000).replace(/\n/g, " ")}`);
 const ed = await listar("bot_ediciones");
 console.log(`::notice::bot_ediciones: ${ed.length} → ` + ed.map(d => new Date(Number(val(d.fields.ts))).toISOString()).join(", "));
 const ms = await listar("bot_mensajes");
