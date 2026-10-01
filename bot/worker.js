@@ -852,12 +852,19 @@ async function recordarMensaje(env, m, numero, texto, patente, agregar = false) 
   if (!String(m.id || "").startsWith("evo_") || !patente) return;
   const s = await leerSesion(env, numero);
   if (!s?.vid || s.patente !== patente) return;
-  await fsSet(env, `bot_ediciones/${m.id}`, { texto, numero, cid: s.cid, vid: s.vid, agregar, to: dest(m), ts: Date.now() });
+  await fsSet(env, `bot_ediciones/${m.id}`, { texto, numero, cid: s.cid, vid: s.vid, agregar, to: dest(m), ts: Date.now(),
+    ...(m._secreto ? { secreto: m._secreto, jids: m._jids || [] } : {}) });
 }
 
 // Busca dentro del evento el aviso de edición: { id original, texto nuevo }
 export function edicionDe(d) {
   let hallado = null;
+  // WhatsApp nuevo: la edición llega cifrada con el secreto del mensaje original
+  const sem = d?.message?.secretEncryptedMessage;
+  if (sem?.targetMessageKey?.id && sem.encPayload && Number(sem.secretEncType ?? 2) === 2) {
+    return { id: "evo_" + String(sem.targetMessageKey.id).replace(/[^A-Za-z0-9_-]/g, ""), origId: String(sem.targetMessageKey.id),
+      enc: { payload: b64DeBytes(sem.encPayload), iv: b64DeBytes(sem.encIv) }, jids: jidsDe(d) };
+  }
   const ver = (o, prof = 0) => {
     if (hallado || !o || typeof o !== "object" || prof > 8) return;
     const pm = o.protocolMessage || (o.editedMessage && o.key?.id && !o.editedMessage.message?.protocolMessage ? o : null);
@@ -875,6 +882,13 @@ export function edicionDe(d) {
 async function alEditarMensaje(env, e) {
   const rec = await fsGet(env, `bot_ediciones/${e.id}`);
   if (!rec?.vid) return;
+  if (e.enc) {
+    e.texto = await descifrarEdicion(rec, e);
+    if (!e.texto) {
+      await registrar(env, { ultimoError: `${new Date().toISOString()} · Edición cifrada no descifrada · ${rec.secreto ? "con secreto" : "sin secreto"} · ${JSON.stringify(rec.jids || [])} / ${JSON.stringify(e.jids)}` }).catch(() => {});
+      return;
+    }
+  }
   const hash = [...e.texto].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7);
   if (!(await primeraVez(env, `edit_${e.id}_${hash}`))) return;
   const limpiar = t => { let x = quitarMencion(t).replace(ABIERTO_G, " ").trim(); return rec.agregar ? x.replace(RE_AGREGAR, " ") : x; };
@@ -930,6 +944,54 @@ async function alEditarMensaje(env, e) {
   }
   const etq = `*${cambios.modelo || v.modelo || "Vehículo"}* (${cambios.patente || v.patente})`;
   return responder(env, rec.to || destinoNumero(env, rec.numero), `✏️ Actualicé ${nombres.join(", ")} de ${etq}.`);
+}
+
+// Descifra una edición (AES-GCM con clave HKDF del secreto del mensaje original, igual que WhatsApp)
+export async function descifrarEdicion(rec, e) {
+  const secreto = aBytes(rec.secreto), payload = aBytes(e.enc.payload), iv = aBytes(e.enc.iv);
+  if (!secreto || !payload || !iv) return null;
+  const te = new TextEncoder(), id = e.origId || e.id.replace(/^evo_/, "");
+  const base = await crypto.subtle.importKey("raw", secreto, "HKDF", false, ["deriveBits"]);
+  const origs = [...new Set([...(rec.jids || []), ...(e.jids || [])])], mods = [...new Set([...(e.jids || []), ...(rec.jids || [])])];
+  for (const o of origs) for (const mo of mods) {
+    try {
+      const info = te.encode(id + o + mo + "Message Edit");
+      const bits = await crypto.subtle.deriveBits({ name: "HKDF", hash: "SHA-256", salt: new Uint8Array(0), info }, base, 256);
+      const k = await crypto.subtle.importKey("raw", bits, "AES-GCM", false, ["decrypt"]);
+      const plano = new Uint8Array(await crypto.subtle.decrypt({ name: "AES-GCM", iv, additionalData: te.encode(`${id}\0${mo}`) }, k, payload));
+      const t = textoDeProto(plano);
+      if (t) return t;
+    } catch { /* otra combinación */ }
+  }
+  return null;
+}
+
+// Lector mínimo de protobuf: busca el texto en conversation (1), extendedTextMessage.text (6.1),
+// caption de imagen/documento, protocolMessage.editedMessage (12.14) o mensajes anidados
+function campos(b) {
+  const out = []; let i = 0;
+  const varint = () => { let r = 0, sh = 0, c; do { c = b[i++]; r += (c & 127) * 2 ** sh; sh += 7; } while (c & 128 && i < b.length); return r; };
+  while (i < b.length) {
+    const tag = varint(), f = Math.floor(tag / 8), w = tag & 7;
+    if (!f) return null;
+    if (w === 0) varint(); else if (w === 1) i += 8; else if (w === 5) i += 4;
+    else if (w === 2) { const n = varint(); if (i + n > b.length) return null; out.push([f, b.subarray(i, i + n)]); i += n; }
+    else return null;
+  }
+  return i === b.length ? out : null;
+}
+export function textoDeProto(b, prof = 0) {
+  const cs = campos(b);
+  if (!cs || prof > 6) return null;
+  const td = new TextDecoder("utf-8", { fatal: true });
+  const str = x => { try { return td.decode(x); } catch { return null; } };
+  const de = n => cs.filter(([f]) => f === n).map(([, v]) => v);
+  const texto = t => t && t.trim() && !/[\x00-\x08\x0b\x0c\x0e-\x1f]/.test(t) && !/^[\w.:-]+@[\w.]+$/.test(t);
+  for (const v of de(1)) { const t = str(v); if (texto(t)) return t; }
+  for (const v of de(6)) { const t = campos(v)?.find(([f]) => f === 1); if (t && str(t[1])) return str(t[1]); }
+  for (const [n, c] of [[3, 3], [7, 3]]) for (const v of de(n)) { const t = campos(v)?.find(([f]) => f === c); if (t && str(t[1])) return str(t[1]); }
+  for (const [f, v] of cs) { if (f === 1) continue; const t = textoDeProto(v, prof + 1); if (t) return t; }
+  return null;
 }
 
 // "agregar PATENTE …": suma los datos a un vehículo existente. Los textos (detalles, repuestos, pintura)
@@ -1128,6 +1190,7 @@ async function alRecibirArchivo(env, m, quien) {
     if (abierta(sesion)) await cerrarEnSilencio(env, numero, hora - 1);
     const pregunta = await prepararVehiculo(env, numero, datos, hora, await leerSesion(env, numero), quien);
     if (pregunta) await responder(env, dest(m), pregunta);
+    await recordarMensaje(env, m, numero, caption, datos.patente).catch(() => {});
     sesion = await leerSesion(env, numero);
   }
 
@@ -1759,6 +1822,13 @@ async function asegurarEventosEvo(env, instancia) {
   else await registrar(env, { ultimoError: `${new Date().toISOString()} · Webhook eventos · ${r.status} · ${(await r.text()).slice(0, 300)}` });
 }
 
+const aBytes = x => !x ? null : typeof x === "string" ? Uint8Array.from(atob(x), c => c.charCodeAt(0))
+  : x instanceof Uint8Array ? x : Array.isArray(x) ? Uint8Array.from(x) : x.data ? Uint8Array.from(x.data) : Uint8Array.from(Object.keys(x).sort((a, b) => a - b).map(k => x[k]));
+const b64DeBytes = x => { const b = aBytes(x); return b?.length ? btoa(String.fromCharCode(...b)) : null; };
+const jidsDe = d => { const k = d?.key || {}; const g = String(k.remoteJid || "").endsWith("@g.us");
+  return [...new Set((g ? [k.participant, k.participantAlt, k.participantPn, d.participant] : [k.remoteJid, k.remoteJidAlt, k.senderPn, k.senderLid])
+    .filter(Boolean).map(j => String(j).replace(/:\d+@/, "@")))]; };
+
 export function deEvolution(d) {
   const key = d?.key;
   if (!key || key.fromMe) return null;
@@ -1777,7 +1847,10 @@ export function deEvolution(d) {
     timestamp: String(Number(d.messageTimestamp?.low ?? d.messageTimestamp ?? Math.floor(Date.now() / 1000))),
     _to: "evo:" + chat, _grupo: grupo, _nombre: d.pushName || "",
     _key: { remoteJid: chat, fromMe: false, id: key.id, ...(key.participant ? { participant: key.participant } : {}) },
-    _base64: d.message?.base64 || msg.base64 || d.base64 || null
+    _base64: d.message?.base64 || msg.base64 || d.base64 || null,
+    // Para descifrar ediciones futuras: secreto del mensaje y las formas del autor (lid / número)
+    _secreto: b64DeBytes(d.message?.messageContextInfo?.messageSecret || msg.messageContextInfo?.messageSecret),
+    _jids: jidsDe(d)
   };
   const texto = msg.conversation || msg.extendedTextMessage?.text;
   if (texto) return { ...base, type: "text", text: { body: texto } };
