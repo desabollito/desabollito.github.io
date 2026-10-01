@@ -883,9 +883,11 @@ async function alEditarMensaje(env, e) {
   const rec = await fsGet(env, `bot_ediciones/${e.id}`);
   if (!rec?.vid) return;
   if (e.enc) {
-    e.texto = await descifrarEdicion(rec, e);
+    const diag = {};
+    e.texto = await descifrarEdicion(rec, e, diag);
     if (!e.texto) {
-      await registrar(env, { ultimoError: `${new Date().toISOString()} · Edición cifrada no descifrada · ${rec.secreto ? "con secreto" : "sin secreto"} · ${JSON.stringify(rec.jids || [])} / ${JSON.stringify(e.jids)}` }).catch(() => {});
+      await fsMerge(env, `bot_ediciones/${e.id}`, { fallo: { payload: e.enc.payload, iv: e.enc.iv, jids: e.jids, origId: e.origId || "" } }).catch(() => {});
+      await registrar(env, { ultimoError: `${new Date().toISOString()} · Edición cifrada no descifrada · ${diag.largos} · ${diag.ok || "clave no coincide"} · ${JSON.stringify(rec.jids || [])} / ${JSON.stringify(e.jids)}` }).catch(() => {});
       return;
     }
   }
@@ -947,21 +949,24 @@ async function alEditarMensaje(env, e) {
 }
 
 // Descifra una edición (AES-GCM con clave HKDF del secreto del mensaje original, igual que WhatsApp)
-export async function descifrarEdicion(rec, e) {
+export async function descifrarEdicion(rec, e, diag = {}) {
   const secreto = aBytes(rec.secreto), payload = aBytes(e.enc.payload), iv = aBytes(e.enc.iv);
+  diag.largos = `sec ${secreto?.length} payload ${payload?.length} iv ${iv?.length}`;
   if (!secreto || !payload || !iv) return null;
   const te = new TextEncoder(), id = e.origId || e.id.replace(/^evo_/, "");
   const base = await crypto.subtle.importKey("raw", secreto, "HKDF", false, ["deriveBits"]);
-  const origs = [...new Set([...(rec.jids || []), ...(e.jids || [])])], mods = [...new Set([...(e.jids || []), ...(rec.jids || [])])];
-  for (const o of origs) for (const mo of mods) {
+  const jids = [...new Set([...(rec.jids || []), ...(e.jids || [])])];
+  for (const o of jids) for (const mo of jids) for (const ad of [`${id}\0${mo}`, null, `${id}\0${o}`]) {
+    let plano;
     try {
       const info = te.encode(id + o + mo + "Message Edit");
       const bits = await crypto.subtle.deriveBits({ name: "HKDF", hash: "SHA-256", salt: new Uint8Array(0), info }, base, 256);
       const k = await crypto.subtle.importKey("raw", bits, "AES-GCM", false, ["decrypt"]);
-      const plano = new Uint8Array(await crypto.subtle.decrypt({ name: "AES-GCM", iv, additionalData: te.encode(`${id}\0${mo}`) }, k, payload));
-      const t = textoDeProto(plano);
-      if (t) return t;
-    } catch { /* otra combinación */ }
+      plano = new Uint8Array(await crypto.subtle.decrypt({ name: "AES-GCM", iv, ...(ad ? { additionalData: te.encode(ad) } : {}) }, k, payload));
+    } catch { continue; }
+    diag.ok = `${o} / ${mo} / ad ${ad ? "sí" : "no"} · ${[...plano.slice(0, 80)].map(x => x.toString(16).padStart(2, "0")).join("")}`;
+    const t = textoDeProto(plano);
+    if (t) return t;
   }
   return null;
 }
