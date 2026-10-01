@@ -611,7 +611,7 @@ export async function panelCreador() {
           <span>Documentos en los vehículos</span></label>
       </div>
       <div class="adm-toggles adm-wa">
-        <label class="field"><span><b>Mensaje del botón WhatsApp</b> <small class="muted">(Contactar → WhatsApp)</small></span>
+        <label class="field"><span><b>Mensaje del botón WhatsApp</b> <small class="muted">(Contactar → WhatsApp, solo con el auto reparado)</small></span>
           <textarea id="adm-wa" rows="3" placeholder="Hola {Asegurado}! Te escribimos por tu {Vehiculo} patente {Patente}…">${esc(datos.config?.mensajeWa || "")}</textarea></label>
         <small class="muted">Podés pegar el link entero (wa.me/numero?text=…) o solo el texto. Datos: ${["Saludo", "Vehiculo", "Patente", "Asegurado", "Telefono", "Compania", "Operativo", "Grado", "Precio", "Estado", "Repuestos", "Pintura", "Fecha", "Turno", "HoraTurno", "Usuario"].map(x => `<button type="button" class="chip-var" data-var="{${x}}">{${x}}</button>`).join(" ")}</small>
         <span class="row-btns"><button type="button" class="btn btn-primary btn-sm" id="adm-wa-ok">Guardar mensaje</button></span>

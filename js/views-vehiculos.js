@@ -282,7 +282,8 @@ export function textoWa(plantilla, v) {
   return t.replace(/\{([^{}]+)\}/g, (m, k) => { const f = VARS_WA[claveVar(k)]; return f ? String(f(v) ?? "").trim() : m; })
     .replace(/[ \t]{2,}/g, " ").trim();
 }
-const mensajeWa = v => textoWa(S.config?.mensajeWa, v);
+// Solo con el vehículo reparado; antes, el WhatsApp abre sin texto
+const mensajeWa = v => v.fechas?.reparado && !v.fechas?.anulado ? textoWa(S.config?.mensajeWa, v) : "";
 
 function waLink(tel, texto = "") {
   let d = (tel || "").replace(/\D/g, "");
