@@ -26,6 +26,7 @@ export function horaAhora(d = new Date()) {
 
 // Hora en que se marcó peritado / reparado. Vehículos viejos: se deduce del historial si coincide la fecha.
 export function horaDe(v, k) {
+  if (k === "turnado") return v?.fechas?.turnado ? (v.horaTurno || "") : "";
   if (v?.horas?.[k]) return v.horas[k];
   const f = v?.fechas?.[k];
   if (!f || (k !== "peritado" && k !== "reparado")) return "";
