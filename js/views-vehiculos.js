@@ -360,9 +360,12 @@ function renderDetalle(root, v, embebido) {
       ${anulado ? `<p class="muted small">Anulado el ${fechaCorta(v.fechas?.anulado)}</p>` : ""}
     </section>
 
-    ${v.fechas?.reparado || v.fechas?.facturado ? `<section class="d-sec d-post">
+    ${anulado ? `<section class="d-sec d-post">
+      <h3>Razón de la anulación</h3>
+      <textarea class="post-rep" data-campo="razonAnulacion" rows="1" placeholder="Ej: el cliente desistió, etc">${esc(v.razonAnulacion || "")}</textarea>
+    </section>` : v.fechas?.reparado || v.fechas?.facturado ? `<section class="d-sec d-post">
       <h3>Notas post-reparación</h3>
-      <textarea class="post-rep" rows="1" placeholder="Regresó por tal motivo, etc">${esc(v.postReparacion || "")}</textarea>
+      <textarea class="post-rep" data-campo="postReparacion" rows="1" placeholder="Regresó por tal motivo, etc">${esc(v.postReparacion || "")}</textarea>
     </section>` : ""}
 
     <section class="d-sec d-grid">
@@ -428,10 +431,10 @@ function renderDetalle(root, v, embebido) {
     let reloj = null;
     const guardar = () => {
       clearTimeout(reloj);
-      const txt = post.value.trim();
-      if (txt === String(v.postReparacion || "").trim()) return;
-      v.postReparacion = txt;
-      actualizarVehiculo(v.id, { postReparacion: txt }, txt ? "Anotó notas post-reparación" : "Borró las notas post-reparación")
+      const txt = post.value.trim(), campo = post.dataset.campo, nombre = campo === "razonAnulacion" ? "la razón de la anulación" : "notas post-reparación";
+      if (txt === String(v[campo] || "").trim()) return;
+      v[campo] = txt;
+      actualizarVehiculo(v.id, { [campo]: txt }, txt ? `Anotó ${nombre}` : `Borró ${nombre}`)
         .catch(err => toast(mensajeError(err), "error"));
     };
     post.addEventListener("input", () => { crecer(); clearTimeout(reloj); reloj = setTimeout(guardar, 1500); });
