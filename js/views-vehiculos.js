@@ -270,7 +270,8 @@ const VARS_WA = {
   observaciones: v => v.observaciones, detalles: v => v.observaciones,
   fecha: v => fechaLarga(v.fechas?.peritado), peritaje: v => fechaLarga(v.fechas?.peritado),
   turno: v => fechaLarga(v.fechas?.turnado), horaturno: v => v.horaTurno, hora: v => v.horaTurno,
-  usuario: () => S.profile?.name, yo: () => S.profile?.name
+  usuario: () => S.profile?.name, yo: () => S.profile?.name,
+  saludo: () => { const h = new Date().getHours(); return h >= 5 && h < 12 ? "Buenos días" : h >= 12 && h < 20 ? "Buenas tardes" : "Buenas noches"; }
 };
 const claveVar = t => t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z]/g, "");
 export function textoWa(plantilla, v) {
