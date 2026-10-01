@@ -1253,3 +1253,4 @@ html, body { overscroll-behavior-y: none; }
 .ff-ultima .ff-docs-btn { width: 100%; min-height: 48px; justify-content: center; }
 .conf-tag { font-size: 11.5px; font-weight: 700; padding: 3px 9px; border-radius: 999px; color: #d19613; background: color-mix(in srgb, #e0a526 18%, transparent); white-space: nowrap; }
 .conf-tag.ok { color: #22b07d; background: color-mix(in srgb, #22b07d 18%, transparent); }
+.punto-sinconf { width: 10px; height: 10px; border-radius: 50%; background: #f08a8d; flex-shrink: 0; }
