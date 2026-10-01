@@ -113,7 +113,7 @@ fi
 curl -fsS -X POST "https://${DOMINIO}/instance/create" "${H[@]}" \
   -d '{"instanceName":"desabollito","integration":"WHATSAPP-BAILEYS","qrcode":true,"groupsIgnore":false,"alwaysOnline":false,"readMessages":false}' >/dev/null 2>&1 || true
 curl -fsS -X POST "https://${DOMINIO}/webhook/set/desabollito" "${H[@]}" \
-  -d "{\"webhook\":{\"enabled\":true,\"url\":\"${WORKER}/evolution?token=${APIKEY}\",\"byEvents\":false,\"base64\":true,\"events\":[\"MESSAGES_UPSERT\"]}}" >/dev/null
+  -d "{\"webhook\":{\"enabled\":true,\"url\":\"${WORKER}/evolution?token=${APIKEY}\",\"byEvents\":false,\"base64\":true,\"events\":[\"MESSAGES_UPSERT\",\"MESSAGES_EDITED\"]}}" >/dev/null
 
 cat <<FIN
 

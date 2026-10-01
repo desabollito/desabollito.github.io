@@ -763,14 +763,15 @@ async function alRecibirTexto(env, m, quien, texto) {
   const patenteEnTexto = buscarPatenteEnTexto(texto);
   // (el operativo solo se cambia con el comando "operativo"; nombres en el mensaje no lo cambian)
   // "agregar/añadir AB123CD …": suma los datos a un vehículo ya cargado (no crea uno nuevo)
-  const RE_AGREGAR = /(^|\s)(?:agreg(?:a|ar|á|ale|alo|ame|ale|ue)?|a[nñ]ad(?:ir|i|í|e|ile|ilo|ime|a))(?=\s|$|[:,.])/i;
   if (RE_AGREGAR.test(sinMencion) && buscarPatenteEnTexto(sinMencion)) {
     const extra = interpretar(sinMencion.replace(RE_AGREGAR, " "));
-    return responder(env, dest(m), await agregarAVehiculo(env, numero, extra, hora, s, quien));
+    const r = await agregarAVehiculo(env, numero, extra, hora, s, quien);
+    await recordarMensaje(env, m, numero, sinMencion, extra.patente, true).catch(() => {});
+    return responder(env, dest(m), r);
   }
 
   const datos = interpretar(sinMencion);
-  if (datos.patente) {
+  if (datos.patente) try {
     // Si el vehículo abierto se borró desde la app, no se sigue cargando ahí: se crea de nuevo
     const sigue = abierta(s) && s.patente === datos.patente ? await fsGet(env, `companies/${s.cid}/vehicles/${s.vid}`) : null;
     if (sigue && !sigue.deleted) {
@@ -783,7 +784,7 @@ async function alRecibirTexto(env, m, quien, texto) {
     if (pregunta) return responder(env, dest(m), pregunta);
     if (pideAbierto) { const s2 = await leerSesion(env, numero); if (abierta(s2)) return abrirParaGrupo(env, m, s2); }
     return tilde(env, m);
-  }
+  } finally { await recordarMensaje(env, m, numero, sinMencion, datos.patente).catch(() => {}); }
 
   // Texto sin patente: OK (o cualquier texto después de mandar fotos) → resumen de la tanda
   const fotosDelActual = abierta(s) ? Number(s[campoConteo(s.vid)] || 0) : 0;
@@ -841,6 +842,94 @@ async function abrirExistente(env, numero, v, datos, hora, previa, fijar = true,
   await abrir(env, numero, v, hora, previa, false);
   // El operativo del vehículo abierto pasa a ser el actual (salvo que se haya nombrado otro)
   if (fijar) await fijarOperativo(env, numero, v);
+}
+
+const RE_AGREGAR = /(^|\s)(?:agreg(?:a|ar|á|ale|alo|ame|ale|ue)?|a[nñ]ad(?:ir|i|í|e|ile|ilo|ime|a))(?=\s|$|[:,.])/i;
+
+// ── Mensajes editados (solo número propio / Evolution) ──
+// Se guarda qué mensaje cargó o modificó cada vehículo; si después se edita, se aplican solo los cambios.
+async function recordarMensaje(env, m, numero, texto, patente, agregar = false) {
+  if (!String(m.id || "").startsWith("evo_") || !patente) return;
+  const s = await leerSesion(env, numero);
+  if (!s?.vid || s.patente !== patente) return;
+  await fsSet(env, `bot_ediciones/${m.id}`, { texto, numero, cid: s.cid, vid: s.vid, agregar, to: dest(m), ts: Date.now() });
+}
+
+// Busca dentro del evento el aviso de edición: { id original, texto nuevo }
+export function edicionDe(d) {
+  let hallado = null;
+  const ver = (o, prof = 0) => {
+    if (hallado || !o || typeof o !== "object" || prof > 8) return;
+    const pm = o.protocolMessage || (o.editedMessage && o.key?.id && !o.editedMessage.message?.protocolMessage ? o : null);
+    if (pm?.editedMessage && pm.key?.id) {
+      const e = pm.editedMessage;
+      const texto = e.conversation || e.extendedTextMessage?.text || e.imageMessage?.caption || e.documentMessage?.caption || e.message?.conversation || e.message?.extendedTextMessage?.text;
+      if (texto) { hallado = { id: "evo_" + String(pm.key.id).replace(/[^A-Za-z0-9_-]/g, ""), texto: String(texto) }; return; }
+    }
+    for (const v of Object.values(o)) ver(v, prof + 1);
+  };
+  ver(d);
+  return hallado;
+}
+
+async function alEditarMensaje(env, e) {
+  const rec = await fsGet(env, `bot_ediciones/${e.id}`);
+  if (!rec?.vid) return;
+  const hash = [...e.texto].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7);
+  if (!(await primeraVez(env, `edit_${e.id}_${hash}`))) return;
+  const limpiar = t => { let x = quitarMencion(t).replace(ABIERTO_G, " ").trim(); return rec.agregar ? x.replace(RE_AGREGAR, " ") : x; };
+  const viejo = interpretar(limpiar(rec.texto)), nuevo = interpretar(limpiar(e.texto));
+  if (!nuevo.patente) return;
+  const ruta = `companies/${rec.cid}/vehicles/${rec.vid}`;
+  const v = await fsGet(env, ruta);
+  if (!v || v.deleted) return;
+  const cambios = {}, nombres = [];
+  const igual = (a, b) => sinTildes(String(a ?? "")) === sinTildes(String(b ?? ""));
+
+  if (nuevo.patente !== viejo.patente && v.patente === viejo.patente) { cambios.patente = nuevo.patente; nombres.push("patente"); }
+  const padron = await aseguradoDePadron(env, cambios.patente || v.patente);
+  for (const [k, nombre, vacio] of [["modelo", "modelo", ""], ["compania", "compañía", ""], ["telefono", "teléfono", ""], ["asegurado", "cliente", ""], ["grado", "grado", null], ["precio", "precio", 0]]) {
+    if (k === "asegurado" && padron) continue;
+    if (igual(nuevo[k], viejo[k])) continue;
+    // Si se borró del mensaje, solo se borra si en la app sigue el valor viejo
+    if (!nuevo[k] && !igual(v[k], viejo[k])) continue;
+    const nv = nuevo[k] || vacio;
+    if (!igual(v[k], nv)) { cambios[k] = nv; nombres.push(nombre); }
+  }
+  const oO = viejo.observaciones || "", nO = nuevo.observaciones || "";
+  if (oO !== nO) {
+    const cur = String(v.observaciones || "");
+    let r = oO && cur.includes(oO) ? cur.replace(oO, nO) : nO && !cur.includes(nO) ? [cur, nO].filter(Boolean).join("\n") : cur;
+    r = r.split("\n").map(x => x.trimEnd()).filter(x => x.trim()).join("\n");
+    if (r !== cur) { cambios.observaciones = r; nombres.push("detalles"); }
+  }
+  for (const [k, nombre] of [["repuestos", "repuestos"], ["pintura", "pintura"]]) {
+    const vi = itemsRep(viejo[k]).map(sinTildes), nu = itemsRep(nuevo[k]);
+    const nuK = nu.map(sinTildes);
+    const cur = itemsRep(v[k]);
+    let r = cur.filter(x => !(vi.includes(sinTildes(x)) && !nuK.includes(sinTildes(x))));
+    nu.forEach(x => { if (!r.some(y => sinTildes(y) === sinTildes(x))) r.push(x); });
+    if (r.join(", ") !== cur.join(", ")) { cambios[k] = r.join(", "); nombres.push(nombre); }
+  }
+  const pv = Object.keys(viejo.piezas || {}), pn = Object.keys(nuevo.piezas || {});
+  const piezas = { ...(v.piezas || {}) };
+  pv.filter(k => !pn.includes(k)).forEach(k => delete piezas[k]);
+  pn.filter(k => !pv.includes(k)).forEach(k => { piezas[k] = true; });
+  if (JSON.stringify(Object.keys(piezas).filter(k => piezas[k]).sort()) !== JSON.stringify(Object.keys(v.piezas || {}).filter(k => v.piezas[k]).sort())) {
+    cambios.piezas = piezas; nombres.push("paños");
+  }
+
+  await fsMerge(env, `bot_ediciones/${e.id}`, { texto: e.texto, ts: Date.now() });
+  if (!nombres.length) return;
+  const cuenta = await fsGet(env, `bot_numeros/${rec.numero}`).catch(() => null);
+  await fsMerge(env, ruta, { ...cambios, updatedBy: `whatsapp:${rec.numero}` });
+  await fsAppend(env, ruta, "historial", { t: Date.now(), uid: cuenta?.uid || "", por: cuenta?.name || rec.numero, txt: `Editó ${nombres.join(", ")} por WhatsApp` }).catch(() => {});
+  if (cambios.patente) {
+    const s = await leerSesion(env, rec.numero);
+    if (s?.vid === rec.vid) await fsMerge(env, `bot_sesiones/${rec.numero}`, { patente: cambios.patente });
+  }
+  const etq = `*${cambios.modelo || v.modelo || "Vehículo"}* (${cambios.patente || v.patente})`;
+  return responder(env, rec.to || destinoNumero(env, rec.numero), `✏️ Actualicé ${nombres.join(", ")} de ${etq}.`);
 }
 
 // "agregar PATENTE …": suma los datos a un vehículo existente. Los textos (detalles, repuestos, pintura)
@@ -1622,8 +1711,18 @@ async function webhookEvolution(req, url, env, ctx) {
   let body;
   try { body = await req.json(); } catch { return new Response("ok"); }
   const evento = String(body.event || "").toLowerCase().replace("_", ".");
-  if (evento !== "messages.upsert") return new Response("ok");
   const lista = Array.isArray(body.data) ? body.data : [body.data];
+  ctx.waitUntil(asegurarEventosEvo(env, body.instance).catch(() => {}));
+  // Mensajes editados: llegan como upsert (protocolMessage), messages.update o messages.edited
+  if (["messages.upsert", "messages.update", "messages.edited"].includes(evento)) {
+    const ediciones = lista.filter(d => !d?.key?.fromMe).map(edicionDe).filter(Boolean);
+    if (ediciones.length) {
+      ctx.waitUntil(Promise.all(ediciones.map(e => alEditarMensaje(env, e).catch(err =>
+        registrar(env, { ultimoError: `${new Date().toISOString()} · Edición · ${String(err?.message || err).slice(0, 400)}` }).catch(() => {})))));
+      return new Response("ok");
+    }
+  }
+  if (evento !== "messages.upsert") return new Response("ok");
   const mensajes = lista.map(deEvolution).filter(Boolean);
   ctx.waitUntil(registrar(env, { ultimoEvolution: `${new Date().toISOString()} · ${mensajes.length} mensaje(s)` }));
   ctx.waitUntil(Promise.all(mensajes.map(m => procesar(m, env).catch(e => {
@@ -1631,6 +1730,29 @@ async function webhookEvolution(req, url, env, ctx) {
     registrar(env, { ultimoError: `${new Date().toISOString()} · Evolution · ${String(e?.message || e).slice(0, 400)}` }).catch(() => {});
   }))));
   return new Response("ok");
+}
+
+// El webhook de Evolution también tiene que avisar las ediciones (se revisa una vez por día)
+let eventosOk = false;
+async function asegurarEventosEvo(env, instancia) {
+  const inst = typeof instancia === "string" && instancia ? instancia : (env.EVOLUTION_INSTANCE || "desabollito");
+  if (eventosOk || !env.EVOLUTION_URL || inst !== (env.EVOLUTION_INSTANCE || "desabollito")) return;
+  if (!(await primeraVez(env, `evo_eventos_${inst}_${new Date().toISOString().slice(0, 10)}`))) { eventosOk = true; return; }
+  const base = String(env.EVOLUTION_URL).replace(/\/+$/, "");
+  const h = { apikey: env.EVOLUTION_APIKEY, "Content-Type": "application/json" };
+  const w = await (await fetch(`${base}/webhook/find/${inst}`, { headers: h })).json().catch(() => null);
+  const ev = (w?.events || w?.webhook?.events || []).map(String);
+  const faltan = ["MESSAGES_UPSERT", "MESSAGES_EDITED"].filter(x => !ev.includes(x));
+  if (!w || !faltan.length || ev.includes("MESSAGES_UPDATE")) { eventosOk = true; return; }
+  const url = w.url || w.webhook?.url;
+  if (!url) return;
+  const poner = extra => fetch(`${base}/webhook/set/${inst}`, { method: "POST", headers: h, body: JSON.stringify({ webhook: {
+    enabled: true, url, byEvents: false, base64: w.webhookBase64 ?? w.base64 ?? true, events: [...new Set([...ev, "MESSAGES_UPSERT", extra])] } }) });
+  // Versiones viejas de Evolution no tienen MESSAGES_EDITED: se usa MESSAGES_UPDATE
+  let r = await poner("MESSAGES_EDITED");
+  if (!r.ok) r = await poner("MESSAGES_UPDATE");
+  if (r.ok) eventosOk = true;
+  else await registrar(env, { ultimoError: `${new Date().toISOString()} · Webhook eventos · ${r.status} · ${(await r.text()).slice(0, 300)}` });
 }
 
 export function deEvolution(d) {
