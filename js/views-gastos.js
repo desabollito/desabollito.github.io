@@ -107,7 +107,7 @@ export function vistaGastos(view) {
         <span class="g-main"><strong>${esc(g.concepto || c.label)}</strong>
           <small>${[c.label, g.tecnicoNombre || g.vehiculoTxt].filter(Boolean).map(esc).join(" · ")}</small></span>
         <span class="g-side"><span class="g-monto">${g.metodo ? `<small>${esc(g.metodo)}</small>` : ""}<strong class="${esUSD(g) ? "usd" : ""}">${montoTxt(g)}</strong></span>
-          <small>${fechaCorta(g.fecha)}${S.company?.members?.length > 1 ? " · " + esc((g.createdByName || "").split(" ")[0]) : ""}</small></span>
+          <small>${fechaCorta(g.fecha)}</small></span>
         ${g._pending ? `<span class="sync" title="Pendiente de sincronizar"></span>` : ""}
       </button>`;
     }).join("");
