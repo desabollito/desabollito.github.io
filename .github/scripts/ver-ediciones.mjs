@@ -19,3 +19,4 @@ const ed = await listar("bot_ediciones");
 console.log(`::notice::bot_ediciones: ${ed.length} → ` + ed.map(d => new Date(Number(val(d.fields.ts))).toISOString()).join(", "));
 const ms = await listar("bot_mensajes");
 console.log(`::notice::evo_eventos: ` + ms.filter(d => d.name.includes("evo_eventos") || d.name.includes("/edit_")).map(d => d.name.split("/").pop()).join(", "));
+// 1790888087
