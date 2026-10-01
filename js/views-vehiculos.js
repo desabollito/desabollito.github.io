@@ -351,7 +351,7 @@ function renderDetalle(root, v, embebido) {
           const aus = k === "turnado" && est === "ausente";
           const enRep = k === "reparado" && est === "enreparacion";
           const e = aus ? ESTADO.ausente : enRep ? ESTADO.enreparacion : ESTADO[k], hecho = !!v.fechas?.[k] && !anulado, actual = k === est || aus || enRep;
-          return `<li><button class="step ${hecho ? "done" : ""} ${actual ? "now" : ""} ${aus ? "is-ausente" : ""}" data-estado="${k}" style="--c:${e.color}">
+          return `<li><button class="step ${hecho ? "done" : ""} ${actual ? "now" : ""} ${aus ? "is-ausente" : ""} ${enRep ? "is-enrep" : ""}" data-estado="${k}" style="--c:${e.color}">
             <span class="dot">${hecho ? icon(aus ? "x" : "check") : ""}</span>
             <span class="step-l">${e.label}</span>
             <span class="step-d">${enRep && v.fechas?.enreparacion ? fechaCorta(v.fechas.enreparacion) : v.fechas?.[k] ? fechaCorta(v.fechas[k]) : "—"}${(k === "peritado" || k === "reparado") && v.fechas?.[k] && horaDe(v, k) ? `<br>${horaDe(v, k)}` : ""}</span>
