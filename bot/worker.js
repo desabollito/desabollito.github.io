@@ -1813,6 +1813,7 @@ async function webhookEvolution(req, url, env, ctx) {
   const evento = String(body.event || "").toLowerCase().replace("_", ".");
   const lista = Array.isArray(body.data) ? body.data : [body.data];
   ctx.waitUntil(asegurarEventosEvo(env, body.instance).catch(() => {}));
+  ctx.waitUntil(aprenderIdentidad(env, body).catch(e => registrar(env, { ultimoError: `${new Date().toISOString()} · identidad · ${e.message}` }).catch(() => {})));
   // Mensajes editados: llegan como upsert (protocolMessage), messages.update o messages.edited
   if (["messages.upsert", "messages.update", "messages.edited"].includes(evento)) {
     const ediciones = lista.filter(d => !d?.key?.fromMe).map(edicionDe).filter(Boolean);
@@ -1823,7 +1824,11 @@ async function webhookEvolution(req, url, env, ctx) {
     }
   }
   if (evento !== "messages.upsert") return new Response("ok");
-  const mensajes = lista.map(deEvolution).filter(Boolean);
+  const botJids = await jidsDelBot(env, body);
+  const mensajes = lista.map(d => deEvolution(d, botJids)).filter(Boolean);
+  // Temporal: registra las menciones para aprender el identificador del bot en grupos
+  const conMencion = lista.find(d => mencionesDe(d).length);
+  if (conMencion) ctx.waitUntil(registrar(env, { ultimaMencion: `${new Date().toISOString()} · sender ${body.sender || "-"} · bot ${JSON.stringify(botJids)} · ${JSON.stringify(mencionesDe(conMencion))} · ${String(conMencion.message?.extendedTextMessage?.text || conMencion.message?.conversation || "").slice(0, 80)}` }).catch(() => {}));
   // Temporal: guarda la forma de los mensajes no reconocidos (sin archivos) para diagnosticar
   const raro = lista.find((d, i) => deEvolution(d)?.type === "unsupported");
   if (raro) ctx.waitUntil(registrar(env, { ultimoCrudoEvo: `${new Date().toISOString()} · ${evento} · ` +
@@ -1866,7 +1871,49 @@ const jidsDe = d => { const k = d?.key || {}; const g = String(k.remoteJid || ""
   return [...new Set((g ? [k.participant, k.participantAlt, k.participantPn, d.participant] : [k.remoteJid, k.remoteJidAlt, k.senderPn, k.senderLid])
     .filter(Boolean).map(j => String(j).replace(/:\d+@/, "@")))]; };
 
-export function deEvolution(d) {
+// Menciones (@) del mensaje: identificadores de WhatsApp de los arrobados
+export function mencionesDe(d) {
+  const m = d?.message || {}, out = [];
+  for (const v of Object.values(m)) if (v && typeof v === "object" && Array.isArray(v.contextInfo?.mentionedJid)) out.push(...v.contextInfo.mentionedJid);
+  if (Array.isArray(d?.contextInfo?.mentionedJid)) out.push(...d.contextInfo.mentionedJid);
+  return [...new Set(out.map(String))];
+}
+// Identificadores del bot: su número (sender del webhook) y su LID (aprendido y guardado)
+let cacheBot = null;
+async function jidsDelBot(env, body) {
+  if (!cacheBot || Date.now() - cacheBot.t > 10 * 60_000) {
+    const e = await fsGet(env, "bot_estado/identidad").catch(() => null);
+    cacheBot = { t: Date.now(), jids: e?.jids || [] };
+  }
+  const solo = j => String(j || "").split("@")[0].split(":")[0];
+  return [...new Set([solo(body?.sender), ...cacheBot.jids.map(solo)].filter(Boolean))];
+}
+
+// Busca el LID del bot (WhatsApp lo usa en las menciones de grupos) y lo guarda
+let identidadOk = false;
+async function aprenderIdentidad(env, body) {
+  if (identidadOk || !env.EVOLUTION_URL) return;
+  const inst = env.EVOLUTION_INSTANCE || "desabollito";
+  if (body?.instance && body.instance !== inst) return;
+  const prev = await fsGet(env, "bot_estado/identidad").catch(() => null);
+  if (prev?.jids?.some(j => String(j).endsWith("@lid"))) { identidadOk = true; return; }
+  if (!(await primeraVez(env, `identidad_${Math.floor(Date.now() / 3600_000)}`))) { identidadOk = true; return; }
+  const base = String(env.EVOLUTION_URL).replace(/\/+$/, "");
+  const h = { apikey: env.EVOLUTION_APIKEY, "Content-Type": "application/json" };
+  const numero = String(body?.sender || "").split("@")[0];
+  const crudo = {};
+  const r1 = await fetch(`${base}/instance/fetchInstances?instanceName=${inst}`, { headers: h }).then(r => r.json()).catch(() => null);
+  crudo.inst = r1;
+  const r2 = numero ? await fetch(`${base}/chat/whatsappNumbers/${inst}`, { method: "POST", headers: h, body: JSON.stringify({ numbers: [numero] }) }).then(r => r.json()).catch(() => null) : null;
+  crudo.num = r2;
+  const txt = JSON.stringify(crudo);
+  const lids = [...new Set(txt.match(/\d{8,20}@lid/g) || [])];
+  await fsMerge(env, "bot_estado/identidad", { jids: [...new Set([...(prev?.jids || []), ...(numero ? [numero + "@s.whatsapp.net"] : []), ...lids])], crudo: txt.slice(0, 1500), ts: Date.now() });
+  cacheBot = null;
+  if (lids.length) identidadOk = true;
+}
+
+export function deEvolution(d, botJids = []) {
   const key = d?.key;
   if (!key || key.fromMe) return null;
   const chat = String(key.remoteJid || "");
@@ -1889,9 +1936,12 @@ export function deEvolution(d) {
     _secreto: b64DeBytes(d.message?.messageContextInfo?.messageSecret || msg.messageContextInfo?.messageSecret),
     _jids: jidsDe(d)
   };
+  // Si arrobaron al bot (@número o @lid), se cambia por "@desabollito" para que lo reconozca
+  const alBot = mencionesDe(d).map(j => j.split("@")[0].split(":")[0]).filter(x => botJids.includes(x));
+  const conBot = t => alBot.reduce((x, n) => x.replace(new RegExp("@" + n + "\\b", "g"), "@desabollito"), String(t));
   const texto = msg.conversation || msg.extendedTextMessage?.text;
-  if (texto) return { ...base, type: "text", text: { body: texto } };
-  if (msg.imageMessage) return { ...base, type: "image", image: { id: key.id, caption: msg.imageMessage.caption || "" }, _mime: msg.imageMessage.mimetype };
+  if (texto) return { ...base, type: "text", text: { body: conBot(texto) } };
+  if (msg.imageMessage) return { ...base, type: "image", image: { id: key.id, caption: conBot(msg.imageMessage.caption || "") }, _mime: msg.imageMessage.mimetype };
   if (msg.documentMessage) {
     const doc = msg.documentMessage;
     return { ...base, type: "document", document: { id: key.id, caption: doc.caption || "", filename: doc.fileName || "archivo" }, _mime: doc.mimetype };
