@@ -737,6 +737,9 @@ async function alRecibirTexto(env, m, quien, texto) {
     }
   }
 
+  // "Turnos hoy", "¿Qué viene hoy?", "Autos hoy"… → turnos de hoy, un auto por línea
+  if (esTurnosHoy(sinMencion || texto) && !buscarPatenteEnTexto(texto)) return responder(env, dest(m), await textoTurnosHoy(env, quien.uid));
+
   // Localizar: "Localizá NTK100" → detalle del vehículo por escrito + link (sin vista previa).
   // "Localizá" solo → el vehículo que está abierto.
   const soloLocalizar = /^(localiz[aá]|localizalo|ubic[aá]|ubicalo|ubicame)$/i.test(sinTildes(limpio(sinMencion || texto)));
@@ -997,6 +1000,29 @@ export function textoDeProto(b, prof = 0) {
   for (const [n, c] of [[3, 3], [7, 3]]) for (const v of de(n)) { const t = campos(v)?.find(([f]) => f === c); if (t && str(t[1])) return str(t[1]); }
   for (const [f, v] of cs) { if (f === 1) continue; const t = textoDeProto(v, prof + 1); if (t) return t; }
   return null;
+}
+
+// ── Turnos de hoy ──
+export function esTurnosHoy(t) {
+  const x = sinTildes(String(t || "")).replace(/[¿?¡!.,]/g, " ").replace(/\s+/g, " ").trim();
+  if (!/\bhoy\b/.test(x) || x.split(" ").length > 7) return false;
+  return /\b(vehiculos?|autos?|coches?|turnos?|turnados?|agenda|que (viene|vienen|hay|tenemos|entra|entran)|quien viene|quienes vienen)\b/.test(x);
+}
+async function textoTurnosHoy(env, uid) {
+  const hoy = new Date(Date.now() - 3 * 3600 * 1000).toISOString().slice(0, 10);
+  const ops = await listaOperativos(env, uid);
+  if (!ops.length) return "No sos parte de ningún operativo todavía.";
+  const lista = [];
+  for (const o of ops) {
+    const vs = await fsQuery(env, `companies/${o.cid}`, "vehicles", { field: "fechas.turnado", op: "EQUAL", value: hoy }, 100).catch(() => []);
+    vs.filter(v => !v.deleted && !v.fechas?.anulado && v.estado !== "anulado").forEach(v => lista.push({ ...v, operativo: o.operativo }));
+  }
+  if (!lista.length) return "📅 Hoy no hay turnos.";
+  lista.sort((a, b) => String(a.horaTurno || "99").localeCompare(String(b.horaTurno || "99")));
+  const linea = v => [v.modelo || "Sin modelo", v.patente, v.grado ? `Grado ${v.grado}` : "", v.compania].filter(Boolean).join(" · ");
+  const variosOps = new Set(lista.map(v => v.operativo)).size > 1;
+  const grupos = variosOps ? [...new Set(lista.map(v => v.operativo))].map(op => `*${op}*\n` + lista.filter(v => v.operativo === op).map(linea).join("\n")) : [lista.map(linea).join("\n")];
+  return `📅 *Turnos de hoy* (${lista.length})\n\n` + grupos.join("\n\n");
 }
 
 // "agregar PATENTE …": suma los datos a un vehículo existente. Los textos (detalles, repuestos, pintura)
