@@ -377,7 +377,7 @@ function renderDetalle(root, v, embebido) {
           const e = aus ? ESTADO.ausente : enRep ? ESTADO.enreparacion : ESTADO[k], hecho = !!v.fechas?.[k] && !anulado, actual = k === est || aus || enRep;
           return `<li><button class="step ${hecho ? "done" : ""} ${actual ? "now" : ""} ${aus ? "is-ausente" : ""} ${enRep ? "is-enrep" : ""}" data-estado="${k}" style="--c:${e.color}">
             <span class="dot">${hecho ? icon(aus ? "x" : "check") : ""}</span>
-            <span class="step-l">${e.label}</span>
+            <span class="step-l">${k === "reparado" && !hecho ? "Reparando" : e.label}</span>
             <span class="step-d">${enRep && v.fechas?.enreparacion ? fechaCorta(v.fechas.enreparacion) : v.fechas?.[k] ? fechaCorta(v.fechas[k]) : "—"}${(k === "peritado" || k === "reparado" || k === "turnado") && v.fechas?.[k] && horaDe(v, k) ? `<br>${horaDe(v, k)}` : ""}</span>
             ${k === "turnado" && est === "turnado" ? `<span class="step-conf ${v.turnoConfirmado ? "ok" : ""}">${v.turnoConfirmado ? "Confirmado" : "Esperando confirmación"}</span>` : ""}</button></li>`;
         }).join("")}
@@ -507,8 +507,9 @@ function renderDetalle(root, v, embebido) {
     if (step) {
       if (pasoLargo) { pasoLargo = false; return; }
       // "Reparado": el primer toque lo pone En reparación; el segundo, Reparado
-      if (step.dataset.estado === "reparado" && !v.fechas?.reparado && estadoActual(v) !== "enreparacion") return elegirFechaEstado(v, "enreparacion");
-      return elegirFechaEstado(v, step.dataset.estado);
+      const cur = getVehiculo(v.id) || v;   // estado al día (por si la vista no se redibujó)
+      if (step.dataset.estado === "reparado" && !cur.fechas?.reparado && estadoActual(cur) !== "enreparacion") return elegirFechaEstado(cur, "enreparacion");
+      return elegirFechaEstado(cur, step.dataset.estado);
     }
     const et = t.closest(".etapa-item");
     if (et) return elegirEtapa(v, et.dataset.tipo, et.dataset.item);
