@@ -299,7 +299,7 @@ export function interpretar(texto, extra = {}) {
 
 
   // 2. Grado: "grado 2", "g2", "G 3"
-  resto = resto.replace(/\b(?:grado|g)\s*([123])\b/i, (_, g) => { r.grado = Number(g); return " "; });
+  resto = resto.replace(/\b(?:grado|g)\s*([1234])\b/i, (_, g) => { r.grado = Number(g); return " "; });
 
   // 3. Teléfono: 8 a 13 dígitos (con o sin +54, espacios o guiones)
   resto = resto.replace(/(?<![A-Za-zÁÉÍÓÚÑáéíóúñ\d])(?:\+?\s?\d[\d\s-]{6,16}\d)/g, m => {

@@ -715,6 +715,7 @@ body[data-detalle="1"] .fab { display: none !important; }
 .grado-tag.g1 { background: color-mix(in srgb, #22b07d 18%, transparent); color: #22b07d; }
 .grado-tag.g2 { background: color-mix(in srgb, #e0a526 20%, transparent); color: #d19613; }
 .grado-tag.g3 { background: color-mix(in srgb, #e5484d 18%, transparent); color: #e5484d; }
+.grado-tag.g4 { background: color-mix(in srgb, #9b5de5 20%, transparent); color: #9b5de5; }
 
 /* Detalle: foto de portada a la izquierda */
 .d-head { flex-wrap: nowrap; align-items: center; justify-content: flex-start; gap: 14px; }

@@ -173,7 +173,7 @@ export function vistaVehiculos(view, selId = null) {
       <button class="btn btn-ghost btn-sm" id="f-reset">Quitar filtros</button></div>` });
     const chipsGrado = () => {
       const n = g => activos().filter(v => (v.grado || 0) === g).length;
-      $("#f-grado", s.el).innerHTML = [[1, "Grado 1"], [2, "Grado 2"], [3, "Grado 3"], [0, "Sin grado"]].map(([g, t]) =>
+      $("#f-grado", s.el).innerHTML = [[1, "Grado 1"], [2, "Grado 2"], [3, "Grado 3"], [4, "Grado 4"], [0, "Sin grado"]].map(([g, t]) =>
         `<button type="button" class="p-chip ${F.grado === g ? "on" : ""}" data-grado="${g}">${t} <b class="f-n">${n(g)}</b></button>`).join("");
     };
     chipsGrado();
@@ -1101,7 +1101,7 @@ export function vistaFormulario(view, id = null) {
           <div class="grado-pick">
             <span>Grado de daño</span>
             <div class="seg seg-sm" id="grado" role="radiogroup" aria-label="Grado de daño">
-              ${[1, 2, 3].map(g => `<button type="button" class="seg-btn ${v?.grado === g ? "on" : ""}" data-g="${g}" role="radio" aria-checked="${v?.grado === g}">Grado ${g}</button>`).join("")}
+              ${[1, 2, 3, 4].map(g => `<button type="button" class="seg-btn ${v?.grado === g ? "on" : ""}" data-g="${g}" role="radio" aria-checked="${v?.grado === g}">Grado ${g}</button>`).join("")}
             </div>
           </div>
         </fieldset>
