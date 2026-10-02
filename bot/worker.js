@@ -631,7 +631,7 @@ async function alRecibirTexto(env, m, quien, texto) {
     return reaccionar(env, dest(m), m.id, "🆗", m._key);
   }
   if (pideAbierto && !buscarPatenteEnTexto(texto)) {
-    if (!abierta(s)) return responder(env, dest(m), "📌 Primero mandá los datos del vehículo (con la patente) y después *@abierto*.");
+    if (!abierta(s)) return responder(env, dest(m), "📌 Primero mandá los datos del vehículo (con la patente) y después *@abierto* (o *@a*).");
     return abrirParaGrupo(env, m, s);
   }
 
@@ -2394,9 +2394,9 @@ async function cancelarCarga(env, numero, s, quien) {
 }
 
 // ── Vehículo abierto para todo el grupo ("@abierto") ─────────────────────────
-const ABIERTO = /(^|\s)@abierto\b/i;
-const ABIERTO_G = /(^|\s)@abierto\b/gi;
-const CERRADO = /(^|\s)@cerrado\b/i;
+const ABIERTO = /(^|\s)@(?:abierto|a)\b/i;   // "@a" = "@abierto"
+const ABIERTO_G = /(^|\s)@(?:abierto|a)\b/gi;
+const CERRADO = /(^|\s)@(?:cerrado|c)\b/i;   // "@c" = "@cerrado"
 const idGrupo = m => String(m._to || "").replace(/[^A-Za-z0-9_-]/g, "_");
 async function grupoAbierto(env, m) {
   if (!m._grupo) return null;
