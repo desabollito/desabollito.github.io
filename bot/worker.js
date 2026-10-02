@@ -151,7 +151,7 @@ const COMPANIAS = [
   ["Orbis", ["orbis"]], ["Meridional", ["meridional"]], ["Integrity", ["integrity"]], ["El Norte", ["el norte"]],
   ["Triunfo", ["triunfo"]], ["La Holando", ["la holando", "holando"]], ["Libra", ["libra"]], ["Experta", ["experta"]],
   ["HDI", ["hdi"]], ["Chubb", ["chubb"]], ["ATM", ["atm"]], ["Berkley", ["berkley"]], ["Cooperación Seguros", ["cooperacion"]],
-  ["Victoria", ["victoria"]], ["Boston", ["boston"]], ["Agrosalta", ["agrosalta"]], ["Evolución", ["evolucion"]]
+  ["Victoria", ["victoria"]], ["SMG", ["smg", "swiss medical", "smg seguros"]], ["Boston", ["boston"]], ["Agrosalta", ["agrosalta"]], ["Evolución", ["evolucion"]]
 ];
 
 // Localidades y provincias frecuentes (se agregan también las ya cargadas en la app)
