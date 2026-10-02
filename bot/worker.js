@@ -1827,8 +1827,8 @@ async function webhookEvolution(req, url, env, ctx) {
   const botJids = await jidsDelBot(env, body);
   const mensajes = lista.map(d => deEvolution(d, botJids)).filter(Boolean);
   // Temporal: registra las menciones para aprender el identificador del bot en grupos
-  const conMencion = lista.find(d => mencionesDe(d).length);
-  if (conMencion) ctx.waitUntil(registrar(env, { ultimaMencion: `${new Date().toISOString()} · sender ${body.sender || "-"} · bot ${JSON.stringify(botJids)} · ${JSON.stringify(mencionesDe(conMencion))} · ${String(conMencion.message?.extendedTextMessage?.text || conMencion.message?.conversation || "").slice(0, 80)}` }).catch(() => {}));
+  const conMencion = lista.find(d => mencionesDe(d).length) || lista.find(d => /@\d{6,}/.test(JSON.stringify(d.message || {})));
+  if (conMencion) ctx.waitUntil(registrar(env, { ultimaMencion: `${new Date().toISOString()} · sender ${body.sender || "-"} · bot ${JSON.stringify(botJids)} · ${JSON.stringify(mencionesDe(conMencion))} · ${JSON.stringify({ ...conMencion, message: conMencion.message }, (k, v) => (k === "base64" || k === "jpegThumbnail" ? "…" : v)).slice(0, 1500)}` }).catch(() => {}));
   // Temporal: guarda la forma de los mensajes no reconocidos (sin archivos) para diagnosticar
   const raro = lista.find((d, i) => deEvolution(d)?.type === "unsupported");
   if (raro) ctx.waitUntil(registrar(env, { ultimoCrudoEvo: `${new Date().toISOString()} · ${evento} · ` +
