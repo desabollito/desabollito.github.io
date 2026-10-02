@@ -369,7 +369,7 @@ function renderDetalle(root, v, embebido) {
         </div></div>` : ""}
       ${embebido && !soloVer ? `<a class="btn btn-ghost btn-icon" href="#/editar/${v.id}" aria-label="Editar" title="Editar">${icon("edit")}</a>` : ""}
     </div>
-    <button class="btn btn-ghost btn-block d-desm" data-act="desmontaje">${icon("tool")}Desmontaje${nDesm || v.desmontador ? ` <small>${[v.desmontador?.nombre, nDesm ? `${v.desFotos?.length || 0} fotos` : ""].filter(Boolean).map(esc).join(" · ")}</small>` : ""}</button>
+${nDesm ? `<button class="btn btn-ghost btn-block d-desm" data-act="desmontaje">${icon("tool")}Desmontaje${nDesm || v.desmontador ? ` <small>${[v.desmontador?.nombre, nDesm ? `${v.desFotos?.length || 0} fotos` : ""].filter(Boolean).map(esc).join(" · ")}</small>` : ""}</button>` : ""}
 
     <section class="d-sec">
       <div class="seg-head"><h3>Seguimiento</h3>
