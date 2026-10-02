@@ -140,10 +140,14 @@ async function procesar(m, env) {
 // ═══════════════════════════════════════════════════════════════
 const sinTildes = t => t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
+const NO_ABREV = new Set(["pro", "plus", "max", "full", "sport", "sedan", "cross", "trend", "highline", "comfortline", "titanium",
+  "limited", "active", "feel", "shine", "pack", "lite", "fire", "attractive", "precision", "freedom", "drive", "intense", "zen", "life",
+  "premier", "premium", "classic", "confort", "style", "touring", "turbo", "diesel", "nafta", "manual", "automatica", "auto", "doble",
+  "cabina", "simple", "seg", "ser", "san", "las", "los", "del", "con", "sin", "por", "para", "sur", "nor", "est", "oes"]);
 // Compañías de seguro: nombre oficial + formas de escribirlas
 const COMPANIAS = [
   ["Rivadavia", ["rivadavia"]], ["San Cristóbal", ["san cristobal", "sancristobal", "sc"]], ["Sancor", ["sancor"]],
-  ["Paraná Seguros", ["parana seguros", "parana"]], ["Provincia Seguros", ["provincia seguros", "provincia"]],
+  ["Paraná Seguros", ["parana seguros", "parana"]], ["Provincia Seguros", ["provincia seguros", "provincia", "prov"]],
   ["Mapfre", ["mapfre"]], ["La Segunda", ["la segunda", "segunda"]], ["Mercantil Andina", ["mercantil andina", "mercantil"]],
   ["Federación", ["federacion patronal", "federacion", "patronal", "fed patronal"]], ["Answer", ["answer"]],
   ["Allianz", ["allianz"]], ["Zurich", ["zurich"]], ["La Caja", ["la caja"]], ["Galicia Seguros", ["galicia"]],
@@ -356,6 +360,8 @@ export function interpretar(texto, extra = {}) {
     const exacta = todasComp.find(([, al]) => al.includes(frase));
     if (exacta) return exacta[0];
     if (frase.length < 3 || frase.includes(" ")) return null;
+    // Palabras de versiones/modelos ("pro", "plus", "sport"…) o marcas/modelos conocidos no son abreviaturas de compañía
+    if (NO_ABREV.has(frase) || IDX_MARCAS.has(frase) || IDX_MODELOS.has(frase)) return null;
     const cand = new Set(todasComp.filter(([, al]) => al.some(a => a.split(" ").some(w => w.startsWith(frase)))).map(([n]) => n));
     return cand.size === 1 ? [...cand][0] : null;
   };
