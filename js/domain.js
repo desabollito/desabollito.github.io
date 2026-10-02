@@ -41,7 +41,8 @@ export const VIDRIOS = [
 export const ROLES = {
   owner:   { label: "Dueño" },
   admin:   { label: "Administrador" },
-  tecnico: { label: "Técnico" }
+  tecnico: { label: "Técnico" },
+  desmontaje: { label: "Desmontaje" }   // solo ve los vehículos y carga desmontajes
 };
 
 export function estadoActual(v) {

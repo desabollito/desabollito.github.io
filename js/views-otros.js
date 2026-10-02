@@ -1,7 +1,7 @@
 import {
   S, activos, papelera, restaurar, eliminarDefinitivo, soyAdmin, miRol, renombrarEmpresa, guardarSello,
   agregarMiembro, cambiarRol, quitarMiembro, guardarEtiquetas, resolverSolicitud, desvincularWhatsApp, salirDeEmpresa, eliminarEmpresa, crearEmpresa, elegirEmpresa,
-  actualizarPerfil, salir, mensajeError, llamarAdmin
+  actualizarPerfil, salir, mensajeError, llamarAdmin, soloDesmontaje, pedirUnion
 } from "./data.js";
 import { cargarExcelJS } from "./excel.js";
 import { ESTADOS, ESTADO, ROLES, estadoActual } from "./domain.js";
@@ -284,6 +284,7 @@ export function vistaEmpresa(view) {
               <div class="seg seg-sm seg-rol" data-rol="${m.uid}" role="radiogroup" aria-label="Rol de ${esc(m.name)}">
                 <button type="button" class="seg-btn ${m.rol === "tecnico" ? "on" : ""}" data-v="tecnico">Técnico</button>
                 <button type="button" class="seg-btn ${m.rol === "admin" ? "on" : ""}" data-v="admin">Admin</button>
+                <button type="button" class="seg-btn ${m.rol === "desmontaje" ? "on" : ""}" data-v="desmontaje">Desmontaje</button>
               </div>
               <button class="icon-btn sm" data-quitar="${m.uid}" aria-label="Quitar a ${esc(m.name)}">${icon("x")}</button>
             </span>` : ""}
@@ -331,6 +332,7 @@ export function vistaEmpresa(view) {
           <div class="seg seg-rol" id="rol-nuevo">
             <button type="button" class="seg-btn on" data-v="tecnico">Técnico</button>
             <button type="button" class="seg-btn" data-v="admin">Admin</button>
+            <button type="button" class="seg-btn" data-v="desmontaje">Desmontaje</button>
           </div></div>
         <button class="btn btn-primary btn-block btn-lg">${icon("plus")}Agregar</button>
       </form>`
@@ -432,7 +434,14 @@ function editarEtiquetas(uid) {
   };
 }
 
+async function unirOperativo() {
+  const u = await pedirTexto({ title: "Unirme a otro operativo", label: "Usuario de quien administra el operativo", placeholder: "Ej: juanperez", ok: "Pedir unirme" });
+  if (!u) return;
+  try { await pedirUnion(u); toast("Pedido enviado. Cuando te sume, vas a ver el operativo.", "success"); } catch (e) { toast(e.message || mensajeError(e), "error"); }
+}
+
 async function crearOperativo() {
+  if (soloDesmontaje()) return toast("Con el rol Desmontaje no podés crear operativos", "error");
   const n = await pedirTexto({ title: "Nuevo operativo", label: "Nombre del operativo", placeholder: "Granizo Córdoba 2026", ok: "Crear" });
   if (!n) return;
   try { await crearEmpresa(n); toast("Operativo creado", "success"); } catch (e) { toast(mensajeError(e), "error"); }
@@ -448,13 +457,15 @@ export function elegirEmpresaSheet() {
         ${c.id === S.company?.id ? icon("check") : ""}</button></li>`).join("")}</ul>
       <div class="stack-sm full">
         <a class="btn btn-primary btn-block" href="#/operativo" data-close>${icon("team")}Gestionar operativo</a>
-        <button class="btn btn-ghost btn-block" id="nuevo-op">${icon("plus")}Crear otro operativo</button>
+        <button class="btn btn-ghost btn-block" id="unir-op">${icon("team")}Unirme a otro operativo</button>
+        ${soloDesmontaje() ? "" : `<button class="btn btn-ghost btn-block" id="nuevo-op">${icon("plus")}Crear otro operativo</button>`}
       </div>`
   });
   s.body.addEventListener("click", e => {
     const b = e.target.closest("[data-id]");
     if (b) { elegirEmpresa(b.dataset.id); s.close(); go("#/"); }
     if (e.target.closest("#nuevo-op")) { s.close(); crearOperativo(); }
+    if (e.target.closest("#unir-op")) { s.close(); unirOperativo(); }
   });
 }
 

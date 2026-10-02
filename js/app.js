@@ -4,9 +4,9 @@ import {
 import { $, $$, esc, toast, busy, openSheet } from "./ui.js";
 import { FIREBASE } from "./config.js";
 import { iniciarFechas } from "./fecha.js";
-import { cuentaPendiente, salir, marcarOperativosVistos, soyCreador, crearEmpresa, pedirUnion, cancelarPedidoUnion, escucharMiPedido, responderPedidoUnion } from "./data.js";
+import { cuentaPendiente, salir, marcarOperativosVistos, soyCreador, crearEmpresa, pedirUnion, cancelarPedidoUnion, escucharMiPedido, responderPedidoUnion, soyDesmontaje, miRol } from "./data.js";
 import { marcarNav, pintarLateral, esAncho } from "./shell.js";
-import { vistaVehiculos, vistaDetalle, vistaFormulario, reiniciarVista3D } from "./views-vehiculos.js";
+import { vistaVehiculos, vistaDetalle, vistaFormulario, reiniciarVista3D, elegirVehiculoDesmontaje } from "./views-vehiculos.js";
 import {
   vistaPlanilla, vistaCalendario, calendarioAlEntrar, vistaEmpresa, vistaAjustes, vistaPapelera, elegirEmpresaSheet, panelCreador
 } from "./views-otros.js";
@@ -47,7 +47,14 @@ const RUTAS = [
 function render({ conservarScroll = false } = {}) {
   if (!S.user || !S.profile || S.sinOperativo) return;
   const h = location.hash || "#/";
-  const hit = RUTAS.find(([re]) => re.test(h)) || RUTAS[0];
+  let hit = RUTAS.find(([re]) => re.test(h)) || RUTAS[0];
+  // Rol Desmontaje: no carga ni edita vehículos; "nuevo" abre la elección de vehículo para el desmontaje
+  document.body.dataset.rol = miRol();
+  if (soyDesmontaje() && ["nuevo", "editar"].includes(hit[1])) {
+    const nuevo = hit[1] === "nuevo";
+    history.replaceState(null, "", "#/"); hit = RUTAS[0];
+    if (nuevo) setTimeout(elegirVehiculoDesmontaje, 50);
+  }
   const arg = hit[1] === "operativo" ? null : (h.match(hit[0])?.[1] || null);
   const mismaRuta = ruta.nombre === hit[1] && ruta.arg === arg;
   const y = conservarScroll && mismaRuta ? scrollY : 0;
@@ -83,6 +90,11 @@ $("#tab-planilla").addEventListener("click", e => {
 $(".fab").addEventListener("click", e => {
   if (ruta.nombre === "gastos") { e.preventDefault(); formGasto(); }
 });
+// Rol Desmontaje: cualquier "Nuevo vehículo" abre la elección de un vehículo ya cargado
+document.addEventListener("click", e => {
+  if (!soyDesmontaje() || ruta.nombre === "gastos") return;
+  if (e.target.closest('a[href="#/nuevo"]')) { e.preventDefault(); elegirVehiculoDesmontaje(); }
+}, true);
 matchMedia("(min-width: 1100px)").addEventListener("change", () => render({ conservarScroll: true }));
 
 // Cambios de datos en vivo (otro técnico cargó algo, llegó la sincronización, etc.)
@@ -364,11 +376,13 @@ function mostrarPedidosUnion() {
   const s = openSheet({ title: "Pedido para unirse", body: `<form class="stack">
       <p><strong>${esc(p.name || "")}</strong> (@${esc(p.username || "")}) quiere unirse a tu operativo.</p>
       <label class="field"><span>Sumarlo a</span><select name="cid">${mios.map(c => `<option value="${esc(c.id)}" ${c.id === S.company?.id ? "selected" : ""}>${esc(c.name)}</option>`).join("")}</select></label>
+      <label class="field"><span>Rol</span><select name="rol">${[["tecnico", "Técnico"], ["admin", "Administrador"], ["desmontaje", "Desmontaje"]].map(([k, l]) =>
+        `<option value="${k}" ${(p.rol || "tecnico") === k ? "selected" : ""}>${l}</option>`).join("")}</select></label>
       <div class="row-btns"><button type="button" class="btn btn-ghost" data-no>Rechazar</button>
         <button class="btn btn-primary" type="submit">Sumar</button></div></form>` });
   $("form", s.el).onsubmit = async e => {
     e.preventDefault();
-    try { await responderPedidoUnion(p, e.target.cid.value); toast(`${p.name || "@" + p.username} ahora es parte del operativo`, "success"); s.close(); }
+    try { await responderPedidoUnion(p, e.target.cid.value, e.target.rol.value); toast(`${p.name || "@" + p.username} ahora es parte del operativo`, "success"); s.close(); }
     catch (err) { toast(err.message || mensajeError(err), "error"); }
   };
   $("[data-no]", s.el).onclick = async () => { await responderPedidoUnion(p, null).catch(() => {}); s.close(); };

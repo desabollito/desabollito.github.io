@@ -679,6 +679,7 @@ async function alRecibirTexto(env, m, quien, texto) {
     }
     const op = s.crear.operativos[numeroElegido - 1];
     if (!op) return responder(env, dest(m), `Elegí un número del 1 al ${s.crear.operativos.length}, o 0 para cancelar.`);
+    if (await esDesm(env, op.cid, quien.uid)) { await fsMerge(env, `bot_sesiones/${numero}`, { crear: null }); return responder(env, dest(m), NO_DESM); }
     await fijarOperativo(env, numero, op);
     const nuevo = await crearVehiculo(env, op, s.crear.datos, quien);
     await abrir(env, numero, nuevo, hora, s, true);
@@ -729,6 +730,9 @@ async function alRecibirTexto(env, m, quien, texto) {
       await fsMerge(env, `bot_sesiones/${numero}`, { repuestosDe: null }).catch(() => {});
       // Dentro de los 5 minutos, lo que no sea "número + estado" (ni otra patente) se ignora en silencio
       if (Date.now() - Number(s.repuestosDe.t || 0) < 5 * 60_000 && !buscarPatenteEnTexto(texto) && !abierta(s)) return;
+    } else if (await esDesm(env, cid, quien.uid)) {
+      await fsMerge(env, `bot_sesiones/${numero}`, { repuestosDe: null }).catch(() => {});
+      return responder(env, dest(m), NO_DESM);
     } else {
       await fsMerge(env, ruta, { etapasRepuestos: { ...(v.etapasRepuestos || {}), [claveRep(item)]: fase }, updatedBy: `whatsapp:${numero}` });
       await fsAppend(env, ruta, "historial", { t: Date.now(), uid: quien.uid || "", por: quien.nombre || quien.numero, txt: `${item}: ${FASES_REP.find(f => f[0] === fase)[1]}` }).catch(() => {});
@@ -769,6 +773,8 @@ async function alRecibirTexto(env, m, quien, texto) {
   // (el operativo solo se cambia con el comando "operativo"; nombres en el mensaje no lo cambian)
   // "agregar/añadir AB123CD …": suma los datos a un vehículo ya cargado (no crea uno nuevo)
   if (RE_AGREGAR.test(sinMencion) && buscarPatenteEnTexto(sinMencion)) {
+    const fijoA = await operativoFijo(env, numero, quien.uid);
+    if (fijoA && await esDesm(env, fijoA.cid, quien.uid)) return responder(env, dest(m), NO_DESM);
     const extra = interpretar(sinMencion.replace(RE_AGREGAR, " "));
     const r = await agregarAVehiculo(env, numero, extra, hora, s, quien);
     await recordarMensaje(env, m, numero, sinMencion, extra.patente, true).catch(() => {});
@@ -780,13 +786,17 @@ async function alRecibirTexto(env, m, quien, texto) {
     // Si el vehículo abierto se borró desde la app, no se sigue cargando ahí: se crea de nuevo
     const sigue = abierta(s) && s.patente === datos.patente ? await fsGet(env, `companies/${s.cid}/vehicles/${s.vid}`) : null;
     if (sigue && !sigue.deleted) {
-      await actualizarDatos(env, s, datos, quien);
+      if (await esDesm(env, s.cid, quien.uid)) await notaDesm(env, s.cid, s.vid, quien, notaDe(sinMencion, datos.patente), loteWa(numero, s));
+      else await actualizarDatos(env, s, datos, quien);
       if (pideAbierto) return abrirParaGrupo(env, m, s);
       return tilde(env, m);
     }
     if (abierta(s)) await cerrarEnSilencio(env, numero, hora);
     const pregunta = await prepararVehiculo(env, numero, datos, hora, await leerSesion(env, numero), quien);
     if (pregunta) return responder(env, dest(m), pregunta);
+    { const s2 = await leerSesion(env, numero);
+      if (abierta(s2) && s2.patente === datos.patente && await esDesm(env, s2.cid, quien.uid))
+        await notaDesm(env, s2.cid, s2.vid, quien, notaDe(sinMencion, datos.patente), loteWa(numero, s2)); }
     if (pideAbierto) { const s2 = await leerSesion(env, numero); if (abierta(s2)) return abrirParaGrupo(env, m, s2); }
     return tilde(env, m);
   } finally { await recordarMensaje(env, m, numero, sinMencion, datos.patente).catch(() => {}); }
@@ -830,20 +840,24 @@ async function prepararVehiculo(env, numero, datos, hora, previa, quien) {
     return v.fotos ? `⚠️ ${etiqueta(v)} ya tiene ${resumen(v.fotos)} subidas. Si mandás más, se suman a esas.` : null;
   }
 
+  if (fijo && await esDesm(env, fijo.cid, quien?.uid)) return `🔎 No encontré la patente *${datos.patente}* en *${fijo.operativo}*.\n\n${NO_DESM}`;
   if (fijo) {
     const nuevo = await crearVehiculo(env, fijo, datos, quien);
     await abrir(env, numero, nuevo, hora, previa, true);
     return null;
   }
 
-  const operativos = await listaOperativos(env, quien?.uid);
+  const todosOps = await listaOperativos(env, quien?.uid);
+  const operativos = [];
+  for (const o of todosOps) if (!(await esDesm(env, o.cid, quien?.uid))) operativos.push(o);
+  if (todosOps.length && !operativos.length) return `🔎 No encontré la patente *${datos.patente}*.\n\n${NO_DESM}`;
   if (!operativos.length) return "No sos parte de ningún operativo todavía. Pedile a un administrador que te sume desde la app.";
   await fsMerge(env, `bot_sesiones/${numero}`, { crear: { datos, operativos }, ts: Date.now() });
   return `🔎 La patente *${datos.patente}* no está cargada.\n\n¿En qué operativo la creo? Respondé con el número:\n\n` + menuOperativos(operativos);
 }
 
 async function abrirExistente(env, numero, v, datos, hora, previa, fijar = true, quien = null) {
-  await actualizarDatos(env, v, datos, quien);
+  if (!(await esDesm(env, v.cid, quien?.uid))) await actualizarDatos(env, v, datos, quien);
   await abrir(env, numero, v, hora, previa, false);
   // El operativo del vehículo abierto pasa a ser el actual (salvo que se haya nombrado otro)
   if (fijar) await fijarOperativo(env, numero, v);
@@ -887,6 +901,8 @@ export function edicionDe(d) {
 async function alEditarMensaje(env, e) {
   const rec = await fsGet(env, `bot_ediciones/${e.id}`);
   if (!rec?.vid) return;
+  { const cta = await fsGet(env, `bot_numeros/${rec.numero}`).catch(() => null);
+    if (await esDesm(env, rec.cid, cta?.uid)) return; }
   if (e.enc) {
     const diag = {};
     e.texto = await descifrarEdicion(rec, e, diag);
@@ -1003,6 +1019,33 @@ export function textoDeProto(b, prof = 0) {
   for (const [f, v] of cs) { if (f === 1) continue; const t = textoDeProto(v, prof + 1); if (t) return t; }
   return null;
 }
+
+// ── Rol Desmontaje: solo carga fotos y notas de desmontaje a vehículos ya cargados ──
+const rolCache = new Map();
+async function rolEn(env, cid, uid) {
+  if (!cid || !uid) return "";
+  let c = rolCache.get(cid);
+  if (!c || Date.now() - c.t > 60_000) {
+    const comp = await fsGet(env, `companies/${cid}`).catch(() => null);
+    c = { t: Date.now(), roles: comp?.roles || {} }; rolCache.set(cid, c);
+  }
+  return c.roles[uid] || "";
+}
+const esDesm = async (env, cid, uid) => (await rolEn(env, cid, uid)) === "desmontaje";
+const NO_DESM = "🔧 Con el rol *Desmontaje* solo podés cargar fotos y notas de desmontaje a vehículos ya cargados.";
+// Texto del mensaje sin la patente → nota de desmontaje
+function notaDe(texto, patente) {
+  const p = buscarPatenteEnTexto(texto);
+  const t = p ? texto.slice(0, p.desde) + " " + texto.slice(p.desde + p.largo) : texto;
+  return t.replace(/\s+/g, " ").trim();
+}
+async function notaDesm(env, cid, vid, quien, texto, lote) {
+  if (!texto) return;
+  const ruta = `companies/${cid}/vehicles/${vid}`;
+  await fsAppend(env, ruta, "desNotas", { lote, t: Date.now(), texto, uid: quien.uid || "", por: quien.nombre || quien.numero, via: "whatsapp" });
+  await fsAppend(env, ruta, "historial", { t: Date.now(), uid: quien.uid || "", por: quien.nombre || "", txt: "Cargó una nota de desmontaje por WhatsApp" }).catch(() => {});
+}
+const loteWa = (numero, s) => `wa-${numero}-${s?.desde || Math.floor(Date.now() / 1000)}`;
 
 // ── Turnos de hoy ──
 export function esTurnosHoy(t) {
@@ -1229,6 +1272,8 @@ async function alRecibirArchivo(env, m, quien) {
     if (pregunta) await responder(env, dest(m), pregunta);
     await recordarMensaje(env, m, numero, caption, datos.patente).catch(() => {});
     sesion = await leerSesion(env, numero);
+    if (abierta(sesion) && sesion.patente === datos.patente && await esDesm(env, sesion.cid, quien.uid))
+      await notaDesm(env, sesion.cid, sesion.vid, quien, notaDe(quitarMencion(caption), datos.patente), loteWa(numero, sesion));
   }
 
   if (m._grupo) {
@@ -1278,7 +1323,11 @@ async function alRecibirArchivo(env, m, quien) {
 
   // Agregar al vehículo (la web lo muestra al instante). Sin ✅ por foto: el resumen llega al cerrar.
   const origen = { via: "whatsapp", byWhatsApp: numero, byName: quien.nombre };
-  if (esFoto) {
+  if (await esDesm(env, destino.cid, quien.uid)) {
+    // Rol Desmontaje: las fotos van a la sección Desmontaje del vehículo
+    if (esFoto) await fsAppend(env, ruta, "desFotos", { url: subido.secure_url, publicId: subido.public_id, lote: loteWa(numero, destino),
+      t: Date.now(), uid: quien.uid || "", por: quien.nombre || numero, via: "whatsapp" });
+  } else if (esFoto) {
     await fsAppend(env, ruta, "fotos",
       { url: subido.secure_url, publicId: subido.public_id, w: subido.width || null, h: subido.height || null, at: Date.now(), ...origen });
   } else {

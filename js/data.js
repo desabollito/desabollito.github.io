@@ -264,6 +264,9 @@ export async function crearEmpresa(nombre) {
 
 export const miRol = () => S.company?.roles?.[S.user?.uid] || "tecnico";
 export const soyAdmin = () => ["owner", "admin"].includes(miRol());
+export const soyDesmontaje = () => miRol() === "desmontaje";
+// Solo tiene el rol Desmontaje (en todos sus operativos): no puede crear operativos
+export const soloDesmontaje = () => S.companies?.length > 0 && S.companies.every(c => c.roles?.[S.user?.uid] === "desmontaje");
 
 export async function renombrarEmpresa(nombre) {
   await updateDoc(doc(db, "companies", S.company.id), { name: nombre.trim() });
@@ -505,7 +508,22 @@ export function cargadoPor(v) {
 }
 // Permisos sobre un vehículo: quien lo cargó, los administradores y a quienes se les dio acceso
 export const esMioV = v => !!v && (v.createdBy === S.user?.uid || v.createdByUid === S.user?.uid);
-export const puedoEditar = v => esMioV(v) || soyAdmin() || (v?.editores || []).includes(S.user?.uid);
+export const puedoEditar = v => !soyDesmontaje() && (esMioV(v) || soyAdmin() || (v?.editores || []).includes(S.user?.uid));
+
+// ── Desmontaje: fotos y notas (cada una con quién la subió) y el técnico desmontador ──
+export async function agregarDesmontaje(v, fotos, texto) {
+  const lote = `${Date.now()}-${S.user.uid.slice(0, 6)}`, t = Date.now(), quien = { uid: S.user.uid, por: S.profile?.name || "" };
+  const campos = {};
+  if (fotos.length) campos.desFotos = arrayUnion(...fotos.map(f => ({ ...f, lote, t, ...quien })));
+  if (texto) campos.desNotas = arrayUnion({ lote, t, texto, ...quien });
+  if (!fotos.length && !texto) return;
+  const txt = [fotos.length ? `${fotos.length} ${fotos.length === 1 ? "foto" : "fotos"}` : "", texto ? "una nota" : ""].filter(Boolean).join(" y ");
+  await updateDoc(doc(colVehiculos(), v.id), { ...campos, historial: arrayUnion(entrada(`Cargó desmontaje: ${txt}`)), updatedAt: serverTimestamp(), updatedBy: S.user.uid });
+}
+export async function elegirDesmontador(v, m) {
+  await updateDoc(doc(colVehiculos(), v.id), { desmontador: m ? { uid: m.uid || "", nombre: m.nombre } : null,
+    historial: arrayUnion(entrada(m ? `Desmontó: ${m.nombre}` : "Quitó el desmontador")), updatedAt: serverTimestamp(), updatedBy: S.user.uid });
+}
 
 // ── Solicitudes (las aprueban los administradores): eliminar el vehículo, quitar una foto o
 //    un documento, o acceso para editar un vehículo de otro
@@ -608,7 +626,8 @@ export async function pedirUnion(usuarioAdmin) {
   if (!s.exists()) throw new Error(`No existe el usuario “${u}”`);
   await setDoc(doc(db, "pedidosUnion", S.user.uid), {
     uid: S.user.uid, name: S.profile?.name || "", username: S.profile?.username || "",
-    para: s.data().uid, paraUser: u, paraName: s.data().name || "", t: Date.now()
+    para: s.data().uid, paraUser: u, paraName: s.data().name || "", t: Date.now(),
+    rol: soloDesmontaje() ? "desmontaje" : "tecnico"   // sugerencia para quien lo suma
   });
   fetch(`${BOT_API}/pedido-union`, { method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ uid: S.user.uid }) }).catch(() => {});
@@ -626,10 +645,10 @@ export function escucharPedidosParaMi() {
     emit({ tipo: "pedidos-union" });
   }, e => console.warn("pedidos", e));
 }
-export async function responderPedidoUnion(p, cid) {
+export async function responderPedidoUnion(p, cid, rol = "tecnico") {
   if (cid) {
     const c = S.companies.find(x => x.id === cid);
-    await agregarMiembro(p.username, "tecnico", c);
+    await agregarMiembro(p.username, rol, c);
   }
   await deleteDoc(doc(db, "pedidosUnion", p.id));
 }

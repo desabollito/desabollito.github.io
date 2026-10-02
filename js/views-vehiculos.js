@@ -3,7 +3,8 @@ import { botonesFotos, conectarFotos } from "./camara.js";
 import {
   S, activos, getVehiculo, guardarVehiculo, actualizarVehiculo, cambiarEstado, moverAPapelera,
   solicitarEliminacion, cargadoPor, esDeWhatsApp, puedoEditar, esMioV, crearSolicitud, yaPedi,
-  nuevoIdVehiculo, soyAdmin, mensajeError, ultimoDeshacible, deshacerCambio, aseguradoDePadron
+  nuevoIdVehiculo, soyAdmin, mensajeError, ultimoDeshacible, deshacerCambio, aseguradoDePadron,
+  soyDesmontaje, agregarDesmontaje, elegirDesmontador
 } from "./data.js";
 import { ESTADOS, ESTADO, SECUENCIA, PIEZA, ORDEN_PIEZAS, estadoActual, piezasMarcadas } from "./domain.js";
 import {
@@ -49,7 +50,7 @@ function filtrar(lista) {
 // Historial del vehículo (lo más nuevo arriba). Los vehículos viejos arrancan con la carga.
 // Historial con botón para deshacer el último cambio
 function abrirHistorial(v0) {
-  const v = getVehiculo(v0.id) || v0, ult = ultimoDeshacible(v);
+  const v = getVehiculo(v0.id) || v0, ult = soyDesmontaje() ? null : ultimoDeshacible(v);
   const s = openSheet({ title: "Historial", body: `${ult ? `<button type="button" class="btn btn-ghost btn-block hist-undo" data-deshacer>${icon("rotate")}Deshacer último cambio</button>` : ""}${historialHTML(v)}` });
   $("[data-deshacer]", s.el)?.addEventListener("click", async () => {
     if (!(await confirmar({ title: "¿Estás seguro?", message: `Se deshace: “${ult.txt}”.`, ok: "Deshacer" }))) return;
@@ -245,7 +246,7 @@ export function vistaDetalle(view, id) {
   }
   setTopbar({
     title: "Detalle", sub: v.patente || v.modelo || "", back: "#/",
-    actions: `<a class="icon-btn" href="#/editar/${v.id}" aria-label="Editar">${icon("edit")}</a>`
+    actions: soyDesmontaje() ? "" : `<a class="icon-btn" href="#/editar/${v.id}" aria-label="Editar">${icon("edit")}</a>`
   });
   view.innerHTML = `<div class="detail-page"></div>`;
   renderDetalle($(".detail-page", view), v, false);
@@ -339,6 +340,8 @@ function renderDetalle(root, v, embebido) {
   const marcadas = piezasMarcadas(v);
   const todos = marcadas.length === ORDEN_PIEZAS.length;
   const esMio = esMioV(v);
+  const soloVer = soyDesmontaje();   // rol Desmontaje: solo ve y carga desmontajes
+  const nDesm = (v.desFotos?.length || 0) + (v.desNotas?.length || 0);
 
   root.innerHTML = `
   <article class="detail">
@@ -347,7 +350,7 @@ function renderDetalle(root, v, embebido) {
         ? `<button class="d-cover" data-act="galeria" aria-label="Ver las ${v.fotos.length} fotos">
              <img src="${esc(thumb(v.fotos[0].url, 240, v.fotos[0].rot))}" alt=""><span class="d-cover-n">${icon("camera")}${v.fotos.length}</span></button>`
         : `<div class="d-cover vacio">
-             <button type="button" class="d-cover-cam" id="d-cover-fotos" aria-label="Agregar fotos">${icon("image")}<small>Fotos</small></button>
+             ${soloVer ? `<span class="d-cover-cam">${icon("image")}</span>` : `<button type="button" class="d-cover-cam" id="d-cover-fotos" aria-label="Agregar fotos">${icon("image")}<small>Fotos</small></button>`}
            </div>`}
       <div class="d-title">
         <h2>${esc(v.modelo || "Sin modelo")}</h2>
@@ -364,12 +367,13 @@ function renderDetalle(root, v, embebido) {
           <a href="${waLink(v.telefono, mensajeWa(v))}" target="_blank" rel="noopener">${icon("chat")}WhatsApp</a>
           <a href="tel:${esc(v.telefono)}">${icon("phone")}Llamar</a>
         </div></div>` : ""}
-      ${embebido ? `<a class="btn btn-ghost btn-icon" href="#/editar/${v.id}" aria-label="Editar" title="Editar">${icon("edit")}</a>` : ""}
+      ${embebido && !soloVer ? `<a class="btn btn-ghost btn-icon" href="#/editar/${v.id}" aria-label="Editar" title="Editar">${icon("edit")}</a>` : ""}
     </div>
+    <button class="btn btn-ghost btn-block d-desm" data-act="desmontaje">${icon("tool")}Desmontaje${nDesm || v.desmontador ? ` <small>${[v.desmontador?.nombre, nDesm ? `${v.desFotos?.length || 0} fotos` : ""].filter(Boolean).map(esc).join(" · ")}</small>` : ""}</button>
 
     <section class="d-sec">
       <div class="seg-head"><h3>Seguimiento</h3>
-        <button class="link-btn small ${anulado ? "" : "danger"}" data-act="anular">${anulado ? "Reactivar" : "Anular"}</button></div>
+        ${soloVer ? "" : `<button class="link-btn small ${anulado ? "" : "danger"}" data-act="anular">${anulado ? "Reactivar" : "Anular"}</button>`}</div>
       <ol class="stepper ${anulado ? "is-anulado" : ""}">
         ${SECUENCIA.map(k => {
           const aus = k === "turnado" && est === "ausente";
@@ -385,12 +389,12 @@ function renderDetalle(root, v, embebido) {
       ${anulado ? `<p class="muted small">Anulado el ${fechaCorta(v.fechas?.anulado)}</p>` : ""}
     </section>
 
-    ${anulado ? `<section class="d-sec d-post">
+    ${soloVer && !(anulado ? v.razonAnulacion : v.postReparacion) ? "" : anulado ? `<section class="d-sec d-post">
       <h3>Razón de la anulación</h3>
-      <textarea class="post-rep" data-campo="razonAnulacion" rows="1" placeholder="Ej: el cliente desistió, etc">${esc(v.razonAnulacion || "")}</textarea>
+      <textarea class="post-rep" data-campo="razonAnulacion" rows="1" ${soloVer ? "readonly" : ""} placeholder="Ej: el cliente desistió, etc">${esc(v.razonAnulacion || "")}</textarea>
     </section>` : v.fechas?.reparado || v.fechas?.facturado ? `<section class="d-sec d-post">
       <h3>Notas post-reparación</h3>
-      <textarea class="post-rep" data-campo="postReparacion" rows="1" placeholder="Regresó por tal motivo, etc">${esc(v.postReparacion || "")}</textarea>
+      <textarea class="post-rep" data-campo="postReparacion" rows="1" ${soloVer ? "readonly" : ""} placeholder="Regresó por tal motivo, etc">${esc(v.postReparacion || "")}</textarea>
     </section>` : ""}
 
     <section class="d-sec d-grid">
@@ -427,12 +431,12 @@ function renderDetalle(root, v, embebido) {
       <div class="sec-head"><h3>Documentos <small>${v.archivos?.length || 0}</small></h3></div>
       <ul class="docs">${(v.archivos || []).map((a, i) => `
         <li><a href="${esc(a.url)}" target="_blank" rel="noopener">${icon("file")}<span>${esc(a.name)}</span></a>
-          <button class="icon-btn sm" data-del-doc="${i}" aria-label="Quitar documento">${icon("x")}</button></li>`).join("")}</ul>
+          ${soloVer ? "" : `<button class="icon-btn sm" data-del-doc="${i}" aria-label="Quitar documento">${icon("x")}</button>`}</li>`).join("")}</ul>
     </section>` : ""}
 
     ${v.fechas?.reparado || v.fechas?.facturado || v.firma ? `<section class="d-sub">
       <div class="sec-head"><h3>Firma del cliente</h3>
-        <button class="btn btn-ghost btn-sm" data-act="firma">${icon("sign")}${v.firma ? "Volver a firmar" : "Firmar"}</button></div>
+        ${soloVer ? "" : `<button class="btn btn-ghost btn-sm" data-act="firma">${icon("sign")}${v.firma ? "Volver a firmar" : "Firmar"}</button>`}</div>
       ${v.firma ? `<img class="firma-img" src="${esc(v.firma)}" alt="Firma del cliente">`
         : ""}
     </section>` : ""}
@@ -442,7 +446,7 @@ function renderDetalle(root, v, embebido) {
     <footer class="d-foot">
       <span class="d-autor"><button class="icon-btn sm hist-btn" data-act="historial" aria-label="Historial" title="Historial">${icon("clock")}</button>Cargado por ${esc(cargadoPor(v))}</span>
       <span class="d-foot-btns">
-        <button class="icon-btn danger" data-act="borrar" aria-label="Eliminar vehículo" title="Eliminar">${icon("trash")}</button>
+        ${soloVer ? "" : `<button class="icon-btn danger" data-act="borrar" aria-label="Eliminar vehículo" title="Eliminar">${icon("trash")}</button>`}
       </span>
     </footer>
   </article>`;
@@ -472,6 +476,7 @@ function renderDetalle(root, v, embebido) {
   const pasoTurno = $('[data-estado="turnado"]', root);
   pasoTurno?.addEventListener("pointerdown", () => {
     pasoLargo = false;
+    if (soloVer) return;
     const est = estadoActual(v);
     if (est !== "turnado" && est !== "ausente") return;
     relojPaso = setTimeout(() => {
@@ -503,6 +508,9 @@ function renderDetalle(root, v, embebido) {
   // Acciones
   root.addEventListener("click", async e => {
     const t = e.target;
+    // Rol Desmontaje: no modifica nada del vehículo
+    if (soloVer && (t.closest("[data-estado], .etapa-item, [data-del-foto], [data-del-doc]") || ["anular", "borrar", "firma"].includes(t.closest("[data-act]")?.dataset.act))) return;
+    if (t.closest("[data-act]")?.dataset.act === "desmontaje") return abrirDesmontaje(v);
     const step = t.closest("[data-estado]");
     if (step) {
       if (pasoLargo) { pasoLargo = false; return; }
@@ -588,6 +596,113 @@ function renderDetalle(root, v, embebido) {
     const files = [...e.target.files]; e.target.value = "";
     if (files.length) subirAdjuntos(v, files, inp.dataset.up, root);
   }));
+}
+
+// ═════════════════ Desmontaje ═════════════════
+// Fotos y notas agrupadas por carga (quién y cuándo), más el técnico que lo desmontó
+function lotesDesm(v) {
+  const g = new Map();
+  const de = x => { const k = x.lote || `${x.uid}-${x.t}`; if (!g.has(k)) g.set(k, { t: x.t || 0, por: x.por || "", fotos: [], notas: [] }); return g.get(k); };
+  (v.desFotos || []).forEach(f => de(f).fotos.push(f));
+  (v.desNotas || []).forEach(n => de(n).notas.push(n.texto));
+  return [...g.values()].sort((a, b) => b.t - a.t);
+}
+const fechaHora = t => { const d = new Date(t); return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`; };
+
+export function abrirDesmontaje(v0) {
+  const s = openSheet({ title: `Desmontaje · ${v0.patente || v0.modelo || ""}`, wide: true, body: `<div class="desm"></div>` });
+  const caja = $(".desm", s.el);
+  const pintar = () => {
+    const v = getVehiculo(v0.id) || v0, lotes = lotesDesm(v);
+    caja.innerHTML = `
+      <div class="desm-quien"><span>Desmontado por</span>
+        <button type="button" class="btn btn-ghost btn-sm" id="desm-tec">${icon("team")}${esc(v.desmontador?.nombre || "Elegir técnico")}</button></div>
+      <button type="button" class="btn btn-primary btn-block" id="desm-add">${icon("plus")}Cargar fotos y texto</button>
+      ${lotes.length ? lotes.map(l => `<div class="desm-lote">
+        <div class="desm-cab"><strong>${esc(l.por || "—")}</strong><small>${l.t ? fechaHora(l.t) : ""}</small></div>
+        ${l.notas.map(n => `<p class="prose">${esc(n)}</p>`).join("")}
+        ${l.fotos.length ? `<div class="desm-fotos">${l.fotos.map(f => `<button type="button" data-dfoto="${esc(f.url)}"><img src="${esc(thumb(f.url, 200))}" alt="" loading="lazy"></button>`).join("")}</div>` : ""}
+      </div>`).join("") : `<p class="muted center">Todavía no hay desmontaje cargado.</p>`}`;
+  };
+  pintar();
+  caja.addEventListener("click", e => {
+    const v = getVehiculo(v0.id) || v0;
+    const f = e.target.closest("[data-dfoto]");
+    if (f) { const todas = v.desFotos || []; return visor(todas, Math.max(0, todas.findIndex(x => x.url === f.dataset.dfoto))); }
+    if (e.target.closest("#desm-add")) return formDesmontaje(v, () => setTimeout(pintar, 400));
+    if (e.target.closest("#desm-tec")) return elegirTecnicoDesm(v, () => setTimeout(pintar, 400));
+  });
+}
+
+function elegirTecnicoDesm(v, listo) {
+  const c = S.company || {};
+  const miembros = (c.members || []).map(uid => ({ uid, nombre: c.memberNames?.[uid] || "Usuario", rol: c.roles?.[uid] }))
+    .sort((a, b) => (b.rol === "desmontaje") - (a.rol === "desmontaje") || a.nombre.localeCompare(b.nombre));
+  const s = openSheet({ title: "¿Quién lo desmontó?", body: `<div class="stack etapa-opciones">
+    ${miembros.map(m => `<button type="button" class="btn btn-block etapa-op ${v.desmontador?.uid === m.uid ? "on" : ""}" data-uid="${esc(m.uid)}">${esc(m.nombre)}${m.rol === "desmontaje" ? " <small class=\"muted\">Desmontaje</small>" : ""}</button>`).join("")}
+    ${v.desmontador ? `<button type="button" class="btn btn-ghost btn-block" data-uid="">Quitar</button>` : ""}</div>` });
+  s.el.addEventListener("click", e => {
+    const b = e.target.closest("[data-uid]"); if (!b) return;
+    const m = miembros.find(x => x.uid === b.dataset.uid) || null;
+    s.close();
+    elegirDesmontador(v, m).then(listo).catch(err => toast(mensajeError(err), "error"));
+  });
+}
+
+// Formulario: fotos (cámara o galería) + texto
+function formDesmontaje(v, listo) {
+  let files = [];
+  const s = openSheet({ title: `Desmontaje · ${v.patente || v.modelo || ""}`, body: `<form class="stack" id="desm-form">
+      ${botonesFotos({ id: "desm-op" })}
+      <p class="muted small" id="desm-n">Sin fotos</p>
+      <label class="field"><span>Texto</span><textarea name="texto" rows="3" placeholder="Ej: se desmontó techo y parantes"></textarea></label>
+      <button class="btn btn-primary btn-block">Guardar</button></form>` });
+  const contar = () => { $("#desm-n", s.el).textContent = files.length ? `${files.length} ${files.length === 1 ? "foto" : "fotos"} lista${files.length === 1 ? "" : "s"}` : "Sin fotos"; };
+  conectarFotos($("#desm-op", s.el), nuevas => { files.push(...nuevas); contar(); });
+  $("#desm-form", s.el).onsubmit = async e => {
+    e.preventDefault();
+    const texto = e.target.texto.value.trim();
+    if (!files.length && !texto) return toast("Agregá fotos o un texto", "error");
+    if (files.length && !cloudinaryListo()) return toast("Falta configurar Cloudinary", "error");
+    const b = $("button.btn-primary:last-child", e.target); busy(b, true, files.length ? "Subiendo fotos…" : "Guardando…");
+    try {
+      const subidas = [];
+      const cola = files.map((f, n) => ({ f, n }));
+      const trabajador = async () => { for (let x; (x = cola.shift());) {
+        const r = await subir(await comprimir(x.f), `${S.company.id}/${v.id}/desmontaje`);
+        subidas.push({ url: r.url, publicId: r.publicId, n: x.n });
+      } };
+      await Promise.all([trabajador(), trabajador(), trabajador()]);
+      subidas.sort((a, b) => a.n - b.n).forEach(x => delete x.n);
+      await agregarDesmontaje(v, subidas, texto);
+      toast("Desmontaje guardado", "success");
+      s.close(); listo?.();
+    } catch (err) { toast(mensajeError(err), "error"); busy(b, false); }
+  };
+}
+
+// Rol Desmontaje: el "+" elige un vehículo ya cargado (tira + patente para filtrar)
+export function elegirVehiculoDesmontaje() {
+  const s = openSheet({ title: "Cargar desmontaje", wide: true, body: `<div class="stack">
+      <label class="search">${icon("search")}<input type="search" id="dv-q" placeholder="Patente o modelo" autocomplete="off" autocapitalize="characters"></label>
+      <div class="dv-tira" id="dv-lista"></div></div>` });
+  const lista = $("#dv-lista", s.el), q = $("#dv-q", s.el);
+  const norm = t => String(t || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+  const pintar = () => {
+    const f = norm(q.value);
+    const vs = activos().filter(v => !f || norm(v.patente).includes(f) || norm(v.modelo).includes(f)).slice(0, 60);
+    lista.innerHTML = vs.length ? vs.map(v => `<button type="button" class="dv-item" data-id="${esc(v.id)}">
+        ${v.fotos?.length ? `<img src="${esc(thumb(v.fotos[0].url, 160, v.fotos[0].rot))}" alt="">` : `<span class="dv-sin">${icon("car")}</span>`}
+        <strong>${esc(v.modelo || "Sin modelo")}</strong>${plate(v.patente)}</button>`).join("")
+      : `<p class="muted center">No hay vehículos con esa patente.</p>`;
+  };
+  pintar();
+  q.addEventListener("input", pintar);
+  lista.addEventListener("click", e => {
+    const b = e.target.closest("[data-id]"); if (!b) return;
+    const v = getVehiculo(b.dataset.id); if (!v) return;
+    s.close(); formDesmontaje(v);
+  });
 }
 
 // Aviso al cliente por WhatsApp cuando el auto queda reparado (se confirma dos veces)
