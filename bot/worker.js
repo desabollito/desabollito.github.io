@@ -128,7 +128,7 @@ async function procesar(m, env) {
   quien.waNombre = m._nombre || ""; quien.appNombre = cuenta.name || ""; quien.uid = cuenta.uid; quien.username = cuenta.username; quien.nombre = cuenta.name || quien.nombre;
 
   if (m.type === "text") return alRecibirTexto(env, m, quien, (m.text?.body || "").trim());
-  if (m.type === "image" || m.type === "document") return alRecibirArchivo(env, m, quien);
+  if (m.type === "image" || m.type === "document" || m.type === "video") return alRecibirArchivo(env, m, quien);
   // Otros tipos (reacciones, avisos de álbum "unsupported", stickers, etc.): se ignoran en silencio
   await registrar(env, { ultimoTipoIgnorado: `${new Date().toISOString()} · ${m.type} · ${JSON.stringify(m).slice(0, 300)}` });
 }
@@ -1298,8 +1298,9 @@ async function avisarUnaVez(env, m, numero, clave, texto) {
 
 async function alRecibirArchivo(env, m, quien) {
   const numero = quien.numero;
-  const media = m.image || m.document;
-  const esFoto = m.type === "image";
+  const media = m.image || m.document || m.video;
+  const esVid = m.type === "video";
+  const esFoto = m.type === "image" || esVid;   // los videos se guardan junto con las fotos
   const hora = horaDe(m);
 
   // Si la foto trae datos del vehículo como descripción, se procesan primero
@@ -1363,22 +1364,24 @@ async function alRecibirArchivo(env, m, quien) {
 
   // Bajar el archivo de WhatsApp
   const { bytes, mime } = m._key ? await bajarMediaEvolution(env, m) : await bajarMedia(env, media.id);
-  if (bytes.byteLength > MAX_BYTES) return responder(env, dest(m), "📦 Ese archivo pesa más de 15 MB, no lo puedo guardar.");
+  const maxB = esVid ? 25 * 1024 * 1024 : MAX_BYTES;
+  if (bytes.byteLength > maxB) return responder(env, dest(m), `📦 Ese ${esVid ? "video" : "archivo"} pesa más de ${esVid ? 25 : 15} MB, no lo puedo guardar.`);
 
   // Subir a Cloudinary (misma carpeta que usa la app)
-  const nombre = media.filename || (esFoto ? "foto.jpg" : "archivo");
+  const nombre = media.filename || (esVid ? "video.mp4" : esFoto ? "foto.jpg" : "archivo");
   const subido = await subirCloudinary(env, new Blob([bytes], { type: mime }), nombre,
-    `desabollito/${destino.cid}/${destino.vid}`, esFoto ? "image" : "auto");
+    `desabollito/${destino.cid}/${destino.vid}`, esVid ? "video" : esFoto ? "image" : "auto");
+  const extraVid = esVid ? { tipo: "video" } : {};
 
   // Agregar al vehículo (la web lo muestra al instante). Sin ✅ por foto: el resumen llega al cerrar.
   const origen = { via: "whatsapp", byWhatsApp: numero, byName: quien.nombre };
   if (enDesm || await esDesm(env, destino.cid, quien.uid)) {
     // Rol Desmontaje: las fotos van a la sección Desmontaje del vehículo
     if (esFoto) await fsAppend(env, ruta, "desFotos", { url: subido.secure_url, publicId: subido.public_id, lote: loteWa(numero, destino),
-      t: Date.now(), uid: quien.uid || "", por: quien.nombre || numero, via: "whatsapp" });
+      t: Date.now(), uid: quien.uid || "", por: quien.nombre || numero, via: "whatsapp", ...extraVid });
   } else if (esFoto) {
     await fsAppend(env, ruta, "fotos",
-      { url: subido.secure_url, publicId: subido.public_id, w: subido.width || null, h: subido.height || null, at: Date.now(), ...origen });
+      { url: subido.secure_url, publicId: subido.public_id, w: subido.width || null, h: subido.height || null, at: Date.now(), ...origen, ...extraVid });
   } else {
     await fsAppend(env, ruta, "archivos",
       { url: subido.secure_url, publicId: subido.public_id, name: nombre, bytes: subido.bytes || null, format: subido.format || null, at: Date.now(), ...origen });
@@ -2039,6 +2042,7 @@ export function deEvolution(d, botJids = []) {
   const conBot = t => alBot.reduce((x, n) => x.replace(new RegExp("@" + n + "\\b", "g"), "@desabollito"), String(t));
   const texto = msg.conversation || msg.extendedTextMessage?.text;
   if (texto) return { ...base, type: "text", text: { body: conBot(texto) } };
+  if (msg.videoMessage) return { ...base, type: "video", video: { id: key.id, caption: conBot(msg.videoMessage.caption || "") }, _mime: msg.videoMessage.mimetype || "video/mp4" };
   if (msg.imageMessage) return { ...base, type: "image", image: { id: key.id, caption: conBot(msg.imageMessage.caption || "") }, _mime: msg.imageMessage.mimetype };
   if (msg.documentMessage) {
     const doc = msg.documentMessage;

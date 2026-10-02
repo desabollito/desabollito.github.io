@@ -196,7 +196,7 @@ export async function presupuestoPDF(v, empresa, { conFotos = false, onProgreso 
   }
 
   // Fotos
-  const fotos = conFotos ? (v.fotos || []) : [];
+  const fotos = conFotos ? (v.fotos || []).filter(f => !String(f.url || "").includes("/video/upload/")) : [];
   if (fotos.length) {
     const imgs = [];
     for (let i = 0; i < fotos.length; i++) {

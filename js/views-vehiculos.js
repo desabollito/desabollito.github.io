@@ -12,7 +12,7 @@ import {
   confirmar, busy, debounce, marcarError, horaDe } from "./ui.js";
 import { carMapSVG, montarMapa } from "./carmap.js";
 import { montar3D } from "./car3d.js";
-import { subir, comprimir, borrarConToken, thumb, grande, cloudinaryListo } from "./media.js";
+import { subir, comprimir, borrarConToken, thumb, grande, cloudinaryListo, esVideo, videoURL } from "./media.js";
 import { presupuestoPDF, nombreArchivo } from "./pdf.js";
 import { armarZip } from "./zip.js";
 import { setTopbar, go, esAncho } from "./shell.js";
@@ -621,7 +621,7 @@ export function abrirDesmontaje(v0) {
       ${lotes.length ? lotes.map(l => `<div class="desm-lote">
         <div class="desm-cab"><strong>${esc(l.por || "—")}</strong><small>${l.t ? fechaHora(l.t) : ""}</small></div>
         ${l.notas.map(n => `<p class="prose">${esc(n)}</p>`).join("")}
-        ${l.fotos.length ? `<div class="desm-fotos">${l.fotos.map(f => `<button type="button" data-dfoto="${esc(f.url)}"><img src="${esc(thumb(f.url, 200))}" alt="" loading="lazy"></button>`).join("")}</div>` : ""}
+        ${l.fotos.length ? `<div class="desm-fotos">${l.fotos.map(f => `<button type="button" data-dfoto="${esc(f.url)}"><img src="${esc(thumb(f.url, 200))}" alt="" loading="lazy">${esVideo(f) ? `<span class="play-ic">▶</span>` : ""}</button>`).join("")}</div>` : ""}
       </div>`).join("") : `<p class="muted center">Todavía no hay desmontaje cargado.</p>`}`;
   };
   pintar();
@@ -659,7 +659,7 @@ function formDesmontaje(v, listo) {
       <p class="muted small" id="desm-n">Sin fotos</p>
       <label class="field"><span>Texto</span><textarea name="texto" rows="3" placeholder="Ej: se desmontó techo y parantes"></textarea></label>
       <button class="btn btn-primary btn-block">Guardar</button></form>` });
-  const contar = () => { $("#desm-n", s.el).textContent = files.length ? `${files.length} ${files.length === 1 ? "foto" : "fotos"} lista${files.length === 1 ? "" : "s"}` : "Sin fotos"; };
+  const contar = () => { $("#desm-n", s.el).textContent = files.length ? `${files.length} ${files.length === 1 ? "archivo" : "archivos"} (fotos o videos) listo${files.length === 1 ? "" : "s"}` : "Sin fotos ni videos"; };
   conectarFotos($("#desm-op", s.el), nuevas => { files.push(...nuevas); contar(); });
   $("#desm-form", s.el).onsubmit = async e => {
     e.preventDefault();
@@ -671,8 +671,8 @@ function formDesmontaje(v, listo) {
       const subidas = [];
       const cola = files.map((f, n) => ({ f, n }));
       const trabajador = async () => { for (let x; (x = cola.shift());) {
-        const r = await subir(await comprimir(x.f), `${S.company.id}/${v.id}/desmontaje`);
-        subidas.push({ url: r.url, publicId: r.publicId, n: x.n });
+        const r = await subirMedia(x.f, `${S.company.id}/${v.id}/desmontaje`);
+        subidas.push({ url: r.url, publicId: r.publicId, n: x.n, ...(r.tipo ? { tipo: r.tipo } : {}) });
       } };
       await Promise.all([trabajador(), trabajador(), trabajador()]);
       subidas.sort((a, b) => a.n - b.n).forEach(x => delete x.n);
@@ -762,6 +762,16 @@ function elegirFechaEstado(v, estado) {
   };
 }
 
+// Foto (se comprime) o video (va tal cual, hasta 100 MB)
+async function subirMedia(file, carpeta) {
+  if (String(file.type).startsWith("video/")) {
+    if (file.size > 100 * 1024 * 1024) throw new Error(`${file.name || "Video"}: supera 100 MB`);
+    const r = await subir(file, carpeta, { tipo: "video" });
+    return { ...r, tipo: "video" };
+  }
+  return subir(await comprimir(file), carpeta);
+}
+
 async function subirAdjuntos(v, files, tipo, root) {
   if (!cloudinaryListo()) { toast("Falta configurar Cloudinary en js/config.js", "error"); return; }
   const holders = files.map(() => null);
@@ -776,10 +786,9 @@ async function subirAdjuntos(v, files, tipo, root) {
       const n = i++, file = files[n];
       try {
         if (tipo === "foto") {
-          const blob = await comprimir(file);
-          const r = await subir(blob, carpeta);
+          const r = await subirMedia(file, carpeta);
           if (r.deleteToken) tokensBorrado.set(r.publicId, r.deleteToken);
-          nuevos.push({ url: r.url, publicId: r.publicId, w: r.w, h: r.h, at: Date.now(), by: S.user.uid, n });
+          nuevos.push({ url: r.url, publicId: r.publicId, w: r.w, h: r.h, at: Date.now(), by: S.user.uid, n, ...(r.tipo ? { tipo: r.tipo } : {}) });
         } else {
           if (file.size > 10 * 1024 * 1024) throw new Error(`${file.name}: supera 10 MB`);
           const r = await subir(file, carpeta, { tipo: "auto", nombre: file.name });
@@ -890,7 +899,7 @@ function visor(fotos = [], inicio = 0, v = null) {
   const s = openSheet({
     wide: true,
     body: `<div class="viewer">
-      <div class="viewer-foto"><img id="vw-img" alt=""><span class="viewer-carga" hidden><span class="spin"></span></span>
+      <div class="viewer-foto"><img id="vw-img" alt=""><video id="vw-vid" controls playsinline preload="metadata" hidden></video><span class="viewer-carga" hidden><span class="spin"></span></span>
         ${v && puedoEditar(v) ? `<button class="icon-btn viewer-ov viewer-rot" id="vw-rot" aria-label="Girar foto" title="Girar">${icon("rotate")}</button>` : ""}
         <button class="icon-btn viewer-ov viewer-x" data-close aria-label="Cerrar">${icon("x")}</button>
         <button class="icon-btn viewer-ov viewer-dl" id="vw-dl" aria-label="Descargar" title="Descargar">${icon("download")}</button>
@@ -908,8 +917,21 @@ function visor(fotos = [], inicio = 0, v = null) {
   const img0 = $("#vw-img", s.el), carga = $(".viewer-carga", s.el);
   img0.addEventListener("load", () => { carga.hidden = true; img0.classList.remove("cargando"); });
   img0.addEventListener("error", () => { carga.hidden = true; img0.classList.remove("cargando"); });
+  const vid = $("#vw-vid", s.el);
   const show = () => {
     const url = grande(fotos[i].url, 1600, fotos[i].rot);
+    // Video: se reproduce en el visor (sin girar)
+    const video = esVideo(fotos[i]);
+    vid.hidden = !video; img0.hidden = video;
+    $("#vw-rot", s.el)?.toggleAttribute("hidden", video);
+    if (video) {
+      const src = videoURL(fotos[i].url);
+      if (vid.getAttribute("src") !== src) { vid.poster = url; vid.src = src; }
+      carga.hidden = true;
+      $("#vw-n", s.el).textContent = `${i + 1} de ${fotos.length}`;
+      return;
+    }
+    vid.pause?.();
     if (img0.getAttribute("src") !== url) {
       // Animación de carga mientras llega la foto (a veces tarda 1-3 s)
       img0.classList.add("cargando"); carga.hidden = false;
@@ -923,22 +945,22 @@ function visor(fotos = [], inicio = 0, v = null) {
     const op = $("#vw-mas-op", s.el); op.hidden = !op.hidden; e.currentTarget.hidden = !op.hidden;
   });
   // Nombre: PATENTE_01.jpg, PATENTE_02.jpg…
-  const nombreFoto = n => `${String(v?.patente || v?.modelo || "foto").toUpperCase().replace(/[^A-Z0-9]+/g, "_")}_${String(n + 1).padStart(2, "0")}.jpg`;
+  const nombreFoto = n => `${String(v?.patente || v?.modelo || "foto").toUpperCase().replace(/[^A-Z0-9]+/g, "_")}_${String(n + 1).padStart(2, "0")}.${esVideo(fotos[n]) ? "mp4" : "jpg"}`;
+  const origen = f => esVideo(f) ? videoURL(f.url) : grande(f.url, 4000, f.rot).replace("f_auto", "f_jpg");
   const celular = matchMedia("(pointer: coarse)").matches;
   const bajar = async n => {
     const f = fotos[n], nombre = nombreFoto(n);
     if (celular) {
       // Celular (como antes): baja la foto directo y la guarda, sin pasos extra en Cloudinary
       try {
-        const r = await fetch(grande(f.url, 4000, f.rot).replace("f_auto", "f_jpg")); if (!r.ok) throw new Error(r.status);
+        const r = await fetch(origen(f)); if (!r.ok) throw new Error(r.status);
         const a = document.createElement("a"); a.href = URL.createObjectURL(await r.blob()); a.download = nombre; a.click();
         setTimeout(() => URL.revokeObjectURL(a.href), 4000);
       } catch { open(f.url, "_blank", "noopener"); }
       return;
     }
     // Computadora: Cloudinary la manda como descarga con el nombre PATENTE_NN (fl_attachment)
-    const url = grande(f.url, 4000, f.rot).replace("f_auto", "f_jpg")
-      .replace("/upload/", `/upload/fl_attachment:${nombre.replace(/\.jpg$/, "")}/`);
+    const url = origen(f).replace("/upload/", `/upload/fl_attachment:${nombre.replace(/\.(jpg|mp4)$/, "")}/`);
     const a = document.createElement("a"); a.href = url; a.download = nombre; a.rel = "noopener";
     document.body.appendChild(a); a.click(); a.remove();
   };
@@ -959,10 +981,10 @@ function visor(fotos = [], inicio = 0, v = null) {
     dl.addEventListener("click", () => { if (!todas) bajar(i); });
   } else {
     // Computadora: esta foto, todas en ZIP o todas en una carpeta (esta última solo en Chrome/Edge)
-    const baseNombre = nombreFoto(0).replace(/_01\.jpg$/, "");
+    const baseNombre = nombreFoto(0).replace(/_01\.(jpg|mp4)$/, "");
     const traer = async n => {
       const f = fotos[n];
-      const r = await fetch(grande(f.url, 4000, f.rot).replace("f_auto", "f_jpg"));
+      const r = await fetch(origen(f));
       if (!r.ok) throw new Error(`No se pudo bajar la foto ${n + 1}`);
       return r.blob();
     };
