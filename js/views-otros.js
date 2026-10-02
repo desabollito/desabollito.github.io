@@ -282,9 +282,9 @@ export function vistaEmpresa(view) {
           ${admin && m.rol !== "owner" && m.uid !== S.user.uid ? `
             <span class="m-actions">
               <div class="seg seg-sm seg-rol" data-rol="${m.uid}" role="radiogroup" aria-label="Rol de ${esc(m.name)}">
+                <button type="button" class="seg-btn ${m.rol === "desmontaje" ? "on" : ""}" data-v="desmontaje">Desmontador</button>
                 <button type="button" class="seg-btn ${m.rol === "tecnico" ? "on" : ""}" data-v="tecnico">Técnico</button>
                 <button type="button" class="seg-btn ${m.rol === "admin" ? "on" : ""}" data-v="admin">Admin</button>
-                <button type="button" class="seg-btn ${m.rol === "desmontaje" ? "on" : ""}" data-v="desmontaje">Desmontaje</button>
               </div>
               <button class="icon-btn sm" data-quitar="${m.uid}" aria-label="Quitar a ${esc(m.name)}">${icon("x")}</button>
             </span>` : ""}
@@ -330,9 +330,9 @@ export function vistaEmpresa(view) {
           <input name="u" placeholder="Ej: desabollito" autocapitalize="none" spellcheck="false" required></label>
         <div class="field"><span>Rol</span>
           <div class="seg seg-rol" id="rol-nuevo">
+            <button type="button" class="seg-btn" data-v="desmontaje">Desmontador</button>
             <button type="button" class="seg-btn on" data-v="tecnico">Técnico</button>
             <button type="button" class="seg-btn" data-v="admin">Admin</button>
-            <button type="button" class="seg-btn" data-v="desmontaje">Desmontaje</button>
           </div></div>
         <button class="btn btn-primary btn-block btn-lg">${icon("plus")}Agregar</button>
       </form>`
@@ -441,7 +441,7 @@ async function unirOperativo() {
 }
 
 async function crearOperativo() {
-  if (soloDesmontaje()) return toast("Con el rol Desmontaje no podés crear operativos", "error");
+  if (soloDesmontaje()) return toast("Con el rol Desmontador no podés crear operativos", "error");
   const n = await pedirTexto({ title: "Nuevo operativo", label: "Nombre del operativo", placeholder: "Granizo Córdoba 2026", ok: "Crear" });
   if (!n) return;
   try { await crearEmpresa(n); toast("Operativo creado", "success"); } catch (e) { toast(mensajeError(e), "error"); }

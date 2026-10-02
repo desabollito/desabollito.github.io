@@ -369,7 +369,7 @@ function renderDetalle(root, v, embebido) {
         </div></div>` : ""}
       ${embebido && !soloVer ? `<a class="btn btn-ghost btn-icon" href="#/editar/${v.id}" aria-label="Editar" title="Editar">${icon("edit")}</a>` : ""}
     </div>
-${nDesm ? `<button class="btn btn-ghost btn-block d-desm" data-act="desmontaje">${icon("tool")}Desmontaje${nDesm || v.desmontador ? ` <small>${[v.desmontador?.nombre, nDesm ? `${v.desFotos?.length || 0} fotos` : ""].filter(Boolean).map(esc).join(" · ")}</small>` : ""}</button>` : ""}
+${["enreparacion", "reparado"].includes(est) ? `<button class="btn btn-ghost btn-block d-desm" data-act="desmontaje">${icon("tool")}Desmontaje${nDesm || v.desmontador ? ` <small>${[v.desmontador?.nombre, nDesm ? `${v.desFotos?.length || 0} fotos` : ""].filter(Boolean).map(esc).join(" · ")}</small>` : ""}</button>` : ""}
 
     <section class="d-sec">
       <div class="seg-head"><h3>Seguimiento</h3>
@@ -636,10 +636,12 @@ export function abrirDesmontaje(v0) {
 
 function elegirTecnicoDesm(v, listo) {
   const c = S.company || {};
+  // Solo los que tienen el rol Desmontador
   const miembros = (c.members || []).map(uid => ({ uid, nombre: c.memberNames?.[uid] || "Usuario", rol: c.roles?.[uid] }))
-    .sort((a, b) => (b.rol === "desmontaje") - (a.rol === "desmontaje") || a.nombre.localeCompare(b.nombre));
+    .filter(m => m.rol === "desmontaje").sort((a, b) => a.nombre.localeCompare(b.nombre));
+  if (!miembros.length && !v.desmontador) return toast("No hay desmontadores en el operativo. Asignale el rol Desmontador a alguien desde Operativo.", "error");
   const s = openSheet({ title: "¿Quién lo desmontó?", body: `<div class="stack etapa-opciones">
-    ${miembros.map(m => `<button type="button" class="btn btn-block etapa-op ${v.desmontador?.uid === m.uid ? "on" : ""}" data-uid="${esc(m.uid)}">${esc(m.nombre)}${m.rol === "desmontaje" ? " <small class=\"muted\">Desmontaje</small>" : ""}</button>`).join("")}
+    ${miembros.map(m => `<button type="button" class="btn btn-block etapa-op ${v.desmontador?.uid === m.uid ? "on" : ""}" data-uid="${esc(m.uid)}">${esc(m.nombre)}</button>`).join("")}
     ${v.desmontador ? `<button type="button" class="btn btn-ghost btn-block" data-uid="">Quitar</button>` : ""}</div>` });
   s.el.addEventListener("click", e => {
     const b = e.target.closest("[data-uid]"); if (!b) return;

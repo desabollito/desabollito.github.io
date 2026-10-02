@@ -782,6 +782,21 @@ async function alRecibirTexto(env, m, quien, texto) {
   }
 
   const datos = interpretar(sinMencion);
+  if (datos.patente) {
+    const r = await abrirModoDesm(env, numero, quien, sinMencion, datos, hora);
+    if (r?.msg) return responder(env, dest(m), r.msg);
+    if (r?.ok) return tilde(env, m);
+  }
+  // Ventana de desmontaje abierta: todo el texto va a la nota de desmontaje (salvo "ok", que cierra)
+  if (!datos.patente && s?.desm && abierta(s)) {
+    if (await ventanaDesm(env, numero, s, hora)) {
+      if (!(grupo ? esCierreGrupo(texto) : esCierre(texto))) {
+        await notaDesm(env, s.desm.cid, s.desm.vid, quien, sinMencion.trim(), loteWa(numero, s));
+        return tilde(env, m);
+      }
+    } else if (!grupo) return responder(env, dest(m), `⏱️ Pasaron 5 minutos y se cerró *${s.patente}*. Mandá la patente de nuevo para seguir cargando el desmontaje.`);
+    else return;
+  }
   if (datos.patente) try {
     // Si el vehículo abierto se borró desde la app, no se sigue cargando ahí: se crea de nuevo
     const sigue = abierta(s) && s.patente === datos.patente ? await fsGet(env, `companies/${s.cid}/vehicles/${s.vid}`) : null;
@@ -1032,7 +1047,35 @@ async function rolEn(env, cid, uid) {
   return c.roles[uid] || "";
 }
 const esDesm = async (env, cid, uid) => (await rolEn(env, cid, uid)) === "desmontaje";
-const NO_DESM = "🔧 Con el rol *Desmontaje* solo podés cargar fotos y notas de desmontaje a vehículos ya cargados.";
+const NO_DESM = "🔧 Con el rol *Desmontador* solo podés cargar fotos y notas de desmontaje a vehículos ya cargados.";
+const RE_DESM = /(^|\s)desmont(?:aje|ado|ada|e|ar)\b/i, RE_DESM_G = /(^|\s)desmont(?:aje|ado|ada|e|ar)\b/gi;
+const VENTANA_DESM = 300;   // segundos: después de la patente, 5 minutos para fotos y texto de desmontaje
+
+// Modo desmontaje: lo usa el rol Desmontador siempre, y cualquiera que escriba "desmontaje" con la patente.
+// Abre el vehículo (sin cambiar sus datos ni crear vehículos), corta el anterior y da 5 minutos
+// para mandar fotos y texto, que van a la sección Desmontaje. Devuelve null si no corresponde.
+async function abrirModoDesm(env, numero, quien, texto, datos, hora) {
+  const kw = RE_DESM.test(texto);
+  const enc = await buscarPatente(env, datos.patente, quien.uid);
+  const fijo = await operativoFijo(env, numero, quien.uid);
+  const e = enc.find(x => x.cid === fijo?.cid) || enc[0];
+  const rol = e ? await esDesm(env, e.cid, quien.uid) : fijo ? await esDesm(env, fijo.cid, quien.uid) : false;
+  if (!kw && !rol) return null;
+  if (!e) return { msg: `🔎 No encontré la patente *${datos.patente}*.` + (rol ? `\n\n${NO_DESM}` : "") };
+  const s = await leerSesion(env, numero);
+  if (abierta(s)) await cerrarEnSilencio(env, numero, hora - 1);   // otra patente corta la anterior
+  await abrir(env, numero, e, hora, await leerSesion(env, numero), false);
+  await fsMerge(env, `bot_sesiones/${numero}`, { desm: { cid: e.cid, vid: e.vid, hasta: hora + VENTANA_DESM } });
+  await notaDesm(env, e.cid, e.vid, quien, notaDe(texto.replace(RE_DESM_G, " "), datos.patente), loteWa(numero, { desde: hora }));
+  return { ok: true };
+}
+// ¿Sigue abierta la ventana de desmontaje? Si ya pasaron los 5 minutos, se cierra el vehículo.
+async function ventanaDesm(env, numero, s, hora) {
+  if (!s?.desm || !abierta(s) || s.vid !== s.desm.vid) return false;
+  if (hora <= Number(s.desm.hasta)) return true;
+  await fsMerge(env, `bot_sesiones/${numero}`, { cerradaEn: Number(s.desm.hasta), desm: null, ts: Date.now() });
+  return false;
+}
 // Texto del mensaje sin la patente → nota de desmontaje
 function notaDe(texto, patente) {
   const p = buscarPatenteEnTexto(texto);
@@ -1155,7 +1198,7 @@ async function abrir(env, numero, v, hora, previa, nuevo = false) {
   await fsMerge(env, `bot_sesiones/${numero}`, {
     cid: v.cid, vid: v.vid, patente: v.patente, modelo: v.modelo || "", operativo: v.operativo || "",
     desde: hora, ts: Date.now(), cerradaEn: null, crear: null, opciones: null, datos: null, elegirOperativo: null,
-    anterior: anterior || null, tanda
+    anterior: anterior || null, tanda, desm: null
   });
 }
 
@@ -1266,14 +1309,17 @@ async function alRecibirArchivo(env, m, quien) {
   if (caption && buscarPatenteEnTexto(caption)) {
     datos = interpretar(caption);
   }
-  if (datos?.patente && !(abierta(sesion) && sesion.patente === datos.patente)) {
+  // Pie de foto con patente en modo desmontaje (rol Desmontador o "desmontaje AB123CD")
+  const rDesm = datos?.patente && !(abierta(sesion) && sesion.patente === datos.patente && sesion.desm)
+    ? await abrirModoDesm(env, numero, quien, quitarMencion(caption), datos, hora) : null;
+  if (rDesm?.msg) return avisarUnaVez(env, m, numero, "desm", rDesm.msg);
+  if (rDesm?.ok) sesion = await leerSesion(env, numero);
+  else if (datos?.patente && !(abierta(sesion) && sesion.patente === datos.patente)) {
     if (abierta(sesion)) await cerrarEnSilencio(env, numero, hora - 1);
     const pregunta = await prepararVehiculo(env, numero, datos, hora, await leerSesion(env, numero), quien);
     if (pregunta) await responder(env, dest(m), pregunta);
     await recordarMensaje(env, m, numero, caption, datos.patente).catch(() => {});
     sesion = await leerSesion(env, numero);
-    if (abierta(sesion) && sesion.patente === datos.patente && await esDesm(env, sesion.cid, quien.uid))
-      await notaDesm(env, sesion.cid, sesion.vid, quien, notaDe(quitarMencion(caption), datos.patente), loteWa(numero, sesion));
   }
 
   if (m._grupo) {
@@ -1290,6 +1336,9 @@ async function alRecibirArchivo(env, m, quien) {
       sesion = await leerSesion(env, numero);
     }
   }
+  // Modo desmontaje: pasados los 5 minutos el vehículo queda cerrado
+  const enDesm = await ventanaDesm(env, numero, sesion, hora);
+  if (sesion?.desm && !enDesm) sesion = await leerSesion(env, numero);
   const destino = destinoDe(sesion, hora);
   if (!destino) {
     if (sesion?.crear?.datos?.patente) {
@@ -1323,7 +1372,7 @@ async function alRecibirArchivo(env, m, quien) {
 
   // Agregar al vehículo (la web lo muestra al instante). Sin ✅ por foto: el resumen llega al cerrar.
   const origen = { via: "whatsapp", byWhatsApp: numero, byName: quien.nombre };
-  if (await esDesm(env, destino.cid, quien.uid)) {
+  if (enDesm || await esDesm(env, destino.cid, quien.uid)) {
     // Rol Desmontaje: las fotos van a la sección Desmontaje del vehículo
     if (esFoto) await fsAppend(env, ruta, "desFotos", { url: subido.secure_url, publicId: subido.public_id, lote: loteWa(numero, destino),
       t: Date.now(), uid: quien.uid || "", por: quien.nombre || numero, via: "whatsapp" });
