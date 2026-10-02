@@ -18,3 +18,4 @@ const idn = (await get("bot_estado/identidad")).fields || {};
 console.log(`::notice::identidad: ${String(JSON.stringify(idn)).slice(0, 3000)}`);
 const ed = await listar("bot_ediciones");
 console.log("::notice::ediciones: " + ed.map(d => d.name.split("/").pop() + " " + JSON.stringify(d.fields.texto) + (d.fields.fallo ? " FALLO" : "")).join(" | "));
+// 1790942819
