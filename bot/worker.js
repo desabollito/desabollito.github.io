@@ -1010,6 +1010,10 @@ export function esTurnosHoy(t) {
   if (!/\bhoy\b/.test(x) || x.split(" ").length > 7) return false;
   return /\b(vehiculos?|autos?|coches?|turnos?|turnados?|agenda|que (viene|vienen|hay|tenemos|entra|entran)|quien viene|quienes vienen)\b/.test(x);
 }
+const CIA_CORTA = { "Rivadavia": "Riv", "San Cristóbal": "SC", "Federación": "Fed", "Mercantil Andina": "Merc", "Provincia Seguros": "Prov",
+  "Paraná Seguros": "Paraná", "Galicia Seguros": "Galicia", "Nación Seguros": "Nación", "Río Uruguay": "RUS", "La Segunda": "Segunda",
+  "La Holando": "Holando", "Cooperación Seguros": "Coop", "Mercantil": "Merc" };
+const ciaCorta = c => CIA_CORTA[c] || c || "";
 async function textoTurnosHoy(env, numero, uid) {
   const hoy = new Date(Date.now() - 3 * 3600 * 1000).toISOString().slice(0, 10);
   // Solo el operativo actual
@@ -1023,8 +1027,8 @@ async function textoTurnosHoy(env, numero, uid) {
   }
   if (!lista.length) return `📅 Hoy no hay turnos en *${fijo.operativo}*.`;
   lista.sort((a, b) => String(a.horaTurno || "99").localeCompare(String(b.horaTurno || "99")));
-  const linea = v => [v.modelo || "Sin modelo", v.patente, v.grado ? `Grado ${v.grado}` : "", v.compania].filter(Boolean).join(" · ");
-  return `📅 *Turnos de hoy* · ${fijo.operativo} (${lista.length})\n\n` + lista.map(linea).join("\n");
+  const linea = v => [v.modelo || "Sin modelo", v.patente, v.grado ? `G${v.grado}` : "", ciaCorta(v.compania)].filter(Boolean).map(x => "`" + x + "`").join(" ");
+  return `📅 *Turnos de hoy · ${fijo.operativo}*\n\n` + lista.map(linea).join("\n\n");
 }
 
 // "agregar PATENTE …": suma los datos a un vehículo existente. Los textos (detalles, repuestos, pintura)
