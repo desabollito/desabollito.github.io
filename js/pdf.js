@@ -23,7 +23,7 @@ async function cargarImagen(url) {
 
 // Encabezado: nombre a la izquierda; logo del sello a la derecha y su texto al lado del logo.
 // El alto crece si el texto del sello o el logo lo necesitan. Devuelve el alto del encabezado.
-function encabezado(doc, empresa, subtitulo, tituloTxt = null) {
+function encabezado(doc, empresa, subtitulo, tituloTxt = null, { soloLogo = false } = {}) {
   const W = doc.internal.pageSize.getWidth(), M = 16;
   const sello = empresa?.seal || {};
   // medir logo y texto antes de pintar el fondo
@@ -37,7 +37,7 @@ function encabezado(doc, empresa, subtitulo, tituloTxt = null) {
     } catch (e) { console.warn("logo del sello", e); }
   }
   doc.setFont("helvetica", "normal"); doc.setFontSize(7.5);
-  const lineas = sello.texto ? doc.splitTextToSize(sello.texto, 64) : [];
+  const lineas = sello.texto && !soloLogo ? doc.splitTextToSize(sello.texto, 64) : [];
   const LH = 3.5;
   const alto = Math.max(34, logo ? logo.h + 12 : 0, lineas.length ? 9 + lineas.length * LH + 4 : 0);
 
@@ -50,9 +50,9 @@ function encabezado(doc, empresa, subtitulo, tituloTxt = null) {
   doc.setFont("helvetica", "bold");
   let fs = 15; doc.setFontSize(fs);
   while (fs > 10 && doc.getTextWidth(tit) > W - 2 * M - anchoSello) doc.setFontSize(--fs);
-  doc.text(tit, M, alto / 2 - 2);
+  doc.text(tit, M, subtitulo ? alto / 2 - 2 : alto / 2 + 2);
   doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(175, 192, 215);
-  doc.text(subtitulo, M, alto / 2 + 5);
+  if (subtitulo) doc.text(subtitulo, M, alto / 2 + 5);
 
   let xTexto = W - M;
   if (logo) {
@@ -113,7 +113,7 @@ function titulo(doc, txt, x, y, w) {
 export async function presupuestoPDF(v, empresa, { conFotos = false, onProgreso } = {}) {
   const doc = nuevoDoc();
   const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), M = 16, CW = W - M * 2;
-  const hh = encabezado(doc, empresa, "Granizo por método sacabollo", "Presupuesto de reparación");
+  const hh = encabezado(doc, empresa, "Granizo por método sacabollo", "PRESUPUESTO DE REPARACIÓN");
 
   // Vehículo
   let y = hh + 14;
@@ -126,11 +126,10 @@ export async function presupuestoPDF(v, empresa, { conFotos = false, onProgreso 
   const datos = [
     ["Asegurado", v.asegurado], ["Teléfono", v.telefono],
     ["Compañía de seguro", v.compania], ["Localidad", v.localidad],
-    ["Fecha de peritaje", fecha(v.fechas?.peritado)], ["Estado", ESTADO[estadoActual(v)].label]
+    ["Fecha de peritaje", fecha(v.fechas?.peritado)], ["Grado de daño", v.grado ? `Grado ${v.grado}` : "-"]
   ];
   if (v.fechas?.reparado) datos.push(["Fecha de reparación", fecha(v.fechas.reparado)]);
   const marcadas = piezasMarcadas(v);
-  if (v.grado && !marcadas.length) datos.push(["Grado de daño", `Grado ${v.grado}`]);
   const colW = CW / 2;
   datos.forEach(([l, val], i) => {
     const cx = M + (i % 2) * colW, cy = y + Math.floor(i / 2) * 12;
@@ -154,13 +153,6 @@ export async function presupuestoPDF(v, empresa, { conFotos = false, onProgreso 
       doc.setFillColor(...AZUL); doc.circle(cx, cy - 1.2, 1.1, "F");
       doc.text(PIEZA[k].label, cx + 4, cy);
     });
-    doc.setFontSize(8); doc.setTextColor(...GRIS);
-    doc.text(`${marcadas.length} ${marcadas.length === 1 ? "paño" : "paños"}`, lx, y + altoMapa - 2);
-    if (v.grado) {
-      const tx = lx + doc.getTextWidth(`${marcadas.length} paños`) + 6;
-      doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(...INK);
-      doc.text(`Grado de daño: ${v.grado}`, tx, y + altoMapa - 2);
-    }
     y += altoMapa + 8;
   }
 
@@ -173,9 +165,21 @@ export async function presupuestoPDF(v, empresa, { conFotos = false, onProgreso 
       const bx = M + i * (bw + 8);
       titulo(doc, t, bx, y, bw);
       doc.setFont("helvetica", "normal"); doc.setFontSize(9.5); doc.setTextColor(40, 52, 70);
-      const lineas = doc.splitTextToSize(txt, bw);
-      doc.text(lineas, bx, y + 8);
-      maxY = Math.max(maxY, y + 8 + lineas.length * 4.6);
+      if (t === "Observaciones") {
+        const lineas = doc.splitTextToSize(txt, bw);
+        doc.text(lineas, bx, y + 8);
+        maxY = Math.max(maxY, y + 8 + lineas.length * 4.6);
+      } else {
+        // Repuestos y pintura: un ítem por línea con un punto, como los paños
+        let iy = y + 8;
+        String(txt).split(/\n|,/).map(x => x.trim()).filter(Boolean).forEach(item => {
+          const ls = doc.splitTextToSize(item, bw - 4);
+          doc.setFillColor(...AZUL); doc.circle(bx + 1.1, iy - 1.2, 1.1, "F");
+          doc.text(ls, bx + 4, iy);
+          iy += ls.length * 4.6 + 1.6;
+        });
+        maxY = Math.max(maxY, iy);
+      }
     });
     y = maxY + 6;
   }
@@ -212,7 +216,7 @@ export async function presupuestoPDF(v, empresa, { conFotos = false, onProgreso 
     }
     if (imgs.length) {
       doc.addPage();
-      const hf = encabezado(doc, empresa, `Registro fotográfico · ${v.modelo || ""} ${v.patente || ""}`, "Presupuesto de reparación");
+      const hf = encabezado(doc, empresa, "", "REGISTRO FOTOGRÁFICO", { soloLogo: true });
       const cols = 3, gap = 4, cw = (CW - gap * (cols - 1)) / cols, ch = cw * 0.75;
       let fy = hf + 10, c = 0;
       for (const im of imgs) {
@@ -228,7 +232,7 @@ export async function presupuestoPDF(v, empresa, { conFotos = false, onProgreso 
     }
   }
 
-  pie(doc, `${empresa?.name || "Desabollito"} · generado el ${new Date().toLocaleDateString("es-AR")}`);
+  pie(doc, `Generado el ${new Date().toLocaleDateString("es-AR")}`);
   return doc;
 }
 
