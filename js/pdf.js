@@ -173,13 +173,20 @@ export async function presupuestoPDF(v, empresa, { conFotos = false, onProgreso 
     mapaPiezas(doc, v.piezas, M, y, altoMapa);
     const lx = M + altoMapa * 240 / 422 + 10;
     doc.setFont("helvetica", "normal"); doc.setFontSize(9.5); doc.setTextColor(...INK);
-    const col2 = marcadas.length > 7;
-    marcadas.forEach((k, i) => {
-      const cx = lx + (col2 && i >= Math.ceil(marcadas.length / 2) ? 62 : 0);
-      const cy = y + 5 + (col2 ? i % Math.ceil(marcadas.length / 2) : i) * 7;
-      doc.setFillColor(...C_PUNTOS); doc.circle(cx, cy - 1.2, 1.1, "F");
-      doc.text(PIEZA[k].label, cx + 4, cy);
-    });
+    // Capot, techo y baúl en una línea; abajo, lado izquierdo y lado derecho (con los parantes) en dos columnas
+    const punto = (txt, cx, cy) => { doc.setFillColor(...C_PUNTOS); doc.circle(cx, cy - 1.2, 1.1, "F"); doc.setTextColor(...INK); doc.text(txt, cx + 4, cy); return doc.getTextWidth(txt) + 12; };
+    const centro = ["capot", "techo", "baul"].filter(k => v.piezas?.[k]);
+    const izq = ["parante_izq", "gf_izq", "pd_izq", "pt_izq", "gt_izq"].filter(k => v.piezas?.[k]);
+    const der = ["parante_der", "gf_der", "pd_der", "pt_der", "gt_der"].filter(k => v.piezas?.[k]);
+    let py = y + 5;
+    if (centro.length) { let cx = lx; centro.forEach(k => { cx += punto(PIEZA[k].label, cx, py); }); py += 10; }
+    if (izq.length || der.length) {
+      doc.setFont("helvetica", "bold"); doc.setFontSize(7.5); doc.setTextColor(...GRIS);
+      doc.text("LADO IZQUIERDO", lx, py); doc.text("LADO DERECHO", lx + 62, py);
+      doc.setFont("helvetica", "normal"); doc.setFontSize(9.5);
+      izq.forEach((k, i) => punto(PIEZA[k].label, lx, py + 6 + i * 7));
+      der.forEach((k, i) => punto(PIEZA[k].label, lx + 62, py + 6 + i * 7));
+    }
     y += altoMapa + 8;
   }
 

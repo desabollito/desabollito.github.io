@@ -94,10 +94,19 @@ const gradoHTML = v => v.grado ? `<div class="grado-fila"><span class="grado-tag
 
 // Paños agrupados para el detalle en escritorio: centro y parantes, lateral izquierdo, lateral derecho
 const GRUPOS_PIEZAS = [
-  ["capot", "techo", "baul", "parante_izq", "parante_der"],
-  ["gf_izq", "pd_izq", "pt_izq", "gt_izq"],
-  ["gf_der", "pd_der", "pt_der", "gt_der"]
+  ["capot", "techo", "baul"],
+  ["parante_izq", "gf_izq", "pd_izq", "pt_izq", "gt_izq"],
+  ["parante_der", "gf_der", "pd_der", "pt_der", "gt_der"]
 ];
+// Capot/techo/baúl en una línea; abajo, lado izquierdo y lado derecho en dos columnas
+const listaPiezas = ks => `<ul class="piezas-list">${ks.map(k => `<li>${esc(PIEZA[k].label)}</li>`).join("")}</ul>`;
+function piezasAgrupadas(v) {
+  const [centro, izq, der] = GRUPOS_PIEZAS.map(g => g.filter(k => v.piezas?.[k]));
+  return (centro.length ? listaPiezas(centro).replace('class="piezas-list"', 'class="piezas-list piezas-centro"') : "") +
+    (izq.length || der.length ? `<div class="piezas-lados">
+      <div><small class="muted">Lado izquierdo</small>${izq.length ? listaPiezas(izq) : `<p class="muted small">—</p>`}</div>
+      <div><small class="muted">Lado derecho</small>${der.length ? listaPiezas(der) : `<p class="muted small">—</p>`}</div></div>` : "");
+}
 
 function tarjeta(v, sel) {
   const foto = v.fotos?.[0]?.url, rot0 = v.fotos?.[0]?.rot;
@@ -423,8 +432,7 @@ ${["enreparacion", "reparado", "facturado"].includes(est) ? `<button class="btn 
         <p class="piezas-caption" aria-live="polite">${todos ? "<strong>Todos</strong>" : marcadas.length ? "Tocá un paño para ver su nombre" : "Sin paños marcados"}</p>
         <div class="piezas-grupos">${todos ? `<ul class="piezas-list"><li>Todos</li></ul>`
           : !marcadas.length ? `<ul class="piezas-list"><li class="muted">Sin paños marcados</li></ul>`
-          : GRUPOS_PIEZAS.map(g => g.filter(k => v.piezas?.[k])).filter(g => g.length)
-              .map(g => `<ul class="piezas-list">${g.map(k => `<li>${esc(PIEZA[k].label)}</li>`).join("")}</ul>`).join("")}</div>
+          : piezasAgrupadas(v)}</div>
       </div>
       <p class="piezas-caption caption-3d" ${modo3D ? "" : "hidden"}>Arrastrá para girar · tocá un paño</p>
 `}
