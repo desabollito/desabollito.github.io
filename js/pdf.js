@@ -36,39 +36,46 @@ async function cargarImagen(url) {
 function encabezado(doc, empresa, subtitulo, tituloTxt = null, { soloLogo = false } = {}) {
   const W = doc.internal.pageSize.getWidth(), M = 16;
   const sello = empresa?.seal || {};
+  // Tamaños elegidos en el sello (titulo y subtitulo y datos en puntos, logo en mm de ancho)
+  const tm = sello.tam || {};
+  const T = { titulo: +tm.titulo || 15, sub: +tm.sub || 9, logo: +tm.logo || 46, datos: +tm.datos || 7.5 };
   // medir logo y texto antes de pintar el fondo
   let logo = null;
   if (sello.logo) {
     try {
       const p = doc.getImageProperties(sello.logo);
-      let w = 46, h = p.height / p.width * w;
-      if (h > 24) { h = 24; w = p.width / p.height * h; }
+      const k = T.logo / 46;   // tamaño del logo elegido (46 = normal)
+      let w = T.logo, h = p.height / p.width * w;
+      if (h > 24 * k) { h = 24 * k; w = p.width / p.height * h; }
       logo = { p, w, h };
     } catch (e) { console.warn("logo del sello", e); }
   }
-  doc.setFont("helvetica", "normal"); doc.setFontSize(7.5);
-  const lineas = sello.texto && !soloLogo ? doc.splitTextToSize(sello.texto, 64) : [];
-  const LH = 3.5;
-  const alto = Math.max(34, logo ? logo.h + 12 : 0, lineas.length ? 9 + lineas.length * LH + 4 : 0);
+  doc.setFont("helvetica", "normal"); doc.setFontSize(T.datos);
+  const lineas = sello.texto && !soloLogo ? doc.splitTextToSize(sello.texto, 64 * T.datos / 7.5) : [];
+  const LH = T.datos * 0.47;
+  const PT = 0.353;   // mm por punto
+  const bloque = T.titulo * PT + (subtitulo ? 2.6 + T.sub * PT : 0);
+  const alto = Math.max(34, logo ? logo.h + 12 : 0, lineas.length ? 9 + lineas.length * LH + 4 : 0, bloque + 18);
 
   doc.setFillColor(...AZUL); doc.rect(0, 0, W, alto, "F");
   const tit = tituloTxt || empresa?.name || "Desabollito";
-  doc.setFont("helvetica", "normal"); doc.setFontSize(7.5);
+  doc.setFont("helvetica", "normal"); doc.setFontSize(T.datos);
   const anchoTexto = lineas.length ? Math.max(...lineas.map(l => doc.getTextWidth(l))) : 0;
   const ponerLogo = x => { try { doc.addImage(sello.logo, logo.p.fileType || "PNG", x, (alto - logo.h) / 2, logo.w, logo.h, undefined, "FAST"); } catch (e) { console.warn("logo del sello", e); } };
   const ponerTexto = (x, align) => {
     if (!lineas.length) return;
-    doc.setFont("helvetica", "normal"); doc.setFontSize(7.5); doc.setTextColor(222, 232, 252);
-    const y0 = (alto - lineas.length * LH) / 2 + 2.6;
+    doc.setFont("helvetica", "normal"); doc.setFontSize(T.datos); doc.setTextColor(222, 232, 252);
+    const y0 = (alto - lineas.length * LH) / 2 + T.datos * PT;
     lineas.forEach((l, i) => doc.text(l, x, y0 + i * LH, { align }));
   };
   const ponerTitulo = (x, disponible, align) => {
     doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold");
-    let fs = 15; doc.setFontSize(fs);
-    while (fs > 10 && doc.getTextWidth(tit) > disponible) doc.setFontSize(--fs);
-    doc.text(tit, x, subtitulo ? alto / 2 - 2 : alto / 2 + 2, { align });
-    doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(222, 232, 252);
-    if (subtitulo) doc.text(subtitulo, x, alto / 2 + 5, { align });
+    let fs = T.titulo; doc.setFontSize(fs);
+    while (fs > 8 && doc.getTextWidth(tit) > disponible) doc.setFontSize(fs -= 0.5);
+    const yT = (alto - (fs * PT + (subtitulo ? 2.6 + T.sub * PT : 0))) / 2 + fs * PT;
+    doc.text(tit, x, yT, { align });
+    doc.setFont("helvetica", "normal"); doc.setFontSize(T.sub); doc.setTextColor(222, 232, 252);
+    if (subtitulo) doc.text(subtitulo, x, yT + 2.6 + T.sub * PT, { align });
   };
 
   if (sello.diseno === "centrado") {

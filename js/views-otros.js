@@ -308,6 +308,10 @@ export function vistaEmpresa(view) {
         <div class="field"><span>Diseño del encabezado</span>
           <div class="seg seg-sm" id="diseno-pdf">${[["clasico", "Título a la izquierda"], ["centrado", "Logo · Título · Datos"]].map(([k, t]) =>
             `<button type="button" class="seg-btn ${(sello.diseno || "clasico") === k ? "on" : ""}" data-diseno="${k}" ${admin ? "" : "disabled"}>${t}</button>`).join("")}</div></div>
+        <div class="field tam-pdf"><span>Tamaños del encabezado</span>
+          ${[["titulo", "Título", 10, 24, 0.5, 15], ["sub", "Subtítulo", 6, 14, 0.5, 9], ["logo", "Logo", 20, 80, 1, 46], ["datos", "Datos de facturación", 5, 12, 0.5, 7.5]].map(([k, t, mn, mx, st, def]) =>
+            `<label class="tam-item"><span>${t}</span><input type="range" name="tam_${k}" min="${mn}" max="${mx}" step="${st}" value="${esc(sello.tam?.[k] || def)}" data-def="${def}" ${admin ? "" : "disabled"}><b>${esc(sello.tam?.[k] || def)}</b></label>`).join("")}
+          ${admin ? `<button type="button" class="link-btn" id="tam-def">Tamaños normales</button>` : ""}</div>
         <div class="field color-pdf"><span>Colores del PDF</span>
           <div class="colores-grid">${[["color", "Encabezado"], ["colorPanos", "Paños afectados"], ["colorTitulos", "Subtítulos y líneas"], ["colorPuntos", "Puntitos"]].map(([k, t]) =>
             `<label class="color-item"><input type="color" name="${k}" value="${esc(sello[k] || sello.color || "#2b5ce6")}" ${admin ? "" : "disabled"}><span>${t}</span></label>`).join("")}</div>
@@ -380,6 +384,8 @@ export function vistaEmpresa(view) {
   $("#logo-del", view)?.addEventListener("click", e => {
     logo = ""; $(".logo-prev", view).classList.add("vacio"); $(".logo-vis", view).textContent = "Subir logo"; e.currentTarget.hidden = true;
   });
+  $$(".tam-item input", view).forEach(i => i.addEventListener("input", () => { i.nextElementSibling.textContent = i.value; }));
+  $("#tam-def", view)?.addEventListener("click", () => $$(".tam-item input", view).forEach(i => { i.value = i.dataset.def; i.nextElementSibling.textContent = i.value; }));
   let diseno = sello.diseno || "clasico";
   $("#diseno-pdf", view)?.addEventListener("click", e => {
     const b = e.target.closest("[data-diseno]"); if (!b || !admin) return;
@@ -389,7 +395,8 @@ export function vistaEmpresa(view) {
   if ($("#sello", view)) $("#sello", view).onsubmit = async e => {
     e.preventDefault(); if (!admin) return;
     try { await guardarSello({ texto: e.target.texto.value.trim(), logo, color: e.target.color.value,
-      colorPanos: e.target.colorPanos.value, colorTitulos: e.target.colorTitulos.value, colorPuntos: e.target.colorPuntos.value, diseno }); toast("Sello guardado", "success"); }
+      colorPanos: e.target.colorPanos.value, colorTitulos: e.target.colorTitulos.value, colorPuntos: e.target.colorPuntos.value, diseno,
+      tam: Object.fromEntries(["titulo", "sub", "logo", "datos"].map(k => [k, Number(e.target[`tam_${k}`].value)])) }); toast("Sello guardado", "success"); }
     catch (err) { toast(mensajeError(err), "error"); }
   };
   $("#salir-emp", view)?.addEventListener("click", async () => {
