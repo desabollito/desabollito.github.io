@@ -1240,7 +1240,7 @@ export function vistaFormulario(view, id = null) {
           <div class="grado-pick">
             <span>Grado de daño</span>
             <div class="seg seg-sm" id="grado" role="radiogroup" aria-label="Grado de daño">
-              ${[1, 2, 3, 4].map(g => `<button type="button" class="seg-btn ${v?.grado === g ? "on" : ""}" data-g="${g}" role="radio" aria-checked="${v?.grado === g}">Grado ${g}</button>`).join("")}
+              ${[1, 2, 3, 4].map(g => `<button type="button" class="seg-btn ${g === 4 ? "g4" : ""} ${v?.grado === g ? "on" : ""}" data-g="${g}" role="radio" aria-checked="${v?.grado === g}" ${g === 4 ? `aria-label="Grado 4" title="Grado 4"` : ""}>${g === 4 ? "+" : `Grado ${g}`}</button>`).join("")}
             </div>
           </div>
         </fieldset>
