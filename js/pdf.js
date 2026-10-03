@@ -169,7 +169,7 @@ export async function presupuestoPDF(v, empresa, { conFotos = false, onProgreso 
   // Piezas: mapa + lista
   if (marcadas.length) {
     titulo(doc, "Paños afectados", M, y, CW); y += 7;
-    const altoMapa = 74;
+    const altoMapa = 56;
     mapaPiezas(doc, v.piezas, M, y, altoMapa);
     const lx = M + altoMapa * 240 / 422 + 10;
     doc.setFont("helvetica", "normal"); doc.setFontSize(9.5); doc.setTextColor(...INK);
@@ -181,17 +181,15 @@ export async function presupuestoPDF(v, empresa, { conFotos = false, onProgreso 
     let py = y + 5;
     if (centro.length) { let cx = lx; centro.forEach(k => { cx += punto(PIEZA[k].label, cx, py); }); py += 10; }
     if (izq.length || der.length) {
-      doc.setFont("helvetica", "bold"); doc.setFontSize(7.5); doc.setTextColor(...GRIS);
-      doc.text("LADO IZQUIERDO", lx, py); doc.text("LADO DERECHO", lx + 62, py);
       doc.setFont("helvetica", "normal"); doc.setFontSize(9.5);
-      izq.forEach((k, i) => punto(PIEZA[k].label, lx, py + 6 + i * 7));
-      der.forEach((k, i) => punto(PIEZA[k].label, lx + 62, py + 6 + i * 7));
+      izq.forEach((k, i) => punto(PIEZA[k].label, lx, py + i * 6.5));
+      der.forEach((k, i) => punto(PIEZA[k].label, lx + 62, py + i * 6.5));
     }
     y += altoMapa + 8;
   }
 
   // Observaciones y repuestos
-  const bloques = [["Observaciones", v.observaciones], ["Repuestos", v.repuestos], ["Pintura", v.pintura]].filter(b => b[1]);
+  const bloques = [["Pintura", v.pintura], ["Repuestos", v.repuestos], ["Observaciones", v.observaciones]].filter(b => b[1]);
   if (bloques.length) {
     const bw = (CW - 8 * (bloques.length - 1)) / bloques.length;
     let maxY = y;
@@ -204,15 +202,16 @@ export async function presupuestoPDF(v, empresa, { conFotos = false, onProgreso 
         doc.text(lineas, bx, y + 8);
         maxY = Math.max(maxY, y + 8 + lineas.length * 4.6);
       } else {
-        // Repuestos y pintura: un ítem por línea con un punto, como los paños
-        let iy = y + 8;
+        // Repuestos y pintura: ítems uno al lado del otro con un punto (pasan de renglón si no entran)
+        let ix = bx, iy = y + 8;
         String(txt).split(/\n|,/).map(x => x.trim()).filter(Boolean).forEach(item => {
-          const ls = doc.splitTextToSize(item, bw - 4);
-          doc.setFillColor(...C_PUNTOS); doc.circle(bx + 1.1, iy - 1.2, 1.1, "F");
-          doc.text(ls, bx + 4, iy);
-          iy += ls.length * 4.6 + 1.6;
+          const ancho = Math.min(doc.getTextWidth(item), bw - 4) + 4;
+          if (ix > bx && ix + ancho > bx + bw) { ix = bx; iy += 5.6; }
+          doc.setFillColor(...C_PUNTOS); doc.circle(ix + 1.1, iy - 1.2, 1.1, "F");
+          doc.text(doc.splitTextToSize(item, bw - 4)[0], ix + 4, iy);
+          ix += ancho + 4;
         });
-        maxY = Math.max(maxY, iy);
+        maxY = Math.max(maxY, iy + 4);
       }
     });
     y = maxY + 6;
@@ -221,13 +220,15 @@ export async function presupuestoPDF(v, empresa, { conFotos = false, onProgreso 
   // Total
   if (v.precio) {
     // Barra finita (11 mm) para que entre en la misma hoja
-    if (y + 11 > H - 14) { doc.addPage(); y = 24; }
+    if (y + 17 > H - 14) { doc.addPage(); y = 24; }
     doc.setFillColor(...AZUL); doc.roundedRect(M, y, CW, 11, 2, 2, "F");
     doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(222, 232, 252);
     doc.text("Total del presupuesto", M + 5, y + 7);
     doc.setFont("helvetica", "bold"); doc.setFontSize(14); doc.setTextColor(255, 255, 255);
     doc.text(money(v.precio), W - M - 5, y + 7.6, { align: "right" });
-    y += 16;
+    doc.setFont("helvetica", "normal"); doc.setFontSize(7.5); doc.setTextColor(...GRIS);
+    doc.text("El presupuesto incluye únicamente mano de obra por sacabollo, no incluye pintura ni repuestos en el valor acordado.", M, y + 15, { maxWidth: CW });
+    y += 21;
   }
 
   // Firma del cliente
