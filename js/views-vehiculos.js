@@ -18,7 +18,7 @@ import { armarZip } from "./zip.js";
 import { setTopbar, go, esAncho } from "./shell.js";
 
 // Filtros de la lista (se conservan al navegar)
-const F = { estado: "todos", q: "", mios: false, orden: "fecha", dir: -1, grado: null, repuestos: null, pintura: null, turno: null }; // grado: null = todos, 0 = sin grado
+const F = { estado: "todos", q: "", mios: false, orden: "fecha", dir: -1, grado: null, repuestos: null, pintura: null, turno: null, cias: new Set() }; // grado: null = todos, 0 = sin grado
 const ORDENES = [["fecha", "Fecha"], ["patente", "Patente"], ["modelo", "Modelo"], ["estado", "Estado"]];
 function ordenar(lista) {
   if (F.orden === "fecha" && F.dir === -1) return lista;   // ya viene ordenada por fecha, la más nueva arriba
@@ -34,7 +34,12 @@ const tokensBorrado = new Map(); // publicId → delete_token (válido 10 min)
 // ¿Algún repuesto / paño de pintura del vehículo está en esa fase?
 const docsOn = () => S.config?.documentos !== false;   // el creador puede apagar los documentos
 const tieneEtapa = (v, tipo, fase) => itemsTexto(v[tipo]).some(x => etapaItem(v, tipo, x)[0] === fase);
+// Compañías (filtro múltiple): ninguna o todas marcadas = se ven todas
+const ciaDe = v => String(v.compania || "").trim() || "Sin compañía";
+const ciasDisponibles = () => { const n = new Map(); activos().forEach(v => n.set(ciaDe(v), (n.get(ciaDe(v)) || 0) + 1)); return [...n].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])); };
 function filtrar(lista) {
+  const todas = ciasDisponibles().map(([c]) => c);
+  if (F.cias.size && todas.every(c => F.cias.has(c))) F.cias.clear();
   const q = F.q.trim().toLowerCase();
   return lista.filter(v =>
     (F.estado === "todos" || estadoActual(v) === F.estado) &&
@@ -43,6 +48,7 @@ function filtrar(lista) {
     (!F.repuestos || tieneEtapa(v, "repuestos", F.repuestos)) &&
     (!F.pintura || tieneEtapa(v, "pintura", F.pintura)) &&
     (!F.turno || (estadoActual(v) === "turnado" && (F.turno === "si") === (v.turnoConfirmado === true))) &&
+    (!F.cias.size || F.cias.has(ciaDe(v))) &&
     (!q || [v.modelo, v.patente, v.asegurado, v.compania, v.localidad, v.telefono]
       .some(x => (x || "").toLowerCase().includes(q))));
 }
@@ -112,7 +118,7 @@ export function vistaVehiculos(view, selId = null) {
   if (selId && !ancho) return vistaDetalle(view, selId);
 
   const filtroActivo = () => F.mios || F.grado !== null || F.repuestos || F.pintura || F.turno;
-  const ordenActivo = () => F.orden !== "fecha" || F.dir !== -1;
+  const ordenActivo = () => F.orden !== "fecha" || F.dir !== -1 || F.cias.size > 0;
   setTopbar({
     title: "Vehículos",
     sub: S.company?.name,
@@ -124,7 +130,7 @@ export function vistaVehiculos(view, selId = null) {
       <section class="pane-list">
         <div class="list-tools">
           <label class="search">${icon("search")}
-            <input type="search" id="q" placeholder="Buscar patente, modelo, asegurado…" value="${esc(F.q)}" autocomplete="off"></label>
+            <input type="search" id="q" placeholder="Buscar patente, modelo…" value="${esc(F.q)}" autocomplete="off"></label>
           <div class="estado-strip" id="estado-strip" role="tablist" aria-label="Filtrar por estado"></div>
         </div>
         <div id="vlist" class="vlist"></div>
@@ -156,7 +162,7 @@ export function vistaVehiculos(view, selId = null) {
       ? lista.map(v => tarjeta(v, v.id === selId)).join("")
       : `<div class="empty small"><p>Ningún vehículo coincide con la búsqueda.</p>
          <button class="btn btn-ghost" id="limpiar">Limpiar filtros</button></div>`;
-    $("#limpiar", box)?.addEventListener("click", () => { F.q = ""; F.estado = "todos"; F.mios = false; F.grado = null; F.repuestos = null; F.pintura = null; F.turno = null; $("#tb-filtros")?.classList.remove("activo"); $("#q", view).value = ""; pintar(); });
+    $("#limpiar", box)?.addEventListener("click", () => { F.q = ""; F.estado = "todos"; F.mios = false; F.cias.clear(); $("#tb-orden")?.classList.remove("activo"); F.grado = null; F.repuestos = null; F.pintura = null; F.turno = null; $("#tb-filtros")?.classList.remove("activo"); $("#q", view).value = ""; pintar(); });
   };
 
   $("#q", view).addEventListener("input", debounce(e => { F.q = e.target.value; pintar(); }, 120));
@@ -174,7 +180,7 @@ export function vistaVehiculos(view, selId = null) {
       <button class="btn btn-ghost btn-sm" id="f-reset">Quitar filtros</button></div>` });
     const chipsGrado = () => {
       const n = g => activos().filter(v => (v.grado || 0) === g).length;
-      $("#f-grado", s.el).innerHTML = [[1, "Grado 1"], [2, "Grado 2"], [3, "Grado 3"], [4, "Grado 4"], [0, "Sin grado"]].map(([g, t]) =>
+      $("#f-grado", s.el).innerHTML = [[1, "Grado 1"], [2, "Grado 2"], [3, "Grado 3"], [4, "Grado 4"], [0, "Sin grado"]].filter(([g]) => g !== 0 || n(0) || F.grado === 0).map(([g, t]) =>
         `<button type="button" class="p-chip ${F.grado === g ? "on" : ""}" data-grado="${g}">${t} <b class="f-n">${n(g)}</b></button>`).join("");
     };
     chipsGrado();
@@ -209,13 +215,18 @@ export function vistaVehiculos(view, selId = null) {
   });
   // Ordenar (botón al lado de Filtros): tocar un criterio lo elige; tocarlo de nuevo invierte el orden
   $("#tb-orden")?.addEventListener("click", () => {
-    const hoja = openSheet({ title: "Ordenar por", body: `<div class="p-chips" id="o-chips"></div>` });
+    const hoja = openSheet({ title: "Ordenar por", body: `<div class="stack filtros"><div class="p-chips" id="o-chips"></div>
+      <span class="muted small">Compañías <small>(podés marcar varias)</small></span><div class="p-chips" id="o-cias"></div></div>` });
     const chips = () => {
       $("#o-chips", hoja.el).innerHTML = ORDENES.map(([k, t]) => `<button type="button" class="p-chip ${F.orden === k ? "on" : ""}" data-orden="${k}">${t}${F.orden === k ? `<i>${F.dir > 0 ? "↑" : "↓"}</i>` : ""}</button>`).join("");
+      $("#o-cias", hoja.el).innerHTML = ciasDisponibles().map(([c, n]) => `<button type="button" class="p-chip ${F.cias.has(c) ? "on" : ""}" data-cia="${esc(c)}">${esc(c)} <b class="f-n">${n}</b></button>`).join("")
+        || `<span class="muted small">Sin vehículos</span>`;
       $("#tb-orden")?.classList.toggle("activo", ordenActivo());
     };
     chips();
     hoja.el.addEventListener("click", e => {
+      const c = e.target.closest("[data-cia]");
+      if (c) { const k = c.dataset.cia; F.cias.has(k) ? F.cias.delete(k) : F.cias.add(k); pintar(); chips(); return; }
       const b = e.target.closest("[data-orden]"); if (!b) return;
       if (F.orden === b.dataset.orden) F.dir *= -1; else { F.orden = b.dataset.orden; F.dir = F.orden === "fecha" ? -1 : 1; }
       chips(); pintar();
@@ -1224,7 +1235,7 @@ export function vistaFormulario(view, id = null) {
             <label class="field"><span>Localidad</span>
               <input name="localidad" value="${esc(v ? v.localidad : (S.company?.name || ""))}" list="dl-loc" placeholder="Ej: Córdoba" autocomplete="off"></label>
           </div>
-          <datalist id="dl-comp">${opciones("compania")}</datalist>
+          <datalist id="dl-comp">${[...new Set(["Particular", ...activos().map(x => x.compania).filter(Boolean)])].sort().map(o => `<option value="${esc(o)}">`).join("")}</datalist>
           <datalist id="dl-loc">${opciones("localidad")}</datalist>
         </fieldset>
         <div class="vform-der">
