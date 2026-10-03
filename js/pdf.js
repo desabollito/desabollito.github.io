@@ -164,7 +164,7 @@ export async function presupuestoPDF(v, empresa, { conFotos = false, onProgreso 
     doc.setFont("helvetica", "bold"); doc.setFontSize(10); doc.setTextColor(...INK);
     doc.text(doc.splitTextToSize(String(val || "-"), colW - 6)[0], cx, cy + 5);
   });
-  y += Math.ceil(datos.length / 2) * 12 + 4;
+  y += Math.ceil(datos.length / 2) * 12 + 10;   // aire antes de "Paños afectados"
 
   // Piezas: mapa + lista
   if (marcadas.length) {
@@ -181,9 +181,11 @@ export async function presupuestoPDF(v, empresa, { conFotos = false, onProgreso 
     let py = y + 5;
     if (centro.length) { let cx = lx; centro.forEach(k => { cx += punto(PIEZA[k].label, cx, py); }); py += 10; }
     if (izq.length || der.length) {
+      doc.setFont("helvetica", "bold"); doc.setFontSize(7.5); doc.setTextColor(...GRIS);
+      doc.text("LADO IZQUIERDO", lx, py); doc.text("LADO DERECHO", lx + 62, py);
       doc.setFont("helvetica", "normal"); doc.setFontSize(9.5);
-      izq.forEach((k, i) => punto(PIEZA[k].label, lx, py + i * 6.5));
-      der.forEach((k, i) => punto(PIEZA[k].label, lx + 62, py + i * 6.5));
+      izq.forEach((k, i) => punto(PIEZA[k].label, lx, py + 6 + i * 6.5));
+      der.forEach((k, i) => punto(PIEZA[k].label, lx + 62, py + 6 + i * 6.5));
     }
     y += altoMapa + 8;
   }
@@ -193,10 +195,10 @@ export async function presupuestoPDF(v, empresa, { conFotos = false, onProgreso 
   // Una fila por sección (de lado a lado de la hoja): el nombre a la izquierda y los ítems uno al lado del otro
   if (bloques.length) {
     const LX = M + 32, LW = CW - 32;
-    doc.setDrawColor(...LINEA); doc.setLineWidth(0.3); doc.line(M, y - 4, M + CW, y - 4);
+    doc.setDrawColor(...LINEA); doc.setLineWidth(0.3); doc.line(M, y - 4, M + CW, y - 4); y += 2.5;
     // Línea fina entre Pintura, Repuestos y Observaciones (no después de la última)
     let n = 0;
-    const sep = () => { if (++n < bloques.length) { doc.setDrawColor(...LINEA); doc.setLineWidth(0.3); doc.line(M, y - 4, M + CW, y - 4); y += 2; } };
+    const sep = () => { if (++n < bloques.length) { y += 2.5; doc.setDrawColor(...LINEA); doc.setLineWidth(0.3); doc.line(M, y - 4, M + CW, y - 4); y += 4.5; } };
     bloques.forEach(([t, txt]) => {
       doc.setFont("helvetica", "bold"); doc.setFontSize(9.5); doc.setTextColor(...C_TIT);
       doc.text(t, M, y);
@@ -235,7 +237,7 @@ export async function presupuestoPDF(v, empresa, { conFotos = false, onProgreso 
 
   // Total: barra siempre al pie de la hoja (texto a la izquierda y precio a la derecha, centrados en alto)
   if (v.precio) {
-    const yBarra = H - 14 - 17;
+    const yBarra = H - 14 - 13;
     if (y > yBarra - 2) doc.addPage();
     y = yBarra;
     doc.setFillColor(...AZUL); doc.roundedRect(M, y, CW, 11, 2, 2, "F");
@@ -244,9 +246,7 @@ export async function presupuestoPDF(v, empresa, { conFotos = false, onProgreso 
     const yt = y + 5.5 + fsT * 0.353 * 0.36;   // centro vertical de la barra (alto de las mayúsculas)
     doc.text("TOTAL DEL PRESUPUESTO", M + 5, yt);
     doc.text(money(v.precio), W - M - 5, yt, { align: "right" });
-    doc.setFont("helvetica", "normal"); doc.setFontSize(7.5); doc.setTextColor(...GRIS);
-    doc.text("El presupuesto incluye únicamente mano de obra por sacabollo, no incluye pintura ni repuestos.", W / 2, y + 15, { maxWidth: CW, align: "center" });
-    y += 21;
+    y += 15;
   }
 
   // Fotos
@@ -275,7 +275,7 @@ export async function presupuestoPDF(v, empresa, { conFotos = false, onProgreso 
     }
   }
 
-  pie(doc, `Generado el ${new Date().toLocaleDateString("es-AR")}`);
+  pie(doc, "El presupuesto incluye únicamente mano de obra por sacabollo, no incluye pintura ni repuestos.");
   return doc;
 }
 
@@ -385,5 +385,7 @@ export function gastosPDF(lista, empresa, periodo, CAT) {
 }
 
 export function nombreArchivo(v) {
-  return `Presupuesto_${(v.patente || v.modelo || "vehiculo").replace(/[^\w-]+/g, "_")}.pdf`;
+  // Presupuesto_PATENTE_31_12_2026.pdf (fecha en que se genera)
+  const d = new Date(), f = [d.getDate(), d.getMonth() + 1].map(n => String(n).padStart(2, "0")).join("_") + "_" + d.getFullYear();
+  return `Presupuesto_${(v.patente || v.modelo || "vehiculo").replace(/[^\w-]+/g, "_")}_${f}.pdf`;
 }
