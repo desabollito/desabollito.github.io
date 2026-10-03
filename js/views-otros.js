@@ -305,6 +305,9 @@ export function vistaEmpresa(view) {
             ${admin ? `<input type="file" accept="image/*" hidden id="logo-in">` : ""}</${admin ? "label" : "div"}>
           ${admin ? `<button type="button" class="link-btn danger" id="logo-del" ${sello.logo ? "" : "hidden"}>Quitar logo</button>` : ""}
         </div>
+        <label class="field color-pdf"><span>Color del encabezado del PDF</span>
+          <span class="color-fila"><input type="color" name="color" value="${esc(sello.color || "#2b5ce6")}" ${admin ? "" : "disabled"}>
+          ${admin ? `<button type="button" class="link-btn" id="color-def">Volver al azul</button>` : ""}</span></label>
         ${admin ? `<button class="btn btn-primary">Guardar sello</button>` : ""}
       </form>
     </details>` : ""}
@@ -373,9 +376,10 @@ export function vistaEmpresa(view) {
   $("#logo-del", view)?.addEventListener("click", e => {
     logo = ""; $(".logo-prev", view).classList.add("vacio"); $(".logo-vis", view).textContent = "Subir logo"; e.currentTarget.hidden = true;
   });
+  $("#color-def", view)?.addEventListener("click", () => { $("#sello [name=color]", view).value = "#2b5ce6"; });
   if ($("#sello", view)) $("#sello", view).onsubmit = async e => {
     e.preventDefault(); if (!admin) return;
-    try { await guardarSello({ texto: e.target.texto.value.trim(), logo }); toast("Sello guardado", "success"); }
+    try { await guardarSello({ texto: e.target.texto.value.trim(), logo, color: e.target.color.value }); toast("Sello guardado", "success"); }
     catch (err) { toast(mensajeError(err), "error"); }
   };
   $("#salir-emp", view)?.addEventListener("click", async () => {

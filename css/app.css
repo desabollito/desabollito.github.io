@@ -1289,3 +1289,5 @@ body[data-rol="desmontaje"] a[href^="#/editar"] { display: none !important; }
 #grado .seg-btn.g4 { flex: 0 0 auto; min-width: 44px; padding-inline: 12px; font-weight: 800; color: #e5484d; }
 #grado .seg-btn.g4.on { background: #e5484d; color: #fff; }
 #vw-vid[hidden] { display: none; }
+.color-fila { display: flex; align-items: center; gap: 12px; }
+.color-pdf input[type=color] { width: 64px; height: 40px; padding: 2px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); cursor: pointer; }

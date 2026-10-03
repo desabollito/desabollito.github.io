@@ -2,7 +2,11 @@ import { PIEZAS, PIEZA, VIDRIOS, ESTADO, estadoActual, piezasMarcadas } from "./
 import { paraPDF, blobADataURL } from "./media.js";
 import { fechaCorta, money } from "./ui.js";
 
-const INK = [14, 27, 44], AZUL = [43, 92, 230], GRIS = [104, 118, 138], LINEA = [218, 224, 232], SUAVE = [244, 246, 249];
+const AZUL_BASE = [43, 92, 230];
+let AZUL = AZUL_BASE;   // color de acento: el que elige el dueño para el encabezado (sello.color) o el azul de siempre
+const hexARgb = h => /^#[0-9a-f]{6}$/i.test(h || "") ? [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)) : null;
+const acento = empresa => { AZUL = hexARgb(empresa?.seal?.color) || AZUL_BASE; };
+const INK = [14, 27, 44], GRIS = [104, 118, 138], LINEA = [218, 224, 232], SUAVE = [244, 246, 249];
 
 const fecha = iso => iso ? iso.split("-").reverse().join("/") : "-";
 
@@ -82,7 +86,7 @@ function pie(doc, texto) {
 function patente(doc, txt, xDer, y) {
   doc.setFont("helvetica", "bold"); doc.setFontSize(12);
   const w = doc.getTextWidth(txt) + 12, x = xDer - w;
-  doc.setFillColor(255, 255, 255); doc.setDrawColor(...AZUL); doc.setLineWidth(0.5);
+  doc.setFillColor(255, 255, 255); doc.setDrawColor(...INK); doc.setLineWidth(0.5);
   doc.roundedRect(x, y, w, 11, 1.6, 1.6, "FD");
   doc.setFillColor(...AZUL); doc.rect(x + 0.25, y + 0.25, w - 0.5, 2.4, "F");
   doc.setTextColor(...INK); doc.text(txt, x + w / 2, y + 8.9, { align: "center" });
@@ -111,6 +115,7 @@ function titulo(doc, txt, x, y, w) {
 }
 
 export async function presupuestoPDF(v, empresa, { conFotos = false, onProgreso } = {}) {
+  acento(empresa);
   const doc = nuevoDoc();
   const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), M = 16, CW = W - M * 2;
   const hh = encabezado(doc, empresa, "Granizo por método sacabollo", "PRESUPUESTO DE REPARACIÓN");
@@ -237,6 +242,7 @@ export async function presupuestoPDF(v, empresa, { conFotos = false, onProgreso 
 }
 
 export function planillaPDF(lista, empresa, filtroTexto = "") {
+  acento(empresa);
   const doc = nuevoDoc("landscape");
   const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), M = 12;
   const hp = encabezado(doc, empresa, `Planilla de vehículos${filtroTexto ? " · " + filtroTexto : ""} · ${new Date().toLocaleDateString("es-AR")}`);
@@ -279,6 +285,7 @@ export function planillaPDF(lista, empresa, filtroTexto = "") {
 }
 
 export function gastosPDF(lista, empresa, periodo, CAT) {
+  acento(empresa);
   const doc = nuevoDoc();
   const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), M = 16, CW = W - M * 2;
   const usd = g => g.moneda === "USD";
