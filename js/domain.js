@@ -1,12 +1,12 @@
 // Estados del trabajo, en orden. "anulado" queda fuera de la secuencia.
-// El paso de reparación avanza con cada toque: Reparando → Revisión → Llamado → Entregado
+// El paso de reparación avanza con cada toque: Reparando → Revisión → Contactado → Entregado
 // ("reparado" es la Revisión final; se mantiene la clave para no perder los datos cargados)
 export const ESTADOS = [
   { key: "peritado",  label: "Peritado",  color: "#4f8ff7" },
   { key: "turnado",   label: "Turnado",   color: "#e0a526" },
   { key: "enreparacion", label: "Reparando", color: "#7cc9a8" },
   { key: "reparado",  label: "Revisión",  color: "#22b07d" },
-  { key: "llamado",   label: "Llamado",   color: "#14b8a6" },
+  { key: "llamado",   label: "Contactado", color: "#14b8a6" },
   { key: "entregado", label: "Entregado", color: "#16a34a" },
   { key: "facturado", label: "Facturado", color: "#9b7bf2" },
   { key: "anulado",   label: "Anulado",   color: "#e5484d" },

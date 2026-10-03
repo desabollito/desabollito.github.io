@@ -480,7 +480,7 @@ const lineaOperativo = fijo => `\n\n> Operativo actual: ${fijo ? fijo.operativo 
 const NOMBRE_PANO = { capot: "Capot", techo: "Techo", baul: "Baúl", parante_izq: "Parante izq.", parante_der: "Parante der.",
   gf_izq: "Guardabarro del. izq.", pd_izq: "Puerta del. izq.", pt_izq: "Puerta tras. izq.", gt_izq: "Guardabarro tras. izq.",
   gf_der: "Guardabarro del. der.", pd_der: "Puerta del. der.", pt_der: "Puerta tras. der.", gt_der: "Guardabarro tras. der." };
-const ESTADO_TXT = { peritado: "Peritado", turnado: "Turnado", enreparacion: "Reparando", reparado: "Revisión", llamado: "Llamado", entregado: "Entregado", facturado: "Facturado", ausente: "Ausente", anulado: "Anulado" };
+const ESTADO_TXT = { peritado: "Peritado", turnado: "Turnado", enreparacion: "Reparando", reparado: "Revisión", llamado: "Contactado", entregado: "Entregado", facturado: "Facturado", ausente: "Ausente", anulado: "Anulado" };
 const fechaTxt = iso => { const [a, mm, d] = String(iso || "").split("-"); return d ? `${d}/${mm}/${a.slice(2)}` : ""; };
 // Ficha del vehículo por escrito (para "localizá")
 function detalleVehiculo(v, operativo) {
@@ -2187,7 +2187,7 @@ async function avisarCliente(env, { cid, vid, por }) {
   const ruta = `companies/${cid}/vehicles/${vid}`;
   const v = await fsGet(env, ruta);
   if (!v || v.deleted) return json({ ok: false, error: "No encontré el vehículo" }, 404);
-  if (!["reparado", "llamado"].includes(v.estado)) return json({ ok: false, error: "El vehículo no está en revisión ni llamado" });
+  if (!["reparado", "llamado"].includes(v.estado)) return json({ ok: false, error: "El vehículo no está en revisión ni contactado" });
   if (v.avisoReparado) return json({ ok: false, error: "Al cliente ya se le avisó" });
   if ((await fsGet(env, "config/app").catch(() => null))?.avisoReparado === false) return json({ ok: false, error: "El aviso al cliente está desactivado" });
   const tel = telefonoAR(v.telefono);

@@ -400,9 +400,9 @@ ${[...PASO_REP, "facturado"].includes(est) ? `<button class="btn btn-ghost btn-b
           // Paso de reparación: muestra la etapa actual (Reparando, Revisión, Llamado o Entregado)
           const sub = k === "rep" ? (PASO_REP.includes(est) ? est : est === "facturado" ? "entregado" : null) : null;
           const kk = k === "rep" ? (sub || "enreparacion") : k;
-          const enRep = sub === "enreparacion";
+          const enRep = !!sub && sub !== "entregado";   // Reparando, Revisión y Contactado: color suave, sin tilde
           const e = aus ? ESTADO.ausente : ESTADO[kk];
-          const hecho = !anulado && (k === "rep" ? !!sub && !enRep : !!v.fechas?.[k]), actual = k === est || aus || (k === "rep" && PASO_REP.includes(est));
+          const hecho = !anulado && (k === "rep" ? sub === "entregado" : !!v.fechas?.[k]), actual = k === est || aus || (k === "rep" && PASO_REP.includes(est));
           const fechaK = k === "rep" ? (sub ? v.fechas?.[sub] : null) : v.fechas?.[k];
           return `<li><button class="step ${hecho ? "done" : ""} ${actual ? "now" : ""} ${aus ? "is-ausente" : ""} ${enRep ? "is-enrep" : ""}" data-estado="${k}" style="--c:${e.color}">
             <span class="dot">${hecho ? icon(aus ? "x" : "check") : ""}</span>
