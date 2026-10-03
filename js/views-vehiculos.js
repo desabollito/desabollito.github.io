@@ -6,7 +6,7 @@ import {
   nuevoIdVehiculo, soyAdmin, mensajeError, ultimoDeshacible, deshacerCambio, aseguradoDePadron,
   soyDesmontaje, agregarDesmontaje, elegirDesmontador
 } from "./data.js";
-import { ESTADOS, ESTADO, SECUENCIA, PIEZA, ORDEN_PIEZAS, estadoActual, piezasMarcadas } from "./domain.js";
+import { ESTADOS, ESTADO, SECUENCIA, PASO_REP, PIEZA, ORDEN_PIEZAS, estadoActual, piezasMarcadas } from "./domain.js";
 import {
   $, $$, esc, money, fechaCorta, fechaLarga, hoyISO, plate, estadoPill, icon, toast, openSheet,
   confirmar, busy, debounce, marcarError, horaDe } from "./ui.js";
@@ -22,7 +22,7 @@ const F = { estado: "todos", q: "", mios: false, orden: "fecha", dir: -1, grado:
 const ORDENES = [["fecha", "Fecha"], ["patente", "Patente"], ["modelo", "Modelo"], ["estado", "Estado"]];
 function ordenar(lista) {
   if (F.orden === "fecha" && F.dir === -1) return lista;   // ya viene ordenada por fecha, la más nueva arriba
-  const clave = v => F.orden === "fecha" ? (v.fechas?.peritado || "") : F.orden === "estado" ? String(SECUENCIA.indexOf(estadoActual(v)) + 10)
+  const clave = v => F.orden === "fecha" ? (v.fechas?.peritado || "") : F.orden === "estado" ? String(ESTADOS.findIndex(e => e.key === estadoActual(v)) + 10)
     : String(v[F.orden] || "").toLowerCase();
   return [...lista].sort((a, b) => clave(a).localeCompare(clave(b), "es", { numeric: true }) * F.dir);
 }
@@ -304,7 +304,7 @@ export function textoWa(plantilla, v) {
     .replace(/[ \t]{2,}/g, " ").trim();
 }
 // Solo con el vehículo reparado; antes, el WhatsApp abre sin texto
-const mensajeWa = v => estadoActual(v) === "reparado" ? textoWa(S.config?.mensajeWa, v) : "";
+const mensajeWa = v => ["reparado", "llamado"].includes(estadoActual(v)) ? textoWa(S.config?.mensajeWa, v) : "";
 
 function waLink(tel, texto = "") {
   let d = (tel || "").replace(/\D/g, "");
@@ -389,20 +389,25 @@ function renderDetalle(root, v, embebido) {
         </div></div>` : ""}
       ${embebido && !soloVer ? `<a class="btn btn-ghost btn-icon" href="#/editar/${v.id}" aria-label="Editar" title="Editar">${icon("edit")}</a>` : ""}
     </div>
-${["enreparacion", "reparado", "facturado"].includes(est) ? `<button class="btn btn-ghost btn-block d-desm" data-act="desmontaje">${icon("tool")}Desmontaje${nDesm || v.desmontador ? ` <small>${[v.desmontador?.nombre, nDesm ? `${v.desFotos?.length || 0} fotos` : ""].filter(Boolean).map(esc).join(" · ")}</small>` : ""}</button>` : ""}
+${[...PASO_REP, "facturado"].includes(est) ? `<button class="btn btn-ghost btn-block d-desm" data-act="desmontaje">${icon("tool")}Desmontaje${nDesm || v.desmontador ? ` <small>${[v.desmontador?.nombre, nDesm ? `${v.desFotos?.length || 0} fotos` : ""].filter(Boolean).map(esc).join(" · ")}</small>` : ""}</button>` : ""}
 
     <section class="d-sec">
       <div class="seg-head"><h3>Seguimiento</h3>
         ${soloVer ? "" : `<button class="link-btn small ${anulado ? "" : "danger"}" data-act="anular">${anulado ? "Reactivar" : "Anular"}</button>`}</div>
       <ol class="stepper ${anulado ? "is-anulado" : ""}">
-        ${SECUENCIA.map(k => {
+        ${["peritado", "turnado", "rep", "facturado"].map(k => {
           const aus = k === "turnado" && est === "ausente";
-          const enRep = k === "reparado" && est === "enreparacion";
-          const e = aus ? ESTADO.ausente : enRep ? ESTADO.enreparacion : ESTADO[k], hecho = !!v.fechas?.[k] && !anulado, actual = k === est || aus || enRep;
+          // Paso de reparación: muestra la etapa actual (Reparando, Revisión, Llamado o Entregado)
+          const sub = k === "rep" ? (PASO_REP.includes(est) ? est : est === "facturado" ? "entregado" : null) : null;
+          const kk = k === "rep" ? (sub || "enreparacion") : k;
+          const enRep = sub === "enreparacion";
+          const e = aus ? ESTADO.ausente : ESTADO[kk];
+          const hecho = !anulado && (k === "rep" ? !!sub && !enRep : !!v.fechas?.[k]), actual = k === est || aus || (k === "rep" && PASO_REP.includes(est));
+          const fechaK = k === "rep" ? (sub ? v.fechas?.[sub] : null) : v.fechas?.[k];
           return `<li><button class="step ${hecho ? "done" : ""} ${actual ? "now" : ""} ${aus ? "is-ausente" : ""} ${enRep ? "is-enrep" : ""}" data-estado="${k}" style="--c:${e.color}">
             <span class="dot">${hecho ? icon(aus ? "x" : "check") : ""}</span>
-            <span class="step-l">${k === "reparado" && !hecho ? "Reparando" : e.label}</span>
-            <span class="step-d">${enRep && v.fechas?.enreparacion ? fechaCorta(v.fechas.enreparacion) : v.fechas?.[k] ? fechaCorta(v.fechas[k]) : "—"}${(k === "peritado" || k === "reparado" || k === "turnado") && v.fechas?.[k] && horaDe(v, k) ? `<br>${horaDe(v, k)}` : ""}</span>
+            <span class="step-l">${e.label}</span>
+            <span class="step-d">${fechaK ? fechaCorta(fechaK) : "—"}${(k === "peritado" || k === "turnado") && v.fechas?.[k] && horaDe(v, k) ? `<br>${horaDe(v, k)}` : ""}</span>
             ${k === "turnado" && est === "turnado" ? `<span class="step-conf ${v.turnoConfirmado ? "ok" : ""}">${v.turnoConfirmado ? "Confirmado" : "Esperando confirmación"}</span>` : ""}</button></li>`;
         }).join("")}
       </ol>
@@ -533,9 +538,17 @@ ${["enreparacion", "reparado", "facturado"].includes(est) ? `<button class="btn 
     const step = t.closest("[data-estado]");
     if (step) {
       if (pasoLargo) { pasoLargo = false; return; }
-      // "Reparado": el primer toque lo pone En reparación; el segundo, Reparado
       const cur = getVehiculo(v.id) || v;   // estado al día (por si la vista no se redibujó)
-      if (step.dataset.estado === "reparado" && !cur.fechas?.reparado && estadoActual(cur) !== "enreparacion") return elegirFechaEstado(cur, "enreparacion");
+      // Paso de reparación: cada toque avanza solo (sin pedir fecha): Reparando → Revisión → Llamado → Entregado
+      if (step.dataset.estado === "rep") {
+        const ahora = estadoActual(cur), i = PASO_REP.indexOf(ahora);
+        if (ahora === "entregado" || ahora === "facturado") return toast("Ya está entregado");
+        const sig = i < 0 ? "enreparacion" : PASO_REP[i + 1];
+        cambiarEstado(cur, sig, hoyISO()).catch(err => toast(mensajeError(err), "error"));
+        toast(ESTADO[sig].label, "success");
+        if (sig === "llamado") setTimeout(() => ofrecerAvisoCliente(cur), 350);
+        return;
+      }
       return elegirFechaEstado(cur, step.dataset.estado);
     }
     const et = t.closest(".etapa-item");
@@ -777,7 +790,7 @@ function elegirFechaEstado(v, estado) {
     cambiarEstado(v, estado, ev.target.f.value, estado === "turnado" ? { turnoConfirmado: confirmado, horaTurno: ev.target.h?.value || "" } : {}).catch(err => toast(mensajeError(err), "error"));
     toast(`${e.label} · ${fechaCorta(ev.target.f.value)}`, "success");
     s.close();
-    if (estado === "reparado") setTimeout(() => ofrecerAvisoCliente(v), 350);
+
   };
 }
 

@@ -480,11 +480,11 @@ const lineaOperativo = fijo => `\n\n> Operativo actual: ${fijo ? fijo.operativo 
 const NOMBRE_PANO = { capot: "Capot", techo: "Techo", baul: "Baúl", parante_izq: "Parante izq.", parante_der: "Parante der.",
   gf_izq: "Guardabarro del. izq.", pd_izq: "Puerta del. izq.", pt_izq: "Puerta tras. izq.", gt_izq: "Guardabarro tras. izq.",
   gf_der: "Guardabarro del. der.", pd_der: "Puerta del. der.", pt_der: "Puerta tras. der.", gt_der: "Guardabarro tras. der." };
-const ESTADO_TXT = { peritado: "Peritado", turnado: "Turnado", enreparacion: "Reparando", reparado: "Reparado", facturado: "Facturado", ausente: "Ausente", anulado: "Anulado" };
+const ESTADO_TXT = { peritado: "Peritado", turnado: "Turnado", enreparacion: "Reparando", reparado: "Revisión", llamado: "Llamado", entregado: "Entregado", facturado: "Facturado", ausente: "Ausente", anulado: "Anulado" };
 const fechaTxt = iso => { const [a, mm, d] = String(iso || "").split("-"); return d ? `${d}/${mm}/${a.slice(2)}` : ""; };
 // Ficha del vehículo por escrito (para "localizá")
 function detalleVehiculo(v, operativo) {
-  const est = v.fechas?.anulado ? "anulado" : ["ausente", "enreparacion"].includes(v.estado) ? v.estado : ["facturado", "reparado", "turnado", "peritado"].find(k => v.fechas?.[k]) || v.estado || "peritado";
+  const est = v.fechas?.anulado ? "anulado" : ["ausente", "enreparacion"].includes(v.estado) ? v.estado : ["facturado", "entregado", "llamado", "reparado", "turnado", "peritado"].find(k => v.fechas?.[k]) || v.estado || "peritado";
   const cuando = k => v.fechas?.[k] ? `${fechaTxt(v.fechas[k])}${v.horas?.[k] ? " " + v.horas[k] : ""}` : "";
   const panos = Object.keys(v.piezas || {}).filter(k => v.piezas[k]);
   const filas = [
@@ -515,7 +515,7 @@ const claveRep = x => sinTildes(String(x)).replace(/[^a-z0-9]+/g, "_").replace(/
 const faseDe = (v, x) => FASES_REP.find(f => f[0] === v.etapasRepuestos?.[claveRep(x)]) || FASES_REP[0];
 const RE_PIDE_REP = /^(?:localiz\w*\s+)?repuestos?\s+(\S+(?:\s+\S+)?)$/i;
 function textoRepuestos(v, operativo) {
-  const est = v.fechas?.anulado ? "anulado" : ["ausente", "enreparacion"].includes(v.estado) ? v.estado : ["facturado", "reparado", "turnado", "peritado"].find(k => v.fechas?.[k]) || "peritado";
+  const est = v.fechas?.anulado ? "anulado" : ["ausente", "enreparacion"].includes(v.estado) ? v.estado : ["facturado", "entregado", "llamado", "reparado", "turnado", "peritado"].find(k => v.fechas?.[k]) || "peritado";
   const items = itemsRep(v.repuestos);
   return [`🚗 *${v.modelo || "Sin modelo"}* · ${v.patente || ""}`,
     v.compania ? `🛡 ${v.compania}` : null,
@@ -2187,7 +2187,7 @@ async function avisarCliente(env, { cid, vid, por }) {
   const ruta = `companies/${cid}/vehicles/${vid}`;
   const v = await fsGet(env, ruta);
   if (!v || v.deleted) return json({ ok: false, error: "No encontré el vehículo" }, 404);
-  if (v.estado !== "reparado") return json({ ok: false, error: "El vehículo no está marcado como reparado" });
+  if (!["reparado", "llamado"].includes(v.estado)) return json({ ok: false, error: "El vehículo no está en revisión ni llamado" });
   if (v.avisoReparado) return json({ ok: false, error: "Al cliente ya se le avisó" });
   if ((await fsGet(env, "config/app").catch(() => null))?.avisoReparado === false) return json({ ok: false, error: "El aviso al cliente está desactivado" });
   const tel = telefonoAR(v.telefono);

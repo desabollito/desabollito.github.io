@@ -30,7 +30,7 @@ export function horaDe(v, k) {
   if (v?.horas?.[k]) return v.horas[k];
   const f = v?.fechas?.[k];
   if (!f || (k !== "peritado" && k !== "reparado")) return "";
-  const h = (v.historial || []).filter(e => e?.t && (k === "peritado" ? /^Carg[oó]/.test(e.txt || "") : (e.txt || "").startsWith("Pasó a Reparado")));
+  const h = (v.historial || []).filter(e => e?.t && (k === "peritado" ? /^Carg[oó]/.test(e.txt || "") : /^Pasó a (Reparado|Revisión)/.test(e.txt || "")));
   let t = h.length ? h[k === "peritado" ? 0 : h.length - 1].t : null;
   if (!t && k === "peritado" && v.createdAt?.toMillis) t = v.createdAt.toMillis();
   if (!t) return "";

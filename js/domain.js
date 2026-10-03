@@ -1,15 +1,20 @@
 // Estados del trabajo, en orden. "anulado" queda fuera de la secuencia.
+// El paso de reparación avanza con cada toque: Reparando → Revisión → Llamado → Entregado
+// ("reparado" es la Revisión final; se mantiene la clave para no perder los datos cargados)
 export const ESTADOS = [
   { key: "peritado",  label: "Peritado",  color: "#4f8ff7" },
   { key: "turnado",   label: "Turnado",   color: "#e0a526" },
-  { key: "enreparacion", label: "Reparando", color: "#7cc9a8" },   // primer toque en "Reparado"
-  { key: "reparado",  label: "Reparado",  color: "#22b07d" },
+  { key: "enreparacion", label: "Reparando", color: "#7cc9a8" },
+  { key: "reparado",  label: "Revisión",  color: "#22b07d" },
+  { key: "llamado",   label: "Llamado",   color: "#14b8a6" },
+  { key: "entregado", label: "Entregado", color: "#16a34a" },
   { key: "facturado", label: "Facturado", color: "#9b7bf2" },
-  { key: "ausente",   label: "Ausente",   color: "#5f6b7a" },   // turnado que no vino (mantener apretado "Turnado")
-  { key: "anulado",   label: "Anulado",   color: "#e5484d" }
+  { key: "anulado",   label: "Anulado",   color: "#e5484d" },
+  { key: "ausente",   label: "Ausente",   color: "#5f6b7a" }    // turnado que no vino (mantener apretado "Turnado")
 ];
+export const PASO_REP = ["enreparacion", "reparado", "llamado", "entregado"];   // un solo paso en el seguimiento
 export const ESTADO = Object.fromEntries(ESTADOS.map(e => [e.key, e]));
-export const SECUENCIA = ["peritado", "turnado", "reparado", "facturado"];
+export const SECUENCIA = ["peritado", "turnado", "reparado", "llamado", "entregado", "facturado"];
 
 // Piezas de carrocería. La geometría (x,y,w,h en un lienzo 200×400,
 // frente del auto arriba) se usa tanto en el SVG como en el PDF.
