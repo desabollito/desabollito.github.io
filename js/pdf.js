@@ -304,7 +304,7 @@ export function planillaPDF(lista, empresa, filtroTexto = "") {
   cabecera();
   let total = 0;
   lista.forEach((v, n) => {
-    if (y + rh > H - 18) { doc.addPage(); y = 16; cabecera(); }
+    if (y + rh > H - 21) { doc.addPage(); y = 16; cabecera(); }
     if (n % 2 === 0) { doc.setFillColor(...SUAVE); doc.rect(x0, y, tw, rh, "F"); }
     doc.setFont("helvetica", "normal"); doc.setFontSize(7.8); doc.setTextColor(...INK);
     let x = x0;
@@ -370,7 +370,7 @@ export function gastosPDF(lista, empresa, periodo, CAT) {
   };
   cab();
   lista.slice().sort((a, b) => (a.fecha || "").localeCompare(b.fecha || "")).forEach((g, n) => {
-    if (y + rh > H - 18) { doc.addPage(); y = 16; cab(); }
+    if (y + rh > H - 21) { doc.addPage(); y = 16; cab(); }
     if (n % 2 === 0) { doc.setFillColor(...SUAVE); doc.rect(M, y, CW, rh, "F"); }
     doc.setFont("helvetica", "normal"); doc.setFontSize(7.8); doc.setTextColor(...INK);
     const vals = [fechaCorta(g.fecha), g.concepto || "-", CAT[g.categoria]?.label || "Otros", g.metodo || "-", g.tecnicoNombre || "-", txt(g)];
