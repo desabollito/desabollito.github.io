@@ -133,7 +133,7 @@ function mapaPiezas(doc, piezas, x, y, alto) {
 function titulo(doc, txt, x, y, w) {
   doc.setFont("helvetica", "bold"); doc.setFontSize(9.5); doc.setTextColor(...C_TIT);
   doc.text(txt, x, y);
-  doc.setDrawColor(...C_TIT); doc.setLineWidth(0.6); doc.line(x, y + 1.8, x + w, y + 1.8);
+  doc.setDrawColor(...LINEA); doc.setLineWidth(0.3); doc.line(x, y + 1.8, x + w, y + 1.8);   // línea finita gris
 }
 
 export async function presupuestoPDF(v, empresa, { conFotos = false, onProgreso } = {}) {
@@ -193,7 +193,7 @@ export async function presupuestoPDF(v, empresa, { conFotos = false, onProgreso 
   // Una fila por sección (de lado a lado de la hoja): el nombre a la izquierda y los ítems uno al lado del otro
   if (bloques.length) {
     const LX = M + 32, LW = CW - 32;
-    doc.setDrawColor(...C_TIT); doc.setLineWidth(0.6); doc.line(M, y - 4, M + CW, y - 4);
+    doc.setDrawColor(...LINEA); doc.setLineWidth(0.3); doc.line(M, y - 4, M + CW, y - 4);
     // Línea fina entre Pintura, Repuestos y Observaciones (no después de la última)
     let n = 0;
     const sep = () => { if (++n < bloques.length) { doc.setDrawColor(...LINEA); doc.setLineWidth(0.3); doc.line(M, y - 4, M + CW, y - 4); y += 2; } };
@@ -222,20 +222,6 @@ export async function presupuestoPDF(v, empresa, { conFotos = false, onProgreso 
     y += 2;
   }
 
-  // Total
-  if (v.precio) {
-    // Barra finita (11 mm) para que entre en la misma hoja
-    if (y + 17 > H - 14) { doc.addPage(); y = 24; }
-    doc.setFillColor(...AZUL); doc.roundedRect(M, y, CW, 11, 2, 2, "F");
-    // Mismo estilo que el título del encabezado: mayúsculas, blanco y del mismo tamaño
-    const fsT = Math.min(+empresa?.seal?.tam?.titulo || 15, 16);
-    doc.setFont("helvetica", "bold"); doc.setFontSize(fsT); doc.setTextColor(255, 255, 255);
-    doc.text(`TOTAL DEL PRESUPUESTO   ${money(v.precio)}`, W / 2, y + 5.5 + fsT * 0.353 / 2, { align: "center" });
-    doc.setFont("helvetica", "normal"); doc.setFontSize(7.5); doc.setTextColor(...GRIS);
-    doc.text("El presupuesto incluye únicamente mano de obra por sacabollo, no incluye pintura ni repuestos.", W / 2, y + 15, { maxWidth: CW, align: "center" });
-    y += 21;
-  }
-
   // Firma del cliente
   if (v.firma) {
     if (y + 42 > H - 16) { doc.addPage(); y = 24; }
@@ -245,6 +231,22 @@ export async function presupuestoPDF(v, empresa, { conFotos = false, onProgreso 
     doc.setFontSize(8); doc.setTextColor(...GRIS);
     doc.text(v.asegurado ? `Firma de ${v.asegurado}` : "Firma", M, y + 32);
     y += 38;
+  }
+
+  // Total: barra siempre al pie de la hoja (texto a la izquierda y precio a la derecha, centrados en alto)
+  if (v.precio) {
+    const yBarra = H - 14 - 17;
+    if (y > yBarra - 2) doc.addPage();
+    y = yBarra;
+    doc.setFillColor(...AZUL); doc.roundedRect(M, y, CW, 11, 2, 2, "F");
+    const fsT = Math.min(+empresa?.seal?.tam?.titulo || 15, 16);
+    doc.setFont("helvetica", "bold"); doc.setFontSize(fsT); doc.setTextColor(255, 255, 255);
+    const yt = y + 5.5 + fsT * 0.353 * 0.36;   // centro vertical de la barra (alto de las mayúsculas)
+    doc.text("TOTAL DEL PRESUPUESTO", M + 5, yt);
+    doc.text(money(v.precio), W - M - 5, yt, { align: "right" });
+    doc.setFont("helvetica", "normal"); doc.setFontSize(7.5); doc.setTextColor(...GRIS);
+    doc.text("El presupuesto incluye únicamente mano de obra por sacabollo, no incluye pintura ni repuestos.", W / 2, y + 15, { maxWidth: CW, align: "center" });
+    y += 21;
   }
 
   // Fotos
