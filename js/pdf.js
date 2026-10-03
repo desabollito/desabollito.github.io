@@ -92,9 +92,9 @@ function pie(doc, texto) {
 function patente(doc, txt, xDer, y) {
   doc.setFont("helvetica", "bold"); doc.setFontSize(12);
   const w = doc.getTextWidth(txt) + 12, x = xDer - w;
-  doc.setFillColor(255, 255, 255); doc.setDrawColor(...INK); doc.setLineWidth(0.5);
+  doc.setFillColor(255, 255, 255); doc.setDrawColor(27, 35, 48); doc.setLineWidth(0.5);
   doc.roundedRect(x, y, w, 11, 1.6, 1.6, "FD");
-  doc.setFillColor(...AZUL); doc.rect(x + 0.25, y + 0.25, w - 0.5, 2.4, "F");
+  doc.setFillColor(28, 71, 184); doc.rect(x + 0.25, y + 0.25, w - 0.5, 2.4, "F");   // mismo azul que la patente de la app
   doc.setTextColor(...INK); doc.text(txt, x + w / 2, y + 8.9, { align: "center" });
 }
 
