@@ -41,7 +41,7 @@ function encabezado(doc, empresa, subtitulo, tituloTxt = null, { soloLogo = fals
   const LH = 3.5;
   const alto = Math.max(34, logo ? logo.h + 12 : 0, lineas.length ? 9 + lineas.length * LH + 4 : 0);
 
-  doc.setFillColor(...INK); doc.rect(0, 0, W, alto, "F");
+  doc.setFillColor(...AZUL); doc.rect(0, 0, W, alto, "F");
   doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold");
   // Título: el nombre del operativo, o uno propio (se achica si no entra al lado del sello)
   const tit = tituloTxt || empresa?.name || "Desabollito";
@@ -51,7 +51,7 @@ function encabezado(doc, empresa, subtitulo, tituloTxt = null, { soloLogo = fals
   let fs = 15; doc.setFontSize(fs);
   while (fs > 10 && doc.getTextWidth(tit) > W - 2 * M - anchoSello) doc.setFontSize(--fs);
   doc.text(tit, M, subtitulo ? alto / 2 - 2 : alto / 2 + 2);
-  doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(175, 192, 215);
+  doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(222, 232, 252);
   if (subtitulo) doc.text(subtitulo, M, alto / 2 + 5);
 
   let xTexto = W - M;
@@ -61,7 +61,7 @@ function encabezado(doc, empresa, subtitulo, tituloTxt = null, { soloLogo = fals
     xTexto = W - M - logo.w - 5;
   }
   if (lineas.length) {
-    doc.setFont("helvetica", "normal"); doc.setFontSize(7.5); doc.setTextColor(175, 192, 215);
+    doc.setFont("helvetica", "normal"); doc.setFontSize(7.5); doc.setTextColor(222, 232, 252);
     const y0 = (alto - lineas.length * LH) / 2 + 2.6;
     lineas.forEach((l, i) => doc.text(l, xTexto, y0 + i * LH, { align: "right" }));
   }
@@ -82,7 +82,7 @@ function pie(doc, texto) {
 function patente(doc, txt, xDer, y) {
   doc.setFont("helvetica", "bold"); doc.setFontSize(12);
   const w = doc.getTextWidth(txt) + 12, x = xDer - w;
-  doc.setFillColor(255, 255, 255); doc.setDrawColor(...INK); doc.setLineWidth(0.5);
+  doc.setFillColor(255, 255, 255); doc.setDrawColor(...AZUL); doc.setLineWidth(0.5);
   doc.roundedRect(x, y, w, 11, 1.6, 1.6, "FD");
   doc.setFillColor(...AZUL); doc.rect(x + 0.25, y + 0.25, w - 0.5, 2.4, "F");
   doc.setTextColor(...INK); doc.text(txt, x + w / 2, y + 8.9, { align: "center" });
@@ -187,8 +187,8 @@ export async function presupuestoPDF(v, empresa, { conFotos = false, onProgreso 
   // Total
   if (v.precio) {
     if (y + 24 > H - 16) { doc.addPage(); y = 24; }
-    doc.setFillColor(...INK); doc.roundedRect(M, y, CW, 20, 2.5, 2.5, "F");
-    doc.setFont("helvetica", "normal"); doc.setFontSize(9.5); doc.setTextColor(175, 192, 215);
+    doc.setFillColor(...AZUL); doc.roundedRect(M, y, CW, 20, 2.5, 2.5, "F");
+    doc.setFont("helvetica", "normal"); doc.setFontSize(9.5); doc.setTextColor(222, 232, 252);
     doc.text("Total del presupuesto", M + 6, y + 12);
     doc.setFont("helvetica", "bold"); doc.setFontSize(18); doc.setTextColor(255, 255, 255);
     doc.text(money(v.precio), W - M - 6, y + 13.2, { align: "right" });
@@ -288,13 +288,13 @@ export function gastosPDF(lista, empresa, periodo, CAT) {
   const totalUSD = lista.filter(usd).reduce((s, g) => s + Number(g.monto || 0), 0);
   let y = hg + 12;
   const alto = totalUSD ? 24 : 18;
-  doc.setFillColor(...INK); doc.roundedRect(M, y, CW, alto, 2.5, 2.5, "F");
-  doc.setFont("helvetica", "normal"); doc.setFontSize(9.5); doc.setTextColor(175, 192, 215);
+  doc.setFillColor(...AZUL); doc.roundedRect(M, y, CW, alto, 2.5, 2.5, "F");
+  doc.setFont("helvetica", "normal"); doc.setFontSize(9.5); doc.setTextColor(222, 232, 252);
   doc.text(`Total de ${lista.length} ${lista.length === 1 ? "gasto" : "gastos"}`, M + 6, y + 11);
   doc.setFont("helvetica", "bold"); doc.setFontSize(16); doc.setTextColor(255, 255, 255);
   doc.text(money(total) || "$0", W - M - 6, y + 12, { align: "right" });
   if (totalUSD) {
-    doc.setFontSize(11); doc.setTextColor(175, 192, 215);
+    doc.setFontSize(11); doc.setTextColor(222, 232, 252);
     doc.text(`+ US$ ${totalUSD.toLocaleString("es-AR")}`, W - M - 6, y + 19, { align: "right" });
   }
   y += alto + 8;
