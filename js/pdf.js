@@ -194,6 +194,9 @@ export async function presupuestoPDF(v, empresa, { conFotos = false, onProgreso 
   if (bloques.length) {
     const LX = M + 32, LW = CW - 32;
     doc.setDrawColor(...C_TIT); doc.setLineWidth(0.6); doc.line(M, y - 4, M + CW, y - 4);
+    // Línea fina entre Pintura, Repuestos y Observaciones (no después de la última)
+    let n = 0;
+    const sep = () => { if (++n < bloques.length) { doc.setDrawColor(...LINEA); doc.setLineWidth(0.3); doc.line(M, y - 4, M + CW, y - 4); y += 2; } };
     bloques.forEach(([t, txt]) => {
       doc.setFont("helvetica", "bold"); doc.setFontSize(9.5); doc.setTextColor(...C_TIT);
       doc.text(t, M, y);
@@ -202,6 +205,7 @@ export async function presupuestoPDF(v, empresa, { conFotos = false, onProgreso 
         const lineas = doc.splitTextToSize(txt, LW);
         doc.text(lineas, LX, y);
         y += lineas.length * 4.6 + 3;
+        sep();
       } else {
         let ix = LX, iy = y;
         String(txt).split(/\n|,/).map(x => x.trim()).filter(Boolean).forEach(item => {
@@ -212,6 +216,7 @@ export async function presupuestoPDF(v, empresa, { conFotos = false, onProgreso 
           ix += ancho + 5;
         });
         y = iy + 7;
+        sep();
       }
     });
     y += 2;
@@ -225,10 +230,9 @@ export async function presupuestoPDF(v, empresa, { conFotos = false, onProgreso 
     // Mismo estilo que el título del encabezado: mayúsculas, blanco y del mismo tamaño
     const fsT = Math.min(+empresa?.seal?.tam?.titulo || 15, 16);
     doc.setFont("helvetica", "bold"); doc.setFontSize(fsT); doc.setTextColor(255, 255, 255);
-    doc.text("TOTAL DEL PRESUPUESTO", M + 5, y + 5.5 + fsT * 0.353 / 2);
-    doc.text(money(v.precio), W - M - 5, y + 5.5 + fsT * 0.353 / 2, { align: "right" });
+    doc.text(`TOTAL DEL PRESUPUESTO   ${money(v.precio)}`, W / 2, y + 5.5 + fsT * 0.353 / 2, { align: "center" });
     doc.setFont("helvetica", "normal"); doc.setFontSize(7.5); doc.setTextColor(...GRIS);
-    doc.text("El presupuesto incluye únicamente mano de obra por sacabollo, no incluye pintura ni repuestos.", M, y + 15, { maxWidth: CW });
+    doc.text("El presupuesto incluye únicamente mano de obra por sacabollo, no incluye pintura ni repuestos.", W / 2, y + 15, { maxWidth: CW, align: "center" });
     y += 21;
   }
 
