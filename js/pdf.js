@@ -194,7 +194,7 @@ export async function presupuestoPDF(v, empresa, { conFotos = false, onProgreso 
   const bloques = [["Pintura", v.pintura], ["Repuestos", v.repuestos], ["Observaciones", v.observaciones]].filter(b => b[1]);
   // Una fila por sección (de lado a lado de la hoja): el nombre a la izquierda y los ítems uno al lado del otro
   if (bloques.length) {
-    const LX = M + 32, LW = CW - 32;
+    const LX = M + 56 * 240 / 422 + 10, LW = CW - (LX - M);   // mismos puntos que los paños (lado izq./der.)
     doc.setDrawColor(...LINEA); doc.setLineWidth(0.3); doc.line(M, y - 4, M + CW, y - 4); y += 2.5;
     // Línea fina entre Pintura, Repuestos y Observaciones (no después de la última)
     let n = 0;
@@ -237,13 +237,14 @@ export async function presupuestoPDF(v, empresa, { conFotos = false, onProgreso 
 
   // Total: barra siempre al pie de la hoja (texto a la izquierda y precio a la derecha, centrados en alto)
   if (v.precio) {
-    const yBarra = H - 14 - 13;
+    const AB = 14.5;   // alto de la barra
+    const yBarra = H - 14 - AB - 2;
     if (y > yBarra - 2) doc.addPage();
     y = yBarra;
-    doc.setFillColor(...AZUL); doc.roundedRect(M, y, CW, 11, 2, 2, "F");
+    doc.setFillColor(...AZUL); doc.roundedRect(M, y, CW, AB, 2, 2, "F");
     const fsT = Math.min(+empresa?.seal?.tam?.titulo || 15, 16);
     doc.setFont("helvetica", "bold"); doc.setFontSize(fsT); doc.setTextColor(255, 255, 255);
-    const yt = y + 5.5 + fsT * 0.353 * 0.36;   // centro vertical de la barra (alto de las mayúsculas)
+    const yt = y + AB / 2 + fsT * 0.353 * 0.36;   // centro vertical de la barra (alto de las mayúsculas)
     doc.text("TOTAL DEL PRESUPUESTO", M + 5, yt);
     doc.text(money(v.precio), W - M - 5, yt, { align: "right" });
     y += 15;
