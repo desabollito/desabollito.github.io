@@ -209,13 +209,13 @@ export async function presupuestoPDF(v, empresa, { conFotos = false, onProgreso 
         y += lineas.length * 4.6 + 3;
         sep();
       } else {
-        let ix = LX, iy = y;
-        String(txt).split(/\n|,/).map(x => x.trim()).filter(Boolean).forEach(item => {
-          const ancho = Math.min(doc.getTextWidth(item), LW - 4) + 4;
-          if (ix > LX && ix + ancho > LX + LW) { ix = LX; iy += 5.6; }
+        // Dos columnas, alineadas con "Lado izquierdo" y "Lado derecho" de los paños
+        let iy = y;
+        String(txt).split(/\n|,/).map(x => x.trim()).filter(Boolean).forEach((item, i) => {
+          if (i && i % 2 === 0) iy += 6.5;
+          const ix = LX + (i % 2) * 62;
           doc.setFillColor(...C_PUNTOS); doc.circle(ix + 1.1, iy - 1.2, 1.1, "F");
-          doc.text(doc.splitTextToSize(item, LW - 4)[0], ix + 4, iy);
-          ix += ancho + 5;
+          doc.text(doc.splitTextToSize(item, 56)[0], ix + 4, iy);
         });
         y = iy + 7;
         sep();
