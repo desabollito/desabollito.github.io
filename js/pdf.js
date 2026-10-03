@@ -220,13 +220,14 @@ export async function presupuestoPDF(v, empresa, { conFotos = false, onProgreso 
 
   // Total
   if (v.precio) {
-    if (y + 24 > H - 16) { doc.addPage(); y = 24; }
-    doc.setFillColor(...AZUL); doc.roundedRect(M, y, CW, 20, 2.5, 2.5, "F");
-    doc.setFont("helvetica", "normal"); doc.setFontSize(9.5); doc.setTextColor(222, 232, 252);
-    doc.text("Total del presupuesto", M + 6, y + 12);
-    doc.setFont("helvetica", "bold"); doc.setFontSize(18); doc.setTextColor(255, 255, 255);
-    doc.text(money(v.precio), W - M - 6, y + 13.2, { align: "right" });
-    y += 26;
+    // Barra finita (11 mm) para que entre en la misma hoja
+    if (y + 11 > H - 14) { doc.addPage(); y = 24; }
+    doc.setFillColor(...AZUL); doc.roundedRect(M, y, CW, 11, 2, 2, "F");
+    doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(222, 232, 252);
+    doc.text("Total del presupuesto", M + 5, y + 7);
+    doc.setFont("helvetica", "bold"); doc.setFontSize(14); doc.setTextColor(255, 255, 255);
+    doc.text(money(v.precio), W - M - 5, y + 7.6, { align: "right" });
+    y += 16;
   }
 
   // Firma del cliente
