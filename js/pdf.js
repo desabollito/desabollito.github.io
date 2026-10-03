@@ -23,7 +23,7 @@ async function cargarImagen(url) {
 
 // Encabezado: nombre a la izquierda; logo del sello a la derecha y su texto al lado del logo.
 // El alto crece si el texto del sello o el logo lo necesitan. Devuelve el alto del encabezado.
-function encabezado(doc, empresa, subtitulo) {
+function encabezado(doc, empresa, subtitulo, tituloTxt = null) {
   const W = doc.internal.pageSize.getWidth(), M = 16;
   const sello = empresa?.seal || {};
   // medir logo y texto antes de pintar el fondo
@@ -42,8 +42,15 @@ function encabezado(doc, empresa, subtitulo) {
   const alto = Math.max(34, logo ? logo.h + 12 : 0, lineas.length ? 9 + lineas.length * LH + 4 : 0);
 
   doc.setFillColor(...INK); doc.rect(0, 0, W, alto, "F");
-  doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); doc.setFontSize(15);
-  doc.text(empresa?.name || "Desabollito", M, alto / 2 - 2);
+  doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold");
+  // Título: el nombre del operativo, o uno propio (se achica si no entra al lado del sello)
+  const tit = tituloTxt || empresa?.name || "Desabollito";
+  doc.setFont("helvetica", "normal"); doc.setFontSize(7.5);
+  const anchoSello = (logo ? logo.w + 5 : 0) + (lineas.length ? Math.max(...lineas.map(l => doc.getTextWidth(l))) + 6 : 0);
+  doc.setFont("helvetica", "bold");
+  let fs = 15; doc.setFontSize(fs);
+  while (fs > 10 && doc.getTextWidth(tit) > W - 2 * M - anchoSello) doc.setFontSize(--fs);
+  doc.text(tit, M, alto / 2 - 2);
   doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(175, 192, 215);
   doc.text(subtitulo, M, alto / 2 + 5);
 
@@ -106,7 +113,7 @@ function titulo(doc, txt, x, y, w) {
 export async function presupuestoPDF(v, empresa, { conFotos = false, onProgreso } = {}) {
   const doc = nuevoDoc();
   const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), M = 16, CW = W - M * 2;
-  const hh = encabezado(doc, empresa, `Presupuesto de reparación de granizo · ${fecha(v.fechas?.peritado)}`);
+  const hh = encabezado(doc, empresa, "Método sacabollo", "Presupuesto de reparación por daño de granizo");
 
   // Vehículo
   let y = hh + 14;
@@ -205,7 +212,7 @@ export async function presupuestoPDF(v, empresa, { conFotos = false, onProgreso 
     }
     if (imgs.length) {
       doc.addPage();
-      const hf = encabezado(doc, empresa, `Registro fotográfico · ${v.modelo || ""} ${v.patente || ""}`);
+      const hf = encabezado(doc, empresa, `Registro fotográfico · ${v.modelo || ""} ${v.patente || ""}`, "Presupuesto de reparación por daño de granizo");
       const cols = 3, gap = 4, cw = (CW - gap * (cols - 1)) / cols, ch = cw * 0.75;
       let fy = hf + 10, c = 0;
       for (const im of imgs) {
