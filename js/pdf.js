@@ -98,10 +98,11 @@ function pie(doc, texto) {
   const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), n = doc.internal.getNumberOfPages();
   for (let i = 1; i <= n; i++) {
     doc.setPage(i);
-    doc.setDrawColor(...LINEA); doc.setLineWidth(0.3); doc.line(16, H - 12, W - 16, H - 12);
+    // Pie más arriba (14 mm del borde) para que ninguna impresora lo corte por sus márgenes
+    doc.setDrawColor(...LINEA); doc.setLineWidth(0.3); doc.line(16, H - 19, W - 16, H - 19);
     doc.setFontSize(7.5); doc.setTextColor(...GRIS); doc.setFont("helvetica", "normal");
-    doc.text(texto, 16, H - 7);
-    doc.text(`Página ${i} de ${n}`, W - 16, H - 7, { align: "right" });
+    doc.text(texto, 16, H - 14);
+    doc.text(`Página ${i} de ${n}`, W - 16, H - 14, { align: "right" });
   }
 }
 
@@ -226,7 +227,7 @@ export async function presupuestoPDF(v, empresa, { conFotos = false, onProgreso 
 
   // Firma del cliente
   if (v.firma) {
-    if (y + 42 > H - 16) { doc.addPage(); y = 24; }
+    if (y + 42 > H - 23) { doc.addPage(); y = 24; }
     titulo(doc, "Conformidad del cliente", M, y, CW); y += 5;
     try { doc.addImage(v.firma, "PNG", M, y, 70, 26); } catch (e) { console.warn(e); }
     doc.setDrawColor(...LINEA); doc.line(M, y + 28, M + 70, y + 28);
@@ -238,7 +239,7 @@ export async function presupuestoPDF(v, empresa, { conFotos = false, onProgreso 
   // Total: barra siempre al pie de la hoja (texto a la izquierda y precio a la derecha, centrados en alto)
   if (v.precio) {
     const AB = 14.5;   // alto de la barra
-    const yBarra = H - 14 - AB - 2;
+    const yBarra = H - 21 - AB - 2;
     if (y > yBarra - 2) doc.addPage();
     y = yBarra;
     doc.setFillColor(...AZUL); doc.roundedRect(M, y, CW, AB, 2, 2, "F");
@@ -264,7 +265,7 @@ export async function presupuestoPDF(v, empresa, { conFotos = false, onProgreso 
       const cols = 3, gap = 4, cw = (CW - gap * (cols - 1)) / cols, ch = cw * 0.75;
       let fy = hf + 10, c = 0;
       for (const im of imgs) {
-        if (fy + ch > H - 16) { doc.addPage(); fy = 20; c = 0; }
+        if (fy + ch > H - 23) { doc.addPage(); fy = 20; c = 0; }
         const cx = M + c * (cw + gap);
         doc.setFillColor(...SUAVE); doc.roundedRect(cx, fy, cw, ch, 1.5, 1.5, "F");
         let w = cw, h = im.h / im.w * cw;
