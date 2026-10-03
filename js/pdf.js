@@ -190,31 +190,31 @@ export async function presupuestoPDF(v, empresa, { conFotos = false, onProgreso 
 
   // Observaciones y repuestos
   const bloques = [["Pintura", v.pintura], ["Repuestos", v.repuestos], ["Observaciones", v.observaciones]].filter(b => b[1]);
+  // Una fila por sección (de lado a lado de la hoja): el nombre a la izquierda y los ítems uno al lado del otro
   if (bloques.length) {
-    const bw = (CW - 8 * (bloques.length - 1)) / bloques.length;
-    let maxY = y;
-    bloques.forEach(([t, txt], i) => {
-      const bx = M + i * (bw + 8);
-      titulo(doc, t, bx, y, bw);
+    const LX = M + 32, LW = CW - 32;
+    doc.setDrawColor(...C_TIT); doc.setLineWidth(0.6); doc.line(M, y - 4, M + CW, y - 4);
+    bloques.forEach(([t, txt]) => {
+      doc.setFont("helvetica", "bold"); doc.setFontSize(9.5); doc.setTextColor(...C_TIT);
+      doc.text(t, M, y);
       doc.setFont("helvetica", "normal"); doc.setFontSize(9.5); doc.setTextColor(40, 52, 70);
       if (t === "Observaciones") {
-        const lineas = doc.splitTextToSize(txt, bw);
-        doc.text(lineas, bx, y + 8);
-        maxY = Math.max(maxY, y + 8 + lineas.length * 4.6);
+        const lineas = doc.splitTextToSize(txt, LW);
+        doc.text(lineas, LX, y);
+        y += lineas.length * 4.6 + 3;
       } else {
-        // Repuestos y pintura: ítems uno al lado del otro con un punto (pasan de renglón si no entran)
-        let ix = bx, iy = y + 8;
+        let ix = LX, iy = y;
         String(txt).split(/\n|,/).map(x => x.trim()).filter(Boolean).forEach(item => {
-          const ancho = Math.min(doc.getTextWidth(item), bw - 4) + 4;
-          if (ix > bx && ix + ancho > bx + bw) { ix = bx; iy += 5.6; }
+          const ancho = Math.min(doc.getTextWidth(item), LW - 4) + 4;
+          if (ix > LX && ix + ancho > LX + LW) { ix = LX; iy += 5.6; }
           doc.setFillColor(...C_PUNTOS); doc.circle(ix + 1.1, iy - 1.2, 1.1, "F");
-          doc.text(doc.splitTextToSize(item, bw - 4)[0], ix + 4, iy);
-          ix += ancho + 4;
+          doc.text(doc.splitTextToSize(item, LW - 4)[0], ix + 4, iy);
+          ix += ancho + 5;
         });
-        maxY = Math.max(maxY, iy + 4);
+        y = iy + 7;
       }
     });
-    y = maxY + 6;
+    y += 2;
   }
 
   // Total
@@ -222,12 +222,13 @@ export async function presupuestoPDF(v, empresa, { conFotos = false, onProgreso 
     // Barra finita (11 mm) para que entre en la misma hoja
     if (y + 17 > H - 14) { doc.addPage(); y = 24; }
     doc.setFillColor(...AZUL); doc.roundedRect(M, y, CW, 11, 2, 2, "F");
-    doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(222, 232, 252);
-    doc.text("Total del presupuesto", M + 5, y + 7);
-    doc.setFont("helvetica", "bold"); doc.setFontSize(14); doc.setTextColor(255, 255, 255);
-    doc.text(money(v.precio), W - M - 5, y + 7.6, { align: "right" });
+    // Mismo estilo que el título del encabezado: mayúsculas, blanco y del mismo tamaño
+    const fsT = Math.min(+empresa?.seal?.tam?.titulo || 15, 16);
+    doc.setFont("helvetica", "bold"); doc.setFontSize(fsT); doc.setTextColor(255, 255, 255);
+    doc.text("TOTAL DEL PRESUPUESTO", M + 5, y + 5.5 + fsT * 0.353 / 2);
+    doc.text(money(v.precio), W - M - 5, y + 5.5 + fsT * 0.353 / 2, { align: "right" });
     doc.setFont("helvetica", "normal"); doc.setFontSize(7.5); doc.setTextColor(...GRIS);
-    doc.text("El presupuesto incluye únicamente mano de obra por sacabollo, no incluye pintura ni repuestos en el valor acordado.", M, y + 15, { maxWidth: CW });
+    doc.text("El presupuesto incluye únicamente mano de obra por sacabollo, no incluye pintura ni repuestos.", M, y + 15, { maxWidth: CW });
     y += 21;
   }
 
