@@ -3,9 +3,15 @@ import { paraPDF, blobADataURL } from "./media.js";
 import { fechaCorta, money } from "./ui.js";
 
 const AZUL_BASE = [43, 92, 230];
-let AZUL = AZUL_BASE;   // color de acento: el que elige el dueño para el encabezado (sello.color) o el azul de siempre
+// Colores elegidos por el dueño en el sello: encabezado, paños, subtítulos/líneas y puntitos
+// (los que no se eligen toman el color del encabezado, y este el azul de siempre)
+let AZUL = AZUL_BASE, C_PANOS = AZUL_BASE, C_TIT = AZUL_BASE, C_PUNTOS = AZUL_BASE;
 const hexARgb = h => /^#[0-9a-f]{6}$/i.test(h || "") ? [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)) : null;
-const acento = empresa => { AZUL = hexARgb(empresa?.seal?.color) || AZUL_BASE; };
+const acento = empresa => {
+  const s = empresa?.seal || {};
+  AZUL = hexARgb(s.color) || AZUL_BASE;
+  C_PANOS = hexARgb(s.colorPanos) || AZUL; C_TIT = hexARgb(s.colorTitulos) || AZUL; C_PUNTOS = hexARgb(s.colorPuntos) || AZUL;
+};
 const INK = [14, 27, 44], GRIS = [104, 118, 138], LINEA = [218, 224, 232], SUAVE = [244, 246, 249];
 
 const fecha = iso => iso ? iso.split("-").reverse().join("/") : "-";
@@ -100,7 +106,7 @@ function mapaPiezas(doc, piezas, x, y, alto) {
   doc.setFillColor(226, 232, 240);
   VIDRIOS.forEach(v => R(v, "F"));
   PIEZAS.forEach(p => {
-    if (piezas[p.key]) { doc.setFillColor(...AZUL); doc.setDrawColor(...AZUL); }
+    if (piezas[p.key]) { doc.setFillColor(...C_PANOS); doc.setDrawColor(...C_PANOS); }
     else { doc.setFillColor(255, 255, 255); doc.setDrawColor(200, 208, 220); }
     doc.setLineWidth(0.3); R(p, "FD");
   });
@@ -109,9 +115,9 @@ function mapaPiezas(doc, piezas, x, y, alto) {
 }
 
 function titulo(doc, txt, x, y, w) {
-  doc.setFont("helvetica", "bold"); doc.setFontSize(9.5); doc.setTextColor(...AZUL);
+  doc.setFont("helvetica", "bold"); doc.setFontSize(9.5); doc.setTextColor(...C_TIT);
   doc.text(txt, x, y);
-  doc.setDrawColor(...AZUL); doc.setLineWidth(0.6); doc.line(x, y + 1.8, x + w, y + 1.8);
+  doc.setDrawColor(...C_TIT); doc.setLineWidth(0.6); doc.line(x, y + 1.8, x + w, y + 1.8);
 }
 
 export async function presupuestoPDF(v, empresa, { conFotos = false, onProgreso } = {}) {
@@ -155,7 +161,7 @@ export async function presupuestoPDF(v, empresa, { conFotos = false, onProgreso 
     marcadas.forEach((k, i) => {
       const cx = lx + (col2 && i >= Math.ceil(marcadas.length / 2) ? 62 : 0);
       const cy = y + 5 + (col2 ? i % Math.ceil(marcadas.length / 2) : i) * 7;
-      doc.setFillColor(...AZUL); doc.circle(cx, cy - 1.2, 1.1, "F");
+      doc.setFillColor(...C_PUNTOS); doc.circle(cx, cy - 1.2, 1.1, "F");
       doc.text(PIEZA[k].label, cx + 4, cy);
     });
     y += altoMapa + 8;
@@ -179,7 +185,7 @@ export async function presupuestoPDF(v, empresa, { conFotos = false, onProgreso 
         let iy = y + 8;
         String(txt).split(/\n|,/).map(x => x.trim()).filter(Boolean).forEach(item => {
           const ls = doc.splitTextToSize(item, bw - 4);
-          doc.setFillColor(...AZUL); doc.circle(bx + 1.1, iy - 1.2, 1.1, "F");
+          doc.setFillColor(...C_PUNTOS); doc.circle(bx + 1.1, iy - 1.2, 1.1, "F");
           doc.text(ls, bx + 4, iy);
           iy += ls.length * 4.6 + 1.6;
         });

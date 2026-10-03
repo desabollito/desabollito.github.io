@@ -1291,3 +1291,6 @@ body[data-rol="desmontaje"] a[href^="#/editar"] { display: none !important; }
 #vw-vid[hidden] { display: none; }
 .color-fila { display: flex; align-items: center; gap: 12px; }
 .color-pdf input[type=color] { width: 64px; height: 40px; padding: 2px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); cursor: pointer; }
+.colores-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 4px 0 6px; }
+.color-item { display: flex; align-items: center; gap: 10px; font-size: 14px; cursor: pointer; }
+.color-item input[type=color] { width: 48px; height: 38px; padding: 2px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); cursor: pointer; flex: 0 0 auto; }
