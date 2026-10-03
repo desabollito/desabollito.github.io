@@ -305,6 +305,9 @@ export function vistaEmpresa(view) {
             ${admin ? `<input type="file" accept="image/*" hidden id="logo-in">` : ""}</${admin ? "label" : "div"}>
           ${admin ? `<button type="button" class="link-btn danger" id="logo-del" ${sello.logo ? "" : "hidden"}>Quitar logo</button>` : ""}
         </div>
+        <div class="field"><span>Diseño del encabezado</span>
+          <div class="seg seg-sm" id="diseno-pdf">${[["clasico", "Título a la izquierda"], ["centrado", "Logo · Título · Datos"]].map(([k, t]) =>
+            `<button type="button" class="seg-btn ${(sello.diseno || "clasico") === k ? "on" : ""}" data-diseno="${k}" ${admin ? "" : "disabled"}>${t}</button>`).join("")}</div></div>
         <div class="field color-pdf"><span>Colores del PDF</span>
           <div class="colores-grid">${[["color", "Encabezado"], ["colorPanos", "Paños afectados"], ["colorTitulos", "Subtítulos y líneas"], ["colorPuntos", "Puntitos"]].map(([k, t]) =>
             `<label class="color-item"><input type="color" name="${k}" value="${esc(sello[k] || sello.color || "#2b5ce6")}" ${admin ? "" : "disabled"}><span>${t}</span></label>`).join("")}</div>
@@ -377,11 +380,16 @@ export function vistaEmpresa(view) {
   $("#logo-del", view)?.addEventListener("click", e => {
     logo = ""; $(".logo-prev", view).classList.add("vacio"); $(".logo-vis", view).textContent = "Subir logo"; e.currentTarget.hidden = true;
   });
+  let diseno = sello.diseno || "clasico";
+  $("#diseno-pdf", view)?.addEventListener("click", e => {
+    const b = e.target.closest("[data-diseno]"); if (!b || !admin) return;
+    diseno = b.dataset.diseno; $$("#diseno-pdf .seg-btn", view).forEach(x => x.classList.toggle("on", x === b));
+  });
   $("#color-def", view)?.addEventListener("click", () => { $$("#sello input[type=color]", view).forEach(i => { i.value = "#2b5ce6"; }); });
   if ($("#sello", view)) $("#sello", view).onsubmit = async e => {
     e.preventDefault(); if (!admin) return;
     try { await guardarSello({ texto: e.target.texto.value.trim(), logo, color: e.target.color.value,
-      colorPanos: e.target.colorPanos.value, colorTitulos: e.target.colorTitulos.value, colorPuntos: e.target.colorPuntos.value }); toast("Sello guardado", "success"); }
+      colorPanos: e.target.colorPanos.value, colorTitulos: e.target.colorTitulos.value, colorPuntos: e.target.colorPuntos.value, diseno }); toast("Sello guardado", "success"); }
     catch (err) { toast(mensajeError(err), "error"); }
   };
   $("#salir-emp", view)?.addEventListener("click", async () => {

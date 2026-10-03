@@ -221,7 +221,7 @@ function escucharEmpresas() {
     const cambio = actual?.id !== S.company?.id;
     S.company = actual;
     // Solo avisar si algo cambió de verdad (evita repintar por metadatos)
-    const firma = JSON.stringify(S.companies.map(c => [c.id, c.name, c.members, c.roles, c.memberNames, c.memberTags, c.seal?.texto, c.seal?.color, c.seal?.colorPanos, c.seal?.colorTitulos, c.seal?.colorPuntos, (c.seal?.logo || "").length]));
+    const firma = JSON.stringify(S.companies.map(c => [c.id, c.name, c.members, c.roles, c.memberNames, c.memberTags, c.seal?.texto, c.seal?.color, c.seal?.colorPanos, c.seal?.colorTitulos, c.seal?.colorPuntos, c.seal?.diseno, (c.seal?.logo || "").length]));
     if (firma === ultimaFirma && !cambio) return;
     ultimaFirma = firma;
     emit("companies");
