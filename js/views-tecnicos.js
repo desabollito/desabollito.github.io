@@ -142,12 +142,16 @@ export function vistaTecnicos(view) {
       ${ed ? `<p class="muted small">Tocá la celda de un técnico para sumarlo o sacarlo de ese auto. El importe se reparte solo.</p>` : ""}`;
   };
   // Arrastrar el borde derecho del título de una columna cambia su ancho
+  // El ancho de la tabla es la suma de sus columnas (así se pueden achicar, no solo agrandar)
+  const ajustarTabla = body => $$(".tec-excel", body).forEach(t => {
+    t.style.width = [...t.querySelectorAll("col")].reduce((a, c) => a + (parseInt(c.style.width) || 0), 0) + "px"; });
   const conectarAnchos = body => {
+    ajustarTabla(body);
     $$(".col-res", body).forEach(h => h.addEventListener("pointerdown", e => {
       e.preventDefault(); e.stopPropagation();
       const k = h.parentElement.dataset.col, col = $(`col[data-col="${CSS.escape(k)}"]`, body);
       const x0 = e.clientX, w0 = col.getBoundingClientRect().width || parseInt(col.style.width) || 100;
-      const mover = ev => { col.style.width = Math.max(50, Math.round(w0 + ev.clientX - x0)) + "px"; };
+      const mover = ev => { col.style.width = Math.max(40, Math.round(w0 + ev.clientX - x0)) + "px"; ajustarTabla(body); };
       const soltar = () => { removeEventListener("pointermove", mover); removeEventListener("pointerup", soltar);
         const w = anchos(); w[k] = parseInt(col.style.width); try { localStorage.setItem("tecCols", JSON.stringify(w)); } catch { /* sin almacenamiento */ } };
       addEventListener("pointermove", mover); addEventListener("pointerup", soltar);
