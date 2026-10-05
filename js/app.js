@@ -4,7 +4,7 @@ import {
 import { $, $$, esc, toast, busy, openSheet } from "./ui.js";
 import { FIREBASE } from "./config.js";
 import { iniciarFechas } from "./fecha.js";
-import { cuentaPendiente, salir, marcarOperativosVistos, soyCreador, crearEmpresa, pedirUnion, cancelarPedidoUnion, escucharMiPedido, responderPedidoUnion, soyDesmontaje, miRol } from "./data.js";
+import { cuentaPendiente, salir, marcarOperativosVistos, soyCreador, crearEmpresa, pedirUnion, cancelarPedidoUnion, escucharMiPedido, responderPedidoUnion, soyDesmontaje, miRol, soyAdmin } from "./data.js";
 import { marcarNav, pintarLateral, esAncho } from "./shell.js";
 import { vistaVehiculos, vistaDetalle, vistaFormulario, reiniciarVista3D, elegirVehiculoDesmontaje } from "./views-vehiculos.js";
 import {
@@ -33,7 +33,7 @@ function irAVehiculo(arg) {
 
 const RUTAS = [
   [/^#?\/?$/,               "vehiculos",  () => vistaVehiculos(view)],
-  [/^#\/v\/([\w-]+)$/,      "vehiculos",  id => esAncho() ? vistaVehiculos(view, id) : vistaDetalle(view, id)],
+  [/^#\/v\/([\w-]+)$/,      "vehiculos",  id => esAncho() && !S.volverA ? vistaVehiculos(view, id) : vistaDetalle(view, id)],
   [/^#\/o\/([\w-]+\/v\/[\w-]+)$/, "link", a => irAVehiculo(a.replace("/v/", "|"))],
   [/^#\/nuevo$/,            "nuevo",      () => vistaFormulario(view)],
   [/^#\/editar\/([\w-]+)$/, "editar",     id => vistaFormulario(view, id)],
@@ -60,12 +60,20 @@ function render({ conservarScroll = false } = {}) {
   }
   const arg = hit[1] === "operativo" ? null : (h.match(hit[0])?.[1] || null);
   const mismaRuta = ruta.nombre === hit[1] && ruta.arg === arg;
+  // Vehículo abierto desde el calendario: al salir vuelve al calendario (no a la lista)
+  if (hit[1] === "vehiculos" && arg) { if (ruta.nombre === "calendario") S.volverA = "#/calendario"; else if (ruta.nombre === "vehiculos" && !ruta.arg) S.volverA = null; }
+  else if (hit[1] !== "editar") S.volverA = null;
   const y = conservarScroll && mismaRuta ? scrollY : 0;
   ruta = { nombre: hit[1], arg };
   document.body.dataset.ruta = hit[1];
   document.body.dataset.detalle = hit[1] === "vehiculos" && arg ? "1" : "";
   marcarNav(["nuevo", "editar", "operativo"].includes(hit[1]) ? "" : hit[1] === "papelera" ? "ajustes" : ["planilla", "gastos", "tecnicos"].includes(hit[1]) ? "planillas" : hit[1]);
   pintarTabPlanilla(hit[1]);
+  // Menú lateral (computadora): Planillas se despliega con sus 3 planillas
+  const enPlan = ["planillas", "planilla", "gastos", "tecnicos"].includes(hit[1]);
+  $(".side-grupo")?.classList.toggle("abierto", enPlan);
+  $$(".side-sub a").forEach(a => a.classList.toggle("on", a.dataset.sub === hit[1]));
+  const subTec = $('.side-sub [data-sub="tecnicos"]'); if (subTec) subTec.hidden = !soyAdmin();
   if (hit[1] === "calendario" && !mismaRuta) calendarioAlEntrar();
   if (!mismaRuta) reiniciarVista3D(); // cada vez que se abre un vehículo, arranca en 2D
   ctrl = hit[2](arg) || null;

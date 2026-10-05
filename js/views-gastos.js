@@ -26,8 +26,12 @@ const esUSD = g => g.moneda === "USD";
 export const montoTxt = g => esUSD(g) ? "US$ " + Number(g.monto || 0).toLocaleString("es-AR") : (money(g.monto) || "$0");
 const MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
 
-const G = { y: new Date().getFullYear(), m: new Date().getMonth(), q: "", cat: null, metodo: null, orden: "fecha", dir: -1 };
-const claveMes = () => `${G.y}-${String(G.m + 1).padStart(2, "0")}`;
+// mes: null = todos los gastos del operativo; "AAAA-MM" = solo ese mes (se elige en Ordenar o con las flechas)
+const G = { mes: null, q: "", cat: null, metodo: null, orden: "fecha", dir: -1 };
+const claveMes = () => G.mes || "";
+const mesActual = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`; };
+const nombreMes = k => { const [y, m] = k.split("-").map(Number); return `${MESES[m - 1]} ${y}`; };
+const moverMes = (k, n) => { const [y, m] = k.split("-").map(Number); const d = new Date(y, m - 1 + n, 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`; };
 
 const ORDEN_G = [["fecha", "Fecha"], ["monto", "Monto"], ["categoria", "Categoría"], ["metodo", "Método"]];
 function ordenarG(lista) {
@@ -58,7 +62,7 @@ export function vistaGastos(view) {
         <h2 id="g-mes"></h2>
         <button class="icon-btn" id="g-next" aria-label="Mes siguiente">${icon("next")}</button>
       </div>
-      <div class="g-total"><small>Total del mes</small><strong id="g-total"></strong>
+      <div class="g-total"><small id="g-total-l">Total del mes</small><strong id="g-total"></strong>
         <span id="g-usd" class="g-usd"></span><span id="g-count" class="muted small"></span></div>
       <div class="g-bars" id="g-bars"></div>
       <button class="btn btn-primary hide-mobile" id="g-nuevo">${icon("plus")}Agregar gasto</button>
@@ -70,7 +74,8 @@ export function vistaGastos(view) {
   </div>`;
 
   const pintar = () => {
-    $("#g-mes", view).textContent = `${MESES[G.m]} ${G.y}`;
+    $("#g-mes", view).textContent = G.mes ? nombreMes(G.mes) : "Todos los gastos";
+    $("#g-total-l", view).textContent = G.mes ? "Total del mes" : "Total del operativo";
     const todosMes = S.gastos.filter(g => (g.fecha || "").startsWith(claveMes()));
     const total = todosMes.filter(g => !esUSD(g)).reduce((s, g) => s + Number(g.monto || 0), 0);
     const totalUSD = todosMes.filter(esUSD).reduce((s, g) => s + Number(g.monto || 0), 0);
@@ -89,13 +94,13 @@ export function vistaGastos(view) {
         <span class="g-bar-l">${c.label}</span>
         <span class="g-bar-track"><i style="width:${Math.max(4, v / max * 100)}%"></i></span>
         <span class="g-bar-v">${money(v)}</span></button>`;
-    }).join("") : `<p class="muted small">Sin gastos cargados en este mes.</p>`;
+    }).join("") : `<p class="muted small">Sin gastos cargados${G.mes ? " en este mes" : ""}.</p>`;
 
     const lista = delMes();
     const box = $("#g-list", view);
     if (S.loadingGastos) { box.innerHTML = `<div class="skeleton"></div><div class="skeleton"></div>`; return; }
     if (!lista.length) {
-      box.innerHTML = `<div class="empty small"><p>${todosMes.length ? "Ningún gasto coincide con el filtro." : "Todavía no hay gastos en " + MESES[G.m] + "."}</p>
+      box.innerHTML = `<div class="empty small"><p>${todosMes.length ? "Ningún gasto coincide con el filtro." : (G.mes ? "Todavía no hay gastos en " + nombreMes(G.mes) + "." : "Todavía no hay gastos.")}</p>
         ${G.cat || G.q ? `<button class="btn btn-ghost" id="g-limpiar">Limpiar filtros</button>` : ""}</div>`;
       $("#g-limpiar", box)?.addEventListener("click", () => { G.cat = null; G.q = ""; $("#g-q", view).value = ""; pintar(); });
       return;
@@ -113,18 +118,25 @@ export function vistaGastos(view) {
     }).join("");
   };
 
-  $("#g-prev", view).onclick = () => { if (--G.m < 0) { G.m = 11; G.y--; } pintar(); };
-  $("#g-next", view).onclick = () => { if (++G.m > 11) { G.m = 0; G.y++; } pintar(); };
+  $("#g-prev", view).onclick = () => { G.mes = G.mes ? moverMes(G.mes, -1) : mesActual(); pintar(); marcarOrden(); };
+  $("#g-next", view).onclick = () => { G.mes = G.mes ? moverMes(G.mes, 1) : mesActual(); pintar(); marcarOrden(); };
+  const marcarOrden = () => $("#g-orden")?.classList.toggle("activo", G.orden !== "fecha" || G.dir !== -1 || !!G.mes);
   $("#g-q", view).oninput = debounce(e => { G.q = e.target.value; pintar(); }, 120);
   // Ordenar: tocar un criterio lo elige; tocarlo de nuevo invierte el orden
   $("#g-orden")?.addEventListener("click", () => {
-    const hoja = openSheet({ title: "Ordenar por", body: `<div class="p-chips" id="go-chips"></div>` });
+    const hoja = openSheet({ title: "Ordenar por", body: `<div class="stack filtros"><div class="p-chips" id="go-chips"></div>
+      <span class="muted small">Mes</span><div class="p-chips" id="go-mes"></div></div>` });
+    const meses = [...new Set(S.gastos.map(g => String(g.fecha || "").slice(0, 7)).filter(x => /^\d{4}-\d{2}$/.test(x)))].sort().reverse();
     const chips = () => {
       $("#go-chips", hoja.el).innerHTML = ORDEN_G.map(([k, t]) => `<button type="button" class="p-chip ${G.orden === k ? "on" : ""}" data-o="${k}">${t}${G.orden === k ? `<i>${G.dir > 0 ? "↑" : "↓"}</i>` : ""}</button>`).join("");
-      $("#g-orden")?.classList.toggle("activo", G.orden !== "fecha" || G.dir !== -1);
+      $("#go-mes", hoja.el).innerHTML = [["", "Todos"], ...meses.map(k => [k, nombreMes(k)])].map(([k, t]) =>
+        `<button type="button" class="p-chip ${(G.mes || "") === k ? "on" : ""}" data-mes="${k}">${t}</button>`).join("");
+      marcarOrden();
     };
     chips();
     hoja.el.addEventListener("click", e => {
+      const mb = e.target.closest("[data-mes]");
+      if (mb) { G.mes = mb.dataset.mes || null; chips(); pintar(); return; }
       const b = e.target.closest("[data-o]"); if (!b) return;
       if (G.orden === b.dataset.o) G.dir *= -1; else { G.orden = b.dataset.o; G.dir = ["fecha", "monto"].includes(G.orden) ? -1 : 1; }
       chips(); pintar();
@@ -164,8 +176,8 @@ export function vistaGastos(view) {
     const usd = lista.filter(esUSD).reduce((s, g) => s + Number(g.monto || 0), 0);
     try {
       await exportarExcel({
-        archivo: `Gastos_${claveMes()}.xlsx`, hoja: "Gastos",
-        titulo: `${S.company?.name || "Desabollito"} · Gastos de ${MESES[G.m]} ${G.y}`,
+        archivo: `Gastos_${claveMes() || "todos"}.xlsx`, hoja: "Gastos",
+        titulo: `${S.company?.name || "Desabollito"} · Gastos de ${G.mes ? nombreMes(G.mes) : "todo el operativo"}`,
         columnas: [
           { titulo: "Fecha", ancho: 13, tipo: "fecha", valor: g => g.fecha },
           { titulo: "Concepto", ancho: 30, valor: g => g.concepto },
@@ -181,10 +193,10 @@ export function vistaGastos(view) {
       });
     } catch (err) { toast(err.message, "error"); }
   };
-  const pdf = () => gastosPDF(delMes(), S.company, `${MESES[G.m]} ${G.y}`, catMap()).save(`Gastos_${claveMes()}.pdf`);
+  const pdf = () => gastosPDF(delMes(), S.company, `${G.mes ? nombreMes(G.mes) : "todo el operativo"}`, catMap()).save(`Gastos_${claveMes() || "todos"}.pdf`);
   $("#g-dl").onclick = () => {
     if (!delMes().length) return toast("No hay gastos para descargar", "warning");
-    elegirDescarga(`Gastos de ${MESES[G.m]} ${G.y}`, { excel, pdf });
+    elegirDescarga(`Gastos de ${G.mes ? nombreMes(G.mes) : "todo el operativo"}`, { excel, pdf });
   };
 
   pintar();
@@ -305,8 +317,8 @@ export function formGasto(g = null) {
     };
     guardarGasto(g?.id || null, data).catch(err => toast("No se guardó: " + mensajeError(err), "error"));
     toast(g ? "Gasto actualizado" : `Gasto de ${montoTxt(data)} guardado`, "success");
-    // mostrar el mes del gasto recién cargado
-    const [yy, mm] = data.fecha.split("-").map(Number); G.y = yy; G.m = mm - 1;
+    // si se está viendo un mes, mostrar el del gasto recién cargado
+    if (G.mes) G.mes = String(data.fecha).slice(0, 7);
     s.close();
   };
   $("#g-borrar", s.el)?.addEventListener("click", async () => {

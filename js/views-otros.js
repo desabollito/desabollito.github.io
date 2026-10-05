@@ -163,6 +163,7 @@ export function vistaPlanilla(view) {
 //  CALENDARIO
 // ═════════════════════════════════════════════════════════════
 const C = { y: new Date().getFullYear(), m: new Date().getMonth(), campo: "turnado", dia: null, auto: true };
+if (!["peritado", "turnado"].includes(C.campo)) C.campo = "turnado";
 
 // Al entrar: hoy si tiene vehículos; si no, el próximo día con vehículos; si no hay
 // ninguno adelante, el último día anterior que tenga.
@@ -220,7 +221,7 @@ export function vistaCalendario(view) {
         <button class="btn btn-ghost btn-sm" id="hoy">Hoy</button>
       </div>
       <div class="seg seg-sm" id="campo">
-        ${[["peritado", "Peritajes"], ["turnado", "Turnos"], ["reparado", "Reparaciones"]].map(([k, t]) =>
+        ${[["peritado", "Peritajes"], ["turnado", "Turnos"]].map(([k, t]) =>
           `<button class="seg-btn ${C.campo === k ? "on" : ""}" data-c="${k}">${t}</button>`).join("")}
       </div>
       <div class="cal-grid">${["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"].map(d => `<div class="cw">${d}</div>`).join("")}${celdas}</div>

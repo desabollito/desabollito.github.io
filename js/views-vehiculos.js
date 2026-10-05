@@ -265,7 +265,7 @@ export function vistaDetalle(view, id) {
     return;
   }
   setTopbar({
-    title: "Detalle", sub: v.patente || v.modelo || "", back: "#/",
+    title: "Detalle", sub: v.patente || v.modelo || "", back: S.volverA || "#/",
     actions: soyDesmontaje() ? "" : `<a class="icon-btn" href="#/editar/${v.id}" aria-label="Editar">${icon("edit")}</a>`
   });
   view.innerHTML = `<div class="detail-page"></div>`;
