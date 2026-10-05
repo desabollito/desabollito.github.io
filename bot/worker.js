@@ -270,6 +270,44 @@ const titulo = t => t.split(/\s+/).map(p => /\d/.test(p) || p.length <= 3 && p =
  * @param {string} texto
  * @param {{ localidades?: string[], companias?: string[] }} extra  valores ya usados en la app
  */
+// "pintar capot techo", "paños a pintura capot y techo", "repuesto faro izq espejo der":
+// después de la palabra clave se toman solo las piezas (con su lado/posición), cada una por separado,
+// y se corta en la primera palabra que no es una pieza (el resto del mensaje sigue normal).
+const PARTES_RE = new Set(("capot techo baul porton guardabarro guardabarros puerta puertas parante parantes zocalo zocalos faro faros optica opticas " +
+  "espejo espejos moldura molduras paragolpe paragolpes parabrisas luneta vidrio vidrios manija manijas emblema emblemas burlete burletes " +
+  "antena spoiler aleron grilla parrilla rejilla farito faritos giro giros calco calcos cristal deflector tapa tapas babero baberos retrovisor " +
+  "barral barrales llanta llantas lateral laterales frente trompa cola pilar marco sensor sensores bisagra bisagras cubre tazas taza " +
+  "panel paneles butaca sunroof techito portaequipaje").split(" "));
+const MODS_RE = new Set(("izq izquierdo izquierda izquierdos izquierdas der derecho derecha derechos derechas del delantero delantera delanteros delanteras " +
+  "tras trasero trasera traseros traseras sup superior inf inferior de completo completa lado ext exterior int interior chico chica grande " +
+  "medio central x2 x3 ambos ambas").split(" "));
+const RE_PIEZAS_ETIQ = /(^|\s)(?:pa[ñn]os?\s+(?:a|para|de)\s+)?(pint(?:ar|ura|arlo|arla|arlos|ado|ada|or|a)|repuestos?)(?![a-záéíóúñ:=])/gi;
+function piezasEtiquetadas(texto, r) {
+  let out = texto, m;
+  RE_PIEZAS_ETIQ.lastIndex = 0;
+  const cortes = [];
+  while ((m = RE_PIEZAS_ETIQ.exec(texto))) {
+    const ini = m.index + m[1].length, tras = texto.slice(m.index + m[0].length);
+    const tokens = [...tras.matchAll(/[^\s,;]+|[,;]/g)];
+    const items = []; let actual = null, fin = 0;
+    for (const t of tokens) {
+      const w = sinTildes(t[0]).replace(/[.:]+$/, "");
+      if (w === "," || w === ";" || w === "y" || w === "e") { actual = null; fin = t.index + t[0].length; continue; }
+      if (PARTES_RE.has(w)) { actual = [t[0].replace(/[.:]+$/, "")]; items.push(actual); fin = t.index + t[0].length; continue; }
+      if (actual && MODS_RE.has(w)) { actual.push(t[0].replace(/:+$/, "")); fin = t.index + t[0].length; continue; }
+      if (!actual && /^(del|de|la|el|los|las|al|a|en|el|un|una)$/.test(w)) continue;   // "pintura del techo"
+      break;
+    }
+    if (!items.length) continue;
+    const lista = items.map(x => x.join(" ")).join(", ");
+    if (/^rep/i.test(m[2])) r.repuestos = r.repuestos ? r.repuestos + ", " + lista : lista;
+    else r.pintura = r.pintura ? r.pintura + ", " + lista : lista;
+    cortes.push([ini, m.index + m[0].length + fin]);
+  }
+  for (const [a, b] of cortes.reverse()) out = out.slice(0, a) + " " + out.slice(b);
+  return out;
+}
+
 export function interpretar(texto, extra = {}) {
   let resto = ` ${String(texto || "")} `;
   const r = { patente: null, modelo: "", compania: "", telefono: "", localidad: "", grado: null, otros: "", asegurado: "", piezas: {},
@@ -288,10 +326,12 @@ export function interpretar(texto, extra = {}) {
 
   // 1b. Campos con etiqueta: "detalle: …", "adicional …", "repuestos: …", "precio: …".
   //     El texto va desde la etiqueta hasta la próxima etiqueta o el final del mensaje.
-  const RE_ETIQ = /(?:^|\s)(detalles?|adicional(?:es)?|observaci[oó]n(?:es)?|obs|repuestos?|pintura|precio)(?![a-záéíóúñ])\s*[:\-=]?\s*/gi;
+  // Repuestos y pintura con ":" toman todo el texto que sigue; sin ":" se entienden solo las piezas (ver abajo)
+  const RE_ETIQ = /(?:^|\s)(?:(detalles?|adicional(?:es)?|observaci[oó]n(?:es)?|obs|precio)(?![a-záéíóúñ])\s*[:\-=]?|(repuestos?|pintura)(?![a-záéíóúñ])\s*[:=])\s*/gi;
+  resto = piezasEtiquetadas(resto, r);
   const marcas = [...resto.matchAll(RE_ETIQ)];
   if (marcas.length) {
-    const partes = marcas.map((mm, k) => ({ tipo: sinTildes(mm[1]), texto: resto.slice(mm.index + mm[0].length, k + 1 < marcas.length ? marcas[k + 1].index : resto.length).trim() }));
+    const partes = marcas.map((mm, k) => ({ tipo: sinTildes(mm[1] || mm[2]), texto: resto.slice(mm.index + mm[0].length, k + 1 < marcas.length ? marcas[k + 1].index : resto.length).trim() }));
     resto = resto.slice(0, marcas[0].index) + " ";
     for (const { tipo, texto: t } of partes) {
       if (!t) continue;
@@ -393,7 +433,8 @@ export function interpretar(texto, extra = {}) {
     // Números pegados al modelo ("BMW 118", "Etios 1.5") van con el modelo
     while (libres > 0 && /\d/.test(palabras[fin + 1])) { fin++; libres--; }
     const grupo = palabras.slice(fin + 1, fin + 1 + libres);
-    const pareceNombre = grupo.length >= 2 && grupo.slice(0, 2).every(esNombre);
+    // Dos palabras solo con letras (en minúscula o Nombre Apellido) después del modelo: es el cliente, no el modelo
+    const pareceNombre = grupo.length >= 2 && grupo.slice(0, 2).every(w => esNombre(w) || (/^[a-záéíóúñü]{3,}$/i.test(w) && !/^[A-Z]{2,6}$/.test(w)));
     if (!pareceNombre) {
       let sum = 0;
       // Solo palabras cortas o con números ("SRV", "Pro", "1.6"): lo demás ("golpe fuerte") va a detalles
@@ -416,7 +457,8 @@ export function interpretar(texto, extra = {}) {
   for (const g of grupos) {
     const t = g.join(" ");
     // Nombre: 1 a 4 palabras solo con letras (en cualquier formato: "victoria", "Juan Perez", "JUAN")
-    const pareceNombre = g.length >= 1 && g.length <= 4 && g.every(w => palabraNombre(w) || /^[a-záéíóúñü']{2,}$/i.test(w));
+    const pareceNombre = g.length >= 1 && g.length <= 4 && g.every(w => palabraNombre(w) || /^[a-záéíóúñü']{2,}$/i.test(w))
+      && !g.some(w => PARTES_RE.has(sinTildes(w)) || /^(falta|faltan|roto|rota|golpe|golpes|rayon|rayado|abollado|cambiar|cambio|sin|con|tiene|viene|hay|para)$/i.test(sinTildes(w)));
     if (!r.asegurado && pareceNombre && r.modelo) { r.asegurado = titulo(t); continue; }
     if (!r.modelo) r.modelo = titulo(t);
     else r.otros = (r.otros ? r.otros + " " : "") + t;
