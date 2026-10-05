@@ -1359,3 +1359,20 @@ body[data-rol="desmontaje"] a[href^="#/editar"] { display: none !important; }
 .tec-excel input { width: 100px; padding: 4px 6px; border-radius: 6px; border: 1px solid var(--line); background: var(--surface-2); color: var(--ink); font-weight: 700; text-align: right; }
 .tec-celda { border: 1px dashed var(--line-2); background: none; color: var(--muted); border-radius: 6px; padding: 3px 8px; min-width: 70px; cursor: pointer; font: inherit; }
 .tec-celda.on { border-style: solid; border-color: var(--primary); color: var(--primary); font-weight: 700; background: var(--primary-soft); }
+.tec-excel { table-layout: fixed; width: max-content; min-width: 100%; }
+.tec-excel th { position: relative; overflow: hidden; text-overflow: ellipsis; }
+.tec-excel td { overflow: hidden; text-overflow: ellipsis; }
+.tec-excel .col-imp { border-right: 2px solid var(--line-2); }
+.col-res { position: absolute; top: 0; right: 0; width: 8px; height: 100%; cursor: col-resize; touch-action: none; }
+.col-res:hover, .col-res:active { background: color-mix(in srgb, var(--primary) 30%, transparent); }
+.tec-excel .tec-sub td { background: color-mix(in srgb, var(--primary) 10%, transparent); }
+.tec-excel .tec-sub small { color: var(--muted); font-weight: 600; margin-left: 6px; }
+.tec-excel .tec-sep td { height: 14px; padding: 0; border: 0; background: none; }
+.tec-cierre-top { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.tec-stat { background: var(--primary-soft); border-radius: 16px; padding: 16px 18px; display: flex; flex-direction: column; gap: 4px; }
+.tec-stat small { color: var(--ink-2); font-weight: 700; text-transform: uppercase; font-size: 12px; letter-spacing: .04em; }
+.tec-stat strong { font-size: 28px; color: var(--primary); line-height: 1.1; }
+.tec-cierre-tit { margin: 18px 0 8px; font-size: 15px; color: var(--ink-2); text-transform: uppercase; letter-spacing: .04em; }
+.tec-cierre-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+.tec-cierre { padding: 0 14px 10px; overflow: hidden; }
+.tec-cierre-nombre { margin: 0 -14px 6px !important; padding: 10px 14px; background: var(--surface-2); border-bottom: 1px solid var(--line); }

@@ -29,7 +29,8 @@ const masDias = (iso, n) => { const [y, m, d] = iso.split("-").map(Number); cons
 // Fecha de la reparación (Revisión en adelante)
 // Solo cuentan los autos entregados (o ya facturados); la fecha es la de entrega
 const entregado = v => ["entregado", "facturado"].includes(estadoActual(v));
-const fechaRep = v => v.fechas?.entregado || v.fechas?.facturado || "";
+// El día del auto en la planilla es el de la reparación (no el de la entrega)
+const fechaRep = v => v.fechas?.reparado || v.fechas?.enreparacion || v.fechas?.llamado || v.fechas?.entregado || v.fechas?.facturado || "";
 const nuevoId = () => Math.random().toString(36).slice(2, 9);
 
 const T = { tab: "autos", resumen: "dia", desde: "", hasta: "", editando: false };
@@ -82,7 +83,7 @@ export function vistaTecnicos(view) {
         <label class="field"><span>Desde</span><input type="date" id="t-desde" value="${esc(T.desde)}"></label>
         <label class="field"><span>Hasta</span><input type="date" id="t-hasta" value="${esc(T.hasta)}"></label>
       </div>
-      <div class="seg seg-sm tec-tabs" id="t-tabs">${[["autos", "Autos"], ["resumen", "Resumen"], ["cierre", "Cierre"]].map(([k, t]) =>
+      <div class="seg seg-sm tec-tabs" id="t-tabs">${[["autos", "Autos"], ["cierre", "Cierre"]].map(([k, t]) =>
         `<button type="button" class="seg-btn ${T.tab === k ? "on" : ""}" data-tab="${k}">${t}</button>`).join("")}</div>
       <div id="t-body"></div></div>`;
     $("#t-desde", view).onchange = e => { T.desde = e.target.value; pintar(); };
@@ -104,47 +105,53 @@ export function vistaTecnicos(view) {
         <button class="btn btn-primary" data-act="tecnicos">${icon("plus")}Agregar técnicos</button></div>`;
       return;
     }
+    if (T.tab !== "cierre") T.tab = "autos";
     if (T.tab === "autos") body.innerHTML = pintarAutos(rows);
-    else if (T.tab === "resumen") body.innerHTML = pintarResumen(rows);
+    if (T.tab === "autos") conectarAnchos(body);
     else body.innerHTML = pintarCierre(rows);
   };
 
-  // Como el Excel: un día debajo del otro, cada auto en una línea y una columna por técnico.
-  // Solo se puede cambiar algo con "Editar" activado.
+  // Como el Excel: semana por semana; cada día con su título, cada auto en una línea y una columna por técnico.
+  // Al terminar cada semana va "TOTAL SEMANA". Solo se puede cambiar algo con "Editar" activado.
+  // Las columnas se pueden ensanchar o achicar arrastrando el borde del título (se recuerda en este equipo).
+  const anchos = () => { try { return JSON.parse(localStorage.getItem("tecCols") || "{}"); } catch { return {}; } };
   const pintarAutos = rows => {
     if (!rows.length) return `<div class="empty small"><p>Todavía no hay autos entregados${T.desde || T.hasta ? " en ese período" : ""}.</p></div>`;
-    const ed = T.editando, tecs = cfg.tecnicos, nc = 4 + tecs.length + (ed ? 1 : 0);
-    const dias = [...new Set(rows.map(r => r.fecha))];
+    const ed = T.editando, tecs = cfg.tecnicos, nc = 4 + tecs.length + (ed ? 1 : 0), w = anchos();
+    const cols = [["veh", "Vehículo", 120], ["pat", "Patente", 90], ["cia", "Compañía", 110], ["imp", "Importe", 100], ...tecs.map(t => [t.id, t.nombre, 95])];
+    const th = ([k, txt], i) => `<th class="${i >= 3 ? "num" : ""} ${k === "imp" ? "col-imp" : ""}" data-col="${esc(k)}">${esc(txt)}<span class="col-res" aria-hidden="true"></span></th>`;
+    const semanas = [...new Set(rows.map(r => lunesDe(r.fecha)))];
+    const fila = r => `<tr data-vid="${esc(r.v.id)}">
+      <td>${esc((r.v.modelo || "—").toUpperCase())}</td><td>${esc(r.v.patente || "")}</td><td>${esc((r.v.compania || "").toUpperCase())}</td>
+      <td class="num col-imp">${ed ? `<input type="number" inputmode="numeric" min="0" step="1000" data-campo="valor" value="${r.valor}">` : pesos(r.valor)}</td>
+      ${tecs.map(t => { const si = r.tecs.includes(t.id);
+        return `<td class="num ${si ? "" : "tec-no"}">${ed ? `<button type="button" class="tec-celda ${si ? "on" : ""}" data-tec="${esc(t.id)}">${si ? pesos(r.parte) : "⨯"}</button>` : si ? pesos(r.parte) : "⨯"}</td>`; }).join("")}
+      ${ed ? `<td><button type="button" class="icon-btn sm" data-act="fila" aria-label="Opciones">${icon("edit")}</button></td>` : ""}</tr>`;
     return `<div class="table-wrap"><table class="tbl tec-excel ${ed ? "editando" : ""}">
-      <thead><tr><th>Vehículo</th><th>Patente</th><th>Compañía</th><th class="num">Importe</th>${tecs.map(t => `<th class="num">${esc(t.nombre)}</th>`).join("")}${ed ? "<th></th>" : ""}</tr></thead>
-      <tbody>${dias.map(d => {
-        const rs = rows.filter(r => r.fecha === d), s = sumaPorTec(rs);
-        return `<tr class="tec-dia-fila"><td colspan="${nc}">${diaLabel(d).toUpperCase()} <small>${rs.length} ${rs.length === 1 ? "auto" : "autos"}</small></td></tr>
-          ${rs.map(r => `<tr data-vid="${esc(r.v.id)}">
-            <td>${esc((r.v.modelo || "—").toUpperCase())}</td><td>${esc(r.v.patente || "")}</td><td>${esc((r.v.compania || "").toUpperCase())}</td>
-            <td class="num">${ed ? `<input type="number" inputmode="numeric" min="0" step="1000" data-campo="valor" value="${r.valor}">` : pesos(r.valor)}</td>
-            ${tecs.map(t => { const si = r.tecs.includes(t.id);
-              return `<td class="num ${si ? "" : "tec-no"}">${ed ? `<button type="button" class="tec-celda ${si ? "on" : ""}" data-tec="${esc(t.id)}">${si ? pesos(r.parte) : "⨯"}</button>` : si ? pesos(r.parte) : "⨯"}</td>`; }).join("")}
-            ${ed ? `<td><button type="button" class="icon-btn sm" data-act="fila" aria-label="Opciones">${icon("edit")}</button></td>` : ""}</tr>`).join("")}
-          <tr class="tec-sub"><td colspan="3">Total del día</td><td class="num">${pesos(rs.reduce((a, r) => a + r.valor, 0))}</td>
-            ${tecs.map(t => `<td class="num">${s[t.id] ? pesos(s[t.id]) : "—"}</td>`).join("")}${ed ? "<td></td>" : ""}</tr>`;
+      <colgroup>${cols.map(([k, , def]) => `<col data-col="${esc(k)}" style="width:${Number(w[k]) || def}px">`).join("")}${ed ? `<col style="width:44px">` : ""}</colgroup>
+      <thead><tr>${cols.map(th).join("")}${ed ? "<th></th>" : ""}</tr></thead>
+      <tbody>${semanas.map(l => {
+        const rsS = rows.filter(r => lunesDe(r.fecha) === l), s = sumaPorTec(rsS);
+        const dias = [...new Set(rsS.map(r => r.fecha))];
+        return dias.map(d => `<tr class="tec-dia-fila"><td colspan="${nc}">${diaLabel(d).toUpperCase()}</td></tr>${rsS.filter(r => r.fecha === d).map(fila).join("")}`).join("") +
+          `<tr class="tec-sub"><td colspan="3">TOTAL SEMANA <small>${fechaCorta(l).slice(0, 5)} al ${fechaCorta(masDias(l, 6)).slice(0, 5)} · ${rsS.length} ${rsS.length === 1 ? "auto" : "autos"}</small></td>
+            <td class="num col-imp">${pesos(rsS.reduce((a, r) => a + r.valor, 0))}</td>
+            ${tecs.map(t => `<td class="num">${s[t.id] ? pesos(s[t.id]) : "—"}</td>`).join("")}${ed ? "<td></td>" : ""}</tr>
+          <tr class="tec-sep"><td colspan="${nc}"></td></tr>`;
       }).join("")}</tbody></table></div>
       ${ed ? `<p class="muted small">Tocá la celda de un técnico para sumarlo o sacarlo de ese auto. El importe se reparte solo.</p>` : ""}`;
   };
-
-  const tabla = (grupos) => `<div class="table-wrap"><table class="tbl tec-tbl">
-    <thead><tr><th></th><th class="num">Autos</th><th class="num">Total</th>${cfg.tecnicos.map(t => `<th class="num">${esc(t.nombre)}</th>`).join("")}</tr></thead>
-    <tbody>${grupos.map(([label, rs]) => { const s = sumaPorTec(rs); return `<tr><td>${label}</td><td class="num">${rs.length}</td><td class="num">${pesos(rs.reduce((a, r) => a + r.valor, 0))}</td>
-      ${cfg.tecnicos.map(t => `<td class="num">${s[t.id] ? pesos(s[t.id]) : "—"}</td>`).join("")}</tr>`; }).join("")}</tbody></table></div>`;
-
-  const pintarResumen = rows => {
-    if (!rows.length) return `<div class="empty small"><p>Sin autos en el período.</p></div>`;
-    const seg = `<div class="seg seg-sm" id="t-res">${[["dia", "Diario"], ["semana", "Semanal"]].map(([k, t]) =>
-      `<button type="button" class="seg-btn ${T.resumen === k ? "on" : ""}" data-res="${k}">${t}</button>`).join("")}</div>`;
-    let grupos;
-    if (T.resumen === "dia") grupos = [...new Set(rows.map(r => r.fecha))].map(d => [diaLabel(d), rows.filter(r => r.fecha === d)]);
-    else grupos = [...new Set(rows.map(r => lunesDe(r.fecha)))].map(l => [`${fechaCorta(l).slice(0, 5)} al ${fechaCorta(masDias(l, 6)).slice(0, 5)}`, rows.filter(r => lunesDe(r.fecha) === l)]);
-    return seg + tabla(grupos);
+  // Arrastrar el borde derecho del título de una columna cambia su ancho
+  const conectarAnchos = body => {
+    $$(".col-res", body).forEach(h => h.addEventListener("pointerdown", e => {
+      e.preventDefault(); e.stopPropagation();
+      const k = h.parentElement.dataset.col, col = $(`col[data-col="${CSS.escape(k)}"]`, body);
+      const x0 = e.clientX, w0 = col.getBoundingClientRect().width || parseInt(col.style.width) || 100;
+      const mover = ev => { col.style.width = Math.max(50, Math.round(w0 + ev.clientX - x0)) + "px"; };
+      const soltar = () => { removeEventListener("pointermove", mover); removeEventListener("pointerup", soltar);
+        const w = anchos(); w[k] = parseInt(col.style.width); try { localStorage.setItem("tecCols", JSON.stringify(w)); } catch { /* sin almacenamiento */ } };
+      addEventListener("pointermove", mover); addEventListener("pointerup", soltar);
+    }));
   };
 
   const enPeriodo = m => (!T.desde || m.fecha >= T.desde) && (!T.hasta || m.fecha <= T.hasta);
@@ -154,16 +161,18 @@ export function vistaTecnicos(view) {
     const de = (id, tipo) => movs.filter(m => m.tec === id && m.tipo === tipo);
     const suma = l => l.reduce((a, m) => a + (Number(m.monto) || 0), 0);
     return `<div class="tec-cierre-top">
-        <div class="kv"><span>Autos entregados</span><strong>${rows.length}</strong></div>
-        <div class="kv"><span>Valor de todos los autos</span><strong>${pesos(total)}</strong></div>
+        <div class="tec-stat"><small>Autos entregados</small><strong>${rows.length}</strong></div>
+        <div class="tec-stat"><small>Valor de todos los autos</small><strong>${pesos(total)}</strong></div>
       </div>
+      <h3 class="tec-cierre-tit">Por técnico</h3>
+      <div class="tec-cierre-grid">
       ${cfg.tecnicos.map(t => {
         const ad = de(t.id, "adelanto"), ga = de(t.id, "gasto"), fin = s[t.id] - suma(ad) - suma(ga);
         const items = (l, tipo) => l.map(m => `<li><span>${fechaCorta(m.fecha)}${m.nota ? " · " + esc(m.nota) : ""}</span><b>-${pesos(m.monto)}</b>
           ${T.editando ? `<button type="button" class="icon-btn sm" data-del-mov="${esc(m.id)}" aria-label="Quitar">${icon("x")}</button>` : ""}</li>`).join("") ||
           `<li class="muted small">Sin ${tipo === "adelanto" ? "adelantos" : "gastos"}</li>`;
         return `<section class="tec-cierre" data-tecid="${esc(t.id)}">
-          <h3>${esc(t.nombre)} <small>${rows.filter(r => r.tecs.includes(t.id)).length} autos</small></h3>
+          <h3 class="tec-cierre-nombre">${esc(t.nombre)} <small>${rows.filter(r => r.tecs.includes(t.id)).length} autos</small></h3>
           <div class="tec-linea"><span>Total ganado</span><b>${pesos(s[t.id])}</b></div>
           <div class="tec-linea"><span>Adelantos</span><b>-${pesos(suma(ad))}</b>${T.editando ? `<button type="button" class="link-btn small" data-add-mov="adelanto">+ Adelanto</button>` : ""}</div>
           <ul class="tec-movs">${items(ad, "adelanto")}</ul>
@@ -171,7 +180,7 @@ export function vistaTecnicos(view) {
           <ul class="tec-movs">${items(ga, "gasto")}</ul>
           <div class="tec-linea tec-final"><span>Final a pagar</span><b>${pesos(fin)}</b></div>
         </section>`;
-      }).join("")}`;
+      }).join("")}</div>`;
   };
 
   // ── Acciones ──
@@ -240,6 +249,8 @@ export function vistaTecnicos(view) {
     const pintarL = () => { $("#tl", s.el).innerHTML = cfg.tecnicos.map(t => `<li data-id="${esc(t.id)}">
       <button type="button" class="switch ${t.activo !== false ? "on" : ""}" data-sw role="switch" aria-checked="${t.activo !== false}"><span class="sw-txt sw-si">Sí</span><span class="sw-txt sw-no">No</span><i class="sw-bola"></i></button>
       <span class="tl-nombre">${esc(t.nombre)}</span>
+      <button type="button" class="icon-btn sm" data-up aria-label="Mover a la izquierda" title="Mover antes">↑</button>
+      <button type="button" class="icon-btn sm" data-down aria-label="Mover a la derecha" title="Mover después">↓</button>
       <button type="button" class="icon-btn sm" data-ren aria-label="Renombrar">${icon("edit")}</button>
       <button type="button" class="icon-btn sm danger" data-del aria-label="Quitar">${icon("trash")}</button></li>`).join("") || `<li class="muted small">Sin técnicos</li>`; };
     pintarL();
@@ -252,6 +263,10 @@ export function vistaTecnicos(view) {
     $("#tl", s.el).onclick = async e => {
       const li = e.target.closest("[data-id]"); if (!li) return;
       const id = li.dataset.id, t = cfg.tecnicos.find(x => x.id === id);
+      const i = cfg.tecnicos.findIndex(x => x.id === id);
+      const mover = d => { const l = [...cfg.tecnicos], j = i + d; if (j < 0 || j >= l.length) return; [l[i], l[j]] = [l[j], l[i]]; guardarTecs(l); };
+      if (e.target.closest("[data-up]")) return mover(-1);
+      if (e.target.closest("[data-down]")) return mover(1);
       if (e.target.closest("[data-sw]")) return guardarTecs(cfg.tecnicos.map(x => x.id === id ? { ...x, activo: x.activo === false } : x));
       if (e.target.closest("[data-ren]")) {
         const n = await pedirTexto({ title: "Renombrar", label: "Nombre", value: t.nombre });
