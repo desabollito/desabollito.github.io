@@ -579,6 +579,8 @@ ${[...PASO_REP, "facturado"].includes(est) ? `<button class="btn btn-ghost btn-b
       return;
     }
     if (act === "anular") {
+      // Anular o reactivar: quien lo cargó o un administrador (de cualquier vehículo del operativo)
+      if (!esMio && !soyAdmin()) return toast("Solo un administrador o quien lo cargó puede anularlo", "error");
       if (anulado) {
         const ultimo = SECUENCIA.filter(k => v.fechas?.[k]).pop() || "peritado";
         return cambiarEstado(v, ultimo, v.fechas?.[ultimo] || hoyISO()).catch(err => toast(mensajeError(err), "error"));
