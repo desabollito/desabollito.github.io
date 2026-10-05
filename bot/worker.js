@@ -393,7 +393,8 @@ export function interpretar(texto, extra = {}) {
     const pareceNombre = grupo.length >= 2 && grupo.slice(0, 2).every(esNombre);
     if (!pareceNombre) {
       let sum = 0;
-      while (sum < Math.min(2, grupo.length) && grupo[sum].length <= 12) sum++;
+      // Solo palabras cortas o con números ("SRV", "Pro", "1.6"): lo demás ("golpe fuerte") va a detalles
+      while (sum < Math.min(2, grupo.length) && (grupo[sum].length <= 4 || /\d/.test(grupo[sum]) || /^[A-Z]{2,6}$/.test(grupo[sum]))) sum++;
       fin += sum;
     }
     for (let k = ini; k <= fin; k++) if (!tipo[k] || tipo[k] === "modelo") tipo[k] = "modelo";
@@ -403,7 +404,7 @@ export function interpretar(texto, extra = {}) {
     }).join(" ");
   }
 
-  // Lo que no se reconoció: completa modelo o asegurado; el resto se descarta (a detalles solo va lo etiquetado)
+  // Lo que no se reconoció: completa modelo o asegurado; el resto va a detalles (no se pierde)
   const grupos = [];
   palabras.forEach((w, i) => {
     if (tipo[i]) return;
@@ -417,6 +418,9 @@ export function interpretar(texto, extra = {}) {
     if (!r.modelo) r.modelo = titulo(t);
     else r.otros = (r.otros ? r.otros + " " : "") + t;
   }
+  // Sin conectores sueltos que quedan al sacar paños ("en", "y", "x2")
+  r.otros = r.otros.split(/\s+/).filter(w => w && !/^(en|y|e|o|de|del|la|el|los|las|con|a|al|x\d)$/i.test(w)).join(" ");
+  if (r.otros) { r.observaciones = [r.observaciones, r.otros].filter(Boolean).join("\n"); r.otros = ""; }
   return r;
 }
 
