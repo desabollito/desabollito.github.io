@@ -1305,3 +1305,41 @@ body[data-rol="desmontaje"] a[href^="#/editar"] { display: none !important; }
 .adm-n { font-size: 12px; font-weight: 700; color: var(--primary); margin-left: 6px; }
 .adm-ops { display: block; font-size: 12.5px; margin-top: 2px; }
 .adm-ops b { color: var(--primary); font-weight: 700; }
+
+/* ── Planillas (menú) ── */
+.planillas-hub { display: grid; gap: 14px; max-width: 640px; margin: 8px auto; }
+.hub-btn { display: flex; align-items: center; gap: 16px; padding: 22px 20px; border-radius: 18px; background: var(--surface); border: 1px solid var(--line); color: inherit; text-decoration: none; }
+.hub-btn > .ic { width: 34px; height: 34px; color: var(--primary); flex: 0 0 auto; }
+.hub-btn strong { display: block; font-size: 18px; }
+.hub-btn small { color: var(--muted); }
+.hub-btn:active { transform: scale(.99); }
+/* ── Planilla de técnicos ── */
+.tec-page { display: flex; flex-direction: column; gap: 12px; }
+.tec-filtros { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.tec-dia h3 { font-size: 15px; margin: 10px 0 6px; }
+.tec-dia h3 small { color: var(--muted); font-weight: 600; margin-left: 6px; }
+.tec-fila { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px; margin-bottom: 8px; display: flex; flex-direction: column; gap: 8px; }
+.tec-auto { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.tec-auto .tec-pat { font-weight: 700; font-size: 13px; padding: 1px 6px; border-radius: 5px; background: var(--surface-2); }
+.tec-auto small { color: var(--muted); }
+.tec-auto .icon-btn { margin-left: auto; }
+.tec-valor { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.tec-valor label { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+.tec-valor input { width: 120px; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface-2); color: var(--ink); font-weight: 700; }
+.tec-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.tec-tbl td, .tec-tbl th { white-space: nowrap; }
+.tec-cierre-top { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.tec-cierre-top .kv { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 12px; }
+.tec-cierre { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; }
+.tec-cierre h3 { margin: 0 0 8px; font-size: 16px; }
+.tec-cierre h3 small { color: var(--muted); font-weight: 600; margin-left: 6px; }
+.tec-linea { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-top: 1px solid var(--line); }
+.tec-linea span { flex: 1; }
+.tec-final { font-size: 17px; }
+.tec-final b { color: var(--primary); }
+.tec-movs { list-style: none; margin: 0 0 4px; padding: 0 0 0 10px; font-size: 13px; }
+.tec-movs li { display: flex; align-items: center; gap: 8px; padding: 2px 0; }
+.tec-movs li span { flex: 1; color: var(--muted); }
+.tec-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.tec-lista li { display: flex; align-items: center; gap: 10px; }
+.tec-lista .tl-nombre { flex: 1; font-weight: 700; }

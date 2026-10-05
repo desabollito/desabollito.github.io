@@ -11,6 +11,7 @@ import {
   vistaPlanilla, vistaCalendario, calendarioAlEntrar, vistaEmpresa, vistaAjustes, vistaPapelera, elegirEmpresaSheet, panelCreador
 } from "./views-otros.js";
 import { vistaGastos, formGasto } from "./views-gastos.js";
+import { vistaPlanillas, vistaTecnicos } from "./views-tecnicos.js";
 
 const view = $("#view");
 let ruta = { nombre: "", arg: null };
@@ -36,7 +37,9 @@ const RUTAS = [
   [/^#\/o\/([\w-]+\/v\/[\w-]+)$/, "link", a => irAVehiculo(a.replace("/v/", "|"))],
   [/^#\/nuevo$/,            "nuevo",      () => vistaFormulario(view)],
   [/^#\/editar\/([\w-]+)$/, "editar",     id => vistaFormulario(view, id)],
+  [/^#\/planillas$/,        "planillas",  () => vistaPlanillas(view)],
   [/^#\/planilla$/,         "planilla",   () => vistaPlanilla(view)],
+  [/^#\/tecnicos$/,         "tecnicos",   () => vistaTecnicos(view)],
   [/^#\/calendario$/,       "calendario", () => vistaCalendario(view)],
   [/^#\/(operativo|empresa)$/, "operativo", () => vistaEmpresa(view)],
   [/^#\/gastos$/,           "gastos",     () => vistaGastos(view)],
@@ -61,7 +64,7 @@ function render({ conservarScroll = false } = {}) {
   ruta = { nombre: hit[1], arg };
   document.body.dataset.ruta = hit[1];
   document.body.dataset.detalle = hit[1] === "vehiculos" && arg ? "1" : "";
-  marcarNav(["nuevo", "editar", "operativo"].includes(hit[1]) ? "" : hit[1] === "papelera" ? "ajustes" : hit[1]);
+  marcarNav(["nuevo", "editar", "operativo"].includes(hit[1]) ? "" : hit[1] === "papelera" ? "ajustes" : ["planilla", "gastos", "tecnicos"].includes(hit[1]) ? "planillas" : hit[1]);
   pintarTabPlanilla(hit[1]);
   if (hit[1] === "calendario" && !mismaRuta) calendarioAlEntrar();
   if (!mismaRuta) reiniciarVista3D(); // cada vez que se abre un vehículo, arranca en 2D
@@ -73,18 +76,10 @@ function render({ conservarScroll = false } = {}) {
 addEventListener("hashchange", () => render());
 
 // Celular: la pestaña Planilla alterna con Gastos al tocarla de nuevo
+// La pestaña "Planillas" abre el menú de planillas (vehículos, técnicos y gastos)
 function pintarTabPlanilla(r) {
-  const t = $("#tab-planilla");
-  const gastos = r === "gastos";
-  t.classList.toggle("on", r === "planilla" || gastos);
-  t.classList.toggle("is-gastos", gastos);
-  $("use", t).setAttribute("href", gastos ? "#i-money" : "#i-table");
-  $(".tab-label", t).textContent = gastos ? "Gastos" : "Planilla";
+  $("#tab-planilla").classList.toggle("on", ["planillas", "planilla", "gastos", "tecnicos"].includes(r));
 }
-$("#tab-planilla").addEventListener("click", e => {
-  if (ruta.nombre === "planilla") { e.preventDefault(); location.hash = "#/gastos"; navigator.vibrate?.(8); }
-  else if (ruta.nombre === "gastos") { e.preventDefault(); location.hash = "#/planilla"; navigator.vibrate?.(8); }
-});
 
 // Botón flotante: en Gastos carga un gasto, en el resto un vehículo
 $(".fab").addEventListener("click", e => {

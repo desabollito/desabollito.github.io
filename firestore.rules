@@ -135,6 +135,11 @@ service cloud.firestore {
         allow delete: if isAdmin(cid) || (isMember(cid) && resource.data.pedidoPor == uid());
       }
 
+      // ── Planilla de técnicos (valor por auto, reparto, adelantos): solo administradores ──
+      match /planTec/{d} {
+        allow read, write: if isAdmin(cid);
+      }
+
       // ── Gastos del operativo ───────────────────────────────
       match /gastos/{gid} {
         allow read: if isMember(cid);

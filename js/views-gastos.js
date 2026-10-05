@@ -46,7 +46,7 @@ function delMes() {
 
 export function vistaGastos(view) {
   setTopbar({
-    title: "Gastos", sub: S.company?.name,
+    title: "Planilla de gastos", sub: S.company?.name, back: "#/planillas",
     actions: `<button class="icon-btn filtro-btn ${G.cat || G.metodo ? "activo" : ""}" id="g-filtros" aria-label="Filtros" title="Filtros">${icon("filter")}</button><button class="icon-btn filtro-btn ${G.orden !== "fecha" || G.dir !== -1 ? "activo" : ""}" id="g-orden" aria-label="Ordenar" title="Ordenar">${icon("sort")}</button><button class="btn btn-ghost btn-sm" id="g-dl" aria-label="Descargar">${icon("download")}<span class="hide-sm">Descargar</span></button>`
   });
 
