@@ -1,10 +1,10 @@
-name: Ver ediciones (temporal)
+name: Unir a operativo (una vez)
 on:
   push:
     branches: [main]
-    paths: [".github/workflows/ver-ediciones.yml", ".github/scripts/ver-ediciones.mjs"]
+    paths: [".github/workflows/unir.yml"]
 jobs:
-  ver:
+  unir:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -12,4 +12,4 @@ jobs:
         with: { node-version: 20 }
       - env:
           SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-        run: node .github/scripts/ver-ediciones.mjs
+        run: node .github/scripts/unir.mjs
