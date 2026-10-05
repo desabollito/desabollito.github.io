@@ -41,7 +41,7 @@ export default {
     if (url.pathname === "/diagnostico") return diagnostico(url, env);
     if (url.pathname === "/evolution") return webhookEvolution(req, url, env, ctx);
     const API = { "/registro": nuevoRegistro, "/avisar": avisarCliente, "/solicitud": avisarSolicitud, "/agregado": avisarAgregado, "/pedido-union": avisarPedidoUnion,
-      "/admin/datos": adminDatos, "/admin/borrar-usuario": adminBorrarUsuario, "/admin/config": adminConfig, "/admin/padron": adminPadron };
+      "/admin/datos": adminDatos, "/admin/borrar-usuario": adminBorrarUsuario, "/admin/config": adminConfig, "/admin/padron": adminPadron, "/mover-vehiculo": moverVehiculo };
     if (API[url.pathname]) {
       if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
       if (req.method !== "POST") return json({ ok: false, error: "Método no permitido" }, 405);
@@ -2245,6 +2245,35 @@ async function soloCreador(env, idToken) {
     const u = await fsGet(env, `users/${uid}`);
     return u?.username === CREADOR ? uid : null;
   } catch { return null; }
+}
+
+// Mover un vehículo a otro operativo (copia exacta y borra el original, en una sola operación).
+// Puede quien lo cargó o un administrador del operativo de origen, si también es miembro del destino.
+async function moverVehiculo(env, { idToken, cid, vid, destino }) {
+  let uid;
+  try { uid = await verificarIdToken(env, idToken); } catch { return json({ ok: false, error: "No autorizado" }, 403); }
+  if (![cid, vid, destino].every(idValido) || cid === destino) return json({ ok: false, error: "Datos inválidos" }, 400);
+  const [cOrig, cDest] = await Promise.all([fsGet(env, `companies/${cid}`), fsGet(env, `companies/${destino}`)]);
+  if (!cOrig || !cDest || !(cOrig.members || []).includes(uid) || !(cDest.members || []).includes(uid))
+    return json({ ok: false, error: "Tenés que ser parte de los dos operativos" }, 403);
+  if (cDest.roles?.[uid] === "desmontaje") return json({ ok: false, error: "No podés cargar vehículos en ese operativo" }, 403);
+  const r = await fs(env, `${base(env)}/companies/${cid}/vehicles/${vid}`);
+  if (!r.ok) return json({ ok: false, error: "No encontré el vehículo" }, 404);
+  const docV = await r.json(), f = docV.fields || {};
+  const creador = f.createdBy?.stringValue === uid || f.createdByUid?.stringValue === uid;
+  if (!creador && !["owner", "admin"].includes(cOrig.roles?.[uid])) return json({ ok: false, error: "Solo quien lo cargó o un administrador puede moverlo" }, 403);
+  const quien = (await fsGet(env, `users/${uid}`).catch(() => null))?.name || "";
+  const hist = f.historial?.arrayValue?.values || [];
+  // La localidad que era el nombre del operativo pasa a ser el nombre del nuevo
+  const loc = f.localidad?.stringValue === (cOrig.name || "") ? { localidad: aValor(cDest.name || "") } : {};
+  const fields = { ...f, ...loc, historial: { arrayValue: { values: [...hist,
+    aValor({ t: Date.now(), uid, por: quien, txt: `Lo movió de ${cOrig.name || "otro operativo"} a ${cDest.name || "este operativo"}` })] } } };
+  const c = await fs(env, `${base(env)}:commit`, { method: "POST", body: JSON.stringify({ writes: [
+    { update: { name: nombreDoc(env, `companies/${destino}/vehicles/${vid}`), fields }, currentDocument: { exists: false } },
+    { delete: nombreDoc(env, `companies/${cid}/vehicles/${vid}`) }
+  ] }) });
+  if (!c.ok) return json({ ok: false, error: "No se pudo mover: " + (await c.text()).slice(0, 120) }, 500);
+  return json({ ok: true, operativo: cDest.name || "" });
 }
 
 // Todos los operativos y todos los usuarios

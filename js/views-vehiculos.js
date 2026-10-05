@@ -468,7 +468,7 @@ ${[...PASO_REP, "facturado"].includes(est) ? `<button class="btn btn-ghost btn-b
     </details>` : ""}
 
     <footer class="d-foot">
-      <span class="d-autor"><button class="icon-btn sm hist-btn" data-act="historial" aria-label="Historial" title="Historial">${icon("clock")}</button>Cargado por ${esc(cargadoPor(v))}</span>
+      <span class="d-autor"><button class="icon-btn sm hist-btn" data-act="historial" aria-label="Historial" title="Historial">${icon("clock")}</button>${!soloVer && puedoEditar(v) && S.companies.length > 1 ? `<button class="icon-btn sm hist-btn" data-act="mover" aria-label="Mover a otro operativo" title="Mover a otro operativo">${icon("swap")}</button>` : ""}Cargado por ${esc(cargadoPor(v))}</span>
       <span class="d-foot-btns">
         ${soloVer ? "" : `<button class="icon-btn danger" data-act="borrar" aria-label="Eliminar vehículo" title="Eliminar">${icon("trash")}</button>`}
       </span>
@@ -588,6 +588,7 @@ ${[...PASO_REP, "facturado"].includes(est) ? `<button class="btn btn-ghost btn-b
       return;
     }
     if (act === "historial") { abrirHistorial(v); return; }
+    if (act === "mover") { moverDeOperativo(v); return; }
     if (act === "borrar" && tachoLargo) { tachoLargo = false; return; }
     if (act === "borrar" && !esMio && !soyAdmin()) {
       // Solo quien lo cargó puede borrarlo: los demás piden la eliminación a los administradores
@@ -628,6 +629,29 @@ ${[...PASO_REP, "facturado"].includes(est) ? `<button class="btn btn-ghost btn-b
     const files = [...e.target.files]; e.target.value = "";
     if (files.length) subirAdjuntos(v, files, inp.dataset.up, root);
   }));
+}
+
+// Mover el vehículo a otro operativo (pregunta antes)
+function moverDeOperativo(v) {
+  const ops = S.companies.filter(c => c.id !== S.company.id && c.roles?.[S.user.uid] !== "desmontaje");
+  if (!ops.length) return toast("No tenés otro operativo donde moverlo", "error");
+  const s = openSheet({ title: "Mover a otro operativo", body: `<div class="stack etapa-opciones">${ops.map(c =>
+    `<button type="button" class="btn btn-block etapa-op" data-cid="${esc(c.id)}">${esc(c.name)}</button>`).join("")}</div>` });
+  s.el.addEventListener("click", async e => {
+    const b = e.target.closest("[data-cid]"); if (!b) return;
+    const c = ops.find(x => x.id === b.dataset.cid);
+    s.close();
+    if (!(await confirmar({ title: `¿Mover a ${c.name}?`, message: `${v.modelo || "El vehículo"} ${v.patente || ""} deja de estar en ${S.company.name} y pasa a ${c.name}, con todos sus datos y fotos.`, ok: "Mover" }))) return;
+    try {
+      const idToken = await S.user.getIdToken();
+      const r = await fetch(`${BOT_API}/mover-vehiculo`, { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ idToken, cid: S.company.id, vid: v.id, destino: c.id }) });
+      const j = await r.json().catch(() => ({}));
+      if (!j.ok) throw new Error(j.error || "No se pudo mover");
+      toast(`Movido a ${c.name}`, "success");
+      go("#/");
+    } catch (err) { toast(err.message, "error"); }
+  });
 }
 
 // ═════════════════ Desmontaje ═════════════════
