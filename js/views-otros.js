@@ -633,6 +633,7 @@ export async function panelCreador() {
   const s = openSheet({ title: "Administración", wide: true, body: `<div class="adm"><div class="skeleton" style="height:160px"></div></div>` });
   const caja = $(".adm", s.el);
   let tab = "operativos", datos = null;
+  const nVeh = n => n === null || n === undefined ? "" : `${n} ${n === 1 ? "vehículo" : "vehículos"}`;
   const pintar = () => {
     const { operativos, usuarios } = datos;
     caja.innerHTML = `
@@ -660,11 +661,13 @@ export async function panelCreador() {
         <button type="button" class="seg-btn ${tab === "usuarios" ? "on" : ""}" data-tab="usuarios">Usuarios <small>${usuarios.length}</small></button>
       </div>
       ${tab === "operativos" ? `<ul class="adm-list">${operativos.map(o => `
-        <li><div><strong>${esc(o.name)}</strong>
+        <li><div><strong>${esc(o.name)}</strong> <span class="adm-n">${nVeh(o.vehiculos)}</span>
           <small class="muted">${o.miembros.map(m => `${esc(m.quien)}${m.rol === "admin" ? " (admin)" : ""}`).join(" · ") || "Sin miembros"}</small></div></li>`).join("")}</ul>`
       : `<ul class="adm-list">${usuarios.map(u => `
         <li><div><strong>${esc(u.name || "Sin nombre")}</strong>
-          <small class="muted">@${esc(u.username)}${u.whatsapp ? ` · +${esc(u.whatsapp)}` : ""}${!u.aprobado ? " · pendiente" : ""}${u.rechazado ? " · rechazado" : ""}</small></div>
+          <small class="muted">@${esc(u.username)}${u.whatsapp ? ` · +${esc(u.whatsapp)}` : ""}${!u.aprobado ? " · pendiente" : ""}${u.rechazado ? " · rechazado" : ""}</small>
+          <small class="adm-ops">${(() => { const ops = operativos.filter(o => o.miembros.some(m => m.uid === u.uid));
+            return ops.length ? ops.map(o => `${esc(o.name)} <b>${nVeh(o.vehiculos)}</b>`).join(" · ") : `<span class="muted">Sin operativos</span>`; })()}</small></div>
           ${u.username === "gzmatte" ? "" : `<button type="button" class="icon-btn sm danger" data-borrar="${esc(u.uid)}" aria-label="Eliminar usuario" title="Eliminar de la app">${icon("trash")}</button>`}</li>`).join("")}</ul>`}`;
   };
   const cargar = async () => {

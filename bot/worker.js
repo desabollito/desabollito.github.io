@@ -2249,11 +2249,23 @@ async function adminDatos(env, { idToken }) {
   if (!(await soloCreador(env, idToken))) return json({ ok: false, error: "No autorizado" }, 403);
   const [users, comps] = await Promise.all([fsList(env, "users"), fsList(env, "companies")]);
   const nombreDe = Object.fromEntries(users.map(u => [u.__id, u.username ? "@" + u.username : u.name || u.__id]));
+  // Cantidad de vehículos de cada operativo (sin los de la papelera)
+  const contar = async (cid, borrados) => {
+    const r = await fs(env, `${base(env)}/companies/${cid}:runAggregationQuery`, { method: "POST", body: JSON.stringify({ structuredAggregationQuery: {
+      structuredQuery: { from: [{ collectionId: "vehicles" }], ...(borrados ? { where: { fieldFilter: { field: { fieldPath: "deleted" }, op: "EQUAL", value: { booleanValue: true } } } } : {}) },
+      aggregations: [{ alias: "n", count: {} }] } }) });
+    if (!r.ok) return null;
+    return Number((await r.json())?.[0]?.result?.aggregateFields?.n?.integerValue || 0);
+  };
+  const cuentas = Object.fromEntries(await Promise.all(comps.map(async c => {
+    const [t, b] = await Promise.all([contar(c.__id, false), contar(c.__id, true)]).catch(() => [null, null]);
+    return [c.__id, t === null ? null : t - (b || 0)];
+  })));
   return json({ ok: true,
     usuarios: users.map(u => ({ uid: u.__id, name: u.name || "", username: u.username || "", whatsapp: u.whatsapp || "",
       aprobado: u.aprobado !== false, rechazado: !!u.rechazado }))
       .sort((a, b) => (a.name || a.username).localeCompare(b.name || b.username)),
-    operativos: comps.map(c => ({ id: c.__id, name: c.name || "Sin nombre",
+    operativos: comps.map(c => ({ id: c.__id, name: c.name || "Sin nombre", vehiculos: cuentas[c.__id],
       miembros: (c.members || []).map(m => ({ uid: m, quien: nombreDe[m] || c.memberNames?.[m] || "(usuario borrado)", rol: c.roles?.[m] || "" })) }))
       .sort((a, b) => a.name.localeCompare(b.name)) });
 }
