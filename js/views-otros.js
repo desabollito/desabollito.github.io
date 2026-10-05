@@ -170,7 +170,8 @@ if (!["peritado", "turnado"].includes(C.campo)) C.campo = "turnado";
 export function calendarioAlEntrar() { C.auto = true; }
 function elegirDiaAuto() {
   const hoy = hoyISO();
-  const dias = [...new Set(activos().map(v => v.fechas?.[C.campo]).filter(Boolean))].sort();
+  const delCal = () => activos().filter(v => estadoActual(v) !== "anulado");   // los anulados no figuran en el calendario
+  const dias = [...new Set(delCal().map(v => v.fechas?.[C.campo]).filter(Boolean))].sort();
   const dia = dias.includes(hoy) ? hoy : (dias.find(d => d > hoy) || dias.filter(d => d < hoy).pop() || hoy);
   const [y, m] = dia.split("-").map(Number);
   C.y = y; C.m = m - 1; C.dia = dia;
@@ -182,7 +183,7 @@ export function vistaCalendario(view) {
   if (C.auto && !S.loadingVehicles) { C.auto = false; elegirDiaAuto(); }
   const iso = d => `${C.y}-${String(C.m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
   const porDia = {};
-  activos().forEach(v => {
+  delCal().forEach(v => {
     const f = v.fechas?.[C.campo]; if (!f) return;
     (porDia[f] ||= []).push(v);
   });
