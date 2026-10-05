@@ -308,8 +308,12 @@ function piezasEtiquetadas(texto, r) {
   return out;
 }
 
+const RE_CHARLA = /\b(hay que|tiene que|tenes que|tenés que|decile|decirle|avisale|avisarle|preguntale|preguntarle|que traiga|que venga|cuando venga|cuando pase|va a|vamos a|me dijo|dice que|dijo que|porque|despu[eé]s|mañana|ma[nñ]ana|hoy|ayer|este|esta|ese|esa|traiga|venga|retirar|retira|buscar|llam[aá]lo|llamar)\b/i;
+const esCharla = t => RE_CHARLA.test(String(t || ""));
+
 export function interpretar(texto, extra = {}) {
-  let resto = ` ${String(texto || "")} `;
+  // Sin menciones ("@⁨Mati Squadano⁩", "@5493511234567")
+  let resto = ` ${String(texto || "").replace(/@\u2068[^\u2069]*\u2069/g, " ").replace(/@\+?\d{6,}/g, " ")} `;
   const r = { patente: null, modelo: "", compania: "", telefono: "", localidad: "", grado: null, otros: "", asegurado: "", piezas: {},
     observaciones: "", repuestos: "", pintura: "", precio: null };
 
@@ -322,7 +326,8 @@ export function interpretar(texto, extra = {}) {
 
   // 1. Patente
   const p = buscarPatenteEnTexto(resto);
-  if (p) { r.patente = p.patente; resto = resto.slice(0, p.desde) + " " + resto.slice(p.desde + p.largo); }
+  // (queda una marca "¶" donde estaba, para saber qué modelo está pegado a la patente)
+  if (p) { r.patente = p.patente; resto = resto.slice(0, p.desde) + " ¶ " + resto.slice(p.desde + p.largo); }
 
   // 1b. Campos con etiqueta: "detalle: …", "adicional …", "repuestos: …", "precio: …".
   //     El texto va desde la etiqueta hasta la próxima etiqueta o el final del mensaje.
@@ -331,7 +336,7 @@ export function interpretar(texto, extra = {}) {
   resto = piezasEtiquetadas(resto, r);
   const marcas = [...resto.matchAll(RE_ETIQ)];
   if (marcas.length) {
-    const partes = marcas.map((mm, k) => ({ tipo: sinTildes(mm[1] || mm[2]), texto: resto.slice(mm.index + mm[0].length, k + 1 < marcas.length ? marcas[k + 1].index : resto.length).trim() }));
+    const partes = marcas.map((mm, k) => ({ tipo: sinTildes(mm[1] || mm[2]), texto: resto.slice(mm.index + mm[0].length, k + 1 < marcas.length ? marcas[k + 1].index : resto.length).replace(/¶/g, " ").replace(/\s+/g, " ").trim() }));
     resto = resto.slice(0, marcas[0].index) + " ";
     for (const { tipo, texto: t } of partes) {
       if (!t) continue;
@@ -386,14 +391,14 @@ export function interpretar(texto, extra = {}) {
     const conocida = w => { const n = sinTildes(w); return indice([...LOCALIDADES, ...(extra.localidades || [])]).has(n) || IDX_MARCAS.has(n) || IDX_MODELOS.has(n) ||
       COMPANIAS.some(([, al]) => al.some(a => a === n || (n.length >= 3 && a.split(" ").some(x => x.startsWith(n))))); };
     while (palabrasC.length > 1 && conocida(palabrasC[palabrasC.length - 1])) palabrasC.pop();
-    r.asegurado = titulo(palabrasC.join(" "));
+    r.asegurado = titulo(palabrasC.filter(w => w !== "¶").join(" "));
     resto = resto.replace(mc[0].split(/\s+/).slice(0, 1 + palabrasC.length).join(" "), " ");
   }
 
   // 4. Palabras restantes: compañía, localidad, marca/modelo (buscando primero las frases más largas)
   const palabras = resto.split(/[\s,;/|]+/).filter(Boolean);
   const norm = palabras.map(w => sinTildes(w.replace(/[.:]+$/, "")));
-  const tipo = new Array(palabras.length).fill(null);
+  const tipo = palabras.map(w => w === "¶" ? "pat" : null);
   const idxLoc = indice([...LOCALIDADES, ...(extra.localidades || [])]);
   const compExtra = (extra.companias || []).map(c => [c, [sinTildes(c)]]);
   const todasComp = [...COMPANIAS, ...compExtra];
@@ -423,6 +428,16 @@ export function interpretar(texto, extra = {}) {
   }
 
   // Modelo: marcas/modelos reconocidos + palabras desconocidas pegadas a ellos ("Chery Tiggo 4")
+  // Si hay varios modelos separados ("traiga la duster cuando retire la Amarok AB123CD") se toma
+  // solo el bloque seguido más cercano a la patente; los otros quedan como texto.
+  const bloques = [];
+  tipo.forEach((t, i) => { if (t !== "modelo") return; const b = bloques[bloques.length - 1]; if (b && b[1] === i - 1) b[1] = i; else bloques.push([i, i]); });
+  if (bloques.length > 1) {
+    const iPat = tipo.indexOf("pat");
+    const dist = ([a, b]) => iPat < 0 ? a : Math.min(Math.abs(a - iPat), Math.abs(b - iPat));
+    const elegido = bloques.reduce((m, b) => dist(b) < dist(m) ? b : m);
+    for (const b of bloques) if (b !== elegido) for (let k = b[0]; k <= b[1]; k++) tipo[k] = null;
+  }
   const idxModelo = tipo.map((t, i) => t === "modelo" ? i : -1).filter(i => i >= 0);
   if (idxModelo.length) {
     let ini = Math.min(...idxModelo), fin = Math.max(...idxModelo);
@@ -460,10 +475,12 @@ export function interpretar(texto, extra = {}) {
     const pareceNombre = g.length >= 1 && g.length <= 4 && g.every(w => palabraNombre(w) || /^[a-záéíóúñü']{2,}$/i.test(w))
       && !g.some(w => PARTES_RE.has(sinTildes(w)) || /^(falta|faltan|roto|rota|golpe|golpes|rayon|rayado|abollado|cambiar|cambio|sin|con|tiene|viene|hay|para)$/i.test(sinTildes(w)));
     if (!r.asegurado && pareceNombre && r.modelo) { r.asegurado = titulo(t); continue; }
-    if (!r.modelo) r.modelo = titulo(t);
+    if (!r.modelo && g.length <= 3 && !esCharla(t)) r.modelo = titulo(t);
     else r.otros = (r.otros ? r.otros + " " : "") + t;
   }
   // Sin conectores sueltos que quedan al sacar paños ("en", "y", "x2")
+  // Texto de charla ("a este hay que decirle que traiga…"): no es una carga de datos
+  r.charla = esCharla(r.otros) || r.otros.split(/\s+/).filter(Boolean).length >= 6;
   r.otros = r.otros.split(/\s+/).filter(w => w && !/^(en|y|e|o|de|del|la|el|los|las|con|a|al|x\d)$/i.test(w)).join(" ");
   if (r.otros) { r.observaciones = [r.observaciones, r.otros].filter(Boolean).join("\n"); r.otros = ""; }
   return r;
@@ -1262,7 +1279,11 @@ async function actualizarDatos(env, v, datos, quien) {
   const campos = { modelo: "modelo", compania: "compañía", telefono: "teléfono", grado: "grado", asegurado: "cliente",
     observaciones: "detalles", repuestos: "repuestos", pintura: "pintura", precio: "precio" };
   const nuevos = {}, nombres = [];
+  // Si el mensaje es charla, no se pisan datos que ya están ni se guarda el texto como detalle
+  let actual = null;
+  if (datos.charla) actual = await fsGet(env, `companies/${v.cid}/vehicles/${v.vid}`).catch(() => null);
   for (const [k, nombre] of Object.entries(campos)) {
+    if (datos.charla && (k === "observaciones" || (actual?.[k] ?? v[k]))) continue;
     if (datos[k] && datos[k] !== v[k]) { nuevos[k] = datos[k]; nombres.push(nombre); v[k] = datos[k]; }
   }
   // Paños: se suman a los que ya estaban marcados
