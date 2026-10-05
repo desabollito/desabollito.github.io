@@ -569,7 +569,10 @@ const abierta = s => !!(s?.vid && !s.cerradaEn);
 
 // Operativo "fijo" de cada número: donde se crean los vehículos nuevos
 async function operativoFijo(env, numero, uid) {
-  const o = await fsGet(env, `bot_operativo/${numero}`);
+  let o = await fsGet(env, `bot_operativo/${numero}`);
+  // Si el operativo se eligió en la app después que en el bot, manda el de la app
+  const u = uid ? await fsGet(env, `users/${uid}`).catch(() => null) : null;
+  if (u?.activeCompanyId && Number(u.activeCompanyAt || 0) > Number(o?.ts || 0)) o = { cid: u.activeCompanyId, operativo: "" };
   if (!o?.cid) return null;
   const c = await fsGet(env, `companies/${o.cid}`);
   if (!c || (uid && !(c.members || []).includes(uid))) return null;   // ya no es miembro

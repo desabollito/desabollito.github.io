@@ -238,7 +238,8 @@ export function elegirEmpresa(id) {
   if (!c || c.id === S.company?.id) return;
   S.company = c;
   localStorage.setItem("empresaActiva", id);
-  updateDoc(doc(db, "users", S.user.uid), { activeCompanyId: id }).catch(() => {});
+  // El bot de WhatsApp también usa este operativo para los vehículos nuevos (el último elegido, en la app o en el bot)
+  updateDoc(doc(db, "users", S.user.uid), { activeCompanyId: id, activeCompanyAt: Date.now() }).catch(() => {});
   emit("companies");
   escucharVehiculos();
   escucharGastos();
