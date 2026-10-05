@@ -706,6 +706,12 @@ async function alRecibirTexto(env, m, quien, texto) {
     if (esAyuda(sinMencion)) return responder(env, dest(m), AYUDA);
   }
 
+  // Solo el creador: "operativoall" → elige un usuario y le cambia el operativo actual del bot
+  if (!grupo && quien.username === CREADOR) {
+    const r = await operativoAll(env, numero, s, t);
+    if (r) return responder(env, dest(m), r);
+  }
+
   // Comando: cambiar de operativo (en grupos, solo la palabra "operativo" sola)
   if (grupo ? limpio(sinMencion) === "operativo" : esCambioOperativo(texto)) {
     const ops = await listaOperativos(env, quien.uid);
@@ -1147,6 +1153,44 @@ async function notaDesm(env, cid, vid, quien, texto, lote) {
   await fsAppend(env, ruta, "historial", { t: Date.now(), uid: quien.uid || "", por: quien.nombre || "", txt: "Cargó una nota de desmontaje por WhatsApp" }).catch(() => {});
 }
 const loteWa = (numero, s) => `wa-${numero}-${s?.desde || Math.floor(Date.now() / 1000)}`;
+
+// ── operativoall (solo el creador): ver y cambiar el operativo actual del bot de cada usuario ──
+async function operativoAll(env, numero, s, t) {
+  const st = s?.opAll;
+  if (t === "operativoall" || t === "operativo all") {
+    const nums = await fsList(env, "bot_numeros");
+    const lista = [];
+    for (const d of nums) {
+      if (!d.uid) continue;
+      const actual = await operativoFijo(env, d.__id, d.uid).catch(() => null);
+      lista.push({ numero: d.__id, uid: d.uid, nombre: d.name || d.username || d.__id, user: d.username || "", op: actual?.operativo || "—" });
+    }
+    lista.sort((a, b) => a.nombre.localeCompare(b.nombre));
+    if (!lista.length) return "No hay usuarios con WhatsApp vinculado.";
+    await fsMerge(env, `bot_sesiones/${numero}`, { ts: Date.now(), opAll: { paso: "usuario", lista: lista.slice(0, 60), t: Date.now() } });
+    return "👥 *Operativo actual de cada usuario*\n\n" + lista.slice(0, 60).map((u, i) => `${i + 1}. ${u.nombre}${u.user ? ` (@${u.user})` : ""} → *${u.op}*`).join("\n") +
+      "\n\nRespondé con el número del usuario para cambiarle el operativo, o 0 para salir.";
+  }
+  if (!st || Date.now() - Number(st.t || 0) > 10 * 60_000 || !/^\d{1,2}$/.test(t)) return null;
+  const n = Number(t);
+  if (n === 0) { await fsMerge(env, `bot_sesiones/${numero}`, { opAll: null, ts: Date.now() }); return "👌 Listo."; }
+  if (st.paso === "usuario") {
+    const u = st.lista[n - 1];
+    if (!u) return `Elegí un número del 1 al ${st.lista.length}, o 0 para salir.`;
+    const ops = await listaOperativos(env, u.uid);
+    if (!ops.length) return `${u.nombre} no está en ningún operativo.`;
+    await fsMerge(env, `bot_sesiones/${numero}`, { ts: Date.now(), opAll: { paso: "op", u, ops, lista: st.lista, t: Date.now() } });
+    return `🏢 *${u.nombre}* · actual: *${u.op}*\n\n¿A qué operativo lo paso? Respondé con el número:\n\n` + menuOperativos(ops);
+  }
+  if (st.paso === "op") {
+    const op = st.ops[n - 1];
+    if (!op) return `Elegí un número del 1 al ${st.ops.length}, o 0 para cancelar.`;
+    await fijarOperativo(env, st.u.numero, op);
+    await fsMerge(env, `bot_sesiones/${numero}`, { ts: Date.now(), opAll: { paso: "usuario", lista: st.lista.map(x => x.numero === st.u.numero ? { ...x, op: op.operativo } : x), t: Date.now() } });
+    return `✅ *${st.u.nombre}* ahora carga en *${op.operativo}*.\n\nRespondé con otro número de usuario, o 0 para salir.`;
+  }
+  return null;
+}
 
 // ── Turnos de hoy ──
 export function esTurnosHoy(t) {
