@@ -27,15 +27,18 @@ const lunesDe = iso => { const [y, m, d] = iso.split("-").map(Number); const f =
 const masDias = (iso, n) => { const [y, m, d] = iso.split("-").map(Number); const f = new Date(y, m - 1, d + n);
   return `${f.getFullYear()}-${String(f.getMonth() + 1).padStart(2, "0")}-${String(f.getDate()).padStart(2, "0")}`; };
 // Fecha de la reparación (Revisión en adelante)
-const fechaRep = v => v.fechas?.reparado || v.fechas?.llamado || v.fechas?.entregado || v.fechas?.facturado || "";
+// Solo cuentan los autos entregados (o ya facturados); la fecha es la de entrega
+const entregado = v => ["entregado", "facturado"].includes(estadoActual(v));
+const fechaRep = v => v.fechas?.entregado || v.fechas?.facturado || "";
 const nuevoId = () => Math.random().toString(36).slice(2, 9);
 
-const T = { tab: "autos", resumen: "dia", desde: "", hasta: "" };
+const T = { tab: "autos", resumen: "dia", desde: "", hasta: "", editando: false };
 let unsub = null;
 
 export function vistaTecnicos(view) {
   setTopbar({ title: "Planilla de técnicos", sub: S.company?.name, back: "#/planillas",
-    actions: `<button class="btn btn-ghost btn-sm" id="t-tec">${icon("team")}<span class="hide-sm">Técnicos</span></button>` });
+    actions: `<button class="btn btn-ghost btn-sm" id="t-tec">${icon("team")}<span class="hide-sm">Técnicos</span></button>
+      <button class="btn btn-sm ${T.editando ? "btn-primary" : "btn-ghost"}" id="t-edit">${icon(T.editando ? "check" : "edit")}<span>${T.editando ? "Listo" : "Editar"}</span></button>` });
   if (!soyAdmin()) { view.innerHTML = `<div class="empty"><p>Solo los administradores ven esta planilla.</p></div>`; return; }
   view.innerHTML = `<div class="skeleton tall"></div>`;
   const cid = S.company.id, col = collection(db, "companies", cid, "planTec");
@@ -56,7 +59,7 @@ export function vistaTecnicos(view) {
   // Autos reparados (de la app) que todavía no están en la planilla: se agregan con el valor y los técnicos activos
   const asegurarFilas = () => {
     if (creando || gestionando || !cfg.tecnicos.length) return;   // se arma cuando ya están los técnicos   // sin técnicos todavía no se arma nada
-    const faltan = activos().filter(v => fechaRep(v) && estadoActual(v) !== "anulado" && !filas[v.id]);
+    const faltan = activos().filter(v => entregado(v) && fechaRep(v) && !filas[v.id]);
     if (!faltan.length) return;
     creando = true;
     const activosTec = cfg.tecnicos.filter(t => t.activo !== false).map(t => t.id);
@@ -66,12 +69,12 @@ export function vistaTecnicos(view) {
   };
 
   // Filas visibles: auto de la app + datos de la planilla, dentro del período elegido
-  const lista = () => activos().filter(v => filas[v.id] && !filas[v.id].oculto && estadoActual(v) !== "anulado").map(v => {
+  const lista = () => activos().filter(v => filas[v.id] && !filas[v.id].oculto && entregado(v)).map(v => {
     const f = filas[v.id], fecha = f.fecha || fechaRep(v);
     const tecs = (f.tecs || []).filter(id => cfg.tecnicos.some(t => t.id === id));
     return { v, f, fecha, valor: Number(f.valor) || 0, tecs, parte: tecs.length ? (Number(f.valor) || 0) / tecs.length : 0 };
   }).filter(r => r.fecha && (!T.desde || r.fecha >= T.desde) && (!T.hasta || r.fecha <= T.hasta))
-    .sort((a, b) => b.fecha.localeCompare(a.fecha) || String(a.v.patente).localeCompare(String(b.v.patente)));
+    .sort((a, b) => a.fecha.localeCompare(b.fecha) || Number(a.f.creado || 0) - Number(b.f.creado || 0));   // del primer día al último
 
   const estructura = () => {
     view.innerHTML = `<div class="tec-page">
@@ -106,20 +109,27 @@ export function vistaTecnicos(view) {
     else body.innerHTML = pintarCierre(rows);
   };
 
+  // Como el Excel: un día debajo del otro, cada auto en una línea y una columna por técnico.
+  // Solo se puede cambiar algo con "Editar" activado.
   const pintarAutos = rows => {
-    if (!rows.length) return `<div class="empty small"><p>Todavía no hay autos reparados${T.desde || T.hasta ? " en ese período" : ""}.</p></div>`;
+    if (!rows.length) return `<div class="empty small"><p>Todavía no hay autos entregados${T.desde || T.hasta ? " en ese período" : ""}.</p></div>`;
+    const ed = T.editando, tecs = cfg.tecnicos, nc = 4 + tecs.length + (ed ? 1 : 0);
     const dias = [...new Set(rows.map(r => r.fecha))];
-    return dias.map(d => {
-      const rs = rows.filter(r => r.fecha === d), tot = rs.reduce((a, r) => a + r.valor, 0);
-      return `<section class="tec-dia"><h3>${diaLabel(d)} <small>${rs.length} ${rs.length === 1 ? "auto" : "autos"} · ${pesos(tot)}</small></h3>
-        ${rs.map(r => `<div class="tec-fila" data-vid="${esc(r.v.id)}">
-          <div class="tec-auto"><strong>${esc(r.v.modelo || "Sin modelo")}</strong><span class="tec-pat">${esc(r.v.patente || "")}</span><small>${esc(r.v.compania || "")}</small>
-            <button type="button" class="icon-btn sm" data-act="fila" aria-label="Opciones">${icon("edit")}</button></div>
-          <div class="tec-valor"><label>Valor <input type="number" inputmode="numeric" min="0" step="1000" data-campo="valor" value="${r.valor}"></label>
-            <span class="muted small">${r.tecs.length ? `÷${r.tecs.length} = <b>${pesos(r.parte)}</b> c/u` : "Sin técnicos"}</span></div>
-          <div class="tec-chips">${cfg.tecnicos.map(t => `<button type="button" class="p-chip ${r.tecs.includes(t.id) ? "on" : ""}" data-tec="${esc(t.id)}">${esc(t.nombre)}</button>`).join("")}</div>
-        </div>`).join("")}</section>`;
-    }).join("");
+    return `<div class="table-wrap"><table class="tbl tec-excel ${ed ? "editando" : ""}">
+      <thead><tr><th>Vehículo</th><th>Patente</th><th>Compañía</th><th class="num">Importe</th>${tecs.map(t => `<th class="num">${esc(t.nombre)}</th>`).join("")}${ed ? "<th></th>" : ""}</tr></thead>
+      <tbody>${dias.map(d => {
+        const rs = rows.filter(r => r.fecha === d), s = sumaPorTec(rs);
+        return `<tr class="tec-dia-fila"><td colspan="${nc}">${diaLabel(d).toUpperCase()} <small>${rs.length} ${rs.length === 1 ? "auto" : "autos"}</small></td></tr>
+          ${rs.map(r => `<tr data-vid="${esc(r.v.id)}">
+            <td>${esc((r.v.modelo || "—").toUpperCase())}</td><td>${esc(r.v.patente || "")}</td><td>${esc((r.v.compania || "").toUpperCase())}</td>
+            <td class="num">${ed ? `<input type="number" inputmode="numeric" min="0" step="1000" data-campo="valor" value="${r.valor}">` : pesos(r.valor)}</td>
+            ${tecs.map(t => { const si = r.tecs.includes(t.id);
+              return `<td class="num ${si ? "" : "tec-no"}">${ed ? `<button type="button" class="tec-celda ${si ? "on" : ""}" data-tec="${esc(t.id)}">${si ? pesos(r.parte) : "⨯"}</button>` : si ? pesos(r.parte) : "⨯"}</td>`; }).join("")}
+            ${ed ? `<td><button type="button" class="icon-btn sm" data-act="fila" aria-label="Opciones">${icon("edit")}</button></td>` : ""}</tr>`).join("")}
+          <tr class="tec-sub"><td colspan="3">Total del día</td><td class="num">${pesos(rs.reduce((a, r) => a + r.valor, 0))}</td>
+            ${tecs.map(t => `<td class="num">${s[t.id] ? pesos(s[t.id]) : "—"}</td>`).join("")}${ed ? "<td></td>" : ""}</tr>`;
+      }).join("")}</tbody></table></div>
+      ${ed ? `<p class="muted small">Tocá la celda de un técnico para sumarlo o sacarlo de ese auto. El importe se reparte solo.</p>` : ""}`;
   };
 
   const tabla = (grupos) => `<div class="table-wrap"><table class="tbl tec-tbl">
@@ -144,20 +154,20 @@ export function vistaTecnicos(view) {
     const de = (id, tipo) => movs.filter(m => m.tec === id && m.tipo === tipo);
     const suma = l => l.reduce((a, m) => a + (Number(m.monto) || 0), 0);
     return `<div class="tec-cierre-top">
-        <div class="kv"><span>Autos reparados</span><strong>${rows.length}</strong></div>
+        <div class="kv"><span>Autos entregados</span><strong>${rows.length}</strong></div>
         <div class="kv"><span>Valor de todos los autos</span><strong>${pesos(total)}</strong></div>
       </div>
       ${cfg.tecnicos.map(t => {
         const ad = de(t.id, "adelanto"), ga = de(t.id, "gasto"), fin = s[t.id] - suma(ad) - suma(ga);
         const items = (l, tipo) => l.map(m => `<li><span>${fechaCorta(m.fecha)}${m.nota ? " · " + esc(m.nota) : ""}</span><b>-${pesos(m.monto)}</b>
-          <button type="button" class="icon-btn sm" data-del-mov="${esc(m.id)}" aria-label="Quitar">${icon("x")}</button></li>`).join("") ||
+          ${T.editando ? `<button type="button" class="icon-btn sm" data-del-mov="${esc(m.id)}" aria-label="Quitar">${icon("x")}</button>` : ""}</li>`).join("") ||
           `<li class="muted small">Sin ${tipo === "adelanto" ? "adelantos" : "gastos"}</li>`;
         return `<section class="tec-cierre" data-tecid="${esc(t.id)}">
           <h3>${esc(t.nombre)} <small>${rows.filter(r => r.tecs.includes(t.id)).length} autos</small></h3>
           <div class="tec-linea"><span>Total ganado</span><b>${pesos(s[t.id])}</b></div>
-          <div class="tec-linea"><span>Adelantos</span><b>-${pesos(suma(ad))}</b><button type="button" class="link-btn small" data-add-mov="adelanto">+ Adelanto</button></div>
+          <div class="tec-linea"><span>Adelantos</span><b>-${pesos(suma(ad))}</b>${T.editando ? `<button type="button" class="link-btn small" data-add-mov="adelanto">+ Adelanto</button>` : ""}</div>
           <ul class="tec-movs">${items(ad, "adelanto")}</ul>
-          <div class="tec-linea"><span>Gastos</span><b>-${pesos(suma(ga))}</b><button type="button" class="link-btn small" data-add-mov="gasto">+ Gasto</button></div>
+          <div class="tec-linea"><span>Gastos</span><b>-${pesos(suma(ga))}</b>${T.editando ? `<button type="button" class="link-btn small" data-add-mov="gasto">+ Gasto</button>` : ""}</div>
           <ul class="tec-movs">${items(ga, "gasto")}</ul>
           <div class="tec-linea tec-final"><span>Final a pagar</span><b>${pesos(fin)}</b></div>
         </section>`;
@@ -172,19 +182,19 @@ export function vistaTecnicos(view) {
     if (res) { T.resumen = res.dataset.res; return pintar(); }
     const fila = t.closest("[data-vid]");
     const chip = t.closest("[data-tec]");
-    if (chip && fila) {
+    if (chip && fila && T.editando) {
       const f = filas[fila.dataset.vid] || {}, id = chip.dataset.tec;
       const tecs = (f.tecs || []).includes(id) ? f.tecs.filter(x => x !== id) : [...(f.tecs || []), id];
       return guardarFila(fila.dataset.vid, { tecs });
     }
-    if (t.closest("[data-act=fila]") && fila) return opcionesFila(fila.dataset.vid);
+    if (t.closest("[data-act=fila]") && fila && T.editando) return opcionesFila(fila.dataset.vid);
     const add = t.closest("[data-add-mov]");
-    if (add) {
+    if (add && T.editando) {
       const tecid = t.closest("[data-tecid]").dataset.tecid, tipo = add.dataset.addMov;
       return nuevoMov(tecid, tipo);
     }
     const del = t.closest("[data-del-mov]");
-    if (del) {
+    if (del && T.editando) {
       if (!(await confirmar({ title: "¿Quitar este movimiento?", ok: "Quitar", danger: true }))) return;
       return guardarCfg({ movs: (cfg.movs || []).filter(m => m.id !== del.dataset.delMov) });
     }
@@ -254,5 +264,11 @@ export function vistaTecnicos(view) {
   }
 
   $("#t-tec")?.addEventListener("click", () => cfg && gestionarTecnicos());
+  $("#t-edit")?.addEventListener("click", () => {
+    T.editando = !T.editando;
+    const b = $("#t-edit"); b.className = `btn btn-sm ${T.editando ? "btn-primary" : "btn-ghost"}`;
+    b.innerHTML = `${icon(T.editando ? "check" : "edit")}<span>${T.editando ? "Listo" : "Editar"}</span>`;
+    if (cfg) pintar();
+  });
   return { soloLista: () => { if (cfg) { asegurarFilas(); pintar(); } } };
 }

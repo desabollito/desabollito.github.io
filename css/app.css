@@ -1349,3 +1349,13 @@ body[data-rol="desmontaje"] a[href^="#/editar"] { display: none !important; }
 .side-sub { display: none; flex-direction: column; gap: 2px; margin: 2px 0 4px 34px; }
 .side-grupo.abierto .side-sub { display: flex; }
 .side-nav .side-sub a { padding: 8px 12px; font-size: 14px; }
+/* Planilla de técnicos estilo Excel */
+.tec-excel { font-size: 13px; }
+.tec-excel th, .tec-excel td { white-space: nowrap; padding: 6px 10px; }
+.tec-excel .tec-dia-fila td { background: var(--surface-2); font-weight: 800; letter-spacing: .02em; }
+.tec-excel .tec-dia-fila small { color: var(--muted); font-weight: 600; margin-left: 8px; }
+.tec-excel .tec-sub td { font-weight: 800; border-top: 2px solid var(--line); }
+.tec-excel .tec-no { color: var(--muted); text-align: center; }
+.tec-excel input { width: 100px; padding: 4px 6px; border-radius: 6px; border: 1px solid var(--line); background: var(--surface-2); color: var(--ink); font-weight: 700; text-align: right; }
+.tec-celda { border: 1px dashed var(--line-2); background: none; color: var(--muted); border-radius: 6px; padding: 3px 8px; min-width: 70px; cursor: pointer; font: inherit; }
+.tec-celda.on { border-style: solid; border-color: var(--primary); color: var(--primary); font-weight: 700; background: var(--primary-soft); }
