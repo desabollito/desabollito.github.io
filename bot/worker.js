@@ -275,7 +275,10 @@ export function interpretar(texto, extra = {}) {
   const r = { patente: null, modelo: "", compania: "", telefono: "", localidad: "", grado: null, otros: "", asegurado: "", piezas: {},
     observaciones: "", repuestos: "", pintura: "", precio: null };
 
-  // 0. "P208", "P3008", "p 2008"… (una P y 3 o 4 números) es un Peugeot
+  // 0. "AB123CD fotos", "mando fotos", "más fotos": es un pedido para cargar fotos, no un dato del vehículo
+  resto = resto.replace(/(^|\s)(?:(?:te\s+)?(?:mando|paso|envio|envío|subo|cargo|cargar|subir|agrego)\s+)?(?:(?:las|unas|m[aá]s|mas)\s+)?(?:fotos?|im[aá]genes|videos?)(?=\s|[.,;:!]|$)/gi, " ");
+
+  // 0b. "P208", "P3008", "p 2008"… (una P y 3 o 4 números) es un Peugeot
   resto = resto.replace(/(^|\s)p\s?-?(\d{3,4})(?=\s|[.,;]|$)/gi, "$1Peugeot $2");
   resto = resto.replace(/(^|\s)([a-z]{2,4})(\d{2,4})(?=\s|[.,;]|$)/gi, (t, a, l, n) => esMarcaModelo(l) ? `${a}${l} ${n}` : t);
 
