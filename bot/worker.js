@@ -29,6 +29,9 @@
 
 const GRAPH = "https://graph.facebook.com/v21.0";
 // A dónde responder: al número (bot oficial) o al chat/grupo (número vinculado con Evolution API)
+import { completarXlsx, fechaExcel } from "./xlsx.js";
+import { MERCANTIL } from "./plantillas.js";
+
 const dest = m => m._to || m.from;
 const APP_URL = "https://desabollito.github.io";
 const SESION_HORAS = 12;
@@ -826,6 +829,10 @@ async function alRecibirTexto(env, m, quien, texto) {
       return responder(env, dest(m), "✅ Actualizado\n\n" + textoRepuestos(await fsGet(env, ruta), op));
     }
   }
+
+  // "AB123CD siniestro 5010… km 115583" → planilla de pericia de Mercantil completa (.xlsx)
+  if (RE_SINIESTRO.test(sinMencion) && buscarPatenteEnTexto(sinMencion))
+    return planillaMercantil(env, m, quien, sinMencion);
 
   // "Turnos hoy", "¿Qué viene hoy?", "Autos hoy"… → turnos de hoy, un auto por línea
   // En grupos solo si le hablan al bot (@desabollito o "bot")
@@ -2371,6 +2378,62 @@ async function soloCreador(env, idToken) {
 
 // Mover un vehículo a otro operativo (copia exacta y borra el original, en una sola operación).
 // Puede quien lo cargó o un administrador del operativo de origen, si también es miembro del destino.
+// ── Planilla de pericia Mercantil Andina (.xlsx) ─────────────
+// Los datos del vehículo salen de la app; en el mensaje van solo siniestro, km y (opcional) año.
+const RE_SINIESTRO = /(^|\s)(siniestro|sini|stro)\s*(?:n[°ºro.]*\s*)?[:#]?\s*\d/i;
+const TOTAL_MERCANTIL = { 1: 800000, 2: 1200000, 3: 1700000 };
+const PANOS_MERCANTIL = { C10: "CAPOT", C11: "TECHO", C12: "BAUL",
+  C14: "GUARDABARROS DEL. IZQ", C15: "PUERTA DEL. IZQ", C16: "PUERTA TRAS. IZQ", C17: "GUARDABARROS TRAS. IZQ", C18: "PARANTE IZQ",
+  C20: "GUARDABARROS DEL. DER", C21: "PUERTA DEL. DER", C22: "PUERTA TRAS. DER", C23: "GUARDABARROS TRAS. DER", C24: "PARANTE DER" };
+const numDe = t => { const d = String(t || "").replace(/\D/g, ""); return d ? (d.length <= 15 ? Number(d) : d) : null; };
+async function planillaMercantil(env, m, quien, texto) {
+  const pat = buscarPatenteEnTexto(texto).patente;
+  const sin = texto.match(/(?:siniestro|sini|stro)\s*(?:n[°ºro.]*\s*)?[:#]?\s*(\d[\d.\-\/]*\d|\d)/i)?.[1];
+  const km = texto.match(/(?:km|kms|kilometraje|kilometros|kilómetros)\s*[:=]?\s*(\d[\d.,]*)/i)?.[1] || texto.match(/(\d[\d.,]*)\s*(?:km|kms)\b/i)?.[1];
+  const anio = texto.match(/a[ñn]o\s*[:=]?\s*((?:19|20)\d\d)/i)?.[1];
+  const enc = await buscarPatente(env, pat, quien.uid);
+  if (!enc.length) return responder(env, dest(m), `🔎 No encontré la patente *${pat}*. Cargala primero y después pedí la planilla.`);
+  const fijo = await operativoFijo(env, quien.numero, quien.uid);
+  const e = enc.find(x => x.cid === fijo?.cid) || enc[0];
+  const ruta = `companies/${e.cid}/vehicles/${e.vid}`;
+  const v = await fsGet(env, ruta);
+  if (!v || v.deleted) return responder(env, dest(m), `🔎 No encontré la patente *${pat}*.`);
+  // Se guardan en el vehículo para la próxima
+  const nuevos = {};
+  if (sin) nuevos.siniestro = sin.replace(/\D/g, "");
+  if (km) nuevos.km = km.replace(/\D/g, "");
+  if (anio) nuevos.anio = anio;
+  if (Object.keys(nuevos).length) await fsMerge(env, ruta, nuevos).catch(() => {});
+  const d = { ...v, ...nuevos };
+  const celdas = {
+    C2: numDe(d.siniestro), C4: fechaExcel(d.fechas?.peritado || ""), C5: "CHAPISTERIA OMAR",
+    H4: String(d.asegurado || "").toUpperCase(), I4: null, J4: null, H5: d.patente || pat, C6: numDe(d.telefono),
+    H6: String(d.modelo || "").toUpperCase(), H7: numDe(d.km), K5: d.anio ? Number(d.anio) : null,
+    B10: d.grado ? `GRADO ${d.grado}` : "", ...PANOS_MERCANTIL
+  };
+  celdas.J40 = TOTAL_MERCANTIL[d.grado] || null;
+  const xlsx = await completarXlsx(MERCANTIL, celdas);
+  const nombre = `Mercantil_${d.patente || pat}.xlsx`;
+  const falta = [!d.siniestro && "siniestro", !d.km && "km", !d.grado && "grado", !d.asegurado && "asegurado"].filter(Boolean);
+  await enviarDocumento(env, dest(m), xlsx, nombre, falta.length ? `⚠️ Falta: ${falta.join(", ")}` : "");
+}
+
+// Manda un archivo por WhatsApp (Evolution: en base64; Meta: link de Cloudinary)
+async function enviarDocumento(env, to, bytes, nombre, caption = "") {
+  const mime = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+  if (String(to).startsWith("evo:")) {
+    let bin = ""; for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+    const base = String(env.EVOLUTION_URL || "").replace(/\/+$/, "");
+    const r = await fetch(`${base}/message/sendMedia/${env.EVOLUTION_INSTANCE || "desabollito"}`, { method: "POST",
+      headers: { apikey: env.EVOLUTION_APIKEY, "Content-Type": "application/json" },
+      body: JSON.stringify({ number: to.slice(4), mediatype: "document", mimetype: mime, media: btoa(bin), fileName: nombre, caption }) });
+    if (!r.ok) { const t = await r.text(); await registrar(env, { ultimoErrorEnvio: `${new Date().toISOString()} · sendMedia · ${r.status} · ${t.slice(0, 300)}` }).catch(() => {}); }
+    return r;
+  }
+  const up = await subirCloudinary(env, new Blob([bytes], { type: mime }), nombre, "desabollito/planillas", "raw");
+  return enviar(env, to, { type: "document", document: { link: up.secure_url, filename: nombre, ...(caption ? { caption } : {}) } });
+}
+
 // ── Papelera y Cloudinary ────────────────────────────────────
 const HORAS_PAPELERA = 48;
 // Todo lo subido a Cloudinary que cuelga del vehículo (fotos, videos, documentos, desmontaje, notas…)
