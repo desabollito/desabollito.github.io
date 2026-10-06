@@ -830,8 +830,8 @@ async function alRecibirTexto(env, m, quien, texto) {
     }
   }
 
-  // "AB123CD siniestro 5010… km 115583" → planilla de pericia de Mercantil completa (.xlsx)
-  if (RE_SINIESTRO.test(sinMencion) && buscarPatenteEnTexto(sinMencion))
+  // "AB123CD xlsx siniestro 5010… km 115583" → planilla de pericia de Mercantil completa (solo si dice "xlsx")
+  if (/(^|\s)\.?xlsx\b/i.test(sinMencion) && buscarPatenteEnTexto(sinMencion))
     return planillaMercantil(env, m, quien, sinMencion);
 
   // "Turnos hoy", "¿Qué viene hoy?", "Autos hoy"… → turnos de hoy, un auto por línea
