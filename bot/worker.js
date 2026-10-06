@@ -2437,7 +2437,7 @@ async function completarFormXlsx(env, m, quien, texto, form) {
   const celdas = {
     C2: numDe(d.siniestro), C4: fechaExcel((v?.patente === pat && v.fechas?.peritado) || hoy), C5: "CHAPISTERIA OMAR",
     H4: String(d.asegurado || "").toUpperCase(), I4: null, J4: null, H5: pat, C6: numDe(d.telefono),
-    H6: String(d.modelo || "").toUpperCase(), H7: numDe(d.km), B10: grado ? `GRADO ${grado}` : "", ...PANOS_MERCANTIL,
+    H6: String(d.modelo || "").toUpperCase(), H7: numDe(d.km), B10: { v: grado ? `GRADO ${grado}` : "", s: 111 }, ...PANOS_MERCANTIL,   // estilo 111: Arial 10 (agregado a la plantilla)
     J40: TOTAL_MERCANTIL[grado] || null
   };
   const xlsx = await completarXlsx(MERCANTIL, celdas);
