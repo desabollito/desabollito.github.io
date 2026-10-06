@@ -4,7 +4,7 @@ import {
   S, activos, getVehiculo, guardarVehiculo, actualizarVehiculo, cambiarEstado, moverAPapelera,
   solicitarEliminacion, cargadoPor, esDeWhatsApp, puedoEditar, esMioV, crearSolicitud, yaPedi,
   nuevoIdVehiculo, soyAdmin, mensajeError, ultimoDeshacible, deshacerCambio, aseguradoDePadron,
-  soyDesmontaje, agregarDesmontaje, elegirDesmontador
+  soyDesmontaje, agregarDesmontaje, elegirDesmontador, borrarMedia
 } from "./data.js";
 import { ESTADOS, ESTADO, SECUENCIA, PASO_REP, PIEZA, ORDEN_PIEZAS, estadoActual, piezasMarcadas } from "./domain.js";
 import {
@@ -892,7 +892,8 @@ async function quitarAdjunto(v, campo, idx) {
   });
   if (!ok) return;
   const lista = (getVehiculo(v.id)?.[campo] || []).filter(x => x.publicId !== item.publicId || x.url !== item.url);
-  actualizarVehiculo(v.id, { [campo]: lista }, campo === "fotos" ? "Quitó una foto" : `Quitó el documento “${item.name}”`).catch(e => toast(mensajeError(e), "error"));
+  actualizarVehiculo(v.id, { [campo]: lista }, campo === "fotos" ? "Quitó una foto" : `Quitó el documento “${item.name}”`)
+    .then(() => borrarMedia(v.id, [item])).catch(e => toast(mensajeError(e), "error"));
   if (tokensBorrado.has(item.publicId)) borrarConToken(tokensBorrado.get(item.publicId));
 }
 

@@ -585,6 +585,12 @@ function editarPerfil(alTerminar) {
 const QUE_PIDE = { eliminar: "pide eliminarlo", foto: "pide quitar una foto", documento: "pide quitar el documento", editar: "pide acceso para editarlo" };
 const BOTON_OK = { eliminar: "Eliminar", foto: "Quitar foto", documento: "Quitar", editar: "Dar acceso" };
 const HECHO = { eliminar: "Vehículo eliminado", foto: "Foto quitada", documento: "Documento quitado", editar: "Acceso de edición otorgado" };
+const quedan = v => {
+  const t = v.deletedAt?.toMillis ? v.deletedAt.toMillis() : Date.parse(tsToISO(v.deletedAt) || "");
+  if (!t) return "Se elimina en 48 hs";
+  const h = Math.ceil((t + 48 * 3600_000 - Date.now()) / 3600_000);
+  return h <= 1 ? "Se elimina en menos de 1 h" : `Se elimina en ${h} hs`;
+};
 export function vistaPapelera(view) {
   setTopbar({ title: "Papelera", back: "#/ajustes" });
   const items = papelera();
@@ -602,10 +608,10 @@ export function vistaPapelera(view) {
           <button class="icon-btn sm" data-no="${x.id}" aria-label="Rechazar">${icon("x")}</button>
         </li>`).join("")}</ul>
     </section>` : ""}
-    ${items.length ? `<p class="muted small">Los vehículos quedan acá hasta que los restaures o los elimines.</p>
+    ${items.length ? `<p class="muted small">Los vehículos se eliminan solos (con sus fotos) a las 48 hs de borrados.</p>
     <ul class="trash">${items.map(v => `
       <li><span class="t-meta"><strong>${esc(v.modelo || "Sin modelo")}</strong>
-        <span>${plate(v.patente, "sm")}<small class="muted">Borrado el ${fechaCorta(tsToISO(v.deletedAt)) || "—"}</small></span></span>
+        <span>${plate(v.patente, "sm")}<small class="muted">${quedan(v)}</small></span></span>
         <button class="btn btn-ghost btn-sm" data-r="${v.id}">${icon("restore")}Restaurar</button>
         <button class="icon-btn sm danger" data-x="${v.id}" aria-label="Eliminar para siempre">${icon("trash")}</button>
       </li>`).join("")}</ul>`
@@ -624,8 +630,8 @@ export function vistaPapelera(view) {
     if (r) { restaurar(r.dataset.r).catch(err => toast(mensajeError(err), "error")); toast("Vehículo restaurado", "success"); }
     if (x) {
       const v = items.find(i => i.id === x.dataset.x);
-      if (await confirmar({ title: `¿Eliminar “${v?.modelo || v?.patente}” para siempre?`, message: "No se puede deshacer.", ok: "Eliminar", danger: true }))
-        eliminarDefinitivo(x.dataset.x).catch(err => toast(mensajeError(err), "error"));
+      if (await confirmar({ title: `¿Eliminar “${v?.modelo || v?.patente}” para siempre?`, message: "Se borran también sus fotos. No se puede deshacer.", ok: "Eliminar", danger: true }))
+        eliminarDefinitivo(x.dataset.x).then(() => toast("Eliminado", "success")).catch(err => toast(mensajeError(err), "error"));
     }
   };
 }

@@ -569,11 +569,29 @@ export async function resolverSolicitud(sol, aprobar) {
       const campo = sol.tipo === "foto" ? "fotos" : "archivos";
       const lista = (v?.[campo] || []).filter(x => !(x.url === sol.item?.url && (x.publicId || "") === (sol.item?.publicId || "")));
       await actualizarVehiculo(sol.vid, { [campo]: lista }, sol.tipo === "foto" ? `Quitó una foto (pedido de ${quien})` : `Quitó el documento “${sol.item?.name || ""}” (pedido de ${quien})`);
+      borrarMedia(sol.vid, [sol.item]);
     } else await moverAPapelera(sol.vid);
   }
   await deleteDoc(doc(colSolicitudes(), sol.id));
 }
-export const eliminarDefinitivo = id => deleteDoc(doc(colVehiculos(), id));
+// Fotos o documentos quitados de un vehículo: el bot los borra de Cloudinary
+export async function borrarMedia(vid, items) {
+  const lista = (items || []).filter(x => x?.publicId).map(x => ({ publicId: x.publicId, url: x.url || "", ...(x.tipo ? { tipo: x.tipo } : {}) }));
+  if (!lista.length) return;
+  try {
+    const idToken = await S.user.getIdToken();
+    await fetch(`${BOT_API}/borrar-media`, { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ idToken, cid: S.company.id, vid, items: lista }) });
+  } catch { /* sin conexión: quedan en Cloudinary */ }
+}
+// Eliminar para siempre: el bot borra el vehículo y sus fotos de Cloudinary
+export async function eliminarDefinitivo(id) {
+  const idToken = await S.user.getIdToken();
+  const r = await fetch(`${BOT_API}/eliminar-vehiculo`, { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ idToken, cid: S.company.id, vid: id }) }).catch(() => null);
+  const j = await r?.json().catch(() => ({}));
+  if (!j?.ok) throw new Error(j?.error || "No se pudo eliminar. Probá de nuevo.");
+}
 
 // ── Gastos ────────────────────────────────────────────────────
 const colGastos = () => collection(db, "companies", S.company.id, "gastos");

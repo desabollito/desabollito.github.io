@@ -41,7 +41,8 @@ export default {
     if (url.pathname === "/diagnostico") return diagnostico(url, env);
     if (url.pathname === "/evolution") return webhookEvolution(req, url, env, ctx);
     const API = { "/registro": nuevoRegistro, "/avisar": avisarCliente, "/solicitud": avisarSolicitud, "/agregado": avisarAgregado, "/pedido-union": avisarPedidoUnion,
-      "/admin/datos": adminDatos, "/admin/borrar-usuario": adminBorrarUsuario, "/admin/config": adminConfig, "/admin/padron": adminPadron, "/mover-vehiculo": moverVehiculo };
+      "/admin/datos": adminDatos, "/admin/borrar-usuario": adminBorrarUsuario, "/admin/config": adminConfig, "/admin/padron": adminPadron, "/mover-vehiculo": moverVehiculo,
+      "/borrar-media": borrarMediaApi, "/eliminar-vehiculo": eliminarVehiculoApi };
     if (API[url.pathname]) {
       if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
       if (req.method !== "POST") return json({ ok: false, error: "Método no permitido" }, 405);
@@ -94,6 +95,10 @@ export default {
       return responder(env, dest(m), "⚠️ Hubo un error procesando tu mensaje. Probá de nuevo en un rato.").catch(() => {});
     }))));
     return new Response("ok");
+  },
+  // Cada hora: vacía la papelera (vehículos borrados hace más de 48 hs, con sus fotos en Cloudinary)
+  async scheduled(ev, env, ctx) {
+    ctx.waitUntil(vaciarPapelera(env).catch(e => console.error("papelera", e?.stack || e)));
   }
 };
 
@@ -2366,6 +2371,86 @@ async function soloCreador(env, idToken) {
 
 // Mover un vehículo a otro operativo (copia exacta y borra el original, en una sola operación).
 // Puede quien lo cargó o un administrador del operativo de origen, si también es miembro del destino.
+// ── Papelera y Cloudinary ────────────────────────────────────
+const HORAS_PAPELERA = 48;
+// Todo lo subido a Cloudinary que cuelga del vehículo (fotos, videos, documentos, desmontaje, notas…)
+function mediaDe(obj, out = new Map()) {
+  if (Array.isArray(obj)) obj.forEach(x => mediaDe(x, out));
+  else if (obj && typeof obj === "object") {
+    if (typeof obj.publicId === "string" && obj.publicId) {
+      const u = String(obj.url || "");
+      const tipo = obj.tipo === "video" || /\/video\/upload\//.test(u) ? "video" : /\/raw\/upload\//.test(u) ? "raw" : "image";
+      out.set(tipo + ":" + obj.publicId, { publicId: obj.publicId, tipo });
+    }
+    for (const [k, x] of Object.entries(obj)) if (k !== "historial" && x && typeof x === "object") mediaDe(x, out);
+  }
+  return out;
+}
+async function borrarCloudinary(env, items) {
+  const porTipo = {};
+  for (const { publicId, tipo } of items) (porTipo[tipo] ||= []).push(publicId);
+  const auth = "Basic " + btoa(`${env.CLOUDINARY_API_KEY}:${env.CLOUDINARY_API_SECRET}`);
+  for (const [tipo, ids] of Object.entries(porTipo)) {
+    for (let i = 0; i < ids.length; i += 100) {
+      const q = ids.slice(i, i + 100).map(x => "public_ids[]=" + encodeURIComponent(x)).join("&");
+      const r = await fetch(`https://api.cloudinary.com/v1_1/${env.CLOUDINARY_CLOUD_NAME}/resources/${tipo}/upload?${q}`, { method: "DELETE", headers: { Authorization: auth } });
+      if (!r.ok) console.error("cloudinary delete", tipo, r.status, (await r.text()).slice(0, 200));
+    }
+  }
+}
+async function purgarVehiculo(env, ruta, v) {
+  await borrarCloudinary(env, [...mediaDe(v).values()]);
+  await fsDelete(env, ruta);
+}
+async function vaciarPapelera(env) {
+  const vs = [];
+  for (const c of await fsList(env, "companies"))
+    vs.push(...await fsQuery(env, `companies/${c.__id}`, "vehicles", { field: "deleted", op: "EQUAL", value: true }, 200).catch(() => []));
+  const limite = Date.now() - HORAS_PAPELERA * 3600_000;
+  let n = 0;
+  for (const v of vs) {
+    const t = Date.parse(v.deletedAt || "");
+    if (!t) {   // sin fecha (borrado por el bot): empieza a contar ahora
+      await fs(env, `${base(env)}:commit`, { method: "POST", body: JSON.stringify({ writes: [{
+        transform: { document: nombreDoc(env, v.__ruta), fieldTransforms: [{ fieldPath: "deletedAt", setToServerValue: "REQUEST_TIME" }] } }] }) });
+      continue;
+    }
+    if (t < limite) { await purgarVehiculo(env, v.__ruta, v); n++; }
+  }
+  if (n) await registrar(env, { ultimaPapelera: `${new Date().toISOString()} · ${n} vehículo(s) eliminados` }).catch(() => {});
+}
+async function miembroDe(env, idToken, cid) {
+  const uid = await verificarIdToken(env, idToken).catch(() => null);
+  if (!uid || !idValido(cid)) return null;
+  const c = await fsGet(env, `companies/${cid}`);
+  return c && (c.members || []).includes(uid) ? { uid, c } : null;
+}
+// Fotos o documentos que se quitaron de un vehículo: se borran de Cloudinary
+// (solo los que ya no están en el vehículo, para no borrar algo en uso)
+async function borrarMediaApi(env, { idToken, cid, vid, items }) {
+  const m = await miembroDe(env, idToken, cid);
+  if (!m || !idValido(vid)) return json({ ok: false, error: "No autorizado" }, 403);
+  const v = await fsGet(env, `companies/${cid}/vehicles/${vid}`);
+  const enUso = v ? mediaDe(v) : new Map();
+  const lista = [...mediaDe(Array.isArray(items) ? items.slice(0, 50) : []).entries()].filter(([k]) => !enUso.has(k)).map(([, x]) => x)
+    .filter(x => x.publicId.startsWith("desabollito/"));
+  if (lista.length) await borrarCloudinary(env, lista);
+  return json({ ok: true, borradas: lista.length });
+}
+// "Eliminar para siempre" desde la papelera: borra el vehículo y sus fotos
+async function eliminarVehiculoApi(env, { idToken, cid, vid }) {
+  const m = await miembroDe(env, idToken, cid);
+  if (!m || !idValido(vid)) return json({ ok: false, error: "No autorizado" }, 403);
+  const ruta = `companies/${cid}/vehicles/${vid}`;
+  const v = await fsGet(env, ruta);
+  if (!v) return json({ ok: true });
+  if (!v.deleted) return json({ ok: false, error: "Primero tiene que estar en la papelera" }, 400);
+  const propio = [v.deletedBy, v.createdBy, v.createdByUid].includes(m.uid);
+  if (!propio && !["owner", "admin"].includes(m.c.roles?.[m.uid])) return json({ ok: false, error: "No autorizado" }, 403);
+  await purgarVehiculo(env, ruta, v);
+  return json({ ok: true });
+}
+
 async function moverVehiculo(env, { idToken, cid, vid, destino }) {
   let uid;
   try { uid = await verificarIdToken(env, idToken); } catch { return json({ ok: false, error: "No autorizado" }, 403); }
