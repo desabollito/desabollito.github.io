@@ -417,7 +417,7 @@ ${[...PASO_REP, "facturado"].includes(est) ? `<button class="btn btn-ghost btn-b
     ${soloVer && !(anulado ? v.razonAnulacion : v.postReparacion) ? "" : anulado ? `<section class="d-sec d-post">
       <h3>Razón de la anulación</h3>
       <textarea class="post-rep" data-campo="razonAnulacion" rows="1" ${soloVer ? "readonly" : ""} placeholder="Ej: el cliente desistió, etc">${esc(v.razonAnulacion || "")}</textarea>
-    </section>` : v.fechas?.reparado || v.fechas?.facturado ? `<section class="d-sec d-post">
+    </section>` : [...PASO_REP, "facturado"].includes(est) || ["enreparacion", "reparado", "llamado", "entregado", "facturado"].some(k => v.fechas?.[k]) ? `<section class="d-sec d-post">
       <h3>Notas post-reparación</h3>
       <textarea class="post-rep" data-campo="postReparacion" rows="1" ${soloVer ? "readonly" : ""} placeholder="Regresó por tal motivo, etc">${esc(v.postReparacion || "")}</textarea>
     </section>` : ""}
