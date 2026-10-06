@@ -830,9 +830,10 @@ async function alRecibirTexto(env, m, quien, texto) {
     }
   }
 
-  // "AB123CD xlsx siniestro 5010… km 115583" → planilla de pericia de Mercantil completa (solo si dice "xlsx")
-  if (/(^|\s)\.?xlsx\b/i.test(sinMencion) && buscarPatenteEnTexto(sinMencion))
-    return planillaMercantil(env, m, quien, sinMencion);
+  // "xlsx" → formulario de la planilla Mercantil; la respuesta completa → el .xlsx
+  if (s?.xlsxForm?.t && Date.now() - s.xlsxForm.t < VENTANA_XLSX && esFormXlsx(texto))
+    return completarFormXlsx(env, m, quien, texto, s.xlsxForm);
+  if (/(^|\s)\.?xlsx\b/i.test(sinMencion)) return pedirFormXlsx(env, m, quien, sinMencion);
 
   // "Turnos hoy", "¿Qué viene hoy?", "Autos hoy"… → turnos de hoy, un auto por línea
   // En grupos solo si le hablan al bot (@desabollito o "bot")
@@ -2380,42 +2381,67 @@ async function soloCreador(env, idToken) {
 // Puede quien lo cargó o un administrador del operativo de origen, si también es miembro del destino.
 // ── Planilla de pericia Mercantil Andina (.xlsx) ─────────────
 // Los datos del vehículo salen de la app; en el mensaje van solo siniestro, km y (opcional) año.
-const RE_SINIESTRO = /(^|\s)(siniestro|sini|stro)\s*(?:n[°ºro.]*\s*)?[:#]?\s*\d/i;
 const TOTAL_MERCANTIL = { 1: 800000, 2: 1200000, 3: 1700000 };
 const PANOS_MERCANTIL = { C10: "CAPOT", C11: "TECHO", C12: "BAUL",
   C14: "GUARDABARROS DEL. IZQ", C15: "PUERTA DEL. IZQ", C16: "PUERTA TRAS. IZQ", C17: "GUARDABARROS TRAS. IZQ", C18: "PARANTE IZQ",
   C20: "GUARDABARROS DEL. DER", C21: "PUERTA DEL. DER", C22: "PUERTA TRAS. DER", C23: "GUARDABARROS TRAS. DER", C24: "PARANTE DER" };
 const numDe = t => { const d = String(t || "").replace(/\D/g, ""); return d ? (d.length <= 15 ? Number(d) : d) : null; };
-async function planillaMercantil(env, m, quien, texto) {
-  const pat = buscarPatenteEnTexto(texto).patente;
-  const sin = texto.match(/(?:siniestro|sini|stro)\s*(?:n[°ºro.]*\s*)?[:#]?\s*(\d[\d.\-\/]*\d|\d)/i)?.[1];
-  const km = texto.match(/(?:km|kms|kilometraje|kilometros|kilómetros)\s*[:=]?\s*(\d[\d.,]*)/i)?.[1] || texto.match(/(\d[\d.,]*)\s*(?:km|kms)\b/i)?.[1];
-  const anio = texto.match(/a[ñn]o\s*[:=]?\s*((?:19|20)\d\d)/i)?.[1];
-  const enc = await buscarPatente(env, pat, quien.uid);
-  if (!enc.length) return responder(env, dest(m), `🔎 No encontré la patente *${pat}*. Cargala primero y después pedí la planilla.`);
-  const fijo = await operativoFijo(env, quien.numero, quien.uid);
-  const e = enc.find(x => x.cid === fijo?.cid) || enc[0];
-  const ruta = `companies/${e.cid}/vehicles/${e.vid}`;
-  const v = await fsGet(env, ruta);
-  if (!v || v.deleted) return responder(env, dest(m), `🔎 No encontré la patente *${pat}*.`);
-  // Se guardan en el vehículo para la próxima
-  const nuevos = {};
-  if (sin) nuevos.siniestro = sin.replace(/\D/g, "");
-  if (km) nuevos.km = km.replace(/\D/g, "");
-  if (anio) nuevos.anio = anio;
-  if (Object.keys(nuevos).length) await fsMerge(env, ruta, nuevos).catch(() => {});
-  const d = { ...v, ...nuevos };
+const CAMPOS_XLSX = [["patente", "Patente"], ["modelo", "Modelo"], ["siniestro", "Siniestro"], ["km", "KM"], ["grado", "Grado"], ["asegurado", "Asegurado"], ["telefono", "Teléfono"]];
+const VENTANA_XLSX = 30 * 60_000;
+const esFormXlsx = t => String(t || "").split(/\n/).filter(l => /^\s*[1-7]\s*[.)\-:]/.test(l)).length >= 3;
+
+// "xlsx" (con o sin patente) → formulario para completar. Si la patente está cargada, viene con los datos de la app.
+async function pedirFormXlsx(env, m, quien, texto) {
+  const p = buscarPatenteEnTexto(texto);
+  let d = { patente: p?.patente || "" }, ref = null;
+  if (p) {
+    const enc = await buscarPatente(env, p.patente, quien.uid);
+    const fijo = enc.length ? await operativoFijo(env, quien.numero, quien.uid) : null;
+    const e = enc.find(x => x.cid === fijo?.cid) || enc[0];
+    const v = e ? await fsGet(env, `companies/${e.cid}/vehicles/${e.vid}`) : null;
+    if (v && !v.deleted) { d = { ...v, patente: v.patente || p.patente }; ref = { cid: e.cid, vid: e.vid }; }
+  }
+  await fsMerge(env, `bot_sesiones/${quien.numero}`, { xlsxForm: { t: Date.now(), ...(ref || {}) }, ts: Date.now() });
+  const val = k => k === "grado" ? (d.grado ? String(d.grado) : "") : String(d[k] || "");
+  return responder(env, dest(m), `📄 *Planilla Mercantil*\nCopiá, completá y mandá:\n\n` + CAMPOS_XLSX.map(([k, l], i) => `${i + 1}. ${l}: ${val(k)}`).join("\n"));
+}
+
+// Respuesta al formulario → arma el .xlsx y lo manda
+async function completarFormXlsx(env, m, quien, texto, form) {
+  const d = {};
+  for (const l of String(texto).split(/\n/)) {
+    const mm = l.match(/^\s*([1-7])\s*[.)\-:]\s*(?:[a-záéíóúñ ]+:)?\s*(.*)$/i);
+    if (mm) d[CAMPOS_XLSX[mm[1] - 1][0]] = mm[2].trim();
+  }
+  const pat = buscarPatenteEnTexto(d.patente || "")?.patente || String(d.patente || "").toUpperCase().replace(/\s+/g, "");
+  if (!pat) return responder(env, dest(m), "Falta la patente (punto 1).");
+  const grado = Number(String(d.grado || "").match(/[1-4]/)?.[0]) || null;
+  // Vehículo en la app: para la fecha del peritaje y para guardar siniestro y km
+  let v = null, ruta = form?.vid ? `companies/${form.cid}/vehicles/${form.vid}` : null;
+  if (!ruta) {
+    const enc = await buscarPatente(env, pat, quien.uid);
+    const fijo = enc.length ? await operativoFijo(env, quien.numero, quien.uid) : null;
+    const e = enc.find(x => x.cid === fijo?.cid) || enc[0];
+    if (e) ruta = `companies/${e.cid}/vehicles/${e.vid}`;
+  }
+  if (ruta) v = await fsGet(env, ruta).catch(() => null);
+  if (v?.deleted) v = null;
+  if (v && v.patente === pat) {
+    const guardar = {};
+    if (d.siniestro) guardar.siniestro = d.siniestro.replace(/\D/g, "");
+    if (d.km) guardar.km = d.km.replace(/\D/g, "");
+    if (Object.keys(guardar).length) await fsMerge(env, ruta, guardar).catch(() => {});
+  }
+  await fsMerge(env, `bot_sesiones/${quien.numero}`, { xlsxForm: null }).catch(() => {});
+  const hoy = new Date(Date.now() - 3 * 3600 * 1000).toISOString().slice(0, 10);
   const celdas = {
-    C2: numDe(d.siniestro), C4: fechaExcel(d.fechas?.peritado || ""), C5: "CHAPISTERIA OMAR",
-    H4: String(d.asegurado || "").toUpperCase(), I4: null, J4: null, H5: d.patente || pat, C6: numDe(d.telefono),
-    H6: String(d.modelo || "").toUpperCase(), H7: numDe(d.km), K5: d.anio ? Number(d.anio) : null,
-    B10: d.grado ? `GRADO ${d.grado}` : "", ...PANOS_MERCANTIL
+    C2: numDe(d.siniestro), C4: fechaExcel((v?.patente === pat && v.fechas?.peritado) || hoy), C5: "CHAPISTERIA OMAR",
+    H4: String(d.asegurado || "").toUpperCase(), I4: null, J4: null, H5: pat, C6: numDe(d.telefono),
+    H6: String(d.modelo || "").toUpperCase(), H7: numDe(d.km), B10: grado ? `GRADO ${grado}` : "", ...PANOS_MERCANTIL,
+    J40: TOTAL_MERCANTIL[grado] || null
   };
-  celdas.J40 = TOTAL_MERCANTIL[d.grado] || null;
   const xlsx = await completarXlsx(MERCANTIL, celdas);
-  const nombre = `Mercantil_${d.patente || pat}.xlsx`;
-  const falta = [!d.siniestro && "siniestro", !d.km && "km", !d.grado && "grado", !d.asegurado && "asegurado"].filter(Boolean);
-  await enviarDocumento(env, dest(m), xlsx, nombre, falta.length ? `⚠️ Falta: ${falta.join(", ")}` : "");
+  await enviarDocumento(env, dest(m), xlsx, `Mercantil_${pat}.xlsx`, "");
 }
 
 // Manda un archivo por WhatsApp (Evolution: en base64; Meta: link de Cloudinary)
