@@ -1136,12 +1136,15 @@ const VENTANA_DESM = 300;   // segundos: después de la patente, 5 minutos para 
 // Abre el vehículo (sin cambiar sus datos ni crear vehículos), corta el anterior y da 5 minutos
 // para mandar fotos y texto, que van a la sección Desmontaje. Devuelve null si no corresponde.
 async function abrirModoDesm(env, numero, quien, texto, datos, hora) {
-  const kw = RE_DESM.test(texto);
+  // La palabra cuenta solo fuera de "detalle: …" y sin "no" adelante ("Detalle: NO DESMONTAR TECHO" es un dato)
+  const antes = String(texto || "").split(/(?:^|\s)(?:detalles?|adicional(?:es)?|observaci[oó]n(?:es)?|obs|repuestos?|pintura)\b/i)[0];
+  const kw = RE_DESM.test(antes) && !/(^|\s)no\s+desmont/i.test(antes);
   const enc = await buscarPatente(env, datos.patente, quien.uid);
   const fijo = await operativoFijo(env, numero, quien.uid);
   const e = enc.find(x => x.cid === fijo?.cid) || enc[0];
   const rol = e ? await esDesm(env, e.cid, quien.uid) : fijo ? await esDesm(env, fijo.cid, quien.uid) : false;
   if (!kw && !rol) return null;
+  if (!e && !rol) return null;   // no existe y no es desmontador: se carga normal
   if (!e) return { msg: `🔎 No encontré la patente *${datos.patente}*.` + (rol ? `\n\n${NO_DESM}` : "") };
   const s = await leerSesion(env, numero);
   if (abierta(s)) await cerrarEnSilencio(env, numero, hora - 1);   // otra patente corta la anterior
