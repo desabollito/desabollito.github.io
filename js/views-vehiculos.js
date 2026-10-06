@@ -447,25 +447,24 @@ ${[...PASO_REP, "facturado"].includes(est) ? `<button class="btn btn-ghost btn-b
     ${chipsSec("Repuestos", v, "repuestos")}
     ${chipsSec("Pintura", v, "pintura")}
 
-    ${(docsOn() && v.archivos?.length) || v.fechas?.reparado || v.fechas?.facturado || v.firma ? `<details class="d-sec d-adic" ${adicAbierto ? "open" : ""}>
-      <summary><h3>Adicionales</h3></summary>
-
-
-    ${docsOn() && v.archivos?.length ? `<section class="d-sub">
+    ${(() => {
+      // Adicionales: con una sola cosa (ej. la firma) va directo, sin desplegable
+      const partes = [docsOn() && v.archivos?.length ? `<section class="d-sub">
       <div class="sec-head"><h3>Documentos <small>${v.archivos?.length || 0}</small></h3></div>
       <ul class="docs">${(v.archivos || []).map((a, i) => `
         <li><a href="${esc(a.url)}" target="_blank" rel="noopener">${icon("file")}<span>${esc(a.name)}</span></a>
           ${soloVer ? "" : `<button class="icon-btn sm" data-del-doc="${i}" aria-label="Quitar documento">${icon("x")}</button>`}</li>`).join("")}</ul>
-    </section>` : ""}
-
-    ${v.fechas?.reparado || v.fechas?.facturado || v.firma ? `<section class="d-sub">
+    </section>` : "",
+        v.fechas?.reparado || v.fechas?.facturado || v.firma ? `<section class="d-sub">
       <div class="sec-head"><h3>Firma del cliente</h3>
         ${soloVer ? "" : `<button class="btn btn-ghost btn-sm" data-act="firma">${icon("sign")}${v.firma ? "Volver a firmar" : "Firmar"}</button>`}</div>
       ${v.firma ? `<img class="firma-img" src="${esc(v.firma)}" alt="Firma del cliente">`
         : ""}
-    </section>` : ""}
-
-    </details>` : ""}
+    </section>` : ""].filter(Boolean);
+      if (!partes.length) return "";
+      if (partes.length === 1) return partes[0].replace('class="d-sub"', 'class="d-sec"');
+      return `<details class="d-sec d-adic" ${adicAbierto ? "open" : ""}><summary><h3>Adicionales</h3></summary>${partes.join("")}</details>`;
+    })()}
 
     <footer class="d-foot">
       <span class="d-autor"><button class="icon-btn sm hist-btn" data-act="historial" aria-label="Historial" title="Historial">${icon("clock")}</button>${!soloVer && puedoEditar(v) && S.companies.length > 1 ? `<button class="icon-btn sm hist-btn" data-act="mover" aria-label="Mover a otro operativo" title="Mover a otro operativo">${icon("swap")}</button>` : ""}Cargado por ${esc(cargadoPor(v))}</span>
