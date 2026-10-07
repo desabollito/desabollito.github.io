@@ -158,7 +158,8 @@ export function vistaVehiculos(view, selId = null) {
     const cuenta = Object.fromEntries(ESTADOS.map(e => [e.key, 0]));
     todos.forEach(v => cuenta[estadoActual(v)]++);
     $("#estado-strip", view).innerHTML =
-      ESTADOS.map(e => `<button class="est ${F.estado === e.key ? "on" : ""}" data-e="${e.key}" style="--c:${e.color}">
+      // Link de perito: solo los estados que tienen algún vehículo
+      ESTADOS.filter(e => !soyLector() || cuenta[e.key] || F.estado === e.key).map(e => `<button class="est ${F.estado === e.key ? "on" : ""}" data-e="${e.key}" style="--c:${e.color}">
         <b>${cuenta[e.key]}</b><span>${e.label}</span></button>`).join("");
     $("#estado-strip", view).setAttribute("aria-label", `Filtrar por estado (${todos.length} en total)`);
 
@@ -197,13 +198,13 @@ export function vistaVehiculos(view, selId = null) {
       <button class="btn btn-ghost btn-sm" id="f-reset">Quitar filtros</button></div>` });
     const chipsGrado = () => {
       const n = g => activos().filter(v => (v.grado || 0) === g).length;
-      $("#f-grado", s.el).innerHTML = [[1, "Grado 1"], [2, "Grado 2"], [3, "Grado 3"], [4, "Grado 4"], [0, "Sin grado"]].filter(([g]) => (g !== 0 || n(0) || F.grado === 0) && !(g === 4 && soyLector())).map(([g, t]) =>
+      $("#f-grado", s.el).innerHTML = [[1, "Grado 1"], [2, "Grado 2"], [3, "Grado 3"], [4, "Grado 4"], [0, "Sin grado"]].filter(([g]) => (g !== 0 || n(0) || F.grado === 0) && !(g === 4 && soyLector()) && (!soyLector() || n(g) || F.grado === g)).map(([g, t]) =>
         `<button type="button" class="p-chip ${F.grado === g ? "on" : ""}" data-grado="${g}">${t} <b class="f-n">${n(g)}</b></button>`).join("");
     };
     chipsGrado();
     const chipsTurno = () => {
       const n = si => activos().filter(v => estadoActual(v) === "turnado" && (v.turnoConfirmado === true) === si).length;
-      $("#f-turno", s.el).innerHTML = [["si", "Confirmados", "#22b07d", true], ["no", "Sin confirmar", "#e0a526", false]].map(([k, t, color, si]) =>
+      $("#f-turno", s.el).innerHTML = [["si", "Confirmados", "#22b07d", true], ["no", "Sin confirmar", "#e0a526", false]].filter(([k, , , si]) => !soyLector() || n(si) || F.turno === k).map(([k, t, color, si]) =>
         `<button type="button" class="p-chip ${F.turno === k ? "on" : ""}" data-turno="${k}" style="--c:${color}"><i class="f-dot"></i>${t} <b class="f-n">${n(si)}</b></button>`).join("");
     };
     chipsTurno();
@@ -212,7 +213,7 @@ export function vistaVehiculos(view, selId = null) {
       F.turno = F.turno === b.dataset.turno ? null : b.dataset.turno; chipsTurno(); aplicar();
     };
     const chipsEtapas = () => ["repuestos", "pintura"].forEach(tipo => {
-      $(`#f-${tipo}`, s.el).innerHTML = ETAPAS[tipo].map(([k, t, color]) =>
+      $(`#f-${tipo}`, s.el).innerHTML = ETAPAS[tipo].filter(([k]) => !soyLector() || F[tipo] === k || activos().some(v => tieneEtapa(v, tipo, k))).map(([k, t, color]) =>
         `<button type="button" class="p-chip ${F[tipo] === k ? "on" : ""}" data-fase="${k}" data-tipo="${tipo}" style="--c:${color}"><i class="f-dot"></i>${t} <b class="f-n">${activos().filter(v => tieneEtapa(v, tipo, k)).length}</b></button>`).join("");
     });
     chipsEtapas();
