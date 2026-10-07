@@ -1,0 +1,13 @@
+name: Ver DNS
+on:
+  push:
+    branches: [main]
+    paths: [".github/workflows/dns.yml"]
+jobs:
+  ver:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "::notice::sm $(curl -sI -A Googlebot https://desabollito.com/sitemap.xml | grep -iE '^(HTTP|content-type|location)' | tr '\r\n' '  ')"
+          echo "::notice::body $(curl -s https://desabollito.com/sitemap.xml | head -c 200 | tr '\n' ' ')"
+          echo "::notice::robots $(curl -s https://desabollito.com/robots.txt | tr '\n' ' ')"
