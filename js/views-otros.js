@@ -169,6 +169,8 @@ if (!["peritado", "turnado"].includes(C.campo)) C.campo = "turnado";
 // ninguno adelante, el último día anterior que tenga.
 // Solo la primera vez: después queda en el día que se eligió
 export function calendarioAlEntrar() { if (!C.dia) C.auto = true; }
+// Tocar de nuevo la pestaña Calendario: vuelve al día automático
+export function reiniciarCalendario() { C.dia = null; C.auto = true; }
 const delCal = () => activos().filter(v => estadoActual(v) !== "anulado");   // los anulados no figuran en el calendario
 function elegirDiaAuto() {
   const hoy = hoyISO();

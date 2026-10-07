@@ -8,7 +8,7 @@ import { cuentaPendiente, salir, marcarOperativosVistos, soyCreador, crearEmpres
 import { marcarNav, pintarLateral, esAncho } from "./shell.js";
 import { vistaVehiculos, vistaDetalle, vistaFormulario, reiniciarVista3D, elegirVehiculoDesmontaje } from "./views-vehiculos.js";
 import {
-  vistaPlanilla, vistaCalendario, calendarioAlEntrar, vistaEmpresa, vistaAjustes, vistaPapelera, elegirEmpresaSheet, panelCreador
+  vistaPlanilla, vistaCalendario, calendarioAlEntrar, reiniciarCalendario, vistaEmpresa, vistaAjustes, vistaPapelera, elegirEmpresaSheet, panelCreador
 } from "./views-otros.js";
 import { vistaGastos, formGasto } from "./views-gastos.js";
 import { vistaPlanillas, vistaTecnicos } from "./views-tecnicos.js";
@@ -63,7 +63,7 @@ function render({ conservarScroll = false, reabrir = false } = {}) {
   // La lista y el calendario recuerdan su scroll y el último vehículo abierto (al volver de cualquier lado)
   const claveScroll = (n, a) => n === "vehiculos" && !a ? "lista" : n;
   const previa = ruta;
-  const plAntes = $(".pane-list");
+  const plAntes = $(".split-on .pane-list");
   if (plAntes) memScroll.pane = plAntes.scrollTop;
   if (!mismaRuta && ["lista", "calendario"].includes(claveScroll(previa.nombre, previa.arg))) memScroll[claveScroll(previa.nombre, previa.arg)] = scrollY;
   const nuevaClave = claveScroll(hit[1], arg);
@@ -88,6 +88,7 @@ function render({ conservarScroll = false, reabrir = false } = {}) {
   const subTec = $('.side-sub [data-sub="tecnicos"]'); if (subTec) subTec.hidden = !soyAdmin();
   if (hit[1] === "calendario" && !mismaRuta) calendarioAlEntrar();
   if (!mismaRuta) reiniciarVista3D(); // cada vez que se abre un vehículo, arranca en 2D
+  ultimoRender = Date.now();
   ctrl = hit[2](arg) || null;
   if (hit[1] === "vehiculos" && arg) S.ultimoVid = arg;
   // Último vehículo abierto: marcado en la lista y el calendario
@@ -97,7 +98,7 @@ function render({ conservarScroll = false, reabrir = false } = {}) {
     const r = el.getBoundingClientRect(), c = caja ? caja.getBoundingClientRect() : { top: 60, bottom: innerHeight - 70 };
     if (r.top < c.top || r.bottom > c.bottom) el.scrollIntoView({ block: "center" }); };
   // Computadora: la lista de la izquierda queda donde estaba
-  const pl = $(".pane-list");
+  const pl = $(".split-on .pane-list");
   if (pl) {
     if (memScroll.pane != null) pl.scrollTop = memScroll.pane;
     if (!mismaRuta) aLaVista(marcar() || $(".vcard.sel", pl), pl);
@@ -115,7 +116,43 @@ function render({ conservarScroll = false, reabrir = false } = {}) {
   if (!conservarScroll || !mismaRuta) { scrollTo(0, 0); view.focus({ preventScroll: true }); }
   else scrollTo(0, y);
 }
+// El scroll lo maneja la app (si no, el navegador lo pisa al volver atrás)
+if ("scrollRestoration" in history) history.scrollRestoration = "manual";
 const memScroll = {};
+let ultimoRender = 0;
+// Volver "de cero": sin vehículo marcado y arriba de todo (y en el calendario, el día automático)
+function reiniciarSeccion(cual) {
+  S.ultimoVid = null;
+  delete memScroll.lista; delete memScroll.pane; delete memScroll.calendario;
+  if (cual === "calendario") reiniciarCalendario();
+  $$(".vcard.sel", view).forEach(el => el.classList.remove("sel"));
+}
+// Tocar de nuevo la pestaña en la que ya estás
+document.addEventListener("click", e => {
+  const a = e.target.closest("a[data-nav]");
+  if (!a || !["vehiculos", "calendario"].includes(a.dataset.nav) || ruta.nombre !== a.dataset.nav) return;
+  e.preventDefault();
+  reiniciarSeccion(a.dataset.nav);
+  if (location.hash !== a.getAttribute("href") && !(a.getAttribute("href") === "#/" && !location.hash)) history.replaceState(null, "", a.getAttribute("href"));
+  ruta = { nombre: null, arg: null };
+  render();
+  scrollTo({ top: 0 });
+  const pl = $(".split-on .pane-list"); if (pl) pl.scrollTop = 0;
+});
+// Subir hasta arriba de todo a mano: se olvida el vehículo marcado
+let yAnterior = 0;
+addEventListener("scroll", () => {
+  const y = scrollY;
+  if (y <= 0 && yAnterior > 150 && Date.now() - ultimoRender > 800 && ["vehiculos", "calendario"].includes(ruta.nombre) && !(ruta.nombre === "vehiculos" && ruta.arg && !esAncho()))
+    reiniciarSeccion("scroll");
+  yAnterior = y;
+}, { passive: true });
+document.addEventListener("scroll", e => {
+  const pl = e.target?.classList?.contains("pane-list") && e.target.closest(".split-on") ? e.target : null;
+  if (!pl) return;
+  if (pl.scrollTop <= 0 && (pl._yAnt || 0) > 150 && Date.now() - ultimoRender > 800) { reiniciarSeccion("scroll"); }
+  pl._yAnt = pl.scrollTop;
+}, { passive: true, capture: true });
 
 addEventListener("hashchange", () => render());
 
