@@ -1389,3 +1389,4 @@ body[data-lector="1"] #company-switch .ic { display: none !important; }
 body[data-lector="1"] .step, body[data-lector="1"] .etapa-item { pointer-events: none; }
 body[data-lector="1"] [data-act="pdf"] { display: none !important; }
 .side-user-info [data-tema-lector] { margin-left: auto; }
+.olvide { display: block; margin: 4px auto 0; color: var(--muted); }

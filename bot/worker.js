@@ -46,7 +46,8 @@ export default {
     const API = { "/registro": nuevoRegistro, "/avisar": avisarCliente, "/solicitud": avisarSolicitud, "/agregado": avisarAgregado, "/pedido-union": avisarPedidoUnion,
       "/admin/datos": adminDatos, "/admin/borrar-usuario": adminBorrarUsuario, "/admin/config": adminConfig, "/admin/padron": adminPadron, "/mover-vehiculo": moverVehiculo,
       "/borrar-media": borrarMediaApi, "/eliminar-vehiculo": eliminarVehiculoApi,
-      "/compartir": compartirApi, "/compartido": compartidoApi };
+      "/compartir": compartirApi, "/compartido": compartidoApi,
+      "/recuperar": recuperarApi, "/restablecer": restablecerApi };
     if (API[url.pathname]) {
       if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
       if (req.method !== "POST") return json({ ok: false, error: "Método no permitido" }, 405);
@@ -2757,6 +2758,51 @@ async function adminBorrarUsuario(env, { idToken, uid }) {
     await fsMerge(env, `companies/${c.__id}`, cambios).catch(e => console.error("quitar de operativo", e));
   }
   await fsDelete(env, `users/${uid}`).catch(() => {});
+  return json({ ok: true });
+}
+
+// ── Olvidé mi contraseña: el bot manda un código por WhatsApp y con él se pone una nueva ──
+// bot_recuperar/{usuario}: { hash, exp, intentos, t }
+const sha = async t => [...new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(t)))].map(b => b.toString(16).padStart(2, "0")).join("");
+const limpiarU = u => String(u || "").toLowerCase().trim().replace(/[^a-z0-9._-]/g, "");
+async function recuperarApi(env, { usuario }) {
+  const u = limpiarU(usuario);
+  if (u.length < 3) return json({ ok: false, error: "Escribí tu usuario" }, 400);
+  const reg = await fsGet(env, `usernames/${u}`).catch(() => null);
+  if (!reg?.uid) return json({ ok: false, error: "Ese usuario no existe" }, 404);
+  const perfil = await fsGet(env, `users/${reg.uid}`).catch(() => null);
+  if (perfil?.email && !perfil.email.endsWith("@desabollito.app")) return json({ ok: false, error: "Tu cuenta entra con Google: usá el botón de Google para ingresar." }, 400);
+  const previo = await fsGet(env, `bot_recuperar/${u}`).catch(() => null);
+  if (previo?.t && Date.now() - previo.t < 60_000) return json({ ok: false, error: "Esperá un minuto antes de pedir otro código" }, 429);
+  if (!perfil?.whatsapp) {
+    // Sin WhatsApp vinculado: se avisa al administrador para que lo ayude
+    await fsSet(env, `bot_recuperar/${u}`, { t: Date.now() });
+    await enviar(env, destinoNumero(env, numeroAdmin(env)), { type: "text", text: { body:
+      `🔑 *@${u}* (${perfil?.name || "sin nombre"}) pidió restablecer su contraseña, pero no tiene WhatsApp vinculado.` } }).catch(() => {});
+    return json({ ok: false, sinWhatsapp: true, error: "Tu cuenta no tiene WhatsApp vinculado. Ya le avisamos al administrador para que te ayude." });
+  }
+  const codigo = String(100000 + (crypto.getRandomValues(new Uint32Array(1))[0] % 900000));
+  await fsSet(env, `bot_recuperar/${u}`, { hash: await sha(u + ":" + codigo), exp: Date.now() + 15 * 60_000, intentos: 0, t: Date.now() });
+  await enviar(env, destinoNumero(env, perfil.whatsapp), { type: "text", text: { body:
+    `🔑 Tu código para restablecer la contraseña de Desabollito es:\n\n*${codigo}*\n\nVence en 15 minutos. Si no lo pediste vos, ignorá este mensaje.` } });
+  return json({ ok: true, wa: "…" + String(perfil.whatsapp).slice(-4) });
+}
+async function restablecerApi(env, { usuario, codigo, pass }) {
+  const u = limpiarU(usuario);
+  const r = await fsGet(env, `bot_recuperar/${u}`).catch(() => null);
+  if (!r?.hash || Date.now() > Number(r.exp || 0)) return json({ ok: false, error: "El código venció. Pedí uno nuevo." }, 400);
+  if (Number(r.intentos || 0) >= 5) return json({ ok: false, error: "Demasiados intentos. Pedí un código nuevo." }, 429);
+  if (String(pass || "").length < 6) return json({ ok: false, error: "La contraseña tiene que tener al menos 6 caracteres" }, 400);
+  if ((await sha(u + ":" + String(codigo || "").replace(/\D/g, ""))) !== r.hash) {
+    await fsMerge(env, `bot_recuperar/${u}`, { intentos: Number(r.intentos || 0) + 1 });
+    return json({ ok: false, error: "Código incorrecto" }, 400);
+  }
+  const reg = await fsGet(env, `usernames/${u}`);
+  const a = await fetch(`https://identitytoolkit.googleapis.com/v1/projects/${env.FIREBASE_PROJECT_ID}/accounts:update`, {
+    method: "POST", headers: { Authorization: `Bearer ${await tokenFirebase(env)}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ localId: reg.uid, password: String(pass) }) });
+  if (!a.ok) { console.error("restablecer", a.status, await a.text()); return json({ ok: false, error: "No se pudo cambiar la contraseña" }, 500); }
+  await fsDelete(env, `bot_recuperar/${u}`);
   return json({ ok: true });
 }
 

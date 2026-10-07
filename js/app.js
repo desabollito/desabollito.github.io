@@ -2,7 +2,7 @@ import {
   S, onChange, iniciarSesion, ingresar, crearCuenta, mensajeError, elegirEmpresa
 } from "./data.js";
 import { $, $$, esc, toast, busy, openSheet } from "./ui.js";
-import { FIREBASE } from "./config.js";
+import { FIREBASE, BOT_API } from "./config.js";
 import { iniciarFechas } from "./fecha.js";
 import { cuentaPendiente, salir, marcarOperativosVistos, soyCreador, crearEmpresa, pedirUnion, cancelarPedidoUnion, escucharMiPedido, responderPedidoUnion, soyDesmontaje, miRol, soyAdmin, getVehiculo, iniciarInvitado, soyLector } from "./data.js";
 import { marcarNav, pintarLateral, esAncho } from "./shell.js";
@@ -225,6 +225,39 @@ $("#login-form").addEventListener("submit", async e => {
 });
 
 
+
+// Olvidé mi contraseña: el bot manda un código por WhatsApp y con él se elige una nueva
+$("#olvide").addEventListener("click", () => {
+  const api = (ruta, datos) => fetch(`${BOT_API}/${ruta}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(datos) })
+    .then(r => r.json()).catch(() => ({ ok: false, error: "Sin conexión. Probá de nuevo." }));
+  const s = openSheet({ title: "Restablecer contraseña", body: `<form class="stack" id="rc-1">
+      <p class="muted small">Te mandamos un código por WhatsApp al número vinculado a tu cuenta.</p>
+      <label class="field"><span>Usuario</span><input name="u" autocomplete="username" autocapitalize="none" spellcheck="false" required value="${esc($("#login-form").usuario.value.trim())}"></label>
+      <button class="btn btn-primary btn-block" type="submit">Enviarme el código</button></form>` });
+  $("#rc-1", s.el).onsubmit = async e => {
+    e.preventDefault();
+    const usuario = e.target.u.value.trim(), b = $("button", e.target);
+    busy(b, true, "Enviando…");
+    const j = await api("recuperar", { usuario });
+    busy(b, false);
+    if (!j.ok) return toast(j.error || "No se pudo", j.sinWhatsapp ? "warning" : "error");
+    e.target.outerHTML = `<form class="stack" id="rc-2">
+      <p class="muted small">Te mandamos un código por WhatsApp${j.wa ? ` (${esc(j.wa)})` : ""}. Vence en 15 minutos.</p>
+      <label class="field"><span>Código</span><input name="c" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required></label>
+      <label class="field"><span>Nueva contraseña</span><input name="p" type="password" autocomplete="new-password" minlength="6" placeholder="Mínimo 6 caracteres" required></label>
+      <button class="btn btn-primary btn-block" type="submit">Cambiar contraseña</button></form>`;
+    $("#rc-2", s.el).onsubmit = async ev => {
+      ev.preventDefault();
+      const f = ev.target, b2 = $("button", f);
+      if (f.p.value.length < 6) return toast("La contraseña tiene al menos 6 caracteres", "warning");
+      busy(b2, true, "Cambiando…");
+      const r = await api("restablecer", { usuario, codigo: f.c.value, pass: f.p.value });
+      if (!r.ok) { busy(b2, false); return toast(r.error || "No se pudo", "error"); }
+      s.close(); toast("Contraseña cambiada. Ingresando…", "success");
+      try { await ingresar(usuario, f.p.value); } catch (err) { toast(mensajeError(err), "error"); }
+    };
+  };
+});
 
 // ── Arranque ──────────────────────────────────────────────────
 if (FIREBASE.apiKey.startsWith("TU_")) {
