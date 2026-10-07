@@ -6,4 +6,4 @@ workers_dev = true
 # Las variables secretas se cargan en Cloudflare y no se tocan al desplegar.
 
 [triggers]
-crons = ["7 * * * *"]
+crons = ["7 * * * *", "0 23 * * *"]

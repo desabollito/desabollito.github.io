@@ -101,6 +101,8 @@ export default {
   },
   // Cada hora: vacía la papelera (vehículos borrados hace más de 48 hs, con sus fotos en Cloudinary)
   async scheduled(ev, env, ctx) {
+    // 23:00 UTC = 20:00 Argentina: resumen diario
+    if (ev.cron === "0 23 * * *") return ctx.waitUntil(enviarResumenesDiarios(env).catch(e => console.error("resumen", e?.stack || e)));
     ctx.waitUntil(vaciarPapelera(env).catch(e => console.error("papelera", e?.stack || e)));
   }
 };
@@ -528,7 +530,7 @@ export function quitarFrase(texto, frase) {
 
 const INSTRUCCIONES =
   "Enviame los datos del vehículo y luego las fotos.\n\n" +
-  "Todo se carga en la nube al momento que lo envías, para tener un resumen enviá *OK*.";
+  "Todo se carga en la nube al momento que lo envías. Cuando termines un vehículo enviá *OK*.";
 const SALUDO = "¡Hola, soy Desabollito 🚘!\n\n" + INSTRUCCIONES;
 
 // Saludo según la hora de Argentina (UTC-3): con el nombre de la cuenta de la app;
@@ -704,6 +706,10 @@ async function alRecibirTexto(env, m, quien, texto) {
   const t = limpio(texto);
   const hora = horaDe(m);
   const s = await leerSesion(env, numero);
+
+  // "!resumendiario": este chat recibe todos los días a las 20 hs el resumen de los peritados del día
+  const cmdRes = String(texto).trim().match(/^!\s*resumen\s*diario\b\s*(.*)$/i);
+  if (cmdRes) return comandoResumenDiario(env, m, quien, cmdRes[1]);
 
   // Grupos: "@abierto" deja el vehículo abierto para que cualquiera del grupo mande las fotos
   const pideAbierto = grupo && ABIERTO.test(texto);
@@ -916,7 +922,9 @@ async function alRecibirTexto(env, m, quien, texto) {
   if ((s?.tanda?.length && (grupo ? esCierreGrupo(texto) : esCierre(texto))) || (!grupo && fotosDelActual > 0)) {
     // El OK de quien lo abrió también cierra el vehículo compartido del grupo
     if (grupo) { const g = await grupoAbierto(env, m); if (g?.por === numero) await fsDelete(env, `bot_grupos/${idGrupo(m)}`); }
-    return responder(env, dest(m), await resumenDeTanda(env, numero, s, hora));
+    // Sin resumen: el OK solo cierra la tanda (el resumen del día llega a las 20 hs con !resumendiario)
+    await resumenDeTanda(env, numero, s, hora);
+    return tilde(env, m);
   }
   if (s?.crear?.datos?.patente && !grupo) {
     return responder(env, dest(m), `Respondé con el número del operativo donde creo *${s.crear.datos.patente}*, o 0 para cancelar.`);
@@ -2379,6 +2387,51 @@ async function soloCreador(env, idToken) {
 
 // Mover un vehículo a otro operativo (copia exacta y borra el original, en una sola operación).
 // Puede quien lo cargó o un administrador del operativo de origen, si también es miembro del destino.
+// ── Resumen diario (20 hs Argentina) ─────────────────────────
+// Se guarda en bot_resumen/{chat}: a dónde mandarlo y de quién son los operativos.
+async function comandoResumenDiario(env, m, quien, arg) {
+  const id = String(dest(m)).replace(/[^A-Za-z0-9_-]/g, "_");
+  if (/^(off|no|parar|stop|cancelar|baja)$/i.test(String(arg || "").trim())) {
+    await fsDelete(env, `bot_resumen/${id}`);
+    return responder(env, dest(m), "🔕 Listo, no mando más el resumen diario a este chat.");
+  }
+  if (!quien.uid) return responder(env, dest(m), "Primero vinculá tu número con la app.");
+  await fsSet(env, `bot_resumen/${id}`, { to: dest(m), uid: quien.uid, por: quien.nombre || "", t: Date.now() });
+  const ops = await listaOperativos(env, quien.uid);
+  return responder(env, dest(m), `🗓️ Listo: todos los días a las *20:00* mando acá el resumen de los vehículos peritados en el día` +
+    (ops.length ? ` (${ops.map(o => o.operativo).join(", ")}).` : ".") + `
+
+Para cortarlo: *!resumendiario off*`);
+}
+const fechaCortaAR = iso => iso.split("-").reverse().slice(0, 2).join("/");
+async function textoResumenDiario(env, uid, hoy) {
+  const ops = await listaOperativos(env, uid);
+  const bloques = [];
+  let total = 0;
+  for (const o of ops) {
+    const vs = (await fsQuery(env, `companies/${o.cid}`, "vehicles", { field: "fechas.peritado", op: "EQUAL", value: hoy }, 300).catch(() => []))
+      .filter(v => !v.deleted && v.estado !== "anulado" && !v.fechas?.anulado);
+    if (!vs.length) continue;
+    total += vs.length;
+    vs.sort((a, b) => String(a.horas?.peritado || "99").localeCompare(String(b.horas?.peritado || "99")));
+    const linea = v => [v.modelo || "Sin modelo", v.patente, v.grado ? `G${v.grado}` : "", ciaCorta(v.compania)].filter(Boolean).map(x => "`" + x + "`").join(" ");
+    bloques.push(`*${o.operativo}* · ${vs.length} ${vs.length === 1 ? "vehículo" : "vehículos"}\n\n` + vs.map(linea).join("\n"));
+  }
+  const tit = `📋 *Resumen del día · ${fechaCortaAR(hoy)}*`;
+  if (!total) return `${tit}\n\nHoy no se peritaron vehículos.`;
+  return `${tit}\nTotal: *${total}* ${total === 1 ? "vehículo peritado" : "vehículos peritados"}\n\n` + bloques.join("\n\n━━━━━━━━━━\n\n");
+}
+async function enviarResumenesDiarios(env) {
+  const hoy = new Date(Date.now() - 3 * 3600 * 1000).toISOString().slice(0, 10);
+  for (const r of await fsList(env, "bot_resumen").catch(() => [])) {
+    if (!r.to || !r.uid || r.ultimo === hoy) continue;
+    try {
+      await responder(env, r.to, await textoResumenDiario(env, r.uid, hoy));
+      await fsMerge(env, `bot_resumen/${r.__id}`, { ultimo: hoy });
+    } catch (e) { console.error("resumen diario", r.__id, e?.stack || e); }
+  }
+}
+
 // ── Planilla de pericia Mercantil Andina (.xlsx) ─────────────
 // Los datos del vehículo salen de la app; en el mensaje van solo siniestro, km y (opcional) año.
 const TOTAL_MERCANTIL = { 1: 800000, 2: 1200000, 3: 1700000 };
