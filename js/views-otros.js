@@ -234,7 +234,7 @@ export function vistaCalendario(view) {
         <a class="vcard" href="#/v/${v.id}" style="--c:${ESTADO[estadoActual(v)].color}">
           <span class="vbody"><span class="vtop"><strong class="vmodel">${esc(v.modelo || "Sin modelo")}</strong>
             ${v.precio ? `<span class="vprice">${money(v.precio)}</span>` : ""}</span>
-          <span class="vmid">${plate(v.patente, "sm")}${sinConf(v) ? `<i class="punto-sinconf" title="Sin confirmar"></i>` : ""}${estadoPill(v)}${estadoActual(v) === "turnado" ? `<span class="conf-tag ${v.turnoConfirmado ? "ok" : ""}">${v.turnoConfirmado ? "Confirmado" : "Esperando confirmación"}</span>` : ""}</span>
+          <span class="vmid">${plate(v.patente, "sm")}${estadoPill(v)}${estadoActual(v) === "turnado" ? `<span class="conf-tag ${v.turnoConfirmado ? "ok" : ""}">${v.turnoConfirmado ? "Confirmado" : "Esperando confirmación"}</span>` : ""}</span>
           <span class="vsub"><span class="vcli">${esc(v.compania || "")}</span>${horaDe(v, C.campo) ? `<time>${horaDe(v, C.campo)}</time>` : ""}</span></span></a>`).join("")}</div>`
         : `<p class="muted">Nada agendado este día.</p>`) : ""}
     </section>

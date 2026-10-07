@@ -1206,7 +1206,7 @@ html, body { overscroll-behavior-y: none; }
 
 /* Confirmación del turno */
 .turno-conf { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; font-weight: 600; }
-.step-conf { display: block; margin-top: 3px; font-size: 10.5px; font-weight: 700; line-height: 1.2; color: #d19613; }
+.step-conf { display: block; margin-top: 3px; font-size: 10.5px; font-weight: 700; line-height: 1.2; color: #d93a3f; }
 .step-conf.ok { color: #22b07d; }
 
 /* Interruptor Sí / No */
@@ -1252,7 +1252,7 @@ html, body { overscroll-behavior-y: none; }
 .hist li.hc .hist-txt strong { color: var(--ink); }
 .ff-ultima { grid-template-columns: 1fr 1fr; margin-top: 12px; }
 .ff-ultima .ff-docs-btn { width: 100%; min-height: 48px; justify-content: center; }
-.conf-tag { font-size: 11.5px; font-weight: 700; padding: 3px 9px; border-radius: 999px; color: #d19613; background: color-mix(in srgb, #e0a526 18%, transparent); white-space: nowrap; }
+.conf-tag { font-size: 11.5px; font-weight: 700; padding: 3px 9px; border-radius: 999px; color: #d93a3f; background: color-mix(in srgb, #e5484d 16%, transparent); white-space: nowrap; }
 .conf-tag.ok { color: #22b07d; background: color-mix(in srgb, #22b07d 18%, transparent); }
 .punto-sinconf { width: 10px; height: 10px; border-radius: 50%; background: #f08a8d; flex-shrink: 0; }
 /* En reparación: círculo lleno en color tenue, sin tilde */

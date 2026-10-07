@@ -175,6 +175,8 @@ export function vistaVehiculos(view, selId = null) {
   };
 
   $("#q", view).addEventListener("input", debounce(e => { F.q = e.target.value; pintar(); }, 120));
+  // Doble clic selecciona toda la búsqueda (en Mac no lo hacía solo)
+  $("#q", view).addEventListener("dblclick", e => { e.target.select(); });
   $("#estado-strip", view).addEventListener("click", e => {
     const b = e.target.closest("[data-e]"); if (!b) return;
     F.estado = F.estado === b.dataset.e ? "todos" : b.dataset.e; pintar();

@@ -60,6 +60,13 @@ function render({ conservarScroll = false } = {}) {
   }
   const arg = hit[1] === "operativo" ? null : (h.match(hit[0])?.[1] || null);
   const mismaRuta = ruta.nombre === hit[1] && ruta.arg === arg;
+  // Al volver de un vehículo, la lista y el calendario quedan donde estaban (mismo scroll, mismo día)
+  const claveScroll = (n, a) => n === "vehiculos" && !a ? "lista" : n;
+  const previa = ruta;
+  if (!mismaRuta && ["lista", "calendario"].includes(claveScroll(previa.nombre, previa.arg))) memScroll[claveScroll(previa.nombre, previa.arg)] = scrollY;
+  const volviendo = !mismaRuta && (previa.nombre === "editar" || (previa.nombre === "vehiculos" && previa.arg));
+  const nuevaClave = claveScroll(hit[1], arg);
+  const listaTop = hit[1] === "vehiculos" && previa.nombre === "vehiculos" ? $(".pane-list")?.scrollTop : null;
   // Vehículo abierto desde el calendario: al salir vuelve al calendario (no a la lista)
   if (hit[1] === "vehiculos" && arg) { if (ruta.nombre === "calendario") S.volverA = "#/calendario"; else if (ruta.nombre === "vehiculos" && !ruta.arg) S.volverA = null; }
   else if (hit[1] !== "editar") S.volverA = null;
@@ -74,12 +81,29 @@ function render({ conservarScroll = false } = {}) {
   $(".side-grupo")?.classList.toggle("abierto", enPlan);
   $$(".side-sub a").forEach(a => a.classList.toggle("on", a.dataset.sub === hit[1]));
   const subTec = $('.side-sub [data-sub="tecnicos"]'); if (subTec) subTec.hidden = !soyAdmin();
-  if (hit[1] === "calendario" && !mismaRuta) calendarioAlEntrar();
+  if (hit[1] === "calendario" && !mismaRuta && !volviendo) calendarioAlEntrar();
   if (!mismaRuta) reiniciarVista3D(); // cada vez que se abre un vehículo, arranca en 2D
   ctrl = hit[2](arg) || null;
+  // Computadora: la lista de la izquierda no vuelve arriba al abrir o cerrar un vehículo
+  const pl = $(".pane-list");
+  if (pl && listaTop != null) pl.scrollTop = listaTop;
+  const enPaneles = !!pl && previa.nombre === "vehiculos" && hit[1] === "vehiculos";
+  if (enPaneles && !mismaRuta) { view.focus({ preventScroll: true }); return; }
+  if (volviendo && memScroll[nuevaClave] != null) {
+    const yy = memScroll[nuevaClave], vid = previa.arg;
+    scrollTo(0, yy); view.focus({ preventScroll: true });
+    requestAnimationFrame(() => {
+      scrollTo(0, yy);
+      // Que el vehículo recién visto quede a la vista
+      const el = vid && $(`a[href="#/v/${vid}"]`, view);
+      if (el) { const r = el.getBoundingClientRect(); if (r.top < 60 || r.bottom > innerHeight - 70) el.scrollIntoView({ block: "center" }); }
+    });
+    return;
+  }
   if (!conservarScroll || !mismaRuta) { scrollTo(0, 0); view.focus({ preventScroll: true }); }
   else scrollTo(0, y);
 }
+const memScroll = {};
 
 addEventListener("hashchange", () => render());
 

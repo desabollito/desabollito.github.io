@@ -710,6 +710,9 @@ async function alRecibirTexto(env, m, quien, texto) {
   // "!resumendiario": este chat recibe todos los días a las 20 hs el resumen de los peritados del día
   const cmdRes = String(texto).trim().match(/^!\s*resumen\s*diario\b\s*(.*)$/i);
   if (cmdRes) return comandoResumenDiario(env, m, quien, cmdRes[1]);
+  // Respuesta al menú del resumen diario: "1", "1,3", "T" (todos) o "0" (apagar)
+  if (s?.resumenMenu?.t && Date.now() - s.resumenMenu.t < 10 * 60_000 && s.resumenMenu.to === dest(m) && /^\s*(t|todos|0|\d+(\s*(,|y|-|\s)\s*\d+)*)\s*$/i.test(texto))
+    return elegirResumenDiario(env, m, quien, texto, s.resumenMenu);
 
   // Grupos: "@abierto" deja el vehículo abierto para que cualquiera del grupo mande las fotos
   const pideAbierto = grupo && ABIERTO.test(texto);
@@ -2389,23 +2392,42 @@ async function soloCreador(env, idToken) {
 // Puede quien lo cargó o un administrador del operativo de origen, si también es miembro del destino.
 // ── Resumen diario (20 hs Argentina) ─────────────────────────
 // Se guarda en bot_resumen/{chat}: a dónde mandarlo y de quién son los operativos.
+// "!resumendiario" → menú: elegir uno, varios o todos los operativos, o apagarlo en este chat
 async function comandoResumenDiario(env, m, quien, arg) {
   const id = String(dest(m)).replace(/[^A-Za-z0-9_-]/g, "_");
-  if (/^(off|no|parar|stop|cancelar|baja)$/i.test(String(arg || "").trim())) {
+  if (/^(off|no|parar|stop|cancelar|baja|apagar)$/i.test(String(arg || "").trim())) {
     await fsDelete(env, `bot_resumen/${id}`);
     return responder(env, dest(m), "🔕 Listo, no mando más el resumen diario a este chat.");
   }
   if (!quien.uid) return responder(env, dest(m), "Primero vinculá tu número con la app.");
-  await fsSet(env, `bot_resumen/${id}`, { to: dest(m), uid: quien.uid, por: quien.nombre || "", t: Date.now() });
   const ops = await listaOperativos(env, quien.uid);
-  return responder(env, dest(m), `🗓️ Listo: todos los días a las *20:00* mando acá el resumen de los vehículos peritados en el día` +
-    (ops.length ? ` (${ops.map(o => o.operativo).join(", ")}).` : ".") + `
-
-Para cortarlo: *!resumendiario off*`);
+  if (!ops.length) return responder(env, dest(m), "No estás en ningún operativo.");
+  const actual = await fsGet(env, `bot_resumen/${id}`).catch(() => null);
+  const estado = !actual ? "Ahora está *apagado*." : actual.todos ? "Ahora manda *todos* los operativos."
+    : `Ahora manda: *${ops.filter(o => (actual.cids || []).includes(o.cid)).map(o => o.operativo).join(", ") || "—"}*.`;
+  await fsMerge(env, `bot_sesiones/${quien.numero}`, { resumenMenu: { t: Date.now(), to: dest(m), ops }, ts: Date.now() });
+  return responder(env, dest(m), `🗓️ *Resumen diario (20:00)*\n${estado}\n\n¿Qué operativos mando en este chat?\n\n` +
+    ops.map((o, i) => `${i + 1}. ${o.operativo}`).join("\n") +
+    `\n\n*T.* Todos\n*0.* Apagar\n\nRespondé con un número, varios separados por coma (ej: 1,3), *T* o *0*.`);
+}
+async function elegirResumenDiario(env, m, quien, texto, menu) {
+  const id = String(menu.to).replace(/[^A-Za-z0-9_-]/g, "_");
+  await fsMerge(env, `bot_sesiones/${quien.numero}`, { resumenMenu: null }).catch(() => {});
+  const t = texto.trim().toLowerCase();
+  if (t === "0") { await fsDelete(env, `bot_resumen/${id}`); return responder(env, dest(m), "🔕 Resumen diario apagado en este chat."); }
+  const ops = menu.ops || [];
+  if (/^t/.test(t)) {
+    await fsSet(env, `bot_resumen/${id}`, { to: menu.to, uid: quien.uid, por: quien.nombre || "", todos: true, cids: [], t: Date.now() });
+    return responder(env, dest(m), `✅ Listo: todos los días a las *20:00* mando acá el resumen de *todos* tus operativos.`);
+  }
+  const elegidos = [...new Set(t.match(/\d+/g).map(Number))].map(n => ops[n - 1]).filter(Boolean);
+  if (!elegidos.length) return responder(env, dest(m), `Elegí números del 1 al ${ops.length}. Mandá *!resumendiario* de nuevo.`);
+  await fsSet(env, `bot_resumen/${id}`, { to: menu.to, uid: quien.uid, por: quien.nombre || "", todos: false, cids: elegidos.map(o => o.cid), t: Date.now() });
+  return responder(env, dest(m), `✅ Listo: todos los días a las *20:00* mando acá el resumen de *${elegidos.map(o => o.operativo).join(", ")}*.`);
 }
 const fechaCortaAR = iso => iso.split("-").reverse().slice(0, 2).join("/");
-async function textoResumenDiario(env, uid, hoy) {
-  const ops = await listaOperativos(env, uid);
+async function textoResumenDiario(env, uid, hoy, cfg = { todos: true }) {
+  const ops = (await listaOperativos(env, uid)).filter(o => cfg.todos !== false || (cfg.cids || []).includes(o.cid));
   const bloques = [];
   let total = 0;
   for (const o of ops) {
@@ -2426,7 +2448,7 @@ async function enviarResumenesDiarios(env) {
   for (const r of await fsList(env, "bot_resumen").catch(() => [])) {
     if (!r.to || !r.uid || r.ultimo === hoy) continue;
     try {
-      await responder(env, r.to, await textoResumenDiario(env, r.uid, hoy));
+      await responder(env, r.to, await textoResumenDiario(env, r.uid, hoy, r));
       await fsMerge(env, `bot_resumen/${r.__id}`, { ultimo: hoy });
     } catch (e) { console.error("resumen diario", r.__id, e?.stack || e); }
   }
