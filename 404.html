@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Desabollito</title>
+<script>
+  // Links cortos de perito: desabollito.com/smg-k7p2 → la app en modo lectura
+  (function () {
+    var p = location.pathname.replace(/^\/+|\/+$/g, "");
+    if (/^[A-Za-z0-9_-]{3,60}$/.test(p)) location.replace("/?ver=" + encodeURIComponent(p) + location.hash);
+  })();
+</script>
+<style>body{font-family:system-ui,sans-serif;display:grid;place-items:center;min-height:100vh;margin:0;color:#334}a{color:#2b5ce6}</style>
+</head><body><p>Página no encontrada. <a href="/">Ir a Desabollito</a></p></body></html>

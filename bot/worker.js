@@ -2553,7 +2553,14 @@ async function compartirApi(env, { idToken, cid, compania, accion, token }) {
   if (accion === "crear") {
     const cia = String(compania || "").trim().slice(0, 60);
     if (!cia) return json({ ok: false, error: "Elegí una compañía" }, 400);
-    const tk = [...crypto.getRandomValues(new Uint8Array(18))].map(b => "abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789"[b % 56]).join("");
+    // Link corto: desabollito.com/smg-k7p2 (compañía + 4 caracteres al azar, para que no se pueda adivinar)
+    const base = (sinTildes(cia).replace(/[^a-z0-9]+/g, " ").trim().split(" ")[0] || "link").slice(0, 12);
+    let tk = "";
+    for (let i = 0; i < 5 && !tk; i++) {
+      const cand = base + "-" + [...crypto.getRandomValues(new Uint8Array(4))].map(b => "abcdefghjkmnpqrstuvwxyz23456789"[b % 31]).join("");
+      if (!(await fsGet(env, `compartidos/${cand}`).catch(() => null))) tk = cand;
+    }
+    if (!tk) return json({ ok: false, error: "Probá de nuevo" }, 500);
     await fsSet(env, `compartidos/${tk}`, { cid, compania: cia, por: m.uid, t: Date.now() });
   }
   if (accion === "borrar" && idValido(token)) {
