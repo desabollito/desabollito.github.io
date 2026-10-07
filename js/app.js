@@ -4,7 +4,7 @@ import {
 import { $, $$, esc, toast, busy, openSheet } from "./ui.js";
 import { FIREBASE } from "./config.js";
 import { iniciarFechas } from "./fecha.js";
-import { cuentaPendiente, salir, marcarOperativosVistos, soyCreador, crearEmpresa, pedirUnion, cancelarPedidoUnion, escucharMiPedido, responderPedidoUnion, soyDesmontaje, miRol, soyAdmin } from "./data.js";
+import { cuentaPendiente, salir, marcarOperativosVistos, soyCreador, crearEmpresa, pedirUnion, cancelarPedidoUnion, escucharMiPedido, responderPedidoUnion, soyDesmontaje, miRol, soyAdmin, getVehiculo } from "./data.js";
 import { marcarNav, pintarLateral, esAncho } from "./shell.js";
 import { vistaVehiculos, vistaDetalle, vistaFormulario, reiniciarVista3D, elegirVehiculoDesmontaje } from "./views-vehiculos.js";
 import {
@@ -47,7 +47,7 @@ const RUTAS = [
   [/^#\/papelera$/,         "papelera",   () => vistaPapelera(view)]
 ];
 
-function render({ conservarScroll = false } = {}) {
+function render({ conservarScroll = false, reabrir = false } = {}) {
   if (!S.user || !S.profile || S.sinOperativo) return;
   const h = location.hash || "#/";
   let hit = RUTAS.find(([re]) => re.test(h)) || RUTAS[0];
@@ -60,15 +60,20 @@ function render({ conservarScroll = false } = {}) {
   }
   const arg = hit[1] === "operativo" ? null : (h.match(hit[0])?.[1] || null);
   const mismaRuta = ruta.nombre === hit[1] && ruta.arg === arg;
-  // Al volver de un vehículo, la lista y el calendario quedan donde estaban (mismo scroll, mismo día)
+  // La lista y el calendario recuerdan su scroll y el último vehículo abierto (al volver de cualquier lado)
   const claveScroll = (n, a) => n === "vehiculos" && !a ? "lista" : n;
   const previa = ruta;
+  const plAntes = $(".pane-list");
+  if (plAntes) memScroll.pane = plAntes.scrollTop;
   if (!mismaRuta && ["lista", "calendario"].includes(claveScroll(previa.nombre, previa.arg))) memScroll[claveScroll(previa.nombre, previa.arg)] = scrollY;
-  const volviendo = !mismaRuta && (previa.nombre === "editar" || (previa.nombre === "vehiculos" && previa.arg));
   const nuevaClave = claveScroll(hit[1], arg);
-  const listaTop = hit[1] === "vehiculos" && previa.nombre === "vehiculos" ? $(".pane-list")?.scrollTop : null;
+  // Computadora: al volver a Vehículos desde otra sección, se reabre el último vehículo
+  if (nuevaClave === "lista" && esAncho() && S.ultimoVid && previa.nombre && previa.nombre !== "vehiculos" && previa.nombre !== "editar" && getVehiculo(S.ultimoVid)) {
+    history.replaceState(null, "", `#/v/${S.ultimoVid}`);
+    return render({ reabrir: true });
+  }
   // Vehículo abierto desde el calendario: al salir vuelve al calendario (no a la lista)
-  if (hit[1] === "vehiculos" && arg) { if (ruta.nombre === "calendario") S.volverA = "#/calendario"; else if (ruta.nombre === "vehiculos" && !ruta.arg) S.volverA = null; }
+  if (hit[1] === "vehiculos" && arg) { if (reabrir) S.volverA = null; else if (ruta.nombre === "calendario") S.volverA = "#/calendario"; else if (ruta.nombre === "vehiculos" && !ruta.arg) S.volverA = null; }
   else if (hit[1] !== "editar") S.volverA = null;
   const y = conservarScroll && mismaRuta ? scrollY : 0;
   ruta = { nombre: hit[1], arg };
@@ -81,25 +86,32 @@ function render({ conservarScroll = false } = {}) {
   $(".side-grupo")?.classList.toggle("abierto", enPlan);
   $$(".side-sub a").forEach(a => a.classList.toggle("on", a.dataset.sub === hit[1]));
   const subTec = $('.side-sub [data-sub="tecnicos"]'); if (subTec) subTec.hidden = !soyAdmin();
-  if (hit[1] === "calendario" && !mismaRuta && !volviendo) calendarioAlEntrar();
+  if (hit[1] === "calendario" && !mismaRuta) calendarioAlEntrar();
   if (!mismaRuta) reiniciarVista3D(); // cada vez que se abre un vehículo, arranca en 2D
   ctrl = hit[2](arg) || null;
-  // Computadora: la lista de la izquierda no vuelve arriba al abrir o cerrar un vehículo
+  if (hit[1] === "vehiculos" && arg) S.ultimoVid = arg;
+  // Último vehículo abierto: marcado en la lista y el calendario
+  const marcar = () => { if (!S.ultimoVid) return null;
+    const el = $(`a[href="#/v/${S.ultimoVid}"]`, view); el?.classList.add("sel"); return el; };
+  const aLaVista = (el, caja) => { if (!el) return;
+    const r = el.getBoundingClientRect(), c = caja ? caja.getBoundingClientRect() : { top: 60, bottom: innerHeight - 70 };
+    if (r.top < c.top || r.bottom > c.bottom) el.scrollIntoView({ block: "center" }); };
+  // Computadora: la lista de la izquierda queda donde estaba
   const pl = $(".pane-list");
-  if (pl && listaTop != null) pl.scrollTop = listaTop;
-  const enPaneles = !!pl && previa.nombre === "vehiculos" && hit[1] === "vehiculos";
-  if (enPaneles && !mismaRuta) { view.focus({ preventScroll: true }); return; }
-  if (volviendo && memScroll[nuevaClave] != null) {
-    const yy = memScroll[nuevaClave], vid = previa.arg;
+  if (pl) {
+    if (memScroll.pane != null) pl.scrollTop = memScroll.pane;
+    if (!mismaRuta) aLaVista(marcar() || $(".vcard.sel", pl), pl);
+    if (!mismaRuta) view.focus({ preventScroll: true });
+    if (previa.nombre === "vehiculos" || conservarScroll) return;
+  }
+  if (!mismaRuta && memScroll[nuevaClave] != null) {
+    const yy = memScroll[nuevaClave];
     scrollTo(0, yy); view.focus({ preventScroll: true });
-    requestAnimationFrame(() => {
-      scrollTo(0, yy);
-      // Que el vehículo recién visto quede a la vista
-      const el = vid && $(`a[href="#/v/${vid}"]`, view);
-      if (el) { const r = el.getBoundingClientRect(); if (r.top < 60 || r.bottom > innerHeight - 70) el.scrollIntoView({ block: "center" }); }
-    });
+    requestAnimationFrame(() => { scrollTo(0, yy); aLaVista(marcar()); });
     return;
   }
+  if (!mismaRuta && ["lista", "calendario"].includes(nuevaClave)) requestAnimationFrame(() => marcar());
+  if (conservarScroll && mismaRuta && ["lista", "calendario"].includes(nuevaClave)) marcar();
   if (!conservarScroll || !mismaRuta) { scrollTo(0, 0); view.focus({ preventScroll: true }); }
   else scrollTo(0, y);
 }

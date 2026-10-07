@@ -167,7 +167,8 @@ if (!["peritado", "turnado"].includes(C.campo)) C.campo = "turnado";
 
 // Al entrar: hoy si tiene vehículos; si no, el próximo día con vehículos; si no hay
 // ninguno adelante, el último día anterior que tenga.
-export function calendarioAlEntrar() { C.auto = true; }
+// Solo la primera vez: después queda en el día que se eligió
+export function calendarioAlEntrar() { if (!C.dia) C.auto = true; }
 const delCal = () => activos().filter(v => estadoActual(v) !== "anulado");   // los anulados no figuran en el calendario
 function elegirDiaAuto() {
   const hoy = hoyISO();
