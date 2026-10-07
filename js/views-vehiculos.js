@@ -49,8 +49,11 @@ function filtrar(lista) {
     (!F.pintura || tieneEtapa(v, "pintura", F.pintura)) &&
     (!F.turno || (estadoActual(v) === "turnado" && (F.turno === "si") === (v.turnoConfirmado === true))) &&
     (!F.cias.size || F.cias.has(ciaDe(v))) &&
-    (!q || [v.modelo, v.patente, v.asegurado, v.compania, v.localidad, v.telefono]
-      .some(x => (x || "").toLowerCase().includes(q))));
+    (!q || (q.startsWith("@")
+      // "@usuario": los vehículos que cargó esa persona
+      ? (q.length < 2 || cargadoPor(v).toLowerCase().startsWith(q) || ("@" + String(v.createdByName || "").toLowerCase().replace(/\s+/g, "")).startsWith(q.replace(/\s+/g, "")))
+      : [v.modelo, v.patente, v.asegurado, v.compania, v.localidad, v.telefono]
+        .some(x => (x || "").toLowerCase().includes(q)))));
 }
 
 // Historial del vehículo (lo más nuevo arriba). Los vehículos viejos arrancan con la carga.
