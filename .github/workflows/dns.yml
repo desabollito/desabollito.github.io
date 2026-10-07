@@ -1,0 +1,14 @@
+name: Ver DNS
+on:
+  push:
+    branches: [main]
+    paths: [".github/workflows/dns.yml"]
+jobs:
+  ver:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "::notice::http $(curl -sI http://desabollito.com | grep -iE '^(HTTP|location)' | tr '\r\n' '  ')"
+          echo "::notice::https $(curl -sI https://desabollito.com 2>&1 | grep -iE '^(HTTP|location)|curl' | tr '\r\n' '  ')"
+          echo "::notice::viejo $(curl -sI https://desabollito.github.io/ | grep -iE '^(HTTP|location)' | tr '\r\n' '  ')"
+          echo "::notice::version $(curl -s https://desabollito.com/js/config.js 2>&1 | grep -o 'APP_VERSION = "[^"]*"')"
