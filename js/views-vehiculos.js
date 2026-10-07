@@ -111,15 +111,18 @@ function piezasAgrupadas(v) {
       <div><small class="muted">Lado derecho</small>${der.length ? listaPiezas(der) : `<p class="muted small">—</p>`}</div></div>` : "");
 }
 
+// Fecha de las tarjetas: la del peritaje o la del último estado (se elige en Ordenar y se recuerda en este equipo)
+let fechaVista = (() => { try { return localStorage.getItem("fechaVista") || "peritado"; } catch { return "peritado"; } })();
+const claveFecha = v => { if (fechaVista !== "estado") return "peritado"; const e = estadoActual(v); return v.fechas?.[e] ? e : "peritado"; };
 function tarjeta(v, sel) {
-  const foto = v.fotos?.[0]?.url, rot0 = v.fotos?.[0]?.rot;
+  const foto = v.fotos?.[0]?.url, rot0 = v.fotos?.[0]?.rot, kf = claveFecha(v);
   return `
   <a class="vcard ${sel ? "sel" : ""}" href="#/v/${v.id}" style="--c:${ESTADO[estadoActual(v)].color}">
     <span class="vthumb">${foto ? `<img src="${esc(thumb(foto, 160, rot0))}" alt="" loading="lazy">` : icon("car")}</span>
     <span class="vbody">
       <span class="vtop"><strong class="vmodel">${esc(v.modelo || "Sin modelo")}</strong>${estadoPill(v)}</span>
-      <span class="vmid">${plate(v.patente, "sm")}${v._pending ? `<span class="sync" title="Pendiente de sincronizar"></span>` : ""}<time class="vfecha">${fechaCorta(v.fechas?.peritado)}</time></span>
-      <span class="vsub"><span class="vcli">${esc(v.compania || "")}</span>${horaDe(v, "peritado") ? `<time>${horaDe(v, "peritado")}</time>` : ""}</span>
+      <span class="vmid">${plate(v.patente, "sm")}${v._pending ? `<span class="sync" title="Pendiente de sincronizar"></span>` : ""}<time class="vfecha">${fechaCorta(v.fechas?.[kf])}</time></span>
+      <span class="vsub"><span class="vcli">${esc(v.compania || "")}</span>${horaDe(v, kf) ? `<time>${horaDe(v, kf)}</time>` : ""}</span>
     </span>
   </a>`;
 }
@@ -230,17 +233,22 @@ export function vistaVehiculos(view, selId = null) {
   // Ordenar (botón al lado de Filtros): tocar un criterio lo elige; tocarlo de nuevo invierte el orden
   $("#tb-orden")?.addEventListener("click", () => {
     const hoja = openSheet({ title: "Ordenar por", body: `<div class="stack filtros"><div class="p-chips" id="o-chips"></div>
-      <span class="muted small">Compañías <small>(podés marcar varias)</small></span><div class="p-chips" id="o-cias"></div></div>` });
+      <span class="muted small">Compañías <small>(podés marcar varias)</small></span><div class="p-chips" id="o-cias"></div>
+      <span class="muted small">Fecha a mostrar en la pantalla principal</span>
+      <div class="seg" id="o-fecha"><button type="button" class="seg-btn" data-fv="peritado">Día de peritación</button><button type="button" class="seg-btn" data-fv="estado">Último estado</button></div></div>` });
     const chips = () => {
       $("#o-chips", hoja.el).innerHTML = ORDENES.map(([k, t]) => `<button type="button" class="p-chip ${F.orden === k ? "on" : ""}" data-orden="${k}">${t}${F.orden === k ? `<i>${F.dir > 0 ? "↑" : "↓"}</i>` : ""}</button>`).join("");
       $("#o-cias", hoja.el).innerHTML = ciasDisponibles().map(([c, n]) => `<button type="button" class="p-chip ${F.cias.has(c) ? "on" : ""}" data-cia="${esc(c)}">${esc(c)} <b class="f-n">${n}</b></button>`).join("")
         || `<span class="muted small">Sin vehículos</span>`;
+      $$("#o-fecha [data-fv]", hoja.el).forEach(b => b.classList.toggle("on", b.dataset.fv === fechaVista));
       $("#tb-orden")?.classList.toggle("activo", ordenActivo());
     };
     chips();
     hoja.el.addEventListener("click", e => {
       const c = e.target.closest("[data-cia]");
       if (c) { const k = c.dataset.cia; F.cias.has(k) ? F.cias.delete(k) : F.cias.add(k); pintar(); chips(); return; }
+      const fv = e.target.closest("[data-fv]");
+      if (fv) { fechaVista = fv.dataset.fv; try { localStorage.setItem("fechaVista", fechaVista); } catch { /* sin almacenamiento */ } chips(); pintar(); return; }
       const b = e.target.closest("[data-orden]"); if (!b) return;
       if (F.orden === b.dataset.orden) F.dir *= -1; else { F.orden = b.dataset.orden; F.dir = F.orden === "fecha" ? -1 : 1; }
       chips(); pintar();
