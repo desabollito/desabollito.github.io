@@ -1,0 +1,13 @@
+name: Ver DNS
+on:
+  push:
+    branches: [main]
+    paths: [".github/workflows/dns.yml"]
+jobs:
+  ver:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "::notice::A $(dig +short desabollito.com A @1.1.1.1 | tr '\n' ' ')"
+          echo "::notice::www $(dig +short www.desabollito.com @1.1.1.1 | tr '\n' ' ')"
+          echo "::notice::http $(curl -sI http://desabollito.com | head -3 | tr '\r\n' '  ')"
