@@ -14,12 +14,12 @@ jobs:
         run: |
           H=(-H "Authorization: Bearer $CF" -H "Content-Type: application/json")
           Z=$(curl -s "${H[@]}" "https://api.cloudflare.com/client/v4/zones?name=desabollito.com")
-          echo "zonas: $(echo "$Z" | jq -c '{success, errors, n: (.result|length)}')"
+          echo "::notice::zonas $(echo "$Z" | jq -c '{success, errors, n: (.result|length), st: [.result[]?|.status]}')"
           ZID=$(echo "$Z" | jq -r '.result[0].id // empty')
           if [ -z "$ZID" ]; then echo "::warning::sin acceso a la zona desabollito.com"; exit 0; fi
           ex=$(curl -s "${H[@]}" "https://api.cloudflare.com/client/v4/zones/$ZID/dns_records?per_page=100")
-          echo "existentes: $(echo "$ex" | jq -c '[.result[] | {type,name,content,proxied}]')"
-          crear() { r=$(curl -s -X POST "${H[@]}" "https://api.cloudflare.com/client/v4/zones/$ZID/dns_records" --data "$1"); echo "$1 -> $(echo "$r" | jq -c '{success, errors}')"; }
+          echo "::notice::existentes $(echo "$ex" | jq -c '{success, errors, r: [.result[]? | {type,name,content,proxied}]}')"
+          crear() { r=$(curl -s -X POST "${H[@]}" "https://api.cloudflare.com/client/v4/zones/$ZID/dns_records" --data "$1"); echo "::notice::$1 -> $(echo "$r" | jq -c '{success, errors}')"; }
           for ip in 185.199.108.153 185.199.109.153 185.199.110.153 185.199.111.153; do
             crear "{\"type\":\"A\",\"name\":\"desabollito.com\",\"content\":\"$ip\",\"proxied\":false,\"ttl\":1}"
           done
