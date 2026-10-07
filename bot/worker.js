@@ -47,7 +47,8 @@ export default {
       "/admin/datos": adminDatos, "/admin/borrar-usuario": adminBorrarUsuario, "/admin/config": adminConfig, "/admin/padron": adminPadron, "/mover-vehiculo": moverVehiculo,
       "/borrar-media": borrarMediaApi, "/eliminar-vehiculo": eliminarVehiculoApi,
       "/compartir": compartirApi, "/compartido": compartidoApi,
-      "/recuperar": recuperarApi, "/restablecer": restablecerApi };
+      "/recuperar": recuperarApi, "/restablecer": restablecerApi,
+      "/admin/resumen-ahora": async (env, { idToken }) => (await soloCreador(env, idToken)) ? json({ ok: true, enviados: await enviarResumenesDiarios(env) }) : json({ ok: false }, 403) };
     if (API[url.pathname]) {
       if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
       if (req.method !== "POST") return json({ ok: false, error: "Método no permitido" }, 405);
@@ -106,6 +107,9 @@ export default {
     // 23:00 UTC = 20:00 Argentina: resumen diario
     if (ev.cron === "0 23 * * *") return ctx.waitUntil(enviarResumenesDiarios(env).catch(e => console.error("resumen", e?.stack || e)));
     ctx.waitUntil(vaciarPapelera(env).catch(e => console.error("papelera", e?.stack || e)));
+    // Respaldo: si a las 20 no salió el resumen, sale en la pasada siguiente (hasta las 23)
+    const horaAR = new Date(Date.now() - 3 * 3600 * 1000).getUTCHours();
+    if (horaAR >= 20 && horaAR <= 23) ctx.waitUntil(enviarResumenesDiarios(env).catch(e => console.error("resumen", e?.stack || e)));
   }
 };
 
@@ -2447,13 +2451,21 @@ async function textoResumenDiario(env, uid, hoy, cfg = { todos: true }) {
 }
 async function enviarResumenesDiarios(env) {
   const hoy = new Date(Date.now() - 3 * 3600 * 1000).toISOString().slice(0, 10);
-  for (const r of await fsList(env, "bot_resumen").catch(() => [])) {
+  const hechos = [];
+  for (const r of await fsList(env, "bot_resumen")) {
     if (!r.to || !r.uid || r.ultimo === hoy) continue;
     try {
-      await responder(env, r.to, await textoResumenDiario(env, r.uid, hoy, r));
+      const res = await responder(env, r.to, await textoResumenDiario(env, r.uid, hoy, r));
+      if (res && res.ok === false) throw new Error("envío rechazado " + res.status);
       await fsMerge(env, `bot_resumen/${r.__id}`, { ultimo: hoy });
-    } catch (e) { console.error("resumen diario", r.__id, e?.stack || e); }
+      hechos.push(r.__id);
+    } catch (e) {
+      console.error("resumen diario", r.__id, e?.stack || e);
+      await registrar(env, { ultimoErrorResumen: `${new Date().toISOString()} · ${r.__id} · ${String(e?.message || e).slice(0, 300)}` });
+    }
   }
+  await registrar(env, { ultimoResumen: `${new Date().toISOString()} · ${hechos.length} enviado(s)` });
+  return hechos;
 }
 
 // ── Planilla de pericia Mercantil Andina (.xlsx) ─────────────

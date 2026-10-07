@@ -13,3 +13,4 @@ jobs:
       - env:
           SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
         run: node .github/scripts/ver-resumen.mjs
+# run2
