@@ -182,6 +182,7 @@ export function vistaCalendario(view) {
   setTopbar({ title: "Calendario", sub: S.company?.name });
   if (C.auto && !S.loadingVehicles) { C.auto = false; elegirDiaAuto(); }
   const iso = d => `${C.y}-${String(C.m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+  const sinConf = v => estadoActual(v) === "turnado" && !v.turnoConfirmado;
   const porDia = {};
   delCal().forEach(v => {
     const f = v.fechas?.[C.campo]; if (!f) return;
@@ -204,11 +205,10 @@ export function vistaCalendario(view) {
     celdas += `<button class="cd ${f === hoy ? "today" : ""} ${f === C.dia ? "sel" : ""} ${lst.length ? "has" : ""}" data-d="${f}"
       aria-label="${d} de ${MESES[C.m]}: ${lst.length} vehículos">
       <span class="cd-n">${d}</span>
-      <span class="cd-ev">${lst.slice(0, 3).map(v => `<i style="--c:${ESTADO[estadoActual(v)].color}">${esc(v.patente || v.modelo || "•")}</i>`).join("")}
+      <span class="cd-ev">${lst.slice(0, 3).map(v => `<i style="--c:${sinConf(v) ? "#e5484d" : ESTADO[estadoActual(v)].color}">${esc(v.patente || v.modelo || "•")}</i>`).join("")}
       ${lst.length > 3 ? `<i class="more">+${lst.length - 3}</i>` : ""}</span></button>`;
   }
   // Turnos sin confirmar primero
-  const sinConf = v => estadoActual(v) === "turnado" && !v.turnoConfirmado;
   const delDia = (C.dia ? (porDia[C.dia] || []) : []).slice().sort((a, b) => sinConf(b) - sinConf(a));
   const totalMes = Object.entries(porDia).filter(([k]) => k.startsWith(iso(1).slice(0, 7))).reduce((s, [, l]) => s + l.length, 0);
 
