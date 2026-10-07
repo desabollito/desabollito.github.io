@@ -33,7 +33,7 @@ import { completarXlsx, fechaExcel } from "./xlsx.js";
 import { MERCANTIL } from "./plantillas.js";
 
 const dest = m => m._to || m.from;
-const APP_URL = "https://desabollito.github.io";
+const APP_URL = "https://desabollito.com";
 const SESION_HORAS = 12;
 const MAX_BYTES = 15 * 1024 * 1024;
 
@@ -2260,7 +2260,7 @@ Si cambiaste de número, entrá a la app → Ajustes → *Desvincular WhatsApp* 
   if (estado?.pedido && m.type !== "text") return; // fotos antes de vincular: ya se le pidió el usuario
   await fsSet(env, `bot_vinculo/${numero}`, { pedido: true, ts: Date.now() });
   const wa = String(m._nombre || "").trim();
-  return responder(env, dest(m), `👋 ¡Hola${wa ? " " + wa : ""}! Soy el bot de *Desabollito*.\n\nPara empezar, escribime tu *usuario* de la app (el que usás para entrar en desabollito.github.io).`);
+  return responder(env, dest(m), `👋 ¡Hola${wa ? " " + wa : ""}! Soy el bot de *Desabollito*.\n\nPara empezar, escribime tu *usuario* de la app (el que usás para entrar en desabollito.com).`);
 }
 
 // El administrador responde "SI usuario" / "NO usuario" (o solo SI/NO si hay una sola solicitud)
@@ -2537,7 +2537,7 @@ async function enviarDocumento(env, to, bytes, nombre, caption = "") {
 }
 
 // ── Links de solo lectura para peritos (ven solo los vehículos de una compañía) ──
-// compartidos/{token}: { cid, compania, por, t }. El link es https://desabollito.github.io/?ver=TOKEN
+// compartidos/{token}: { cid, compania, por, t }. El link es https://desabollito.com/?ver=TOKEN
 const normCia = t => sinTildes(String(t || "")).replace(/\s+(seguros?|cia\.?)$/, "").trim();
 function mismaCia(a, b) {
   const x = normCia(a), y = normCia(b);
