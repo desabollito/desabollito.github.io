@@ -4,7 +4,7 @@ import {
 import { $, $$, esc, toast, busy, openSheet } from "./ui.js";
 import { FIREBASE } from "./config.js";
 import { iniciarFechas } from "./fecha.js";
-import { cuentaPendiente, salir, marcarOperativosVistos, soyCreador, crearEmpresa, pedirUnion, cancelarPedidoUnion, escucharMiPedido, responderPedidoUnion, soyDesmontaje, miRol, soyAdmin, getVehiculo } from "./data.js";
+import { cuentaPendiente, salir, marcarOperativosVistos, soyCreador, crearEmpresa, pedirUnion, cancelarPedidoUnion, escucharMiPedido, responderPedidoUnion, soyDesmontaje, miRol, soyAdmin, getVehiculo, iniciarInvitado, soyLector } from "./data.js";
 import { marcarNav, pintarLateral, esAncho } from "./shell.js";
 import { vistaVehiculos, vistaDetalle, vistaFormulario, reiniciarVista3D, elegirVehiculoDesmontaje } from "./views-vehiculos.js";
 import {
@@ -51,6 +51,8 @@ function render({ conservarScroll = false, reabrir = false } = {}) {
   if (!S.user || !S.profile || S.sinOperativo) return;
   const h = location.hash || "#/";
   let hit = RUTAS.find(([re]) => re.test(h)) || RUTAS[0];
+  // Link de perito: solo Vehículos y Calendario
+  if (soyLector() && !["vehiculos", "calendario"].includes(hit[1])) { history.replaceState(null, "", "#/"); hit = RUTAS[0]; }
   // Rol Desmontaje: no carga ni edita vehículos; "nuevo" abre la elección de vehículo para el desmontaje
   document.body.dataset.rol = miRol();
   if (soyDesmontaje() && ["nuevo", "editar"].includes(hit[1])) {
@@ -192,8 +194,8 @@ onChange(what => {
   render({ conservarScroll: true });
 });
 
-document.addEventListener("elegir-empresa", elegirEmpresaSheet);
-$("#company-switch").addEventListener("click", elegirEmpresaSheet);
+document.addEventListener("elegir-empresa", () => { if (!soyLector()) elegirEmpresaSheet(); });
+$("#company-switch").addEventListener("click", () => { if (!soyLector()) elegirEmpresaSheet(); });
 
 // ── Login ─────────────────────────────────────────────────────
 let modo = "ingresar";
@@ -230,7 +232,8 @@ if (FIREBASE.apiKey.startsWith("TU_")) {
     <p>Completá las claves del proyecto nuevo en <code>js/config.js</code> y volvé a publicar.</p></div>`;
   throw new Error("Firebase sin configurar (js/config.js)");
 }
-iniciarSesion((logueado, error) => {
+const tokenVer = new URLSearchParams(location.search).get("ver");
+const alEntrar = (logueado, error) => {
   $("#splash").hidden = true;
   $("#login").hidden = logueado;
   $("#shell").hidden = !logueado;
@@ -245,7 +248,17 @@ iniciarSesion((logueado, error) => {
   mostrarSinOperativo();
   pintarLateral();
   render();
-});
+};
+if (tokenVer) {
+  // Link de solo lectura para un perito: sin login, solo ve los vehículos de su compañía
+  document.body.dataset.lector = "1";
+  iniciarInvitado(tokenVer, (ok, err) => {
+    $("#splash").hidden = true;
+    if (!ok) { $("#login").hidden = true; document.body.insertAdjacentHTML("beforeend", `<section class="espera"><div class="espera-caja"><img src="img/logo-oscuro.png" alt="" class="espera-logo"><h1>Link no disponible</h1><p>${esc(err?.message || "")}</p></div></section>`); return; }
+    $("#login").hidden = true; $("#shell").hidden = false;
+    pintarLateral(); render();
+  });
+} else iniciarSesion(alEntrar);
 
 // Cuenta nueva sin aprobar: pantalla de espera (se desbloquea sola al aprobarla)
 function mostrarSegunAprobacion() {

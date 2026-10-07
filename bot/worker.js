@@ -45,7 +45,8 @@ export default {
     if (url.pathname === "/evolution") return webhookEvolution(req, url, env, ctx);
     const API = { "/registro": nuevoRegistro, "/avisar": avisarCliente, "/solicitud": avisarSolicitud, "/agregado": avisarAgregado, "/pedido-union": avisarPedidoUnion,
       "/admin/datos": adminDatos, "/admin/borrar-usuario": adminBorrarUsuario, "/admin/config": adminConfig, "/admin/padron": adminPadron, "/mover-vehiculo": moverVehiculo,
-      "/borrar-media": borrarMediaApi, "/eliminar-vehiculo": eliminarVehiculoApi };
+      "/borrar-media": borrarMediaApi, "/eliminar-vehiculo": eliminarVehiculoApi,
+      "/compartir": compartirApi, "/compartido": compartidoApi };
     if (API[url.pathname]) {
       if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
       if (req.method !== "POST") return json({ ok: false, error: "Método no permitido" }, 405);
@@ -2533,6 +2534,47 @@ async function enviarDocumento(env, to, bytes, nombre, caption = "") {
   }
   const up = await subirCloudinary(env, new Blob([bytes], { type: mime }), nombre, "desabollito/planillas", "raw");
   return enviar(env, to, { type: "document", document: { link: up.secure_url, filename: nombre, ...(caption ? { caption } : {}) } });
+}
+
+// ── Links de solo lectura para peritos (ven solo los vehículos de una compañía) ──
+// compartidos/{token}: { cid, compania, por, t }. El link es https://desabollito.github.io/?ver=TOKEN
+const normCia = t => sinTildes(String(t || "")).replace(/\s+(seguros?|cia\.?)$/, "").trim();
+function mismaCia(a, b) {
+  const x = normCia(a), y = normCia(b);
+  if (!x || !y) return false;
+  if (x === y) return true;
+  const grupo = COMPANIAS.find(([n, al]) => [sinTildes(n), ...al].includes(y));
+  return !!grupo && [sinTildes(grupo[0]), ...grupo[1]].includes(x);
+}
+async function compartirApi(env, { idToken, cid, compania, accion, token }) {
+  const m = await miembroDe(env, idToken, cid);
+  if (!m || !["owner", "admin"].includes(m.c.roles?.[m.uid])) return json({ ok: false, error: "Solo los administradores pueden compartir" }, 403);
+  if (accion === "crear") {
+    const cia = String(compania || "").trim().slice(0, 60);
+    if (!cia) return json({ ok: false, error: "Elegí una compañía" }, 400);
+    const tk = [...crypto.getRandomValues(new Uint8Array(18))].map(b => "abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789"[b % 56]).join("");
+    await fsSet(env, `compartidos/${tk}`, { cid, compania: cia, por: m.uid, t: Date.now() });
+  }
+  if (accion === "borrar" && idValido(token)) {
+    const c = await fsGet(env, `compartidos/${token}`);
+    if (c?.cid === cid) await fsDelete(env, `compartidos/${token}`);
+  }
+  const lista = (await fsQuery(env, "", "compartidos", { field: "cid", op: "EQUAL", value: cid }, 50).catch(() => []))
+    .map(x => ({ token: x.__id, compania: x.compania, t: x.t || 0 })).sort((a, b) => b.t - a.t);
+  return json({ ok: true, lista });
+}
+// La app en modo lectura pide los datos con el token (sin cuenta)
+async function compartidoApi(env, { token }) {
+  if (!idValido(token)) return json({ ok: false, error: "Link inválido" }, 404);
+  const c = await fsGet(env, `compartidos/${token}`);
+  if (!c?.cid) return json({ ok: false, error: "Este link ya no está disponible" }, 404);
+  const op = await fsGet(env, `companies/${c.cid}`);
+  if (!op) return json({ ok: false, error: "Este link ya no está disponible" }, 404);
+  const vs = (await fsList(env, `companies/${c.cid}/vehicles`))
+    .filter(v => !v.deleted && mismaCia(v.compania, c.compania))
+    .map(({ __id, ...v }) => ({ ...v, id: __id }));
+  return json({ ok: true, compania: c.compania,
+    operativo: { id: c.cid, name: op.name || "", seal: op.seal || {}, memberUsers: op.memberUsers || {}, memberNames: op.memberNames || {} }, vehiculos: vs });
 }
 
 // ── Papelera y Cloudinary ────────────────────────────────────

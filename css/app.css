@@ -1378,3 +1378,12 @@ body[data-rol="desmontaje"] a[href^="#/editar"] { display: none !important; }
 .tec-cierre-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
 .tec-cierre { padding: 0 14px 10px; overflow: hidden; }
 .tec-cierre-nombre { margin: 0 -14px 6px !important; padding: 10px 14px; background: var(--surface-2); border-bottom: 1px solid var(--line); }
+
+/* Link de solo lectura (perito de una compañía): sin nada para cargar, editar ni configurar */
+body[data-lector="1"] .fab, body[data-lector="1"] a[href="#/nuevo"], body[data-lector="1"] a[href^="#/editar"],
+body[data-lector="1"] [data-nav="planillas"], body[data-lector="1"] .side-grupo, body[data-lector="1"] #tab-planilla,
+body[data-lector="1"] a[href="#/ajustes"], body[data-lector="1"] [data-nav="ajustes"], body[data-lector="1"] .viewer-add, body[data-lector="1"] #vw-rot,
+body[data-lector="1"] [data-act="desmontaje"], body[data-lector="1"] [data-act="anular"], body[data-lector="1"] [data-act="borrar"],
+body[data-lector="1"] [data-act="mover"], body[data-lector="1"] [data-act="firma"], body[data-lector="1"] [data-del-foto], body[data-lector="1"] [data-del-doc],
+body[data-lector="1"] #company-switch .ic { display: none !important; }
+body[data-lector="1"] .step, body[data-lector="1"] .etapa-item { pointer-events: none; }

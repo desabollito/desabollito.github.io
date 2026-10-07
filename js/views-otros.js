@@ -1,7 +1,7 @@
 import {
   S, activos, papelera, restaurar, eliminarDefinitivo, soyAdmin, miRol, renombrarEmpresa, guardarSello,
   agregarMiembro, cambiarRol, quitarMiembro, guardarEtiquetas, resolverSolicitud, desvincularWhatsApp, salirDeEmpresa, eliminarEmpresa, crearEmpresa, elegirEmpresa,
-  actualizarPerfil, salir, mensajeError, llamarAdmin, soloDesmontaje, pedirUnion
+  actualizarPerfil, salir, mensajeError, llamarAdmin, soloDesmontaje, pedirUnion, linksCompartidos
 } from "./data.js";
 import { cargarExcelJS } from "./excel.js";
 import { ESTADOS, ESTADO, ROLES, estadoActual } from "./domain.js";
@@ -536,6 +536,7 @@ export function vistaAjustes(view) {
 
     <nav class="card menu">
       <a href="#/papelera">${icon("trash")}<span><strong>Papelera</strong><small>${(S.solicitudes?.length && soyAdmin()) ? `${S.solicitudes.length} ${S.solicitudes.length === 1 ? "solicitud" : "solicitudes"} · ` : ""}${enPapelera ? `${enPapelera} ${enPapelera === 1 ? "vehículo" : "vehículos"}` : "Vacía"}</small></span>${icon("next")}</a>
+      ${soyAdmin() ? `<a href="#" id="compartir-perito">${icon("share")}<span><strong>Compartir con un perito</strong><small>Link para ver solo los vehículos de una compañía</small></span>${icon("next")}</a>` : ""}
     </nav>
 
     <section class="card">
@@ -550,11 +551,47 @@ export function vistaAjustes(view) {
     desvincularWhatsApp().then(() => toast("WhatsApp desvinculado", "success")).catch(e => toast(mensajeError(e), "error"));
   });
   $("#editar-perfil", view).onclick = () => editarPerfil(() => vistaAjustes(view));
+  $("#compartir-perito", view)?.addEventListener("click", e => { e.preventDefault(); compartirPerito(); });
   $("#tema", view).onclick = e => {
     const b = e.target.closest("[data-t]"); if (!b) return;
     aplicarTema(b.dataset.t); $$(".seg-btn", $("#tema", view)).forEach(x => x.classList.toggle("on", x === b));
   };
   $("#salir", view).onclick = async () => { if (await confirmar({ title: "¿Cerrar sesión?", ok: "Cerrar sesión" })) salir(); };
+}
+
+// Links de solo lectura: el perito ve los vehículos de una compañía en este operativo (sin poder tocar nada)
+function compartirPerito() {
+  const cias = [...new Set(activos().map(v => (v.compania || "").trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  const url = t => `${location.origin}${location.pathname}?ver=${t}`;
+  const s = openSheet({ title: "Compartir con un perito", body: `<div class="stack">
+    <p class="muted small">El link muestra solo los vehículos de esa compañía en <strong>${esc(S.company?.name || "")}</strong>: estado, turnos, fechas, fotos y todo el detalle, pero sin poder cambiar nada. Se actualiza solo.</p>
+    <form class="row-btns" id="cp-form"><input name="cia" list="cp-cias" required placeholder="Compañía (ej: SMG)" autocomplete="off" style="flex:1">
+      <datalist id="cp-cias">${cias.map(c => `<option value="${esc(c)}">`).join("")}</datalist>
+      <button class="btn btn-primary" type="submit">Crear link</button></form>
+    <div id="cp-lista"><div class="skeleton" style="height:60px"></div></div></div>` });
+  const lista = $("#cp-lista", s.el);
+  const pintar = ls => {
+    lista.innerHTML = ls.length ? `<ul class="trash">${ls.map(l => `<li><span class="t-meta"><strong>${esc(l.compania)}</strong>
+        <small class="muted" style="word-break:break-all">${esc(url(l.token))}</small></span>
+        <button type="button" class="btn btn-ghost btn-sm" data-copiar="${esc(l.token)}">Copiar</button>
+        <button type="button" class="icon-btn sm danger" data-borrar="${esc(l.token)}" aria-label="Borrar link">${icon("trash")}</button></li>`).join("")}</ul>`
+      : `<p class="muted small">Todavía no hay links.</p>`;
+  };
+  linksCompartidos().then(pintar).catch(e => { lista.innerHTML = `<p class="muted small">${esc(e.message)}</p>`; });
+  $("#cp-form", s.el).onsubmit = async e => {
+    e.preventDefault();
+    const b = $("button[type=submit]", e.target); busy(b, true, "Creando…");
+    try { const ls = await linksCompartidos("crear", { compania: e.target.cia.value.trim() }); pintar(ls); e.target.reset();
+      if (ls[0]) { navigator.clipboard?.writeText(url(ls[0].token)).catch(() => {}); toast("Link creado y copiado", "success"); } }
+    catch (err) { toast(err.message, "error"); }
+    busy(b, false);
+  };
+  lista.onclick = async e => {
+    const c = e.target.closest("[data-copiar]"), d = e.target.closest("[data-borrar]");
+    if (c) { const u = url(c.dataset.copiar); try { await navigator.clipboard.writeText(u); toast("Link copiado", "success"); } catch { pedirTexto?.({ title: "Link", value: u }); } }
+    if (d && await confirmar({ title: "¿Borrar este link?", message: "Quien lo tenga ya no va a poder entrar.", ok: "Borrar", danger: true }))
+      linksCompartidos("borrar", { token: d.dataset.borrar }).then(pintar).catch(err => toast(err.message, "error"));
+  };
 }
 
 function editarPerfil(alTerminar) {

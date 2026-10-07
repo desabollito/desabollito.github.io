@@ -4,7 +4,7 @@ import {
   S, activos, getVehiculo, guardarVehiculo, actualizarVehiculo, cambiarEstado, moverAPapelera,
   solicitarEliminacion, cargadoPor, esDeWhatsApp, puedoEditar, esMioV, crearSolicitud, yaPedi,
   nuevoIdVehiculo, soyAdmin, mensajeError, ultimoDeshacible, deshacerCambio, aseguradoDePadron,
-  soyDesmontaje, agregarDesmontaje, elegirDesmontador, borrarMedia
+  soyDesmontaje, agregarDesmontaje, elegirDesmontador, borrarMedia, soyLector
 } from "./data.js";
 import { ESTADOS, ESTADO, SECUENCIA, PASO_REP, PIEZA, ORDEN_PIEZAS, estadoActual, piezasMarcadas } from "./domain.js";
 import {
@@ -59,7 +59,7 @@ function filtrar(lista) {
 // Historial del vehículo (lo más nuevo arriba). Los vehículos viejos arrancan con la carga.
 // Historial con botón para deshacer el último cambio
 function abrirHistorial(v0) {
-  const v = getVehiculo(v0.id) || v0, ult = soyDesmontaje() ? null : ultimoDeshacible(v);
+  const v = getVehiculo(v0.id) || v0, ult = soyDesmontaje() || soyLector() ? null : ultimoDeshacible(v);
   const s = openSheet({ title: "Historial", body: `${ult ? `<button type="button" class="btn btn-ghost btn-block hist-undo" data-deshacer>${icon("rotate")}Deshacer último cambio</button>` : ""}${historialHTML(v)}` });
   $("[data-deshacer]", s.el)?.addEventListener("click", async () => {
     if (!(await confirmar({ title: "¿Estás seguro?", message: `Se deshace: “${ult.txt}”.`, ok: "Deshacer" }))) return;
@@ -279,7 +279,7 @@ export function vistaDetalle(view, id) {
   }
   setTopbar({
     title: "Detalle", sub: v.patente || v.modelo || "", back: S.volverA || "#/",
-    actions: soyDesmontaje() ? "" : `<a class="icon-btn" href="#/editar/${v.id}" aria-label="Editar">${icon("edit")}</a>`
+    actions: soyDesmontaje() || soyLector() ? "" : `<a class="icon-btn" href="#/editar/${v.id}" aria-label="Editar">${icon("edit")}</a>`
   });
   view.innerHTML = `<div class="detail-page"></div>`;
   renderDetalle($(".detail-page", view), v, false);
@@ -373,7 +373,7 @@ function renderDetalle(root, v, embebido) {
   const marcadas = piezasMarcadas(v);
   const todos = marcadas.length === ORDEN_PIEZAS.length;
   const esMio = esMioV(v);
-  const soloVer = soyDesmontaje();   // rol Desmontaje: solo ve y carga desmontajes
+  const soloVer = soyDesmontaje() || soyLector();   // Desmontaje: solo ve y carga desmontajes; link de perito: solo ve
   const nDesm = (v.desFotos?.length || 0) + (v.desNotas?.length || 0);
 
   root.innerHTML = `
@@ -545,7 +545,8 @@ ${[...PASO_REP, "facturado"].includes(est) ? `<button class="btn btn-ghost btn-b
   root.addEventListener("click", async e => {
     const t = e.target;
     // Rol Desmontaje: no modifica nada del vehículo
-    if (soloVer && (t.closest("[data-estado], .etapa-item, [data-del-foto], [data-del-doc]") || ["anular", "borrar", "firma"].includes(t.closest("[data-act]")?.dataset.act))) return;
+    if (soloVer && (t.closest("[data-estado], .etapa-item, [data-del-foto], [data-del-doc]") || ["anular", "borrar", "firma", "mover"].includes(t.closest("[data-act]")?.dataset.act))) return;
+    if (soyLector() && ["desmontaje", "fotos", "subir", "docs"].includes(t.closest("[data-act]")?.dataset.act)) return;
     if (t.closest("[data-act]")?.dataset.act === "desmontaje") return abrirDesmontaje(v);
     const step = t.closest("[data-estado]");
     if (step) {
@@ -892,6 +893,7 @@ export async function pedirEdicion(v) {
 
 async function quitarAdjunto(v, campo, idx) {
   const item = v[campo]?.[idx]; if (!item) return;
+  if (soyLector()) return;
   if (!puedoEditar(v)) {
     const tipo = campo === "fotos" ? "foto" : "documento";
     if (!(await confirmar({ title: "Este vehículo no es tuyo",

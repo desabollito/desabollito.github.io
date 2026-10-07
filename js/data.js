@@ -105,6 +105,44 @@ export async function desvincularWhatsApp() {
 }
 let unsubCompanies = null, unsubVehicles = null, unsubGastos = null, ultimaFirma = "";
 
+// ── Modo lectura por link (?ver=TOKEN): sin cuenta; los datos los da el bot, solo de una compañía ──
+export async function iniciarInvitado(token, onReady) {
+  const traer = async () => {
+    const r = await fetch(`${BOT_API}/compartido`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token }) });
+    const j = await r.json().catch(() => ({}));
+    if (!j.ok) throw new Error(j.error || "No se pudo abrir el link");
+    return j;
+  };
+  try {
+    const j = await traer();
+    S.invitado = { token, compania: j.compania };
+    S.user = { uid: "invitado", invitado: true, getIdToken: async () => "" };
+    S.profile = { id: "invitado", name: `Perito ${j.compania}`, username: "", aprobado: true };
+    S.company = { ...j.operativo, roles: {}, members: [] };
+    S.companies = [S.company];
+    const ordenar = vs => vs.sort((a, b) => (b.fechas?.peritado || "").localeCompare(a.fechas?.peritado || ""));
+    S.vehicles = ordenar(j.vehiculos); S.loadingVehicles = false; S.gastos = []; S.loadingGastos = false;
+    onReady(true);
+    emit("companies"); emit("vehicles");
+    // Se actualiza solo cada minuto
+    let firma = JSON.stringify(j.vehiculos);
+    setInterval(async () => {
+      if (document.hidden) return;
+      try { const n = await traer(); const f = JSON.stringify(n.vehiculos); if (f !== firma) { firma = f; S.vehicles = ordenar(n.vehiculos); emit("vehicles"); } } catch { /* sin conexión */ }
+    }, 60_000);
+  } catch (e) { onReady(false, e); }
+}
+
+// Administradores: crear, listar y borrar links de solo lectura
+export async function linksCompartidos(accion = "listar", extra = {}) {
+  const idToken = await S.user.getIdToken();
+  const r = await fetch(`${BOT_API}/compartir`, { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ idToken, cid: S.company.id, accion, ...extra }) });
+  const j = await r.json().catch(() => ({}));
+  if (!j.ok) throw new Error(j.error || "No se pudo");
+  return j.lista || [];
+}
+
 export function iniciarSesion(onReady) {
   onAuthStateChanged(auth, async user => {
     unsubCompanies?.(); unsubVehicles?.(); unsubGastos?.(); unsubPerfil?.(); ultimaFirma = "";
@@ -263,7 +301,9 @@ export async function crearEmpresa(nombre) {
   return ref.id;
 }
 
-export const miRol = () => S.company?.roles?.[S.user?.uid] || "tecnico";
+export const miRol = () => S.invitado ? "lectura" : (S.company?.roles?.[S.user?.uid] || "tecnico");
+// Link de solo lectura (perito de una compañía): ve, no toca nada
+export const soyLector = () => !!S.invitado;
 export const soyAdmin = () => ["owner", "admin"].includes(miRol());
 export const soyDesmontaje = () => miRol() === "desmontaje";
 // Solo tiene el rol Desmontaje (en todos sus operativos): no puede crear operativos
@@ -509,7 +549,7 @@ export function cargadoPor(v) {
 }
 // Permisos sobre un vehículo: quien lo cargó, los administradores y a quienes se les dio acceso
 export const esMioV = v => !!v && (v.createdBy === S.user?.uid || v.createdByUid === S.user?.uid);
-export const puedoEditar = v => !soyDesmontaje() && (esMioV(v) || soyAdmin() || (v?.editores || []).includes(S.user?.uid));
+export const puedoEditar = v => !soyDesmontaje() && !S.invitado && (esMioV(v) || soyAdmin() || (v?.editores || []).includes(S.user?.uid));
 
 // ── Desmontaje: fotos y notas (cada una con quién la subió) y el técnico desmontador ──
 export async function agregarDesmontaje(v, fotos, texto) {

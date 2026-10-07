@@ -21,7 +21,7 @@ export function setTopbar({ title = "", back = null, actions = "", sub = "" } = 
     if (back === true || history.length < 2) history.length > 1 ? history.back() : go("#/");
     else go(back);
   });
-  $("#tb-company", tb)?.addEventListener("click", () => document.dispatchEvent(new CustomEvent("elegir-empresa")));
+  $("#tb-company", tb)?.addEventListener("click", () => { if (!S.invitado) document.dispatchEvent(new CustomEvent("elegir-empresa")); });
 }
 
 export function marcarNav(nombre) {
@@ -32,11 +32,11 @@ export function pintarLateral() {
   const c = S.company;
   $("#company-name").textContent = c?.name || "Sin operativo";
   $("#company-avatar").textContent = letraOperativo(c?.name);
-  $("#company-role").textContent = c ? `${ROLES[c.roles?.[S.user.uid]]?.label || "Miembro"} · ${c.members.length} ${c.members.length === 1 ? "persona" : "personas"}` : "";
+  $("#company-role").textContent = S.invitado ? `Solo lectura · ${S.invitado.compania}` : c ? `${ROLES[c.roles?.[S.user.uid]]?.label || "Miembro"} · ${c.members.length} ${c.members.length === 1 ? "persona" : "personas"}` : "";
   const p = S.profile || {};
   $("#side-user").innerHTML = `
     <span class="avatar">${esc(initials(p.name))}</span>
-    <span class="side-user-meta"><strong>${esc(p.name || "")}</strong><small>@${esc(p.username || "")}</small></span>`;
+    <span class="side-user-meta"><strong>${esc(p.name || "")}</strong><small>${S.invitado ? "Solo lectura" : "@" + esc(p.username || "")}</small></span>`;
 }
 
 // Ícono del operativo: primera letra del nombre sobre fondo de color
