@@ -26,7 +26,7 @@ const now2 = Math.floor(Date.now() / 1000);
 const ct = `${b64({ alg: "RS256", typ: "JWT" })}.${b64({ iss: sa.client_email, sub: sa.client_email, aud: "https://identitytoolkit.googleapis.com/google.identity.identitytoolkit.v1.IdentityToolkit", iat: now2, exp: now2 + 3600, uid: uidC })}`;
 const ctTok = `${ct}.${crypto.sign("RSA-SHA256", Buffer.from(ct), sa.private_key).toString("base64url")}`;
 const si = await (await fetch("https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=AIzaSyDJL7vPKEkAMBKGM7ULWpphlDkYw1jKcSM", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token: ctTok, returnSecureToken: true }) })).json();
-const rr = await fetch("https://desabollito-bot.desabollito.workers.dev/admin/resumen-ahora", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ idToken: si.idToken }) });
+const rr = await fetch("https://desabollito-bot.desabollito.workers.dev/admin/resumen-ahora", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ idToken: si.idToken, forzar: true }) });
 console.log(`::notice::resumen-ahora ${rr.status} ${(await rr.text()).slice(0, 300)} ${si.error ? JSON.stringify(si.error).slice(0, 200) : ""}`);
 const e2 = await get("bot_estado/diagnostico");
 for (const k of ["ultimoResumen", "ultimoErrorResumen", "ultimoErrorEnvio"]) console.log(`::notice::despues ${k} ${String(val(e2.fields?.[k])).slice(0, 300)}`);

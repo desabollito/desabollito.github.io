@@ -48,7 +48,7 @@ export default {
       "/borrar-media": borrarMediaApi, "/eliminar-vehiculo": eliminarVehiculoApi,
       "/compartir": compartirApi, "/compartido": compartidoApi,
       "/recuperar": recuperarApi, "/restablecer": restablecerApi,
-      "/admin/resumen-ahora": async (env, { idToken }) => (await soloCreador(env, idToken)) ? json({ ok: true, enviados: await enviarResumenesDiarios(env) }) : json({ ok: false }, 403) };
+      "/admin/resumen-ahora": async (env, { idToken, forzar }) => (await soloCreador(env, idToken)) ? json({ ok: true, enviados: await enviarResumenesDiarios(env, forzar) }) : json({ ok: false }, 403) };
     if (API[url.pathname]) {
       if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
       if (req.method !== "POST") return json({ ok: false, error: "Método no permitido" }, 405);
@@ -2443,17 +2443,17 @@ async function textoResumenDiario(env, uid, hoy, cfg = { todos: true }) {
     total += vs.length;
     vs.sort((a, b) => String(a.horas?.peritado || "99").localeCompare(String(b.horas?.peritado || "99")));
     const linea = v => [v.modelo || "Sin modelo", v.patente, v.grado ? `G${v.grado}` : "", ciaCorta(v.compania)].filter(Boolean).map(x => "`" + x + "`").join(" ");
-    bloques.push(`*${o.operativo}* · ${vs.length} ${vs.length === 1 ? "vehículo" : "vehículos"}\n\n` + vs.map(linea).join("\n"));
+    bloques.push(`*${o.operativo}* · ${vs.length} ${vs.length === 1 ? "vehículo" : "vehículos"}\n\n` + vs.map(linea).join("\n\n"));
   }
   const tit = `📋 *Resumen del día · ${fechaCortaAR(hoy)}*`;
   if (!total) return `${tit}\n\nHoy no se peritaron vehículos.`;
   return `${tit}\nTotal: *${total}* ${total === 1 ? "vehículo peritado" : "vehículos peritados"}\n\n` + bloques.join("\n\n━━━━━━━━━━\n\n");
 }
-async function enviarResumenesDiarios(env) {
+async function enviarResumenesDiarios(env, forzar = false) {
   const hoy = new Date(Date.now() - 3 * 3600 * 1000).toISOString().slice(0, 10);
   const hechos = [];
   for (const r of await fsList(env, "bot_resumen")) {
-    if (!r.to || !r.uid || r.ultimo === hoy) continue;
+    if (!r.to || !r.uid || (r.ultimo === hoy && !forzar)) continue;
     try {
       const res = await responder(env, r.to, await textoResumenDiario(env, r.uid, hoy, r));
       if (res && res.ok === false) throw new Error("envío rechazado " + res.status);
