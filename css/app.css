@@ -1387,3 +1387,5 @@ body[data-lector="1"] [data-act="desmontaje"], body[data-lector="1"] [data-act="
 body[data-lector="1"] [data-act="mover"], body[data-lector="1"] [data-act="firma"], body[data-lector="1"] [data-del-foto], body[data-lector="1"] [data-del-doc],
 body[data-lector="1"] #company-switch .ic { display: none !important; }
 body[data-lector="1"] .step, body[data-lector="1"] .etapa-item { pointer-events: none; }
+body[data-lector="1"] [data-act="pdf"] { display: none !important; }
+.side-user-info [data-tema-lector] { margin-left: auto; }

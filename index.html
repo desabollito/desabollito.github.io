@@ -8,8 +8,10 @@
     (function () {
       try {
         // Oscuro por defecto; el usuario lo cambia en Ajustes
-        var t = localStorage.getItem("tema");
-        document.documentElement.setAttribute("data-theme", t === "light" ? "light" : "dark");
+        // Link de perito (?ver=): claro por defecto, con su propio botón para cambiarlo
+        var lector = /[?&]ver=/.test(location.search);
+        var t = localStorage.getItem(lector ? "temaLector" : "tema");
+        document.documentElement.setAttribute("data-theme", lector ? (t === "dark" ? "dark" : "light") : (t === "light" ? "light" : "dark"));
       } catch (e) {}
     })();
   </script>

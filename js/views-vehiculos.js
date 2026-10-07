@@ -113,7 +113,7 @@ function piezasAgrupadas(v) {
 
 // Fecha de las tarjetas: la del peritaje o la del último estado (se elige en Ordenar y se recuerda en este equipo)
 let fechaVista = (() => { try { return localStorage.getItem("fechaVista") || "peritado"; } catch { return "peritado"; } })();
-const claveFecha = v => { if (fechaVista !== "estado") return "peritado"; const e = estadoActual(v); return v.fechas?.[e] ? e : "peritado"; };
+const claveFecha = v => { if (fechaVista !== "estado" && !soyLector()) return "peritado"; const e = estadoActual(v); return v.fechas?.[e] ? e : "peritado"; };
 function tarjeta(v, sel) {
   const foto = v.fotos?.[0]?.url, rot0 = v.fotos?.[0]?.rot, kf = claveFecha(v);
   return `
@@ -197,7 +197,7 @@ export function vistaVehiculos(view, selId = null) {
       <button class="btn btn-ghost btn-sm" id="f-reset">Quitar filtros</button></div>` });
     const chipsGrado = () => {
       const n = g => activos().filter(v => (v.grado || 0) === g).length;
-      $("#f-grado", s.el).innerHTML = [[1, "Grado 1"], [2, "Grado 2"], [3, "Grado 3"], [4, "Grado 4"], [0, "Sin grado"]].filter(([g]) => g !== 0 || n(0) || F.grado === 0).map(([g, t]) =>
+      $("#f-grado", s.el).innerHTML = [[1, "Grado 1"], [2, "Grado 2"], [3, "Grado 3"], [4, "Grado 4"], [0, "Sin grado"]].filter(([g]) => (g !== 0 || n(0) || F.grado === 0) && !(g === 4 && soyLector())).map(([g, t]) =>
         `<button type="button" class="p-chip ${F.grado === g ? "on" : ""}" data-grado="${g}">${t} <b class="f-n">${n(g)}</b></button>`).join("");
     };
     chipsGrado();
@@ -233,12 +233,12 @@ export function vistaVehiculos(view, selId = null) {
   // Ordenar (botón al lado de Filtros): tocar un criterio lo elige; tocarlo de nuevo invierte el orden
   $("#tb-orden")?.addEventListener("click", () => {
     const hoja = openSheet({ title: "Ordenar por", body: `<div class="stack filtros"><div class="p-chips" id="o-chips"></div>
-      <span class="muted small">Compañías <small>(podés marcar varias)</small></span><div class="p-chips" id="o-cias"></div>
+      ${soyLector() ? "" : `<span class="muted small">Compañías <small>(podés marcar varias)</small></span><div class="p-chips" id="o-cias"></div>
       <span class="muted small">Fecha a mostrar en la pantalla principal</span>
-      <div class="seg" id="o-fecha"><button type="button" class="seg-btn" data-fv="peritado">Día de peritación</button><button type="button" class="seg-btn" data-fv="estado">Último estado</button></div></div>` });
+      <div class="seg" id="o-fecha"><button type="button" class="seg-btn" data-fv="peritado">Día de peritación</button><button type="button" class="seg-btn" data-fv="estado">Último estado</button></div>`}</div>` });
     const chips = () => {
       $("#o-chips", hoja.el).innerHTML = ORDENES.map(([k, t]) => `<button type="button" class="p-chip ${F.orden === k ? "on" : ""}" data-orden="${k}">${t}${F.orden === k ? `<i>${F.dir > 0 ? "↑" : "↓"}</i>` : ""}</button>`).join("");
-      $("#o-cias", hoja.el).innerHTML = ciasDisponibles().map(([c, n]) => `<button type="button" class="p-chip ${F.cias.has(c) ? "on" : ""}" data-cia="${esc(c)}">${esc(c)} <b class="f-n">${n}</b></button>`).join("")
+      if ($("#o-cias", hoja.el)) $("#o-cias", hoja.el).innerHTML = ciasDisponibles().map(([c, n]) => `<button type="button" class="p-chip ${F.cias.has(c) ? "on" : ""}" data-cia="${esc(c)}">${esc(c)} <b class="f-n">${n}</b></button>`).join("")
         || `<span class="muted small">Sin vehículos</span>`;
       $$("#o-fecha [data-fv]", hoja.el).forEach(b => b.classList.toggle("on", b.dataset.fv === fechaVista));
       $("#tb-orden")?.classList.toggle("activo", ordenActivo());
@@ -397,7 +397,7 @@ function renderDetalle(root, v, embebido) {
       ${v.telefono ? `<div class="d-contacto">
         <button class="btn btn-ghost" data-act="contactar" aria-haspopup="true" aria-expanded="false">${icon("phone")}Contactar</button>
         <div class="d-menu" hidden>
-          <a href="${waLink(v.telefono, mensajeWa(v))}" target="_blank" rel="noopener">${icon("chat")}WhatsApp</a>
+          <a href="${waLink(v.telefono, soyLector() ? "" : mensajeWa(v))}" target="_blank" rel="noopener">${icon("chat")}WhatsApp</a>
           <a href="tel:${esc(v.telefono)}">${icon("phone")}Llamar</a>
         </div></div>` : ""}
       ${embebido && !soloVer ? `<a class="btn btn-ghost btn-icon" href="#/editar/${v.id}" aria-label="Editar" title="Editar">${icon("edit")}</a>` : ""}

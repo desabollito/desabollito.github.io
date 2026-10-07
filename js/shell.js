@@ -16,13 +16,22 @@ export function setTopbar({ title = "", back = null, actions = "", sub = "" } = 
   tb.innerHTML = `
     ${backBtn}
     <div class="tb-title"><h1>${esc(title)}</h1>${sub ? `<small>${esc(sub)}</small>` : ""}</div>
-    <div class="tb-actions">${actions}${back ? "" : `<a class="icon-btn only-sm" href="#/ajustes" aria-label="Ajustes">${icon("settings")}</a>`}</div>`;
+    <div class="tb-actions">${actions}${S.invitado ? `<button class="icon-btn only-sm" data-tema-lector aria-label="Modo claro / oscuro" title="Modo claro / oscuro">${ICONO_TEMA}</button>` : back ? "" : `<a class="icon-btn only-sm" href="#/ajustes" aria-label="Ajustes">${icon("settings")}</a>`}</div>`;
   $("#tb-back", tb)?.addEventListener("click", () => {
     if (back === true || history.length < 2) history.length > 1 ? history.back() : go("#/");
     else go(back);
   });
   $("#tb-company", tb)?.addEventListener("click", () => { if (!S.invitado) document.dispatchEvent(new CustomEvent("elegir-empresa")); });
 }
+
+// Link de perito: botón claro/oscuro (se recuerda aparte del tema de la app)
+const ICONO_TEMA = `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor"/></svg>`;
+document.addEventListener("click", e => {
+  if (!e.target.closest("[data-tema-lector]")) return;
+  const t = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
+  document.documentElement.setAttribute("data-theme", t);
+  try { localStorage.setItem("temaLector", t); } catch { /* sin almacenamiento */ }
+});
 
 export function marcarNav(nombre) {
   $$("[data-nav]").forEach(a => a.classList.toggle("on", a.dataset.nav === nombre));
@@ -36,7 +45,8 @@ export function pintarLateral() {
   const p = S.profile || {};
   $("#side-user").innerHTML = `
     <span class="avatar">${esc(initials(p.name))}</span>
-    <span class="side-user-meta"><strong>${esc(p.name || "")}</strong><small>${S.invitado ? "Solo lectura" : "@" + esc(p.username || "")}</small></span>`;
+    <span class="side-user-meta"><strong>${esc(p.name || "")}</strong><small>${S.invitado ? "Solo lectura" : "@" + esc(p.username || "")}</small></span>
+    ${S.invitado ? `<button class="icon-btn sm" data-tema-lector aria-label="Modo claro / oscuro" title="Modo claro / oscuro">${ICONO_TEMA}</button>` : ""}`;
 }
 
 // Ícono del operativo: primera letra del nombre sobre fondo de color
