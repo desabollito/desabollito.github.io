@@ -1390,3 +1390,6 @@ body[data-lector="1"] .step, body[data-lector="1"] .etapa-item { pointer-events:
 body[data-lector="1"] [data-act="pdf"] { display: none !important; }
 .side-user-info [data-tema-lector] { margin-left: auto; }
 .olvide { display: block; margin: 4px auto 0; color: var(--muted); }
+.plegable-btn { display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 16px 18px; font: inherit; font-weight: 700; color: inherit; text-align: left; cursor: pointer; border: 1px solid var(--line); }
+.plegable-btn span { display: inline-flex; align-items: center; gap: 10px; }
+.plegable-btn > .ic:last-child { color: var(--muted); }

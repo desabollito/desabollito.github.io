@@ -299,6 +299,8 @@ export function vistaEmpresa(view) {
 ` : ""}
     </section>
 
+    ${admin ? `<button type="button" class="card plegable plegable-btn" id="compartir-perito"><span>${icon("share")}Compartir con un perito</span>${icon("next")}</button>` : ""}
+
     ${admin ? `<details class="card plegable">
       <summary><span>${icon("file")}Sello</span>${icon("next")}</summary>
       <form id="sello" class="stack">
@@ -337,6 +339,7 @@ export function vistaEmpresa(view) {
     const n = await pedirTexto({ title: "Renombrar operativo", label: "Nombre", value: c.name });
     if (n) renombrarEmpresa(n).catch(e => toast(mensajeError(e), "error"));
   });
+  $("#compartir-perito", view)?.addEventListener("click", compartirPerito);
   $("#agregar-usuario", view)?.addEventListener("click", () => {
     let rol = "tecnico";
     const sh = openSheet({
@@ -536,7 +539,6 @@ export function vistaAjustes(view) {
 
     <nav class="card menu">
       <a href="#/papelera">${icon("trash")}<span><strong>Papelera</strong><small>${(S.solicitudes?.length && soyAdmin()) ? `${S.solicitudes.length} ${S.solicitudes.length === 1 ? "solicitud" : "solicitudes"} · ` : ""}${enPapelera ? `${enPapelera} ${enPapelera === 1 ? "vehículo" : "vehículos"}` : "Vacía"}</small></span>${icon("next")}</a>
-      ${soyAdmin() ? `<a href="#" id="compartir-perito">${icon("share")}<span><strong>Compartir con un perito</strong><small>Link para ver solo los vehículos de una compañía</small></span>${icon("next")}</a>` : ""}
     </nav>
 
     <section class="card">
@@ -551,7 +553,6 @@ export function vistaAjustes(view) {
     desvincularWhatsApp().then(() => toast("WhatsApp desvinculado", "success")).catch(e => toast(mensajeError(e), "error"));
   });
   $("#editar-perfil", view).onclick = () => editarPerfil(() => vistaAjustes(view));
-  $("#compartir-perito", view)?.addEventListener("click", e => { e.preventDefault(); compartirPerito(); });
   $("#tema", view).onclick = e => {
     const b = e.target.closest("[data-t]"); if (!b) return;
     aplicarTema(b.dataset.t); $$(".seg-btn", $("#tema", view)).forEach(x => x.classList.toggle("on", x === b));
