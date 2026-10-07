@@ -2442,7 +2442,7 @@ async function textoResumenDiario(env, uid, hoy, cfg = { todos: true }) {
     if (!vs.length) continue;
     total += vs.length;
     vs.sort((a, b) => String(a.horas?.peritado || "99").localeCompare(String(b.horas?.peritado || "99")));
-    const linea = v => [v.modelo || "Sin modelo", v.patente, v.grado ? `G${v.grado}` : "", ciaCorta(v.compania)].filter(Boolean).map(x => "`" + x + "`").join(" ");
+    const linea = v => [v.modelo || "Sin modelo", v.patente, ciaCorta(v.compania)].filter(Boolean).map(x => "`" + x + "`").join(" ");
     bloques.push(`*${o.operativo}* · ${vs.length} ${vs.length === 1 ? "vehículo" : "vehículos"}\n\n` + vs.map(linea).join("\n\n"));
   }
   const tit = `📋 *Resumen del día · ${fechaCortaAR(hoy)}*`;
