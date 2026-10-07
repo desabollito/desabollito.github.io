@@ -27,7 +27,7 @@ ssh -i RUTA\DE\LA\CLAVE.key ubuntu@PUBLIC_IP
 ```
 Ya adentro, pegá (con tu subdominio y token):
 ```
-curl -fsSL https://desabollito.github.io/bot/evolution/setup.sh | sudo bash -s -- desabollito TU_TOKEN_DUCKDNS
+curl -fsSL https://desabollito.com/bot/evolution/setup.sh | sudo bash -s -- desabollito TU_TOKEN_DUCKDNS
 ```
 Al terminar te muestra 3 datos.
 

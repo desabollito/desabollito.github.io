@@ -4,7 +4,7 @@
 #  (Evolution API + HTTPS automático). Probado en Ubuntu 22.04/24.04.
 #
 #  Uso (en el servidor):
-#    curl -fsSL https://desabollito.github.io/bot/evolution/setup.sh | sudo bash -s -- SUBDOMINIO TOKEN_DUCKDNS
+#    curl -fsSL https://desabollito.com/bot/evolution/setup.sh | sudo bash -s -- SUBDOMINIO TOKEN_DUCKDNS
 #  Ej: ... | sudo bash -s -- desabollito 1234abcd-....
 # ════════════════════════════════════════════════════════════════
 set -euo pipefail

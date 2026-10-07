@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://desabollito.com/sitemap.xml

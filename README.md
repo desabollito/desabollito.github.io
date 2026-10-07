@@ -2,7 +2,7 @@
 
 Gestión de trabajos de granizo: peritajes, turnos, reparaciones, presupuestos en PDF, gastos y operativos con equipo compartido.
 
-- **Web:** GitHub Pages, en `desabollito.github.io` (gratis)
+- **Web:** GitHub Pages, en `desabollito.com` (dominio propio en Cloudflare; repo `desabollito.github.io`)
 - **Base de datos y usuarios:** un proyecto **nuevo** de Firebase (plan gratuito Spark, sin Storage)
 - **Fotos y documentos:** una cuenta **nueva** de Cloudinary (plan gratuito)
 
@@ -14,7 +14,7 @@ No usa Google Drive para nada.
 
 1. Entrá a https://console.firebase.google.com → **Agregar proyecto**. Google Analytics no hace falta.
 2. **Authentication → Comenzar → Método de acceso**: activá **Correo electrónico/contraseña** y **Google**.
-3. **Authentication → Configuración → Dominios autorizados → Agregar dominio**: `desabollito.github.io`.
+3. **Authentication → Configuración → Dominios autorizados → Agregar dominio**: `desabollito.com`.
 4. **Firestore Database → Crear base de datos**
    - Modo: producción.
    - Ubicación: `southamerica-east1` (São Paulo), la más cercana a Argentina. No se puede cambiar después.
@@ -72,7 +72,7 @@ js/  (app, carmap, config, data, domain, firebase, media, pdf, shell, ui, excel,
 img/ (app-192.png, app-512.png, logo-claro.png, logo-oscuro.png)
 ```
 
-3. Esperá 1–2 minutos y abrí https://desabollito.github.io. Si ves "Falta configurar Firebase", revisá `js/config.js`.
+3. Esperá 1–2 minutos y abrí https://desabollito.com. Si ves "Falta configurar Firebase", revisá `js/config.js`.
 
 **Cada vez que publiques cambios**, subí el número de versión en `sw.js` (`desabollito-v2.0.2`, etc.). Así los teléfonos con la app instalada toman la versión nueva.
 

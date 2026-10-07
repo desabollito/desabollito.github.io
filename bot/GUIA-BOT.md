@@ -127,7 +127,7 @@ Revisa cada pieza (variables, Firebase, WhatsApp, Cloudinary, si Meta está mand
    - Tiene que ser un número que **no esté usando WhatsApp** (ni común ni Business). Sirve un chip nuevo o una línea fija que pueda recibir SMS o llamada.
    - Cuando esté verificado, cambiá `WHATSAPP_PHONE_ID` en Cloudflare por el ID del número nuevo → **Deploy**.
 2. **Publicar la app de Meta:** Configuración de la app → Básica:
-   - **URL de la política de privacidad:** `https://desabollito.github.io/privacidad.html`
+   - **URL de la política de privacidad:** `https://desabollito.com/privacidad.html`
    - Categoría, ícono (podés usar `img/app-512.png`) → Guardar.
    - Arriba, cambiá el modo de la app de **Desarrollo** a **Activo** (Live).
 3. Meta puede pedirte **verificar el negocio** y cargar un **medio de pago** en WhatsApp Manager. Las respuestas del bot a mensajes que le mandan ustedes suelen entrar en lo gratuito, pero revisá la tarifa vigente de Meta.
