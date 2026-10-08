@@ -38,7 +38,7 @@ export function diasViandas(fijos, hasta = hoyISO()) {
 // Período de un pago (desde/hasta; los pagos viejos tenían "meses")
 export const rangoPago = (p, a = {}) => {
   const ini = p.desde || a.inicio || "";
-  const fin = p.hasta || (ini && Number(p.meses) > 0 ? masDias(masMeses(ini, Number(p.meses)), -1) : ini);
+  const fin = p.hasta || (ini && Number(p.meses) > 0 ? masMeses(ini, Number(p.meses)) : ini);
   return [ini, fin];
 };
 // Estadías de un técnico en la casa: varias por técnico (las viejas eran una sola)
@@ -55,12 +55,13 @@ export function repartoCasa(casa, tecnicos, desde = "", hasta = "") {
   let sinAsignar = 0, total = 0;
   const est = casa.estadias || {};
   for (const p of casa.pagos || []) {
-    const [ini, fin] = rangoPago(p, casa); if (!ini || !fin || fin < ini) continue;
-    const dias = [...diasEntre(ini, fin)], porDia = (Number(p.monto) || 0) / dias.length;
+    // Se cuentan noches: el día de salida no se cobra (del 1 al 5 son 4 noches)
+    const [ini, fin] = rangoPago(p, casa); if (!ini || !fin || fin <= ini) continue;
+    const dias = [...diasEntre(ini, masDias(fin, -1))], porDia = (Number(p.monto) || 0) / dias.length;
     total += Number(p.monto) || 0;
     for (const d of dias) {
       if ((desde && d < desde) || (hasta && d > hasta)) continue;
-      const hay = Object.keys(porTec).filter(id => estadiasDe(est, id).some(e => e.llegada && e.llegada <= d && (!e.salida || d <= e.salida)));
+      const hay = Object.keys(porTec).filter(id => estadiasDe(est, id).some(e => e.llegada && e.llegada <= d && (!e.salida || d < e.salida)));
       if (!hay.length) { sinAsignar += porDia; continue; }
       hay.forEach(id => { porTec[id] += porDia / hay.length; diasTec[id]++; });
     }
@@ -202,9 +203,9 @@ export function vistaFijos(view) {
   const casas = () => casasDe(fijos);
   const guardarCasas = l => guardar({ alquiler: { casas: l } });
   const updCasa = (cid, fn) => guardarCasas(casas().map(c => c.id === cid ? fn({ ...c }) : c));
-  const tablaReparto = (r, titulo) => `<div class="table-wrap"><table class="tbl"><thead><tr><th>${titulo}</th><th class="num">Días</th><th class="num">Le toca</th></tr></thead><tbody>
+  const tablaReparto = (r, titulo) => `<div class="table-wrap"><table class="tbl"><thead><tr><th>${titulo}</th><th class="num">Noches</th><th class="num">Le toca</th></tr></thead><tbody>
       ${cfg.tecnicos.filter(t => r.diasTec[t.id] || r.porTec[t.id] > 0.5).map(t => `<tr><td>${esc(t.nombre)}</td><td class="num">${r.diasTec[t.id] || 0}</td><td class="num">${pesos(r.porTec[t.id])}</td></tr>`).join("")}
-      ${r.sinAsignar > 0.5 ? `<tr><td class="muted">Días sin nadie</td><td></td><td class="num muted">${pesos(r.sinAsignar)}</td></tr>` : ""}
+      ${r.sinAsignar > 0.5 ? `<tr><td class="muted">Noches sin nadie</td><td></td><td class="num muted">${pesos(r.sinAsignar)}</td></tr>` : ""}
       <tr class="tec-sub"><td>TOTAL PAGADO</td><td></td><td class="num">${pesos(r.total)}</td></tr></tbody></table></div>`;
   const pintarAlquiler = () => {
     const ed = F.editando, l = casas();
@@ -247,15 +248,15 @@ export function vistaFijos(view) {
     const c = casas().find(x => x.id === cid); if (!c) return;
     const pagos = c.pagos || [];
     const ult = [...pagos].sort((x, y) => (rangoPago(x, c)[1] || "").localeCompare(rangoPago(y, c)[1] || "")).pop();
-    const ini = ult ? masDias(rangoPago(ult, c)[1], 1) : (c.inicio || hoyISO());
+    const ini = ult ? rangoPago(ult, c)[1] : (c.inicio || hoyISO());   // el pago siguiente arranca el día que termina el anterior
     const s = openSheet({ title: `Pago · ${c.nombre || "Casa"}`, body: `<form class="stack">
       <label class="field"><span>Total pagado</span><input type="number" inputmode="numeric" name="monto" min="0" required></label>
       <label class="field"><span>Desde</span><input type="date" name="desde" value="${esc(ini)}" required></label>
-      <label class="field"><span>Hasta</span><input type="date" name="hasta" value="${esc(masDias(masMeses(ini, 1), -1))}" required></label>
+      <label class="field"><span>Hasta (día de salida, esa noche no cuenta)</span><input type="date" name="hasta" value="${esc(masMeses(ini, 1))}" required></label>
       <button class="btn btn-primary btn-block">Guardar</button></form>` });
     $("form", s.el).onsubmit = e => {
       e.preventDefault(); const f = e.target;
-      if (f.hasta.value < f.desde.value) return toast("La fecha de fin es anterior al inicio", "warning");
+      if (f.hasta.value <= f.desde.value) return toast("La fecha de fin tiene que ser después del inicio", "warning");
       const p = { id: nuevoId(), monto: Number(f.monto.value) || 0, desde: f.desde.value, hasta: f.hasta.value };
       updCasa(cid, x => ({ ...x, inicio: x.inicio || p.desde, pagos: [...(x.pagos || []), p] })); s.close();
     };
