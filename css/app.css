@@ -1414,3 +1414,4 @@ body[data-lector-uno="1"] .tabbar, body[data-lector-uno="1"] .side-nav, body[dat
 .fijos-est-fila input { min-width: 0; max-width: 150px; }
 @media (max-width: 480px) { .fijos-est-fila { grid-template-columns: 1fr 1fr; } .fijos-est-fila b { grid-column: 1 / -1; } .fijos-est-fila input { max-width: none; width: 100%; } }
 .firma-autor { margin: -6px 0 0; font-size: 11px; color: var(--muted); opacity: .8; }
+.login-tema { position: fixed; right: max(16px, env(safe-area-inset-right)); bottom: max(16px, env(safe-area-inset-bottom)); z-index: 5; background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow); }

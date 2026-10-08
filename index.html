@@ -9,9 +9,10 @@
       try {
         // Oscuro por defecto; el usuario lo cambia en Ajustes
         // Link de perito (?ver=): claro por defecto, con su propio botón para cambiarlo
-        var lector = /[?&]ver=/.test(location.search);
-        var t = localStorage.getItem(lector ? "temaLector" : "tema");
-        document.documentElement.setAttribute("data-theme", lector ? (t === "dark" ? "dark" : "light") : (t === "light" ? "light" : "dark"));
+        // Pantalla de login (sin sesión): clara por defecto, con su propio botón
+        var lector = /[?&]ver=/.test(location.search), sesion = localStorage.getItem("sesion") === "1";
+        var t = localStorage.getItem(lector ? "temaLector" : sesion ? "tema" : "temaLogin");
+        document.documentElement.setAttribute("data-theme", (lector || !sesion) ? (t === "dark" ? "dark" : "light") : (t === "light" ? "light" : "dark"));
       } catch (e) {}
     })();
   </script>
@@ -95,6 +96,7 @@
 
 <!-- Ingreso -->
 <main id="login" class="login" hidden>
+  <button type="button" class="icon-btn login-tema" id="login-tema" aria-label="Modo claro / oscuro" title="Modo claro / oscuro"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor"/></svg></button>
   <div class="login-art" aria-hidden="true"></div>
   <section class="login-card">
     <img class="login-logo logo-on-light" src="img/logo-oscuro.png" alt=""><img class="login-logo logo-on-dark" src="img/logo-claro.png" alt="">

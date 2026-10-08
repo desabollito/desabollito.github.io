@@ -230,6 +230,12 @@ $("#login-form").addEventListener("submit", async e => {
 
 
 
+$("#login-tema").addEventListener("click", () => {
+  const t = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
+  document.documentElement.setAttribute("data-theme", t);
+  try { localStorage.setItem("temaLogin", t); } catch { /* sin almacenamiento */ }
+});
+
 // Olvidé mi contraseña: el bot manda un código por WhatsApp y con él se elige una nueva
 $("#olvide").addEventListener("click", () => {
   const api = (ruta, datos) => fetch(`${BOT_API}/${ruta}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(datos) })
@@ -273,6 +279,12 @@ const tokenVer = new URLSearchParams(location.search).get("ver");
 const alEntrar = (logueado, error) => {
   $("#splash").hidden = true;
   $("#login").hidden = logueado;
+  // Login: tema propio (claro por defecto); con sesión, el tema elegido en Ajustes (oscuro por defecto)
+  try {
+    localStorage.setItem("sesion", logueado ? "1" : "0");
+    const t = localStorage.getItem(logueado ? "tema" : "temaLogin");
+    document.documentElement.setAttribute("data-theme", logueado ? (t === "light" ? "light" : "dark") : (t === "dark" ? "dark" : "light"));
+  } catch { /* sin almacenamiento */ }
   $("#shell").hidden = !logueado;
   if (!logueado) {
     busy($("#login-submit"), false);
