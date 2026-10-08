@@ -47,7 +47,7 @@ export default {
       "/admin/datos": adminDatos, "/admin/borrar-usuario": adminBorrarUsuario, "/admin/config": adminConfig, "/admin/padron": adminPadron, "/mover-vehiculo": moverVehiculo,
       "/borrar-media": borrarMediaApi, "/eliminar-vehiculo": eliminarVehiculoApi,
       "/compartir": compartirApi, "/compartido": compartidoApi,
-      "/recuperar": recuperarApi, "/restablecer": restablecerApi,
+      "/recuperar": recuperarApi, "/restablecer": restablecerApi, "/usuarios-app": usuariosAppApi,
       "/admin/resumen-ahora": async (env, { idToken, forzar }) => (await soloCreador(env, idToken)) ? json({ ok: true, enviados: await enviarResumenesDiarios(env, forzar) }) : json({ ok: false }, 403) };
     if (API[url.pathname]) {
       if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
@@ -2798,6 +2798,16 @@ async function adminBorrarUsuario(env, { idToken, uid }) {
   }
   await fsDelete(env, `users/${uid}`).catch(() => {});
   return json({ ok: true });
+}
+
+// Usuarios aprobados de la app (para que un administrador los sume a su operativo sin escribir el @usuario)
+async function usuariosAppApi(env, { idToken, cid }) {
+  const m = await miembroDe(env, idToken, cid);
+  if (!m || !["owner", "admin"].includes(m.c.roles?.[m.uid])) return json({ ok: false, error: "No autorizado" }, 403);
+  const ya = new Set(m.c.members || []);
+  const lista = (await fsList(env, "users")).filter(u => u.username && u.aprobado !== false && !u.rechazado && !ya.has(u.__id))
+    .map(u => ({ username: u.username, name: u.name || "" })).sort((a, b) => (a.name || a.username).localeCompare(b.name || b.username));
+  return json({ ok: true, lista });
 }
 
 // ── Olvidé mi contraseña: el bot manda un código por WhatsApp y con él se pone una nueva ──

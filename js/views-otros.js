@@ -14,7 +14,7 @@ import { NOVEDADES } from "./novedades.js";
 import { planillaPDF } from "./pdf.js";
 import { exportarExcel } from "./excel.js";
 import { setTopbar, go, logoOperativo } from "./shell.js";
-import { APP_VERSION, WHATSAPP_BOT } from "./config.js";
+import { APP_VERSION, WHATSAPP_BOT, BOT_API } from "./config.js";
 
 // ═════════════════════════════════════════════════════════════
 //  PLANILLA
@@ -337,18 +337,33 @@ export function vistaEmpresa(view) {
   });
   $("#compartir-perito", view)?.addEventListener("click", compartirPerito);
   $("#agregar-usuario", view)?.addEventListener("click", () => {
-    let rol = "tecnico";
+    let rol = "admin";
     const sh = openSheet({
       title: "Agregar personas",
       body: `<form class="stack" id="add">
-        <label class="field"><span>Nombre de usuario</span>
-          <input name="u" placeholder="Ej: desabollito" autocapitalize="none" spellcheck="false" required></label>
+        <label class="field"><span>Buscar en la app</span>
+          <input name="u" placeholder="Nombre o @usuario" autocapitalize="none" spellcheck="false" autocomplete="off" required></label>
+        <div class="usr-tira" id="usr-tira"><span class="muted small">Cargando usuarios…</span></div>
         <div class="field"><span>Rol</span>
-          <select id="rol-nuevo">${[["desmontaje", "Desmontador"], ["tecnico", "Sacabollos"], ["admin", "Administrador"]].map(([k, l]) => `<option value="${k}" ${k === "tecnico" ? "selected" : ""}>${l}</option>`).join("")}</select></div>
+          <select id="rol-nuevo">${[["desmontaje", "Desmontador"], ["tecnico", "Sacabollos"], ["admin", "Administrador"]].map(([k, l]) => `<option value="${k}" ${k === "admin" ? "selected" : ""}>${l}</option>`).join("")}</select></div>
         <button class="btn btn-primary btn-block btn-lg">${icon("plus")}Agregar</button>
       </form>`
     });
     $("#rol-nuevo", sh.el).onchange = e => { rol = e.target.value; };
+    // Tira de usuarios de la app: se filtra con lo que escribís; tocar uno lo elige
+    const tira = $("#usr-tira", sh.el), inp = $("[name=u]", sh.el);
+    let todos = [];
+    const pintarTira = () => {
+      const q = inp.value.trim().toLowerCase().replace(/^@/, "");
+      const l = todos.filter(u => !q || u.username.toLowerCase().includes(q) || u.name.toLowerCase().includes(q)).slice(0, 30);
+      tira.innerHTML = l.length ? l.map(u => `<button type="button" class="usr-chip ${u.username.toLowerCase() === q ? "on" : ""}" data-u="${esc(u.username)}">
+          <span class="avatar sm">${esc(initials(u.name || u.username))}</span><span><strong>${esc(u.name || u.username)}</strong><small>@${esc(u.username)}</small></span></button>`).join("")
+        : `<span class="muted small">${todos.length ? "No hay coincidencias" : "No hay usuarios para sumar"}</span>`;
+    };
+    S.user.getIdToken().then(idToken => fetch(`${BOT_API}/usuarios-app`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ idToken, cid: c.id }) }))
+      .then(r => r.json()).then(j => { todos = j.lista || []; pintarTira(); }).catch(() => { tira.innerHTML = `<span class="muted small">No se pudo cargar la lista. Escribí el usuario.</span>`; });
+    inp.addEventListener("input", pintarTira);
+    tira.onclick = e => { const b = e.target.closest("[data-u]"); if (!b) return; inp.value = b.dataset.u; pintarTira(); };
     $("#add", sh.el).onsubmit = async e => {
       e.preventDefault();
       const b = $("button.btn-primary", e.target); busy(b, true, "Buscando…");
