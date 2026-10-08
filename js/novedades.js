@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "2.45.35", items: ["Sueldos: desde/hasta, monto y opción fijo mensual; agregar técnicos que solo están a sueldo."] },
   { v: "2.45.33", items: ["Planilla de técnicos: pestañas Sacabollos, Sueldos y Cierre (con todos).", "Viandas y alquiler de PABLO y RODRI se suman al sacabollo PAB+ROD."] },
   { v: "2.45.32", items: ["Cierre: abajo aparecen los técnicos que solo están en viandas o alquiler, para cerrarlos ahí."] },
   { v: "2.45.31", items: ["Alquiler: la fecha de inicio solo se cambia al editar."] },

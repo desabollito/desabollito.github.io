@@ -186,20 +186,40 @@ export function vistaTecnicos(view) {
     });
     return out;
   };
+  // Sueldos: cada uno con su rango (desde/hasta). "Fijo" se repite todos los meses desde "desde" (hasta "hasta" si tiene).
+  // En el cierre cuenta el monto completo si cae en el período elegido; los fijos cuentan una vez por mes.
+  const masMes = (iso, n) => { const [y, m, d] = iso.split("-").map(Number); const f = new Date(y, m - 1 + n, 1), ult = new Date(f.getFullYear(), f.getMonth() + 1, 0).getDate();
+    return `${f.getFullYear()}-${String(f.getMonth() + 1).padStart(2, "0")}-${String(Math.min(d, ult)).padStart(2, "0")}`; };
+  const vecesSueldo = m => {
+    const desde = m.desde || m.fecha || "", hasta = m.hasta || desde;
+    if (!desde) return 0;
+    if (!m.fijo) return (!T.hasta || desde <= T.hasta) && (!T.desde || hasta >= T.desde) ? 1 : 0;
+    const tope = [m.hasta, T.hasta, hoyISO()].filter(Boolean).sort()[0];
+    let n = 0;
+    for (let k = 0, f = desde; f <= tope && k < 240; f = masMes(desde, ++k)) if (!T.desde || f >= T.desde) n++;
+    return n;
+  };
+  const sueldosDe = id => (cfg.movs || []).filter(m => m.tec === id && m.tipo === "sueldo");
+  const totalSueldo = id => sueldosDe(id).reduce((a, m) => a + (Number(m.monto) || 0) * vecesSueldo(m), 0);
+  const listaSueldos = id => sueldosDe(id).map(m => { const v = vecesSueldo(m), d = m.desde || m.fecha;
+    return `<li class="${v ? "" : "muted"}"><span>${m.fijo ? `Fijo mensual desde ${fechaCorta(d)}${m.hasta ? ` hasta ${fechaCorta(m.hasta)}` : ""}${v > 1 ? ` · ×${v}` : ""}`
+      : `${fechaCorta(d)}${m.hasta && m.hasta !== d ? ` al ${fechaCorta(m.hasta)}` : ""}`}${m.nota ? " · " + esc(m.nota) : ""}</span><b>${pesos(m.monto)}</b>
+      ${T.editando ? `<button type="button" class="icon-btn sm" data-del-mov="${esc(m.id)}" aria-label="Quitar">${icon("x")}</button>` : ""}</li>`; }).join("") ||
+    `<li class="muted small">Sin sueldos cargados</li>`;
   const listaMovs = (l, vacio) => l.map(m => `<li><span>${fechaCorta(m.fecha)}${m.nota ? " · " + esc(m.nota) : ""}</span><b>${m.tipo === "sueldo" ? "" : "-"}${pesos(m.monto)}</b>
       ${T.editando ? `<button type="button" class="icon-btn sm" data-del-mov="${esc(m.id)}" aria-label="Quitar">${icon("x")}</button>` : ""}</li>`).join("") ||
       `<li class="muted small">${vacio}</li>`;
 
   const pintarSueldos = () => {
     const ps = personasSueldo(asignarFijos().sueltos);
-    return `${ps.length ? `<div class="tec-cierre-grid">${ps.map(p => { const su = movsDe(p.id, "sueldo");
+    return `${ps.length ? `<div class="tec-cierre-grid">${ps.map(p => {
       return `<section class="tec-cierre" data-tecid="${esc(p.id)}">
         <h3 class="tec-cierre-nombre">${esc(p.nombre)}${p.manual && T.editando ? ` <button type="button" class="link-btn small" data-del-persona="${esc(p.id)}">Quitar</button>` : ""}</h3>
-        <div class="tec-linea"><span>Sueldo</span><b>${pesos(suma(su))}</b>${T.editando ? `<button type="button" class="link-btn small" data-add-mov="sueldo">+ Sueldo</button>` : ""}</div>
-        <ul class="tec-movs">${listaMovs(su, "Sin sueldos cargados")}</ul>
+        <div class="tec-linea"><span>Sueldo</span><b>${pesos(totalSueldo(p.id))}</b>${T.editando ? `<button type="button" class="link-btn small" data-add-mov="sueldo">+ Sueldo</button>` : ""}</div>
+        <ul class="tec-movs">${listaSueldos(p.id)}</ul>
       </section>`; }).join("")}</div>`
-      : `<div class="empty small"><p>No hay personas a sueldo. Aparecen solas las que están en viandas o alquiler y no son sacabollos.</p></div>`}
-      ${T.editando ? `<button type="button" class="btn btn-ghost btn-block" data-act="persona">${icon("plus")}Agregar persona</button>` : ""}`;
+      : `<div class="empty small"><p>No hay técnicos a sueldo. Aparecen solos los que están en viandas o alquiler y no son sacabollos, o agregalos acá.</p></div>`}
+      <button type="button" class="btn btn-ghost btn-block" data-act="persona">${icon("plus")}Agregar técnico</button>`;
   };
 
   const pintarCierre = rows => {
@@ -209,7 +229,7 @@ export function vistaTecnicos(view) {
     const hayFijos = !!(fijos.viandas?.cambios?.length || fijos.alquiler?.pagos?.length || fijos.alquiler?.casas?.length);
     const tarjeta = (t, ids, sueldo) => {
       const v = ids.reduce((a, id) => a + (vi[id] || 0), 0), a = ids.reduce((x, id) => x + (al[id] || 0), 0);
-      const su = sueldo ? movsDe(t.id, "sueldo") : [], ganado = sueldo ? suma(su) : s[t.id] || 0;
+      const ganado = sueldo ? totalSueldo(t.id) : s[t.id] || 0;
       const ad = movsDe(t.id, "adelanto"), ga = movsDe(t.id, "gasto"), fin = ganado - suma(ad) - suma(ga) - v - a;
       return `<section class="tec-cierre" data-tecid="${esc(t.id)}">
         <h3 class="tec-cierre-nombre">${esc(t.nombre)}${sueldo ? "" : ` <small>${rows.filter(r => r.tecs.includes(t.id)).length} autos</small>`}</h3>
@@ -238,8 +258,8 @@ export function vistaTecnicos(view) {
   async function clic(e) {
     const t = e.target;
     if (t.closest("[data-act=tecnicos]")) return gestionarTecnicos();
-    if (t.closest("[data-act=persona]") && T.editando) {
-      const nombre = (await pedirTexto({ title: "Persona a sueldo", label: "Nombre", ok: "Agregar" }))?.trim();
+    if (t.closest("[data-act=persona]")) {
+      const nombre = (await pedirTexto({ title: "Técnico a sueldo", label: "Nombre", ok: "Agregar" }))?.trim();
       if (nombre) guardarCfg({ personas: [...(cfg.personas || []), { id: nuevoId(), nombre: nombre.toUpperCase() }] });
       return;
     }
@@ -275,6 +295,7 @@ export function vistaTecnicos(view) {
   }
 
   function nuevoMov(tecid, tipo) {
+    if (tipo === "sueldo") return nuevoSueldo(tecid);
     const s = openSheet({ title: `${{ adelanto: "Adelanto", gasto: "Gasto", sueldo: "Sueldo" }[tipo] || "Gasto"} · ${nombreTec(tecid)}`, body: `<form class="stack">
       <label class="field"><span>Monto</span><input name="monto" type="number" inputmode="numeric" min="0" required></label>
       <label class="field"><span>Fecha</span><input name="fecha" type="date" value="${hoyISO()}" required></label>
@@ -283,6 +304,22 @@ export function vistaTecnicos(view) {
     $("form", s.el).onsubmit = ev => {
       ev.preventDefault();
       const f = ev.target, m = { id: nuevoId(), tec: tecid, tipo, monto: Number(f.monto.value) || 0, fecha: f.fecha.value, nota: f.nota.value.trim() };
+      guardarCfg({ movs: [...(cfg.movs || []), m] }); s.close();
+    };
+  }
+
+  function nuevoSueldo(tecid) {
+    const s = openSheet({ title: `Sueldo · ${nombreTec(tecid)}`, body: `<form class="stack">
+      <label class="field"><span>Monto</span><input name="monto" type="number" inputmode="numeric" min="0" required></label>
+      <div class="row2"><label class="field"><span>Desde</span><input name="desde" type="date" value="${hoyISO()}" required></label>
+      <label class="field"><span>Hasta</span><input name="hasta" type="date"></label></div>
+      <label class="switch-row"><span>Fijo (se repite todos los meses)</span><input type="checkbox" name="fijo"></label>
+      <label class="field"><span>Nota (opcional)</span><input name="nota" maxlength="80"></label>
+      <button class="btn btn-primary btn-block">Guardar</button></form>` });
+    $("form", s.el).onsubmit = ev => {
+      ev.preventDefault();
+      const f = ev.target, desde = f.desde.value, hasta = f.hasta.value && f.hasta.value >= desde ? f.hasta.value : "";
+      const m = { id: nuevoId(), tec: tecid, tipo: "sueldo", monto: Number(f.monto.value) || 0, desde, fecha: desde, hasta, fijo: f.fijo.checked, nota: f.nota.value.trim() };
       guardarCfg({ movs: [...(cfg.movs || []), m] }); s.close();
     };
   }

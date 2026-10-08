@@ -1478,3 +1478,6 @@ a.g-bar-fijo { text-decoration: none; color: inherit; }
 .tbl-reparto th { padding: 10px 12px; font-size: 13px; font-weight: 700; color: var(--ink-2); white-space: nowrap; }
 .tbl-reparto tbody tr { cursor: default; }
 .est-acc { display: inline-flex; gap: 12px; align-items: center; }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.switch-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-weight: 600; font-size: 14px; }
+.switch-row input { width: 22px; height: 22px; accent-color: var(--brand, #2b5ce6); }
