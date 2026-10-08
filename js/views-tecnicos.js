@@ -8,14 +8,14 @@ import { S, activos, soyAdmin, mensajeError } from "./data.js";
 import { $, $$, esc, icon, toast, openSheet, confirmar, pedirTexto, fechaCorta, hoyISO } from "./ui.js";
 import { setTopbar } from "./shell.js";
 import { estadoActual } from "./domain.js";
-import { fijosPorNombre } from "./views-fijos.js";
+import { viandasPorTec, repartoAlquiler } from "./views-fijos.js";
 
 export function vistaPlanillas(view) {
   setTopbar({ title: "Planillas", sub: S.company?.name });
   const admin = soyAdmin();
   view.innerHTML = `<div class="planillas-hub">
     <a class="hub-btn" href="#/planilla">${icon("table")}<span><strong>Planilla de vehículos</strong><small>Todos los vehículos del operativo</small></span></a>
-    ${admin ? `<a class="hub-btn" href="#/tecnicos">${icon("team")}<span><strong>Planilla de técnicos</strong><small>Valor por auto, reparto, adelantos y cierre</small></span></a>` : ""}
+    ${admin ? `<a class="hub-btn" href="#/tecnicos">${icon("team")}<span><strong>Planilla de técnicos</strong><small>Sacabollos, sueldos y cierre</small></span></a>` : ""}
     <a class="hub-btn" href="#/gastos">${icon("money")}<span><strong>Planilla de gastos</strong><small>Gastos del operativo</small></span></a>
     ${admin ? `<a class="hub-btn" href="#/fijos">${icon("wallet")}<span><strong>Gastos fijos</strong><small>Viandas y alquiler, repartidos entre los técnicos</small></span></a>` : ""}
   </div>`;
@@ -86,7 +86,7 @@ export function vistaTecnicos(view) {
         <label class="field"><span>Desde</span><input type="date" id="t-desde" value="${esc(T.desde)}"></label>
         <label class="field"><span>Hasta</span><input type="date" id="t-hasta" value="${esc(T.hasta)}"></label>
       </div>
-      <div class="seg seg-sm tec-tabs" id="t-tabs">${[["autos", "Autos"], ["cierre", "Cierre"]].map(([k, t]) =>
+      <div class="seg seg-sm tec-tabs" id="t-tabs">${[["autos", "Sacabollos"], ["sueldos", "Sueldos"], ["cierre", "Cierre"]].map(([k, t]) =>
         `<button type="button" class="seg-btn ${T.tab === k ? "on" : ""}" data-tab="${k}">${t}</button>`).join("")}</div>
       <div id="t-body"></div></div>`;
     $("#t-desde", view).onchange = e => { T.desde = e.target.value; pintar(); };
@@ -97,7 +97,7 @@ export function vistaTecnicos(view) {
     $("#t-body", view).addEventListener("change", cambio);
   };
 
-  const nombreTec = id => cfg.tecnicos.find(t => t.id === id)?.nombre || (fijos.tecnicos || []).find(t => t.id === id)?.nombre || "?";
+  const nombreTec = id => cfg.tecnicos.find(t => t.id === id)?.nombre || (fijos.tecnicos || []).find(t => t.id === id)?.nombre || (cfg.personas || []).find(t => t.id === id)?.nombre || "?";
   const sumaPorTec = rows => { const s = Object.fromEntries(cfg.tecnicos.map(t => [t.id, 0])); rows.forEach(r => r.tecs.forEach(id => { s[id] += r.parte; })); return s; };
 
   const pintar = () => {
@@ -108,9 +108,9 @@ export function vistaTecnicos(view) {
         <button class="btn btn-primary" data-act="tecnicos">${icon("plus")}Agregar técnicos</button></div>`;
       return;
     }
-    if (T.tab !== "cierre") T.tab = "autos";
-    if (T.tab === "autos") body.innerHTML = pintarAutos(rows);
-    if (T.tab === "autos") conectarAnchos(body);
+    if (!["sueldos", "cierre"].includes(T.tab)) T.tab = "autos";
+    if (T.tab === "autos") { body.innerHTML = pintarAutos(rows); conectarAnchos(body); }
+    else if (T.tab === "sueldos") body.innerHTML = pintarSueldos();
     else body.innerHTML = pintarCierre(rows);
   };
 
@@ -163,50 +163,91 @@ export function vistaTecnicos(view) {
   };
 
   const enPeriodo = m => (!T.desde || m.fecha >= T.desde) && (!T.hasta || m.fecha <= T.hasta);
+  const movsDe = (id, tipo) => (cfg.movs || []).filter(m => enPeriodo(m) && m.tec === id && m.tipo === tipo);
+  const suma = l => l.reduce((a, m) => a + (Number(m.monto) || 0), 0);
+  const norm = n => String(n || "").trim().toUpperCase();
+  // Gastos fijos tiene sus propios técnicos. Se cruzan por nombre; un sacabollo "PAB+ROD" junta a PABLO y RODRI.
+  const asignarFijos = () => {
+    const partes = n => norm(n).split(/\s*[+/&,]\s*|\s+Y\s+/).filter(Boolean);
+    const pega = (k, n) => partes(n).some(p => p === k || (p.length >= 3 && k.startsWith(p)) || (k.length >= 3 && p.startsWith(k)));
+    const de = {}, sueltos = [];
+    (fijos.tecnicos || []).forEach(f => {
+      const k = norm(f.nombre);
+      const t = cfg.tecnicos.find(t => norm(t.nombre) === k) || cfg.tecnicos.find(t => pega(k, t.nombre));
+      if (t) (de[t.id] ||= []).push(f.id); else sueltos.push(f);
+    });
+    return { de, sueltos };
+  };
+  // Personas a sueldo: las de viandas/alquiler que no son sacabollos + las agregadas a mano (una por nombre)
+  const personasSueldo = sueltos => {
+    const vistos = new Set(), out = [];
+    [...sueltos.map(f => ({ id: f.id, nombre: f.nombre })), ...(cfg.personas || []).map(p => ({ ...p, manual: true }))].forEach(p => {
+      const k = norm(p.nombre); if (!k || vistos.has(k)) return; vistos.add(k); out.push(p);
+    });
+    return out;
+  };
+  const listaMovs = (l, vacio) => l.map(m => `<li><span>${fechaCorta(m.fecha)}${m.nota ? " · " + esc(m.nota) : ""}</span><b>${m.tipo === "sueldo" ? "" : "-"}${pesos(m.monto)}</b>
+      ${T.editando ? `<button type="button" class="icon-btn sm" data-del-mov="${esc(m.id)}" aria-label="Quitar">${icon("x")}</button>` : ""}</li>`).join("") ||
+      `<li class="muted small">${vacio}</li>`;
+
+  const pintarSueldos = () => {
+    const ps = personasSueldo(asignarFijos().sueltos);
+    return `${ps.length ? `<div class="tec-cierre-grid">${ps.map(p => { const su = movsDe(p.id, "sueldo");
+      return `<section class="tec-cierre" data-tecid="${esc(p.id)}">
+        <h3 class="tec-cierre-nombre">${esc(p.nombre)}${p.manual && T.editando ? ` <button type="button" class="link-btn small" data-del-persona="${esc(p.id)}">Quitar</button>` : ""}</h3>
+        <div class="tec-linea"><span>Sueldo</span><b>${pesos(suma(su))}</b>${T.editando ? `<button type="button" class="link-btn small" data-add-mov="sueldo">+ Sueldo</button>` : ""}</div>
+        <ul class="tec-movs">${listaMovs(su, "Sin sueldos cargados")}</ul>
+      </section>`; }).join("")}</div>`
+      : `<div class="empty small"><p>No hay personas a sueldo. Aparecen solas las que están en viandas o alquiler y no son sacabollos.</p></div>`}
+      ${T.editando ? `<button type="button" class="btn btn-ghost btn-block" data-act="persona">${icon("plus")}Agregar persona</button>` : ""}`;
+  };
+
   const pintarCierre = rows => {
     const s = sumaPorTec(rows), total = rows.reduce((a, r) => a + r.valor, 0);
-    const movs = (cfg.movs || []).filter(enPeriodo);
-    const de = (id, tipo) => movs.filter(m => m.tec === id && m.tipo === tipo);
-    const suma = l => l.reduce((a, m) => a + (Number(m.monto) || 0), 0);
-    // Gastos fijos (viandas y alquiler) de cada técnico en el período: gastos fijos tiene sus propios técnicos y se cruzan por nombre
-    const norm = n => String(n || "").trim().toUpperCase();
-    const fx = fijosPorNombre(fijos, T.desde, T.hasta), nf = t => fx[norm(t.nombre)] || {};
+    const { de, sueltos } = asignarFijos(), ftecs = fijos.tecnicos || [];
+    const vi = viandasPorTec(fijos, ftecs, T.desde, T.hasta), al = repartoAlquiler(fijos, ftecs, T.desde, T.hasta).porTec;
     const hayFijos = !!(fijos.viandas?.cambios?.length || fijos.alquiler?.pagos?.length || fijos.alquiler?.casas?.length);
-    // Los que están en viandas/alquiler pero no en la planilla de autos (uno por nombre)
-    const enAutos = new Set(cfg.tecnicos.map(t => norm(t.nombre))), vistos = new Set();
-    const extras = (fijos.tecnicos || []).filter(t => { const k = norm(t.nombre); if (!k || enAutos.has(k) || vistos.has(k)) return false; vistos.add(k); return true; });
-    const tarjeta = (t, extra) => {
-      const f = nf(t), vi = f.viandas || 0, al = f.alquiler || 0, ganado = extra ? 0 : s[t.id] || 0;
-      const ad = de(t.id, "adelanto"), ga = de(t.id, "gasto"), fin = ganado - suma(ad) - suma(ga) - vi - al;
-      const items = (l, tipo) => l.map(m => `<li><span>${fechaCorta(m.fecha)}${m.nota ? " · " + esc(m.nota) : ""}</span><b>-${pesos(m.monto)}</b>
-        ${T.editando ? `<button type="button" class="icon-btn sm" data-del-mov="${esc(m.id)}" aria-label="Quitar">${icon("x")}</button>` : ""}</li>`).join("") ||
-        `<li class="muted small">Sin ${tipo === "adelanto" ? "adelantos" : "gastos"}</li>`;
-      return `<section class="tec-cierre" data-tecid="${esc(t.id)}" data-tecnom="${esc(t.nombre)}">
-        <h3 class="tec-cierre-nombre">${esc(t.nombre)}${extra ? "" : ` <small>${rows.filter(r => r.tecs.includes(t.id)).length} autos</small>`}</h3>
-        ${extra ? "" : `<div class="tec-linea"><span>Total ganado</span><b>${pesos(ganado)}</b></div>`}
+    const tarjeta = (t, ids, sueldo) => {
+      const v = ids.reduce((a, id) => a + (vi[id] || 0), 0), a = ids.reduce((x, id) => x + (al[id] || 0), 0);
+      const su = sueldo ? movsDe(t.id, "sueldo") : [], ganado = sueldo ? suma(su) : s[t.id] || 0;
+      const ad = movsDe(t.id, "adelanto"), ga = movsDe(t.id, "gasto"), fin = ganado - suma(ad) - suma(ga) - v - a;
+      return `<section class="tec-cierre" data-tecid="${esc(t.id)}">
+        <h3 class="tec-cierre-nombre">${esc(t.nombre)}${sueldo ? "" : ` <small>${rows.filter(r => r.tecs.includes(t.id)).length} autos</small>`}</h3>
+        <div class="tec-linea"><span>${sueldo ? "Sueldo" : "Total ganado"}</span><b>${pesos(ganado)}</b></div>
         <div class="tec-linea"><span>Adelantos</span><b>-${pesos(suma(ad))}</b>${T.editando ? `<button type="button" class="link-btn small" data-add-mov="adelanto">+ Adelanto</button>` : ""}</div>
-        <ul class="tec-movs">${items(ad, "adelanto")}</ul>
+        <ul class="tec-movs">${listaMovs(ad, "Sin adelantos")}</ul>
         <div class="tec-linea"><span>Gastos</span><b>-${pesos(suma(ga))}</b>${T.editando ? `<button type="button" class="link-btn small" data-add-mov="gasto">+ Gasto</button>` : ""}</div>
-        <ul class="tec-movs">${items(ga, "gasto")}</ul>
-        ${hayFijos ? `<div class="tec-linea"><span>Viandas</span><b>-${pesos(vi)}</b></div>
-        <div class="tec-linea"><span>Alquiler</span><b>-${pesos(al)}</b></div>` : ""}
-        <div class="tec-linea tec-final"><span>${extra ? "Total a descontar" : "Final a pagar"}</span><b>${extra ? pesos(-fin) : pesos(fin)}</b></div>
+        <ul class="tec-movs">${listaMovs(ga, "Sin gastos")}</ul>
+        ${hayFijos ? `<div class="tec-linea"><span>Viandas</span><b>-${pesos(v)}</b></div>
+        <div class="tec-linea"><span>Alquiler</span><b>-${pesos(a)}</b></div>` : ""}
+        <div class="tec-linea tec-final"><span>Final a pagar</span><b>${pesos(fin)}</b></div>
       </section>`;
     };
+    const ps = personasSueldo(sueltos);
     return `<div class="tec-cierre-top">
         <div class="tec-stat"><small>Autos</small><strong>${rows.length}</strong></div>
         <div class="tec-stat"><small>Valor de todos los autos</small><strong>${pesos(total)}</strong></div>
       </div>
-      <h3 class="tec-cierre-tit">Por técnico</h3>
-      <div class="tec-cierre-grid">${cfg.tecnicos.map(t => tarjeta(t, false)).join("")}</div>
-      ${extras.length ? `<h3 class="tec-cierre-tit">Solo viandas y alquiler</h3>
-      <div class="tec-cierre-grid">${extras.map(t => tarjeta(t, true)).join("")}</div>` : ""}`;
+      <h3 class="tec-cierre-tit">Sacabollos</h3>
+      <div class="tec-cierre-grid">${cfg.tecnicos.map(t => tarjeta(t, de[t.id] || [], false)).join("")}</div>
+      ${ps.length ? `<h3 class="tec-cierre-tit">Sueldos</h3>
+      <div class="tec-cierre-grid">${ps.map(p => tarjeta(p, sueltos.filter(f => norm(f.nombre) === norm(p.nombre)).map(f => f.id), true)).join("")}</div>` : ""}`;
   };
 
   // ── Acciones ──
   async function clic(e) {
     const t = e.target;
     if (t.closest("[data-act=tecnicos]")) return gestionarTecnicos();
+    if (t.closest("[data-act=persona]") && T.editando) {
+      const nombre = (await pedirTexto({ title: "Persona a sueldo", label: "Nombre", ok: "Agregar" }))?.trim();
+      if (nombre) guardarCfg({ personas: [...(cfg.personas || []), { id: nuevoId(), nombre: nombre.toUpperCase() }] });
+      return;
+    }
+    const dp = t.closest("[data-del-persona]");
+    if (dp && T.editando) {
+      if (!(await confirmar({ title: "¿Quitar esta persona?", ok: "Quitar", danger: true }))) return;
+      return guardarCfg({ personas: (cfg.personas || []).filter(p => p.id !== dp.dataset.delPersona) });
+    }
     const res = t.closest("[data-res]");
     if (res) { T.resumen = res.dataset.res; return pintar(); }
     const fila = t.closest("[data-vid]");
@@ -234,7 +275,7 @@ export function vistaTecnicos(view) {
   }
 
   function nuevoMov(tecid, tipo) {
-    const s = openSheet({ title: `${tipo === "adelanto" ? "Adelanto" : "Gasto"} · ${nombreTec(tecid)}`, body: `<form class="stack">
+    const s = openSheet({ title: `${{ adelanto: "Adelanto", gasto: "Gasto", sueldo: "Sueldo" }[tipo] || "Gasto"} · ${nombreTec(tecid)}`, body: `<form class="stack">
       <label class="field"><span>Monto</span><input name="monto" type="number" inputmode="numeric" min="0" required></label>
       <label class="field"><span>Fecha</span><input name="fecha" type="date" value="${hoyISO()}" required></label>
       <label class="field"><span>Nota (opcional)</span><input name="nota" maxlength="80"></label>
