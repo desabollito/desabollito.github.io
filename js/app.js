@@ -385,7 +385,7 @@ if ("serviceWorker" in navigator) {
     const bar = document.createElement("button");
     bar.type = "button"; bar.id = "update-bar"; bar.className = "update-pop";
     bar.setAttribute("aria-label", "Hay una versión nueva: tocá para actualizar"); bar.title = "Versión nueva";
-    bar.innerHTML = `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.6L18.5 9l-4.6 1.9L12 15.5l-1.9-4.6L5.5 9l4.6-1.4z"/><path d="M19 15l.8 1.9 1.9.8-1.9.8L19 20.4l-.8-1.9-1.9-.8 1.9-.8z"/></svg>`;
+    bar.innerHTML = `<span class="pop-auto"><i class="pop-lineas"></i><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5.6 16H4a1 1 0 0 1-1-1v-2.4c0-.6.4-1.1 1-1.3l2.4-.7 2.5-3A2 2 0 0 1 10.4 7h4.4a2 2 0 0 1 1.6.8l2.4 3.2 1.4.4c.8.2 1.3.9 1.3 1.7V15a1 1 0 0 1-1 1h-1.1M9.4 16h5.2"/><circle cx="7.5" cy="16" r="1.9"/><circle cx="16.5" cy="16" r="1.9"/></svg></span>`;
     bar.onclick = () => {
       bar.classList.add("cargando"); bar.disabled = true;
       try { localStorage.setItem("verNovedades", APP_VERSION); } catch { /* sin almacenamiento */ }
