@@ -1428,3 +1428,8 @@ body[data-lector-uno="1"] .tabbar, body[data-lector-uno="1"] .side-nav, body[dat
 @keyframes girar { to { transform: rotate(360deg); } }
 @media (min-width: 1100px) { .update-pop { top: calc(var(--top) + 14px); right: 22px; } }
 .novedades ul { margin: 4px 0 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; }
+/* App instalada (iPhone con isla): barra superior sólida, sin desenfoque debajo de la isla */
+@media (display-mode: standalone) {
+  .topbar { background: var(--bg); backdrop-filter: none; -webkit-backdrop-filter: none; }
+  .topbar::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: var(--safe-t); background: var(--bg); }
+}
