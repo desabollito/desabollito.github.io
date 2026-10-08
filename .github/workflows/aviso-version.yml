@@ -12,4 +12,5 @@ jobs:
     steps:
       - run: |
           sleep 20
-          curl -sS -X POST -H "Content-Type: application/json" -d '{}' https://desabollito-bot.desabollito.workers.dev/aviso-version
+          R=$(curl -sS -X POST -H "Content-Type: application/json" -d '{}' https://desabollito-bot.desabollito.workers.dev/aviso-version)
+          echo "::notice::$R"
