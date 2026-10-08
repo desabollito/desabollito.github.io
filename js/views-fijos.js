@@ -217,7 +217,8 @@ export function vistaFijos(view) {
         <div class="casa-body">
           ${ed ? `<div class="row-btns"><button type="button" class="btn btn-ghost btn-sm" data-ren-casa>${icon("edit")}Nombre</button>
             <button type="button" class="btn btn-danger-ghost btn-sm" data-del-casa>${icon("trash")}Quitar casa</button></div>` : ""}
-          <label class="field"><span>Empezamos a alquilar el</span><input type="date" data-campo="inicio" value="${esc(c.inicio || "")}" ${ed ? "" : "disabled"}></label>
+          ${ed ? `<label class="field"><span>Empezamos a alquilar el</span><input type="date" data-campo="inicio" value="${esc(c.inicio || "")}"></label>`
+            : c.inicio ? `<div class="fijos-kv"><span>Empezamos a alquilar el</span><b>${fechaCorta(c.inicio)}</b></div>` : ""}
           <h3 class="fijos-tit">Pagos</h3>
           ${pagos.length ? `<ul class="fijos-pagos">${pagos.map(p => { const [ini, fin] = rangoPago(p, c);
             return `<li><span><b>${pesos(p.monto)}</b>${ini ? ` <small class="muted">· ${fechaCorta(ini)} al ${fechaCorta(fin)}</small>` : ""}</span>
