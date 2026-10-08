@@ -1468,3 +1468,7 @@ button.vchip { cursor: pointer; }
 .fijos-tot-body { padding: 0 18px 16px; display: flex; flex-direction: column; gap: 8px; }
 .g-fijos { margin-bottom: 12px; gap: 6px; color: inherit; text-decoration: none; border-left: 4px solid var(--primary); }
 .g-fijos-top { display: flex; flex-direction: column; gap: 1px; margin-bottom: 4px; }
+.g-fijos-sep { display: flex; justify-content: space-between; align-items: center; font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; margin-top: 4px; }
+.g-fijos-sep a { display: inline-flex; align-items: center; gap: 2px; color: var(--primary); text-transform: none; letter-spacing: 0; }
+.g-fijos-sep a .ic { width: 14px; height: 14px; }
+a.g-bar-fijo { text-decoration: none; color: inherit; }

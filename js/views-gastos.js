@@ -71,28 +71,22 @@ export function vistaGastos(view) {
       <button class="btn btn-primary hide-mobile" id="g-nuevo">${icon("plus")}Agregar gasto</button>
     </section>
     <section class="g-list-wrap">
-      <div id="g-fijos"></div>
       <label class="search">${icon("search")}<input type="search" id="g-q" placeholder="Buscar concepto, categoría, técnico…" value="${esc(G.q)}"></label>
       <div id="g-list" class="g-list"></div>
     </section>
   </div>`;
 
-  // Gastos fijos (viandas y alquiler) arriba y aparte: no suman al total de gastos comunes. Solo administradores.
+  // Gastos fijos (viandas y alquiler): se suman al total y van en el mismo resumen. Solo administradores.
   let fijos = null;
-  const pintarFijos = () => {
-    const box = $("#g-fijos", view); if (!box) return;
-    if (!fijos || !(fijos.viandas?.cambios?.length || fijos.alquiler?.pagos?.length)) { box.innerHTML = ""; return; }
+  const totalesFijos = () => {
+    if (!fijos || !(fijos.viandas?.cambios?.length || fijos.alquiler?.pagos?.length)) return null;
     const ini = G.mes ? G.mes + "-01" : "", fin = G.mes ? G.mes + "-31" : "";
     const vi = diasViandas(fijos).filter(d => (!ini || d.fecha >= ini) && (!fin || d.fecha <= fin))
       .reduce((a, d) => a + d.vianda * d.tecs.length + (d.tecs.length ? d.envio : 0), 0);
     const r = repartoAlquiler(fijos, fijos.tecnicos || [], ini, fin);
-    const al = Object.values(r.porTec).reduce((a, b) => a + b, 0) + r.sinAsignar;
-    box.innerHTML = `<a class="card g-fijos" href="#/fijos">
-      <div class="g-fijos-top"><strong>Gastos fijos</strong><small class="muted">${G.mes ? nombreMes(G.mes) : "Total"} · aparte de los gastos comunes</small></div>
-      <div class="fijos-kv"><span>Viandas</span><b>${money(vi) || "$0"}</b></div>
-      <div class="fijos-kv"><span>Alquiler</span><b>${money(al) || "$0"}</b></div>
-      <div class="fijos-kv fijos-kv-total"><span>Total fijos</span><b>${money(vi + al) || "$0"}</b></div></a>`;
+    return { vi, al: Object.values(r.porTec).reduce((a, b) => a + b, 0) + r.sinAsignar };
   };
+  const pintarFijos = () => pintar();
   unsubFijos?.(); unsubFijos = null;
   if (soyAdmin() && S.company) unsubFijos = onSnapshot(doc(db, "companies", S.company.id, "planTec", "_fijos"), d => {
     if (!document.body.contains(view) || location.hash !== "#/gastos") { unsubFijos?.(); unsubFijos = null; return; }
@@ -100,13 +94,13 @@ export function vistaGastos(view) {
   }, () => {});
 
   const pintar = () => {
-    pintarFijos();
     $("#g-mes", view).textContent = G.mes ? nombreMes(G.mes) : "Todos los gastos";
     $("#g-total-l", view).textContent = G.mes ? "Total del mes" : "Total del operativo";
     const todosMes = S.gastos.filter(g => (g.fecha || "").startsWith(claveMes()));
     const total = todosMes.filter(g => !esUSD(g)).reduce((s, g) => s + Number(g.monto || 0), 0);
     const totalUSD = todosMes.filter(esUSD).reduce((s, g) => s + Number(g.monto || 0), 0);
-    $("#g-total", view).textContent = money(total) || "$0";
+    const fx = totalesFijos(), fijosT = fx ? fx.vi + fx.al : 0;
+    $("#g-total", view).textContent = money(total + fijosT) || "$0";
     $("#g-usd", view).textContent = totalUSD ? `+ US$ ${totalUSD.toLocaleString("es-AR")} en dólares` : "";
     $("#g-count", view).textContent = `${todosMes.length} ${todosMes.length === 1 ? "gasto" : "gastos"}`;
 
@@ -115,13 +109,17 @@ export function vistaGastos(view) {
     todosMes.filter(g => !esUSD(g)).forEach(g => { porCat[g.categoria] = (porCat[g.categoria] || 0) + Number(g.monto || 0); });
     const filas = Object.entries(porCat).sort((a, b) => b[1] - a[1]);
     const max = filas[0]?.[1] || 1;
-    $("#g-bars", view).innerHTML = filas.length ? filas.map(([k, v]) => {
+    const maxF = Math.max(filas[0]?.[1] || 0, fx?.vi || 0, fx?.al || 0) || 1;
+    const barrasFijas = fx ? `<div class="g-fijos-sep"><span>Gastos fijos</span><a href="#/fijos">Ver ${icon("next")}</a></div>` + [["Viandas", fx.vi, "#e0a526"], ["Alquiler", fx.al, "#8b5cf6"]].map(([l, v, c]) =>
+      `<a class="g-bar g-bar-fijo" href="#/fijos" style="--c:${c}"><span class="g-bar-l">${l}</span>
+        <span class="g-bar-track"><i style="width:${Math.max(4, v / maxF * 100)}%"></i></span><span class="g-bar-v">${money(v) || "$0"}</span></a>`).join("") : "";
+    $("#g-bars", view).innerHTML = barrasFijas + (fx && filas.length ? `<div class="g-fijos-sep"><span>Gastos comunes</span><span>${money(total) || "$0"}</span></div>` : "") + (filas.length ? filas.map(([k, v]) => {
       const c = catMap()[k] || catMap().otros;
       return `<button class="g-bar ${G.cat === k ? "on" : ""} ${G.cat && G.cat !== k ? "dim" : ""}" data-cat="${k}" style="--c:${c.color}">
         <span class="g-bar-l">${c.label}</span>
-        <span class="g-bar-track"><i style="width:${Math.max(4, v / max * 100)}%"></i></span>
+        <span class="g-bar-track"><i style="width:${Math.max(4, v / maxF * 100)}%"></i></span>
         <span class="g-bar-v">${money(v)}</span></button>`;
-    }).join("") : `<p class="muted small">Sin gastos cargados${G.mes ? " en este mes" : ""}.</p>`;
+    }).join("") : (fx ? "" : `<p class="muted small">Sin gastos cargados${G.mes ? " en este mes" : ""}.</p>`));
 
     const lista = delMes();
     const box = $("#g-list", view);
