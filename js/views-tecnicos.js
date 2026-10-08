@@ -8,6 +8,7 @@ import { S, activos, soyAdmin, mensajeError } from "./data.js";
 import { $, $$, esc, icon, toast, openSheet, confirmar, pedirTexto, fechaCorta, hoyISO } from "./ui.js";
 import { setTopbar } from "./shell.js";
 import { estadoActual } from "./domain.js";
+import { viandasPorTec, repartoAlquiler } from "./views-fijos.js";
 
 export function vistaPlanillas(view) {
   setTopbar({ title: "Planillas", sub: S.company?.name });
@@ -16,6 +17,7 @@ export function vistaPlanillas(view) {
     <a class="hub-btn" href="#/planilla">${icon("table")}<span><strong>Planilla de vehículos</strong><small>Todos los vehículos del operativo</small></span></a>
     ${admin ? `<a class="hub-btn" href="#/tecnicos">${icon("team")}<span><strong>Planilla de técnicos</strong><small>Valor por auto, reparto, adelantos y cierre</small></span></a>` : ""}
     <a class="hub-btn" href="#/gastos">${icon("money")}<span><strong>Planilla de gastos</strong><small>Gastos del operativo</small></span></a>
+    ${admin ? `<a class="hub-btn" href="#/fijos">${icon("wallet")}<span><strong>Gastos fijos</strong><small>Viandas y alquiler, repartidos entre los técnicos</small></span></a>` : ""}
   </div>`;
 }
 
@@ -43,11 +45,12 @@ export function vistaTecnicos(view) {
   if (!soyAdmin()) { view.innerHTML = `<div class="empty"><p>Solo los administradores ven esta planilla.</p></div>`; return; }
   view.innerHTML = `<div class="skeleton tall"></div>`;
   const cid = S.company.id, col = collection(db, "companies", cid, "planTec");
-  let cfg = null, filas = {}, creando = false, gestionando = false;
+  let cfg = null, filas = {}, fijos = {}, creando = false, gestionando = false;
   unsub?.();
   unsub = onSnapshot(col, snap => {
     filas = {}; cfg = null;
-    snap.docs.forEach(d => { if (d.id === "_config") cfg = d.data(); else filas[d.id] = d.data(); });
+    fijos = {};
+    snap.docs.forEach(d => { if (d.id === "_config") cfg = d.data(); else if (d.id === "_fijos") fijos = d.data(); else if (!d.id.startsWith("_")) filas[d.id] = d.data(); });
     cfg = { tecnicos: [], valorDefault: 450000, movs: [], ...(cfg || {}) };
     if (!document.body.contains(view) || location.hash !== "#/tecnicos") { unsub?.(); unsub = null; return; }
     if (!$(".tec-page", view)) estructura();
@@ -118,12 +121,13 @@ export function vistaTecnicos(view) {
   const pintarAutos = rows => {
     if (!rows.length) return `<div class="empty small"><p>Todavía no hay autos en reparación ni entregados${T.desde || T.hasta ? " en ese período" : ""}.</p></div>`;
     const ed = T.editando, tecs = cfg.tecnicos, nc = 4 + tecs.length + (ed ? 1 : 0), w = anchos();
-    const cols = [["veh", "Vehículo", 120], ["pat", "Patente", 90], ["cia", "Compañía", 110], ["imp", "Importe", 100], ...tecs.map(t => [t.id, t.nombre, 95])];
-    const th = ([k, txt], i) => `<th class="${i >= 3 ? "num" : ""} ${k === "imp" ? "col-imp" : ""}" data-col="${esc(k)}">${esc(txt)}<span class="col-res" aria-hidden="true"></span></th>`;
+    // Entre Importe y los técnicos va una columna vacía de separación
+    const cols = [["veh", "Vehículo", 120], ["pat", "Patente", 90], ["imp", "Importe", 100], ["sep", "", 16], ...tecs.map(t => [t.id, t.nombre, 95])];
+    const th = ([k, txt], i) => k === "sep" ? `<th class="tec-sepcol"></th>` : `<th class="${i >= 2 ? "num" : ""} ${k === "imp" ? "col-imp" : ""}" data-col="${esc(k)}">${esc(txt)}<span class="col-res" aria-hidden="true"></span></th>`;
     const semanas = [...new Set(rows.map(r => lunesDe(r.fecha)))];
     const fila = r => `<tr data-vid="${esc(r.v.id)}">
-      <td>${esc((r.v.modelo || "—").toUpperCase())}</td><td>${esc(r.v.patente || "")}</td><td>${esc((r.v.compania || "").toUpperCase())}</td>
-      <td class="num col-imp">${ed ? `<input type="number" inputmode="numeric" min="0" step="1000" data-campo="valor" value="${r.valor}">` : pesos(r.valor)}</td>
+      <td>${esc((r.v.modelo || "—").toUpperCase())}</td><td>${esc(r.v.patente || "")}</td>
+      <td class="num col-imp">${ed ? `<input type="number" inputmode="numeric" min="0" step="1000" data-campo="valor" value="${r.valor}">` : pesos(r.valor)}</td><td class="tec-sepcol"></td>
       ${tecs.map(t => { const si = r.tecs.includes(t.id);
         return `<td class="num ${si ? "" : "tec-no"}">${ed ? `<button type="button" class="tec-celda ${si ? "on" : ""}" data-tec="${esc(t.id)}">${si ? pesos(r.parte) : "⨯"}</button>` : si ? pesos(r.parte) : "⨯"}</td>`; }).join("")}
       ${ed ? `<td><button type="button" class="icon-btn sm" data-act="fila" aria-label="Opciones">${icon("edit")}</button></td>` : ""}</tr>`;
@@ -134,8 +138,8 @@ export function vistaTecnicos(view) {
         const rsS = rows.filter(r => lunesDe(r.fecha) === l), s = sumaPorTec(rsS);
         const dias = [...new Set(rsS.map(r => r.fecha))];
         return dias.map(d => `<tr class="tec-dia-fila"><td colspan="${nc}">${diaLabel(d).toUpperCase()}</td></tr>${rsS.filter(r => r.fecha === d).map(fila).join("")}`).join("") +
-          `<tr class="tec-sub"><td colspan="3">TOTAL SEMANA <small>${fechaCorta(l).slice(0, 5)} al ${fechaCorta(masDias(l, 6)).slice(0, 5)} · ${rsS.length} ${rsS.length === 1 ? "auto" : "autos"}</small></td>
-            <td class="num col-imp">${pesos(rsS.reduce((a, r) => a + r.valor, 0))}</td>
+          `<tr class="tec-sub"><td colspan="2">TOTAL SEMANA <small>${fechaCorta(l).slice(0, 5)} al ${fechaCorta(masDias(l, 6)).slice(0, 5)} · ${rsS.length} ${rsS.length === 1 ? "auto" : "autos"}</small></td>
+            <td class="num col-imp">${pesos(rsS.reduce((a, r) => a + r.valor, 0))}</td><td class="tec-sepcol"></td>
             ${tecs.map(t => `<td class="num">${s[t.id] ? pesos(s[t.id]) : "—"}</td>`).join("")}${ed ? "<td></td>" : ""}</tr>
           <tr class="tec-sep"><td colspan="${nc}"></td></tr>`;
       }).join("")}</tbody></table></div>
@@ -164,6 +168,9 @@ export function vistaTecnicos(view) {
     const movs = (cfg.movs || []).filter(enPeriodo);
     const de = (id, tipo) => movs.filter(m => m.tec === id && m.tipo === tipo);
     const suma = l => l.reduce((a, m) => a + (Number(m.monto) || 0), 0);
+    // Gastos fijos (viandas y alquiler) de cada técnico en el período
+    const hayFijos = !!(fijos.viandas?.cambios?.length || fijos.alquiler?.pagos?.length);
+    const vi = viandasPorTec(fijos, cfg.tecnicos, T.desde, T.hasta), al = repartoAlquiler(fijos, cfg.tecnicos, T.desde, T.hasta).porTec;
     return `<div class="tec-cierre-top">
         <div class="tec-stat"><small>Autos</small><strong>${rows.length}</strong></div>
         <div class="tec-stat"><small>Valor de todos los autos</small><strong>${pesos(total)}</strong></div>
@@ -171,7 +178,7 @@ export function vistaTecnicos(view) {
       <h3 class="tec-cierre-tit">Por técnico</h3>
       <div class="tec-cierre-grid">
       ${cfg.tecnicos.map(t => {
-        const ad = de(t.id, "adelanto"), ga = de(t.id, "gasto"), fin = s[t.id] - suma(ad) - suma(ga);
+        const ad = de(t.id, "adelanto"), ga = de(t.id, "gasto"), fin = s[t.id] - suma(ad) - suma(ga) - (vi[t.id] || 0) - (al[t.id] || 0);
         const items = (l, tipo) => l.map(m => `<li><span>${fechaCorta(m.fecha)}${m.nota ? " · " + esc(m.nota) : ""}</span><b>-${pesos(m.monto)}</b>
           ${T.editando ? `<button type="button" class="icon-btn sm" data-del-mov="${esc(m.id)}" aria-label="Quitar">${icon("x")}</button>` : ""}</li>`).join("") ||
           `<li class="muted small">Sin ${tipo === "adelanto" ? "adelantos" : "gastos"}</li>`;
@@ -182,6 +189,8 @@ export function vistaTecnicos(view) {
           <ul class="tec-movs">${items(ad, "adelanto")}</ul>
           <div class="tec-linea"><span>Gastos</span><b>-${pesos(suma(ga))}</b>${T.editando ? `<button type="button" class="link-btn small" data-add-mov="gasto">+ Gasto</button>` : ""}</div>
           <ul class="tec-movs">${items(ga, "gasto")}</ul>
+          ${hayFijos ? `<div class="tec-linea"><span>Viandas</span><b>-${pesos(vi[t.id])}</b></div>
+          <div class="tec-linea"><span>Alquiler</span><b>-${pesos(al[t.id])}</b></div>` : ""}
           <div class="tec-linea tec-final"><span>Final a pagar</span><b>${pesos(fin)}</b></div>
         </section>`;
       }).join("")}</div>`;
@@ -245,13 +254,13 @@ export function vistaTecnicos(view) {
   function gestionarTecnicos() {
     gestionando = true;
     const s = openSheet({ title: "Técnicos", onClose: () => { gestionando = false; asegurarFilas(); pintar(); }, body: `<div class="stack">
-      <p class="muted small">Solo nombres para esta planilla. Los marcados como activos se ponen solos en los autos nuevos.</p>
+      <p class="muted small">Solo nombres para esta planilla. <b>Marcado por defecto</b>: <b>Sí</b> = aparece marcado solo en cada auto nuevo; <b>No</b> = queda sin marcar y lo marcás vos en los autos que corresponda.</p>
       <ul class="tec-lista" id="tl"></ul>
       <button type="button" class="btn btn-ghost btn-block" id="tl-add">${icon("plus")}Agregar técnico</button>
       <label class="field"><span>Valor del auto por defecto</span><input type="number" inputmode="numeric" id="tl-valor" value="${Number(cfg.valorDefault) || 0}"></label>
     </div>` });
     const pintarL = () => { $("#tl", s.el).innerHTML = cfg.tecnicos.map(t => `<li data-id="${esc(t.id)}">
-      <button type="button" class="switch ${t.activo !== false ? "on" : ""}" data-sw role="switch" aria-checked="${t.activo !== false}"><span class="sw-txt sw-si">Sí</span><span class="sw-txt sw-no">No</span><i class="sw-bola"></i></button>
+      <small class="tl-def">Por defecto</small><button type="button" class="switch ${t.activo !== false ? "on" : ""}" data-sw role="switch" aria-checked="${t.activo !== false}" aria-label="Marcado por defecto"><span class="sw-txt sw-si">Sí</span><span class="sw-txt sw-no">No</span><i class="sw-bola"></i></button>
       <span class="tl-nombre">${esc(t.nombre)}</span>
       <button type="button" class="icon-btn sm" data-up aria-label="Mover a la izquierda" title="Mover antes">↑</button>
       <button type="button" class="icon-btn sm" data-down aria-label="Mover a la derecha" title="Mover después">↓</button>

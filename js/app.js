@@ -12,6 +12,7 @@ import {
 } from "./views-otros.js";
 import { vistaGastos, formGasto } from "./views-gastos.js";
 import { vistaPlanillas, vistaTecnicos } from "./views-tecnicos.js";
+import { vistaFijos } from "./views-fijos.js";
 
 const view = $("#view");
 let ruta = { nombre: "", arg: null };
@@ -40,6 +41,7 @@ const RUTAS = [
   [/^#\/planillas$/,        "planillas",  () => vistaPlanillas(view)],
   [/^#\/planilla$/,         "planilla",   () => vistaPlanilla(view)],
   [/^#\/tecnicos$/,         "tecnicos",   () => vistaTecnicos(view)],
+  [/^#\/fijos$/,            "fijos",      () => vistaFijos(view)],
   [/^#\/calendario$/,       "calendario", () => vistaCalendario(view)],
   [/^#\/(operativo|empresa)$/, "operativo", () => vistaEmpresa(view)],
   [/^#\/gastos$/,           "gastos",     () => vistaGastos(view)],
@@ -83,13 +85,13 @@ function render({ conservarScroll = false, reabrir = false } = {}) {
   ruta = { nombre: hit[1], arg };
   document.body.dataset.ruta = hit[1];
   document.body.dataset.detalle = hit[1] === "vehiculos" && arg ? "1" : "";
-  marcarNav(["nuevo", "editar", "operativo"].includes(hit[1]) ? "" : hit[1] === "papelera" ? "ajustes" : ["planilla", "gastos", "tecnicos"].includes(hit[1]) ? "planillas" : hit[1]);
+  marcarNav(["nuevo", "editar", "operativo"].includes(hit[1]) ? "" : hit[1] === "papelera" ? "ajustes" : ["planilla", "gastos", "tecnicos", "fijos"].includes(hit[1]) ? "planillas" : hit[1]);
   pintarTabPlanilla(hit[1]);
   // Menú lateral (computadora): Planillas se despliega con sus 3 planillas
-  const enPlan = ["planillas", "planilla", "gastos", "tecnicos"].includes(hit[1]);
+  const enPlan = ["planillas", "planilla", "gastos", "tecnicos", "fijos"].includes(hit[1]);
   $(".side-grupo")?.classList.toggle("abierto", enPlan);
   $$(".side-sub a").forEach(a => a.classList.toggle("on", a.dataset.sub === hit[1]));
-  const subTec = $('.side-sub [data-sub="tecnicos"]'); if (subTec) subTec.hidden = !soyAdmin();
+  $$('.side-sub [data-sub="tecnicos"], .side-sub [data-sub="fijos"]').forEach(a => { a.hidden = !soyAdmin(); });
   if (hit[1] === "calendario" && !mismaRuta) calendarioAlEntrar();
   if (!mismaRuta) reiniciarVista3D(); // cada vez que se abre un vehículo, arranca en 2D
   ultimoRender = Date.now();
@@ -163,7 +165,7 @@ addEventListener("hashchange", () => render());
 // Celular: la pestaña Planilla alterna con Gastos al tocarla de nuevo
 // La pestaña "Planillas" abre el menú de planillas (vehículos, técnicos y gastos)
 function pintarTabPlanilla(r) {
-  $("#tab-planilla").classList.toggle("on", ["planillas", "planilla", "gastos", "tecnicos"].includes(r));
+  $("#tab-planilla").classList.toggle("on", ["planillas", "planilla", "gastos", "tecnicos", "fijos"].includes(r));
 }
 
 // Botón flotante: en Gastos carga un gasto, en el resto un vehículo

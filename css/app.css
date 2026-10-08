@@ -1400,3 +1400,16 @@ body[data-lector="1"] [data-act="pdf"] { display: none !important; }
 .plegable-btn > .ic:last-child { flex-shrink: 0; }
 /* Link de un solo vehículo: sin navegación */
 body[data-lector-uno="1"] .tabbar, body[data-lector-uno="1"] .side-nav, body[data-lector-uno="1"] .side-new { display: none !important; }
+.tec-excel .tec-sepcol { background: transparent !important; border: 0 !important; padding: 0; }
+.tl-def { color: var(--muted); font-size: 11px; white-space: nowrap; }
+.fijos-page .card { margin-bottom: 14px; }
+.fijos-kv { display: flex; justify-content: space-between; gap: 12px; }
+.fijos-kv b { text-align: right; }
+.fijos-hist ul, .fijos-pagos { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.fijos-hist li, .fijos-pagos li { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 14px; }
+.fijos-tit { margin: 0; font-size: 15px; }
+.fijos-est { display: flex; flex-direction: column; gap: 10px; }
+.fijos-est-fila { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: end; }
+.fijos-est-fila label { display: flex; flex-direction: column; gap: 2px; }
+.fijos-est-fila input { min-width: 0; max-width: 150px; }
+@media (max-width: 480px) { .fijos-est-fila { grid-template-columns: 1fr 1fr; } .fijos-est-fila b { grid-column: 1 / -1; } .fijos-est-fila input { max-width: none; width: 100%; } }
