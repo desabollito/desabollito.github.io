@@ -524,6 +524,21 @@ ${[...PASO_REP, "facturado"].includes(est) && !soyLector() && (soyAdmin() || soy
   });
   ["pointerup", "pointerleave", "pointercancel"].forEach(ev => pasoTurno?.addEventListener(ev, () => clearTimeout(relojPaso)));
   pasoTurno?.addEventListener("contextmenu", e => e.preventDefault());
+  // Mantener apretado Reparación o Facturado: cambiar las fechas
+  $$('[data-estado="rep"], [data-estado="facturado"]', root).forEach(paso => {
+    let reloj = null;
+    paso.addEventListener("pointerdown", () => {
+      pasoLargo = false;
+      if (soloVer) return;
+      reloj = setTimeout(() => {
+        pasoLargo = true; navigator.vibrate?.(30);
+        const cur = getVehiculo(v.id) || v;
+        if (paso.dataset.estado === "facturado") elegirFechaEstado(cur, "facturado"); else fechasReparacion(cur);
+      }, 600);
+    });
+    ["pointerup", "pointerleave", "pointercancel"].forEach(ev => paso.addEventListener(ev, () => clearTimeout(reloj)));
+    paso.addEventListener("contextmenu", e => e.preventDefault());
+  });
 
   // Mantener apretado el tacho: ofrece borrar solo las fotos del vehículo
   const tacho = $('[data-act="borrar"]', root);
@@ -562,6 +577,12 @@ ${[...PASO_REP, "facturado"].includes(est) && !soyLector() && (soyAdmin() || soy
         toast(ESTADO[sig].label, "success");
         if (sig === "llamado") setTimeout(() => ofrecerAvisoCliente(cur), 350);
         return;
+      }
+      // Facturado: un toque y queda con la fecha de hoy (mantener apretado para elegir otra)
+      if (step.dataset.estado === "facturado") {
+        if (estadoActual(cur) === "facturado") return toast("Ya está facturado · mantené apretado para cambiar la fecha");
+        cambiarEstado(cur, "facturado", hoyISO()).catch(err => toast(mensajeError(err), "error"));
+        return toast(`Facturado · ${fechaCorta(hoyISO())}`, "success");
       }
       return elegirFechaEstado(cur, step.dataset.estado);
     }
@@ -801,6 +822,23 @@ async function ofrecerAvisoCliente(v) {
       open(`https://wa.me/${tel.startsWith("54") ? tel : "549" + tel}?text=${encodeURIComponent(textoAviso(v))}`, "_blank");
     }
   }
+}
+
+// Fechas de la reparación (Reparando, Revisión, Contactado, Entregado): se cambian sin cambiar el estado
+function fechasReparacion(v) {
+  const est = estadoActual(v), hasta = Math.max(PASO_REP.indexOf(est), ["facturado"].includes(est) ? PASO_REP.length - 1 : -1);
+  const pasos = PASO_REP.filter((k, i) => i <= hasta || v.fechas?.[k]);
+  if (!pasos.length) return toast("Todavía no entró a reparación");
+  const s = openSheet({ title: "Fechas de la reparación", body: `<form class="stack">
+    ${pasos.map(k => `<label class="field"><span>${esc(ESTADO[k].label)}</span><input type="date" name="${k}" value="${esc(v.fechas?.[k] || "")}"></label>`).join("")}
+    <button class="btn btn-primary btn-block">Guardar</button></form>` });
+  $("form", s.el).onsubmit = ev => {
+    ev.preventDefault();
+    const fechas = { ...(v.fechas || {}) };
+    pasos.forEach(k => { const val = ev.target[k].value; if (val) fechas[k] = val; });
+    actualizarVehiculo(v.id, { fechas }, "Cambió las fechas de la reparación").then(() => toast("Fechas guardadas", "success")).catch(err => toast(mensajeError(err), "error"));
+    s.close();
+  };
 }
 
 function elegirFechaEstado(v, estado) {
