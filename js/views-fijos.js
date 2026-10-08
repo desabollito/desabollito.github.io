@@ -80,7 +80,11 @@ export function vistaFijos(view) {
   const col = collection(db, "companies", S.company.id, "planTec");
   // Los técnicos de gastos fijos son propios (no los de la planilla de técnicos)
   let fijos = {};
-  const cfg = { get tecnicos() { return fijos.tecnicos || []; } };
+  // Ordenados por fecha de llegada a la casa (los que no tienen fecha, al final en el orden en que se cargaron)
+  const cfg = { get tecnicos() {
+    const est = fijos.alquiler?.estadias || {}, l = fijos.tecnicos || [];
+    return l.map((t, i) => ({ t, i, f: est[t.id]?.llegada || "9999" })).sort((a, b) => a.f.localeCompare(b.f) || a.i - b.i).map(x => x.t);
+  } };
   unsub?.();
   unsub = onSnapshot(col, snap => {
     snap.docs.forEach(d => { if (d.id === "_fijos") fijos = d.data(); });
