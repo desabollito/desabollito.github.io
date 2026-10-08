@@ -24,6 +24,7 @@
   // Links cortos de perito: desabollito.com/smg-k7p2 → la app en modo lectura
   (function () {
     var p = location.pathname.replace(/^\/+|\/+$/g, "");
+    try { var q = decodeURIComponent(p).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase(); if (q === "resena" || q === "resenas") { location.replace("/resena/"); return; } } catch (e) {}
     if (/^[A-Za-z0-9_-]{3,60}$/.test(p)) location.replace("/?ver=" + encodeURIComponent(p) + location.hash);
   })();
 </script>
