@@ -281,16 +281,11 @@ export function vistaEmpresa(view) {
           <span class="m-meta">
             <strong>${esc(m.name)}${m.uid === S.user.uid ? " (vos)" : ""}</strong>
             <small>${ROLES[m.rol]?.label || m.rol}</small>
-            ${m.tags.length || admin ? `<span class="tags">${m.tags.map(t => `<span class="tag">${esc(t)}</span>`).join("")}
-              ${admin ? `<button class="tag tag-edit" data-tags="${m.uid}">${m.tags.length ? icon("edit") + "Etiquetas" : icon("plus") + "Etiqueta"}</button>` : ""}</span>` : ""}
           </span>
           ${admin && m.rol !== "owner" && m.uid !== S.user.uid ? `
             <span class="m-actions">
-              <div class="seg seg-sm seg-rol" data-rol="${m.uid}" role="radiogroup" aria-label="Rol de ${esc(m.name)}">
-                <button type="button" class="seg-btn ${m.rol === "desmontaje" ? "on" : ""}" data-v="desmontaje">Desmontador</button>
-                <button type="button" class="seg-btn ${m.rol === "tecnico" ? "on" : ""}" data-v="tecnico">Técnico</button>
-                <button type="button" class="seg-btn ${m.rol === "admin" ? "on" : ""}" data-v="admin">Admin</button>
-              </div>
+              <select class="rol-sel" data-rol="${m.uid}" aria-label="Rol de ${esc(m.name)}">${[["desmontaje", "Desmontador"], ["tecnico", "Sacabollos"], ["admin", "Administrador"]].map(([k, l]) =>
+                `<option value="${k}" ${m.rol === k ? "selected" : ""}>${l}</option>`).join("")}</select>
               <button class="icon-btn sm" data-quitar="${m.uid}" aria-label="Quitar a ${esc(m.name)}">${icon("x")}</button>
             </span>` : ""}
         </li>`).join("")}</ul>
@@ -299,7 +294,7 @@ export function vistaEmpresa(view) {
 ` : ""}
     </section>
 
-    ${admin ? `<button type="button" class="card plegable plegable-btn" id="compartir-perito"><span>${icon("share")}Compartir con un perito</span>${icon("next")}</button>` : ""}
+    ${admin ? `<button type="button" class="card plegable plegable-btn" id="compartir-perito"><span>${icon("share")}Compartir con perito</span>${icon("next")}</button>` : ""}
 
     ${admin ? `<details class="card plegable">
       <summary><span>${icon("file")}Sello</span>${icon("next")}</summary>
@@ -348,18 +343,11 @@ export function vistaEmpresa(view) {
         <label class="field"><span>Nombre de usuario</span>
           <input name="u" placeholder="Ej: desabollito" autocapitalize="none" spellcheck="false" required></label>
         <div class="field"><span>Rol</span>
-          <div class="seg seg-rol" id="rol-nuevo">
-            <button type="button" class="seg-btn" data-v="desmontaje">Desmontador</button>
-            <button type="button" class="seg-btn on" data-v="tecnico">Técnico</button>
-            <button type="button" class="seg-btn" data-v="admin">Admin</button>
-          </div></div>
+          <select id="rol-nuevo">${[["desmontaje", "Desmontador"], ["tecnico", "Sacabollos"], ["admin", "Administrador"]].map(([k, l]) => `<option value="${k}" ${k === "tecnico" ? "selected" : ""}>${l}</option>`).join("")}</select></div>
         <button class="btn btn-primary btn-block btn-lg">${icon("plus")}Agregar</button>
       </form>`
     });
-    $("#rol-nuevo", sh.el).onclick = e => {
-      const b = e.target.closest("[data-v]"); if (!b) return;
-      rol = b.dataset.v; $$("#rol-nuevo .seg-btn", sh.el).forEach(x => x.classList.toggle("on", x === b));
-    };
+    $("#rol-nuevo", sh.el).onchange = e => { rol = e.target.value; };
     $("#add", sh.el).onsubmit = async e => {
       e.preventDefault();
       const b = $("button.btn-primary", e.target); busy(b, true, "Buscando…");
@@ -367,12 +355,8 @@ export function vistaEmpresa(view) {
       catch (err) { toast(mensajeError(err), "error"); busy(b, false); }
     };
   });
-  $$("[data-rol]", view).forEach(g => g.onclick = e => {
-    const b = e.target.closest("[data-v]"); if (!b || b.classList.contains("on")) return;
-    $$(".seg-btn", g).forEach(x => x.classList.toggle("on", x === b));
-    cambiarRol(g.dataset.rol, b.dataset.v).then(() => toast("Rol actualizado", "success")).catch(err => toast(mensajeError(err), "error"));
-  });
-  $$("[data-tags]", view).forEach(b => b.onclick = () => editarEtiquetas(b.dataset.tags));
+  $$("select[data-rol]", view).forEach(sel => sel.onchange = () =>
+    cambiarRol(sel.dataset.rol, sel.value).then(() => toast("Rol actualizado", "success")).catch(err => toast(mensajeError(err), "error")));
   $$("[data-quitar]", view).forEach(b => b.onclick = async () => {
     const n = c.memberNames?.[b.dataset.quitar] || "esta persona";
     if (await confirmar({ title: `¿Quitar a ${n}?`, message: "Deja de ver los vehículos del operativo. Lo que cargó se conserva.", ok: "Quitar", danger: true }))
@@ -485,9 +469,9 @@ export function elegirEmpresaSheet() {
         <span><strong>${esc(c.name)}</strong><small>${ROLES[c.roles?.[S.user.uid]]?.label || ""} · ${c.members.length} ${c.members.length === 1 ? "persona" : "personas"}</small></span>
         ${c.id === S.company?.id ? icon("check") : ""}</button></li>`).join("")}</ul>
       <div class="stack-sm full">
-        <a class="btn btn-primary btn-block" href="#/operativo" data-close>${icon("team")}Gestionar operativo</a>
-        <button class="btn btn-ghost btn-block" id="unir-op">${icon("team")}Unirme a otro operativo</button>
-        ${soloDesmontaje() ? "" : `<button class="btn btn-ghost btn-block" id="nuevo-op">${icon("plus")}Crear otro operativo</button>`}
+        <a class="btn btn-primary btn-block" href="#/operativo" data-close>${icon("team")}Gestionar</a>
+        <button class="btn btn-ghost btn-block" id="unir-op">${icon("team")}Unirme a otro</button>
+        ${soloDesmontaje() ? "" : `<button class="btn btn-ghost btn-block" id="nuevo-op">${icon("plus")}Crear un operativo</button>`}
       </div>`
   });
   s.body.addEventListener("click", e => {
@@ -517,8 +501,7 @@ export function vistaAjustes(view) {
       <div class="profile-row">
         <span class="avatar lg">${esc(initials(p.name))}</span>
         <div class="profile-meta"><h2>${esc(p.name)}</h2><p class="muted">@${esc(p.username)}</p>
-          ${p.whatsapp ? `<p class="perfil-wa" title="WhatsApp vinculado al bot">${icon("chat")}+${esc(String(p.whatsapp).replace(/^(\d{2})(9)(\d{2})(\d{4})(\d{4})$/, "$1 $2 $3 $4-$5"))}
-            <button type="button" class="icon-btn sm wa-desv" id="wa-desv" aria-label="Desvincular WhatsApp" title="Desvincular WhatsApp">${icon("x")}</button></p>` : ""}</div>
+          ${p.whatsapp ? `<p class="perfil-wa" title="WhatsApp vinculado al bot">${icon("chat")}+${esc(String(p.whatsapp).replace(/^(\d{2})(9)(\d{2})(\d{4})(\d{4})$/, "$1 $2 $3 $4-$5"))}</p>` : ""}</div>
       </div>
       <button class="btn btn-ghost btn-block" id="editar-perfil">${icon("edit")}Editar perfil</button>
     </section>
@@ -548,10 +531,6 @@ export function vistaAjustes(view) {
     </section>
   </div>`;
 
-  $("#wa-desv", view)?.addEventListener("click", async () => {
-    if (!(await confirmar({ title: "¿Desvincular tu WhatsApp?", message: "El bot te va a pedir tu usuario la próxima vez que le escribas (desde este u otro número).", ok: "Desvincular", danger: true }))) return;
-    desvincularWhatsApp().then(() => toast("WhatsApp desvinculado", "success")).catch(e => toast(mensajeError(e), "error"));
-  });
   $("#editar-perfil", view).onclick = () => editarPerfil(() => vistaAjustes(view));
   $("#tema", view).onclick = e => {
     const b = e.target.closest("[data-t]"); if (!b) return;
@@ -606,7 +585,12 @@ function editarPerfil(alTerminar) {
         <input name="usuario" value="${esc(p.username)}" required autocapitalize="none" spellcheck="false">
         <small class="muted">Letras, números, punto o guion. Es el que usan para sumarte a un operativo.</small></label>
       <button class="btn btn-primary btn-block btn-lg">Guardar perfil</button>
+      ${p.whatsapp ? `<button type="button" class="btn btn-danger-ghost btn-block" id="wa-desv">${icon("chat")}Desvincular WhatsApp</button>` : ""}
     </form>`
+  });
+  $("#wa-desv", s.el)?.addEventListener("click", async () => {
+    if (!(await confirmar({ title: "¿Desvincular tu WhatsApp?", message: "El bot te va a pedir tu usuario la próxima vez que le escribas (desde este u otro número).", ok: "Desvincular", danger: true }))) return;
+    desvincularWhatsApp().then(() => { toast("WhatsApp desvinculado", "success"); s.close(); alTerminar?.(); }).catch(e => toast(mensajeError(e), "error"));
   });
   $("#perfil-form", s.el).onsubmit = async e => {
     e.preventDefault();

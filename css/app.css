@@ -1393,3 +1393,6 @@ body[data-lector="1"] [data-act="pdf"] { display: none !important; }
 .plegable-btn { display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 16px 18px; font: inherit; font-weight: 700; color: inherit; text-align: left; cursor: pointer; border: 1px solid var(--line); }
 .plegable-btn span { display: inline-flex; align-items: center; gap: 10px; }
 .plegable-btn > .ic:last-child { color: var(--muted); }
+.rol-sel { min-height: 34px; padding: 4px 8px; border-radius: 9px; border: 1px solid var(--line); background: var(--surface-2); color: var(--ink); font: inherit; font-size: 14px; max-width: 100%; }
+.members .m-meta { min-width: 0; flex: 1; }
+.plegable-btn { box-sizing: border-box; max-width: 100%; }

@@ -46,7 +46,7 @@ export const VIDRIOS = [
 export const ROLES = {
   owner:   { label: "Dueño" },
   admin:   { label: "Administrador" },
-  tecnico: { label: "Técnico" },
+  tecnico: { label: "Sacabollos" },
   desmontaje: { label: "Desmontador" }   // solo ve los vehículos y carga desmontajes
 };
 

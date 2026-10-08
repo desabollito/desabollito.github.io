@@ -500,7 +500,7 @@ function mostrarPedidosUnion() {
   const s = openSheet({ title: "Pedido para unirse", body: `<form class="stack">
       <p><strong>${esc(p.name || "")}</strong> (@${esc(p.username || "")}) quiere unirse a tu operativo.</p>
       <label class="field"><span>Sumarlo a</span><select name="cid">${mios.map(c => `<option value="${esc(c.id)}" ${c.id === S.company?.id ? "selected" : ""}>${esc(c.name)}</option>`).join("")}</select></label>
-      <label class="field"><span>Rol</span><select name="rol">${[["desmontaje", "Desmontador"], ["tecnico", "Técnico"], ["admin", "Administrador"]].map(([k, l]) =>
+      <label class="field"><span>Rol</span><select name="rol">${[["desmontaje", "Desmontador"], ["tecnico", "Sacabollos"], ["admin", "Administrador"]].map(([k, l]) =>
         `<option value="${k}" ${(p.rol || "tecnico") === k ? "selected" : ""}>${l}</option>`).join("")}</select></label>
       <div class="row-btns"><button type="button" class="btn btn-ghost" data-no>Rechazar</button>
         <button class="btn btn-primary" type="submit">Sumar</button></div></form>` });
