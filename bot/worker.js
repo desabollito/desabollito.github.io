@@ -2559,8 +2559,24 @@ function mismaCia(a, b) {
   const grupo = COMPANIAS.find(([n, al]) => [sinTildes(n), ...al].includes(y));
   return !!grupo && [sinTildes(grupo[0]), ...grupo[1]].includes(x);
 }
-async function compartirApi(env, { idToken, cid, compania, accion, token }) {
+async function compartirApi(env, { idToken, cid, compania, accion, token, vid }) {
   const m = await miembroDe(env, idToken, cid);
+  // Un solo vehículo ("Vehículo en App"): cualquiera del operativo menos el desmontador. Si ya hay link, se reusa.
+  if (accion === "vehiculo") {
+    if (!m || m.c.roles?.[m.uid] === "desmontaje" || !idValido(vid)) return json({ ok: false, error: "No autorizado" }, 403);
+    const v = await fsGet(env, `companies/${cid}/vehicles/${vid}`);
+    if (!v || v.deleted) return json({ ok: false, error: "No encontré el vehículo" }, 404);
+    const ya = (await fsQuery(env, "", "compartidos", { field: "vid", op: "EQUAL", value: vid }, 5).catch(() => [])).find(x => x.cid === cid);
+    if (ya) return json({ ok: true, token: ya.__id });
+    const base = (String(v.patente || "auto").toLowerCase().replace(/[^a-z0-9]/g, "") || "auto").slice(0, 10);
+    let tk = "";
+    for (let i = 0; i < 5 && !tk; i++) {
+      const cand = base + "-" + [...crypto.getRandomValues(new Uint8Array(4))].map(b => "abcdefghjkmnpqrstuvwxyz23456789"[b % 31]).join("");
+      if (!(await fsGet(env, `compartidos/${cand}`).catch(() => null))) tk = cand;
+    }
+    await fsSet(env, `compartidos/${tk}`, { cid, vid, compania: "", por: m.uid, t: Date.now() });
+    return json({ ok: true, token: tk });
+  }
   if (!m || !["owner", "admin"].includes(m.c.roles?.[m.uid])) return json({ ok: false, error: "Solo los administradores pueden compartir" }, 403);
   if (accion === "crear") {
     const cia = String(compania || "").trim().slice(0, 60);
@@ -2579,8 +2595,8 @@ async function compartirApi(env, { idToken, cid, compania, accion, token }) {
     const c = await fsGet(env, `compartidos/${token}`);
     if (c?.cid === cid) await fsDelete(env, `compartidos/${token}`);
   }
-  const lista = (await fsQuery(env, "", "compartidos", { field: "cid", op: "EQUAL", value: cid }, 50).catch(() => []))
-    .map(x => ({ token: x.__id, compania: x.compania, t: x.t || 0 })).sort((a, b) => b.t - a.t);
+  const lista = (await fsQuery(env, "", "compartidos", { field: "cid", op: "EQUAL", value: cid }, 100).catch(() => []))
+    .filter(x => !x.vid).map(x => ({ token: x.__id, compania: x.compania, t: x.t || 0 })).sort((a, b) => b.t - a.t);
   return json({ ok: true, lista });
 }
 // La app en modo lectura pide los datos con el token (sin cuenta)
@@ -2590,10 +2606,15 @@ async function compartidoApi(env, { token }) {
   if (!c?.cid) return json({ ok: false, error: "Este link ya no está disponible" }, 404);
   const op = await fsGet(env, `companies/${c.cid}`);
   if (!op) return json({ ok: false, error: "Este link ya no está disponible" }, 404);
-  const vs = (await fsList(env, `companies/${c.cid}/vehicles`))
+  let vs;
+  if (c.vid) {   // link de un solo vehículo
+    const v = await fsGet(env, `companies/${c.cid}/vehicles/${c.vid}`);
+    if (!v || v.deleted) return json({ ok: false, error: "Este vehículo ya no está disponible" }, 404);
+    const { __id, ...resto } = v; vs = [{ ...resto, id: c.vid }];
+  } else vs = (await fsList(env, `companies/${c.cid}/vehicles`))
     .filter(v => !v.deleted && mismaCia(v.compania, c.compania))
     .map(({ __id, ...v }) => ({ ...v, id: __id }));
-  return json({ ok: true, compania: c.compania,
+  return json({ ok: true, compania: c.compania, vid: c.vid || null,
     operativo: { id: c.cid, name: op.name || "", seal: op.seal || {}, memberUsers: op.memberUsers || {}, memberNames: op.memberNames || {} }, vehiculos: vs });
 }
 

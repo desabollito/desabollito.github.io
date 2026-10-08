@@ -1396,3 +1396,7 @@ body[data-lector="1"] [data-act="pdf"] { display: none !important; }
 .rol-sel { min-height: 34px; padding: 4px 8px; border-radius: 9px; border: 1px solid var(--line); background: var(--surface-2); color: var(--ink); font: inherit; font-size: 14px; max-width: 100%; }
 .members .m-meta { min-width: 0; flex: 1; }
 .plegable-btn { box-sizing: border-box; max-width: 100%; }
+.card.plegable-btn { flex-direction: row; flex-wrap: nowrap; gap: 10px; }
+.plegable-btn > .ic:last-child { flex-shrink: 0; }
+/* Link de un solo vehículo: sin navegación */
+body[data-lector-uno="1"] .tabbar, body[data-lector-uno="1"] .side-nav, body[data-lector-uno="1"] .side-new { display: none !important; }

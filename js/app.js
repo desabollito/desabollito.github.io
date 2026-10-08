@@ -33,7 +33,7 @@ function irAVehiculo(arg) {
 
 const RUTAS = [
   [/^#?\/?$/,               "vehiculos",  () => vistaVehiculos(view)],
-  [/^#\/v\/([\w-]+)$/,      "vehiculos",  id => esAncho() && !S.volverA ? vistaVehiculos(view, id) : vistaDetalle(view, id)],
+  [/^#\/v\/([\w-]+)$/,      "vehiculos",  id => esAncho() && !S.volverA && !S.invitado?.uno ? vistaVehiculos(view, id) : vistaDetalle(view, id)],
   [/^#\/o\/([\w-]+\/v\/[\w-]+)$/, "link", a => irAVehiculo(a.replace("/v/", "|"))],
   [/^#\/nuevo$/,            "nuevo",      () => vistaFormulario(view)],
   [/^#\/editar\/([\w-]+)$/, "editar",     id => vistaFormulario(view, id)],
@@ -53,6 +53,8 @@ function render({ conservarScroll = false, reabrir = false } = {}) {
   let hit = RUTAS.find(([re]) => re.test(h)) || RUTAS[0];
   // Link de perito: solo Vehículos y Calendario
   if (soyLector() && !["vehiculos", "calendario"].includes(hit[1])) { history.replaceState(null, "", "#/"); hit = RUTAS[0]; }
+  // Link de un solo vehículo: siempre ese vehículo
+  if (S.invitado?.uno && h !== `#/v/${S.invitado.uno}`) { history.replaceState(null, "", `#/v/${S.invitado.uno}`); return render(); }
   // Rol Desmontaje: no carga ni edita vehículos; "nuevo" abre la elección de vehículo para el desmontaje
   document.body.dataset.rol = miRol();
   if (soyDesmontaje() && ["nuevo", "editar"].includes(hit[1])) {
@@ -291,6 +293,7 @@ if (tokenVer) {
     $("#splash").hidden = true;
     if (!ok) { $("#login").hidden = true; document.body.insertAdjacentHTML("beforeend", `<section class="espera"><div class="espera-caja"><img src="img/logo-oscuro.png" alt="" class="espera-logo"><h1>Link no disponible</h1><p>${esc(err?.message || "")}</p></div></section>`); return; }
     $("#login").hidden = true; $("#shell").hidden = false;
+    if (S.invitado?.uno) document.body.dataset.lectorUno = "1";
     pintarLateral(); render();
   });
 } else iniciarSesion(alEntrar);

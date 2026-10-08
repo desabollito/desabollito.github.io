@@ -470,8 +470,8 @@ export function elegirEmpresaSheet() {
         ${c.id === S.company?.id ? icon("check") : ""}</button></li>`).join("")}</ul>
       <div class="stack-sm full">
         <a class="btn btn-primary btn-block" href="#/operativo" data-close>${icon("team")}Gestionar</a>
-        <button class="btn btn-ghost btn-block" id="unir-op">${icon("team")}Unirme a otro</button>
-        ${soloDesmontaje() ? "" : `<button class="btn btn-ghost btn-block" id="nuevo-op">${icon("plus")}Crear un operativo</button>`}
+        <button class="btn btn-ghost btn-block" id="unir-op">${icon("team")}Unirme</button>
+        ${soloDesmontaje() ? "" : `<button class="btn btn-ghost btn-block" id="nuevo-op">${icon("plus")}Crear</button>`}
       </div>`
   });
   s.body.addEventListener("click", e => {

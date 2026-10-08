@@ -4,7 +4,7 @@ import {
   S, activos, getVehiculo, guardarVehiculo, actualizarVehiculo, cambiarEstado, moverAPapelera,
   solicitarEliminacion, cargadoPor, esDeWhatsApp, puedoEditar, esMioV, crearSolicitud, yaPedi,
   nuevoIdVehiculo, soyAdmin, mensajeError, ultimoDeshacible, deshacerCambio, aseguradoDePadron,
-  soyDesmontaje, agregarDesmontaje, elegirDesmontador, borrarMedia, soyLector
+  soyDesmontaje, agregarDesmontaje, elegirDesmontador, borrarMedia, soyLector, linkVehiculo
 } from "./data.js";
 import { ESTADOS, ESTADO, SECUENCIA, PASO_REP, PIEZA, ORDEN_PIEZAS, estadoActual, piezasMarcadas } from "./domain.js";
 import {
@@ -279,7 +279,7 @@ export function vistaDetalle(view, id) {
     return;
   }
   setTopbar({
-    title: "Detalle", sub: v.patente || v.modelo || "", back: S.volverA || "#/",
+    title: "Detalle", sub: v.patente || v.modelo || "", back: S.invitado?.uno ? null : (S.volverA || "#/"),
     actions: soyDesmontaje() || soyLector() ? "" : `<a class="icon-btn" href="#/editar/${v.id}" aria-label="Editar">${icon("edit")}</a>`
   });
   view.innerHTML = `<div class="detail-page"></div>`;
@@ -403,7 +403,7 @@ function renderDetalle(root, v, embebido) {
         </div></div>` : ""}
       ${embebido && !soloVer ? `<a class="btn btn-ghost btn-icon" href="#/editar/${v.id}" aria-label="Editar" title="Editar">${icon("edit")}</a>` : ""}
     </div>
-${[...PASO_REP, "facturado"].includes(est) ? `<button class="btn btn-ghost btn-block d-desm" data-act="desmontaje">${icon("tool")}Desmontaje${nDesm || v.desmontador ? ` <small>${[v.desmontador?.nombre, nDesm ? `${v.desFotos?.length || 0} fotos` : ""].filter(Boolean).map(esc).join(" · ")}</small>` : ""}</button>` : ""}
+${[...PASO_REP, "facturado"].includes(est) && !soyLector() && (soyAdmin() || soyDesmontaje()) ? `<button class="btn btn-ghost btn-block d-desm" data-act="desmontaje">${icon("tool")}Desmontaje${nDesm || v.desmontador ? ` <small>${[v.desmontador?.nombre, nDesm ? `${v.desFotos?.length || 0} fotos` : ""].filter(Boolean).map(esc).join(" · ")}</small>` : ""}</button>` : ""}
 
     <section class="d-sec">
       <div class="seg-head"><h3>Seguimiento</h3>
@@ -1195,7 +1195,9 @@ function compartir(v) {
     body: `<div class="stack">
       ${hayFotos ? `<label class="toggle"><input type="checkbox" id="con-fotos" checked><span>Incluir las ${v.fotos.length} fotos</span></label>` : ""}
       ${puedeCompartirArchivos() ? `<button class="btn btn-primary btn-block btn-lg" data-m="share">${icon("share")}Compartir PDF</button>` : ""}
-      <button class="btn ${puedeCompartirArchivos() ? "btn-ghost" : "btn-primary btn-lg"} btn-block" data-m="save">${icon("download")}Descargar PDF</button></div>`
+      <button class="btn ${puedeCompartirArchivos() ? "btn-ghost" : "btn-primary btn-lg"} btn-block" data-m="save">${icon("download")}Descargar PDF</button>
+      ${soyDesmontaje() ? "" : `<button class="btn btn-ghost btn-block" data-link>${icon("car")}Vehículo en App</button>
+      <small class="muted center">Link para ver solo este vehículo, sin poder cambiar nada.</small>`}</div>`
   });
   const nombre = nombreArchivo(v);
   const texto = `Presupuesto de granizo${v.modelo ? " · " + v.modelo : ""}${v.patente ? " " + v.patente : ""}${v.precio ? " · Total " + money(v.precio) : ""}`;
@@ -1225,6 +1227,19 @@ function compartir(v) {
   };
 
   s.body.addEventListener("click", async e => {
+    const lk = e.target.closest("[data-link]");
+    if (lk) {
+      busy(lk, true, "Creando link…");
+      try {
+        const url = await linkVehiculo(v.id);
+        busy(lk, false);
+        const txt = `${v.modelo || "Vehículo"} ${v.patente || ""}`.trim();
+        if (navigator.share) { try { await navigator.share({ title: txt, text: txt, url }); s.close(); return; } catch (err) { if (err.name === "AbortError") return; } }
+        await navigator.clipboard?.writeText(url).catch(() => {});
+        toast("Link copiado", "success"); s.close();
+      } catch (err) { busy(lk, false); toast(err.message, "error"); }
+      return;
+    }
     const b = e.target.closest("[data-m]"); if (!b) return;
     if (!listo) {
       busy(b, true, "Preparando PDF…");

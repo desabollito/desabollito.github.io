@@ -115,9 +115,9 @@ export async function iniciarInvitado(token, onReady) {
   };
   try {
     const j = await traer();
-    S.invitado = { token, compania: j.compania };
+    S.invitado = { token, compania: j.compania, uno: j.vid || null };
     S.user = { uid: "invitado", invitado: true, getIdToken: async () => "" };
-    S.profile = { id: "invitado", name: `Perito ${j.compania}`, username: "", aprobado: true };
+    S.profile = { id: "invitado", name: j.vid ? "Vehículo compartido" : `Perito ${j.compania}`, username: "", aprobado: true };
     S.company = { ...j.operativo, roles: {}, members: [] };
     S.companies = [S.company];
     const ordenar = vs => vs.sort((a, b) => (b.fechas?.peritado || "").localeCompare(a.fechas?.peritado || ""));
@@ -134,6 +134,15 @@ export async function iniciarInvitado(token, onReady) {
 }
 
 // Administradores: crear, listar y borrar links de solo lectura
+// "Vehículo en App": link de solo lectura para un único vehículo
+export async function linkVehiculo(vid) {
+  const idToken = await S.user.getIdToken();
+  const r = await fetch(`${BOT_API}/compartir`, { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ idToken, cid: S.company.id, accion: "vehiculo", vid }) });
+  const j = await r.json().catch(() => ({}));
+  if (!j.ok) throw new Error(j.error || "No se pudo crear el link");
+  return `${location.origin}/${j.token}`;
+}
 export async function linksCompartidos(accion = "listar", extra = {}) {
   const idToken = await S.user.getIdToken();
   const r = await fetch(`${BOT_API}/compartir`, { method: "POST", headers: { "Content-Type": "application/json" },
