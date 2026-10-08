@@ -47,6 +47,7 @@ export default {
       "/admin/datos": adminDatos, "/admin/borrar-usuario": adminBorrarUsuario, "/admin/config": adminConfig, "/admin/padron": adminPadron, "/mover-vehiculo": moverVehiculo,
       "/borrar-media": borrarMediaApi, "/eliminar-vehiculo": eliminarVehiculoApi,
       "/compartir": compartirApi, "/compartido": compartidoApi,
+      "/aviso-version": avisoVersion,
       "/recuperar": recuperarApi, "/restablecer": restablecerApi, "/usuarios-app": usuariosAppApi,
       "/admin/resumen-ahora": async (env, { idToken, forzar }) => (await soloCreador(env, idToken)) ? json({ ok: true, enviados: await enviarResumenesDiarios(env, forzar) }) : json({ ok: false }, 403) };
     if (API[url.pathname]) {
@@ -2961,4 +2962,17 @@ async function abrirParaGrupo(env, m, s) {
   await fsSet(env, `bot_grupos/${idGrupo(m)}`, { cid: s.cid, vid: s.vid, patente: s.patente, modelo: s.modelo || "",
     operativo: s.operativo || "", por: normalizarNumero(m.from), ts: Date.now(), desde: horaDe(m), msgId: m.id, msgKey: m._key || null, tildado: false });
   return reaccionar(env, dest(m), m.id, "▶️", m._key);   // esperando fotos
+}
+
+// Al terminar cada deploy de la app (lo llama un workflow de GitHub): avisa al creador "✅ 2.45.34".
+// Lee la versión publicada en la web y avisa una sola vez por versión.
+async function avisoVersion(env) {
+  const r = await fetch(`${APP_URL}/js/config.js?t=${Date.now()}`, { cf: { cacheTtl: 0 } });
+  const v = r.ok ? ((await r.text()).match(/APP_VERSION\s*=\s*"([^"]+)"/) || [])[1] : "";
+  if (!v) return json({ ok: false, error: "Sin versión" });
+  const prev = await fsGet(env, "bot_meta/deploy").catch(() => null);
+  if (prev?.version === v) return json({ ok: true, version: v, avisado: false });
+  await fsSet(env, "bot_meta/deploy", { version: v, fecha: new Date().toISOString() });
+  await enviar(env, destinoNumero(env, numeroAdmin(env)), { type: "text", text: { body: `✅ ${v}` } });
+  return json({ ok: true, version: v, avisado: true });
 }
