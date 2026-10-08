@@ -35,19 +35,26 @@ export function diasViandas(fijos, hasta = hoyISO()) {
   }
   return out;
 }
-// Alquiler: cada pago cubre sus meses; el costo de cada día se reparte entre los técnicos que estaban en la casa
+// Período de un pago (desde/hasta; los pagos viejos tenían "meses")
+export const rangoPago = (p, a = {}) => {
+  const ini = p.desde || a.inicio || "";
+  const fin = p.hasta || (ini && Number(p.meses) > 0 ? masDias(masMeses(ini, Number(p.meses)), -1) : ini);
+  return [ini, fin];
+};
+// Estadías de un técnico en la casa: varias por técnico (las viejas eran una sola)
+export const estadiasDe = (est, id) => Array.isArray(est?.[id]) ? est[id] : est?.[id]?.llegada ? [{ id: "e0", ...est[id] }] : [];
+// Alquiler: cada pago cubre su período; el costo de cada día se reparte entre los técnicos que estaban en la casa
 export function repartoAlquiler(fijos, tecnicos, desde = "", hasta = "") {
   const a = fijos?.alquiler || {}, porTec = Object.fromEntries((tecnicos || []).map(t => [t.id, 0])), diasTec = { ...Object.fromEntries(Object.keys(porTec).map(k => [k, 0])) };
   let sinAsignar = 0, total = 0;
   const est = a.estadias || {};
   for (const p of a.pagos || []) {
-    const ini = p.desde || a.inicio; if (!ini || !(Number(p.meses) > 0)) continue;
-    const fin = masDias(masMeses(ini, Number(p.meses)), -1);
+    const [ini, fin] = rangoPago(p, a); if (!ini || !fin || fin < ini) continue;
     const dias = [...diasEntre(ini, fin)], porDia = (Number(p.monto) || 0) / dias.length;
     total += Number(p.monto) || 0;
     for (const d of dias) {
       if ((desde && d < desde) || (hasta && d > hasta)) continue;
-      const hay = Object.keys(porTec).filter(id => est[id]?.llegada && est[id].llegada <= d && (!est[id].salida || d <= est[id].salida));
+      const hay = Object.keys(porTec).filter(id => estadiasDe(est, id).some(e => e.llegada && e.llegada <= d && (!e.salida || d <= e.salida)));
       if (!hay.length) { sinAsignar += porDia; continue; }
       hay.forEach(id => { porTec[id] += porDia / hay.length; diasTec[id]++; });
     }
@@ -87,7 +94,7 @@ export function vistaFijos(view) {
     for (const c of [...(fijos.viandas?.cambios || [])].sort((a, b) => a.fecha.localeCompare(b.fecha)))
       (c.tecs || []).forEach(id => { if (!primero[id] || c.fecha < primero[id]) primero[id] = c.fecha; });
     Object.entries(fijos.viandas?.dias || {}).forEach(([d, ids]) => (ids || []).forEach(id => { if (!primero[id] || d < primero[id]) primero[id] = d; }));
-    return l.map((t, i) => ({ t, i, f: primero[t.id] || est[t.id]?.llegada || "9999" })).sort((a, b) => a.f.localeCompare(b.f) || a.i - b.i).map(x => x.t);
+    return l.map((t, i) => ({ t, i, f: primero[t.id] || estadiasDe(est, t.id).map(e => e.llegada).filter(Boolean).sort()[0] || "9999" })).sort((a, b) => a.f.localeCompare(b.f) || a.i - b.i).map(x => x.t);
   } };
   unsub?.();
   unsub = onSnapshot(col, snap => {
@@ -179,8 +186,8 @@ export function vistaFijos(view) {
     return `<section class="card">
         <label class="field"><span>Empezamos a alquilar la casa el</span><input type="date" data-campo="inicio" value="${esc(a.inicio || "")}" ${ed ? "" : "disabled"}></label>
         <h3 class="fijos-tit">Pagos</h3>
-        ${pagos.length ? `<ul class="fijos-pagos">${pagos.map(p => { const ini = p.desde || a.inicio || "";
-          return `<li><span><b>${pesos(p.monto)}</b> · ${p.meses} ${Number(p.meses) === 1 ? "mes" : "meses"}${ini ? ` <small class="muted">(${fechaCorta(ini)} al ${fechaCorta(masDias(masMeses(ini, Number(p.meses)), -1))})</small>` : ""}</span>
+        ${pagos.length ? `<ul class="fijos-pagos">${pagos.map(p => { const [ini, fin] = rangoPago(p, a);
+          return `<li><span><b>${pesos(p.monto)}</b>${ini ? ` <small class="muted">· ${fechaCorta(ini)} al ${fechaCorta(fin)}</small>` : ""}</span>
             ${ed ? `<button type="button" class="icon-btn sm" data-del-pago="${esc(p.id)}" aria-label="Quitar">${icon("x")}</button>` : ""}</li>`; }).join("")}</ul>`
           : `<p class="muted small">Sin pagos cargados.</p>`}
         ${ed ? `<button type="button" class="btn btn-ghost btn-block" data-act="pago">${icon("plus")}Agregar pago</button>` : ""}
@@ -188,9 +195,14 @@ export function vistaFijos(view) {
       <section class="card">
         <h3 class="fijos-tit">Técnicos en la casa</h3>
         <p class="muted small">Cada día de alquiler se reparte entre los técnicos que estaban ese día. Sin fecha de salida = sigue en la casa.</p>
-        <div class="fijos-est">${cfg.tecnicos.map(t => `<div class="fijos-est-fila" data-tecid="${esc(t.id)}"><b>${esc(t.nombre)}</b>
-          <label><small>Llegó</small><input type="date" data-campo="llegada" value="${esc(est[t.id]?.llegada || "")}" ${ed ? "" : "disabled"}></label>
-          <label><small>Se fue</small><input type="date" data-campo="salida" value="${esc(est[t.id]?.salida || "")}" ${ed ? "" : "disabled"}></label></div>`).join("")}</div>
+        <div class="fijos-est">${cfg.tecnicos.map(t => { const es = estadiasDe(est, t.id);
+          return `<div class="fijos-est-tec" data-tecid="${esc(t.id)}"><div class="fijos-est-nom"><b>${esc(t.nombre)}</b>
+              ${ed ? `<button type="button" class="link-btn small" data-add-est>+ Estadía</button>` : ""}</div>
+            ${es.length ? es.map(e => `<div class="fijos-est-fila" data-est="${esc(e.id)}">
+              <label><small>Llegó</small><input type="date" data-campo="llegada" value="${esc(e.llegada || "")}" ${ed ? "" : "disabled"}></label>
+              <label><small>Se fue</small><input type="date" data-campo="salida" value="${esc(e.salida || "")}" ${ed ? "" : "disabled"}></label>
+              ${ed ? `<button type="button" class="icon-btn sm" data-del-est aria-label="Quitar estadía">${icon("x")}</button>` : "<span></span>"}</div>`).join("")
+              : `<p class="muted small">Sin fechas${ed ? "" : " · tocá Editar"}</p>`}</div>`; }).join("")}</div>
       </section>
       <section class="card">
         <h3 class="fijos-tit">Reparto</h3>
@@ -204,16 +216,17 @@ export function vistaFijos(view) {
   };
   const sheetPago = () => {
     const a = fijos.alquiler || {}, pagos = a.pagos || [];
-    const ult = [...pagos].sort((x, y) => (x.desde || "").localeCompare(y.desde || "")).pop();
-    const sig = ult ? masDias(masMeses(ult.desde || a.inicio, Number(ult.meses)), -1) : "";
+    const ult = [...pagos].sort((x, y) => (rangoPago(x, a)[1] || "").localeCompare(rangoPago(y, a)[1] || "")).pop();
+    const ini = ult ? masDias(rangoPago(ult, a)[1], 1) : (a.inicio || hoyISO());
     const s = openSheet({ title: "Pago de alquiler", body: `<form class="stack">
       <label class="field"><span>Total pagado</span><input type="number" inputmode="numeric" name="monto" min="0" required></label>
-      <label class="field"><span>¿Cuántos meses cubre?</span><input type="number" inputmode="numeric" name="meses" min="1" value="1" required></label>
-      <label class="field"><span>Desde</span><input type="date" name="desde" value="${esc(sig ? masDias(sig, 1) : (a.inicio || hoyISO()))}" required></label>
+      <label class="field"><span>Desde</span><input type="date" name="desde" value="${esc(ini)}" required></label>
+      <label class="field"><span>Hasta</span><input type="date" name="hasta" value="${esc(masDias(masMeses(ini, 1), -1))}" required></label>
       <button class="btn btn-primary btn-block">Guardar</button></form>` });
     $("form", s.el).onsubmit = e => {
       e.preventDefault(); const f = e.target;
-      const p = { id: nuevoId(), monto: Number(f.monto.value) || 0, meses: Math.max(1, Number(f.meses.value) || 1), desde: f.desde.value };
+      if (f.hasta.value < f.desde.value) return toast("La fecha de fin es anterior al inicio", "warning");
+      const p = { id: nuevoId(), monto: Number(f.monto.value) || 0, desde: f.desde.value, hasta: f.hasta.value };
       guardar({ alquiler: { ...a, inicio: a.inicio || p.desde, pagos: [...pagos, p] } }); s.close();
     };
   };
@@ -232,6 +245,18 @@ export function vistaFijos(view) {
     const dc = t.closest("[data-del-cambio]");
     if (dc && await confirmar({ title: "¿Borrar este cambio?", ok: "Borrar", danger: true }))
       return guardar({ viandas: { ...(fijos.viandas || {}), cambios: (fijos.viandas?.cambios || []).filter(c => c.id !== dc.dataset.delCambio) } });
+    const tecEl = t.closest("[data-tecid]");
+    if (t.closest("[data-add-est]") && tecEl && F.editando) {
+      const a = fijos.alquiler || {}, est = { ...(a.estadias || {}) }, id = tecEl.dataset.tecid;
+      est[id] = [...estadiasDe(est, id), { id: nuevoId(), llegada: hoyISO(), salida: "" }];
+      return guardar({ alquiler: { ...a, estadias: est } });
+    }
+    const de = t.closest("[data-del-est]");
+    if (de && tecEl && F.editando && await confirmar({ title: "¿Quitar esta estadía?", ok: "Quitar", danger: true })) {
+      const a = fijos.alquiler || {}, est = { ...(a.estadias || {}) }, id = tecEl.dataset.tecid, eid = de.closest("[data-est]").dataset.est;
+      est[id] = estadiasDe(est, id).filter(e => e.id !== eid);
+      return guardar({ alquiler: { ...a, estadias: est } });
+    }
     const dp = t.closest("[data-del-pago]");
     if (dp && await confirmar({ title: "¿Quitar este pago?", ok: "Quitar", danger: true }))
       return guardar({ alquiler: { ...(fijos.alquiler || {}), pagos: (fijos.alquiler?.pagos || []).filter(p => p.id !== dp.dataset.delPago) } });
@@ -240,8 +265,9 @@ export function vistaFijos(view) {
     const inp = e.target.closest("[data-campo]"); if (!inp || !F.editando) return;
     const a = fijos.alquiler || {};
     if (inp.dataset.campo === "inicio") return guardar({ alquiler: { ...a, inicio: inp.value } });
-    const tec = inp.closest("[data-tecid]")?.dataset.tecid; if (!tec) return;
-    const est = { ...(a.estadias || {}) }; est[tec] = { ...(est[tec] || {}), [inp.dataset.campo]: inp.value };
+    const tec = inp.closest("[data-tecid]")?.dataset.tecid, eid = inp.closest("[data-est]")?.dataset.est; if (!tec || !eid) return;
+    const est = { ...(a.estadias || {}) };
+    est[tec] = estadiasDe(est, tec).map(e => e.id === eid ? { ...e, [inp.dataset.campo]: inp.value } : e);
     guardar({ alquiler: { ...a, estadias: est } });
   }
 

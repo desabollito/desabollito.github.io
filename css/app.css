@@ -1409,10 +1409,13 @@ body[data-lector-uno="1"] .tabbar, body[data-lector-uno="1"] .side-nav, body[dat
 .fijos-hist li, .fijos-pagos li { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 14px; }
 .fijos-tit { margin: 0; font-size: 15px; }
 .fijos-est { display: flex; flex-direction: column; gap: 10px; }
-.fijos-est-fila { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: end; }
+.fijos-est-tec { display: flex; flex-direction: column; gap: 6px; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
+.fijos-est-tec:last-child { border-bottom: 0; }
+.fijos-est-nom { display: flex; justify-content: space-between; align-items: center; }
+.fijos-est-fila { display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; align-items: end; }
 .fijos-est-fila label { display: flex; flex-direction: column; gap: 2px; }
 .fijos-est-fila input { min-width: 0; max-width: 150px; }
-@media (max-width: 480px) { .fijos-est-fila { grid-template-columns: 1fr 1fr; } .fijos-est-fila b { grid-column: 1 / -1; } .fijos-est-fila input { max-width: none; width: 100%; } }
+.fijos-est-fila input { max-width: none; width: 100%; }
 .firma-autor { margin: -6px 0 0; font-size: 11px; color: var(--muted); opacity: .8; }
 .login-tema { position: fixed; right: max(16px, env(safe-area-inset-right)); bottom: max(16px, env(safe-area-inset-bottom)); z-index: 5; background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow); }
 /* Aviso de versión nueva: botón redondo que se mueve */
