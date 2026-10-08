@@ -17,7 +17,7 @@
       // La barra del sistema (hora, batería, isla) toma el color de fondo del tema: sin contenido ni desenfoque debajo
       var pintarBarra = function () {
         var m = document.querySelector('meta[name="theme-color"]');
-        if (m) m.setAttribute("content", document.documentElement.getAttribute("data-theme") === "light" ? "#eef1f5" : "#0a1420");
+        if (m) m.setAttribute("content", document.documentElement.getAttribute("data-theme") === "light" ? "#eef1f5" : "#0e0e10");
       };
       new MutationObserver(pintarBarra).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
       document.addEventListener("DOMContentLoaded", pintarBarra);
