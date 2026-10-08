@@ -141,7 +141,7 @@ export async function linkVehiculo(vid) {
     body: JSON.stringify({ idToken, cid: S.company.id, accion: "vehiculo", vid }) });
   const j = await r.json().catch(() => ({}));
   if (!j.ok) throw new Error(j.error || "No se pudo crear el link");
-  return `${location.origin}/${j.token}`;
+  return `${location.origin}/v/?${j.token}`;
 }
 export async function linksCompartidos(accion = "listar", extra = {}) {
   const idToken = await S.user.getIdToken();

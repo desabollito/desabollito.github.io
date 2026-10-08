@@ -528,6 +528,7 @@ export function vistaAjustes(view) {
       <button class="btn btn-danger-ghost btn-block" id="salir">${icon("logout")}Cerrar sesión</button>
       <p class="center"><button type="button" class="version-btn" onclick="window.dispatchEvent(new Event('forzar-actualizacion'))"
         title="Tocá para forzar la actualización">Desabollito ${APP_VERSION} ${icon("rotate")}</button></p>
+      <p class="center firma-autor">by @gzmatte</p>
     </section>
   </div>`;
 
@@ -542,7 +543,7 @@ export function vistaAjustes(view) {
 // Links de solo lectura: el perito ve los vehículos de una compañía en este operativo (sin poder tocar nada)
 function compartirPerito() {
   const cias = [...new Set(activos().map(v => (v.compania || "").trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
-  const url = t => `${location.origin}/${t}`;
+  const url = t => `${location.origin}/v/?${t}`;
   const s = openSheet({ title: "Compartir con un perito", body: `<div class="stack">
     <p class="muted small">El link muestra solo los vehículos de esa compañía en <strong>${esc(S.company?.name || "")}</strong>: estado, turnos, fechas, fotos y todo el detalle, pero sin poder cambiar nada. Se actualiza solo.</p>
     <form class="row-btns" id="cp-form"><input name="cia" list="cp-cias" required placeholder="Compañía (ej: SMG)" autocomplete="off" style="flex:1">

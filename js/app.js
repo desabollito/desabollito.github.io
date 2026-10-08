@@ -289,13 +289,13 @@ const alEntrar = (logueado, error) => {
 if (tokenVer) {
   // Link de solo lectura para un perito: sin login, solo ve los vehículos de su compañía
   document.body.dataset.lector = "1";
-  // Se muestra el link corto (desabollito.com/smg-k7p2); al recargar, 404.html vuelve a entrar acá
-  if (location.hostname !== "localhost") history.replaceState(null, "", "/" + encodeURIComponent(tokenVer) + location.hash);
   iniciarInvitado(tokenVer, (ok, err) => {
     $("#splash").hidden = true;
     if (!ok) { $("#login").hidden = true; document.body.insertAdjacentHTML("beforeend", `<section class="espera"><div class="espera-caja"><img src="img/logo-oscuro.png" alt="" class="espera-logo"><h1>Link no disponible</h1><p>${esc(err?.message || "")}</p></div></section>`); return; }
     $("#login").hidden = true; $("#shell").hidden = false;
     if (S.invitado?.uno) document.body.dataset.lectorUno = "1";
+    const v1 = S.invitado?.uno ? S.vehicles[0] : null;
+    document.title = v1 ? `${[v1.modelo, v1.patente].filter(Boolean).join(" ")} · Desabollito` : `${S.invitado?.compania || "Vehículos"} · Desabollito`;
     pintarLateral(); render();
   });
 } else iniciarSesion(alEntrar);
