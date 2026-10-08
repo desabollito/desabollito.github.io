@@ -14,6 +14,13 @@
         var t = localStorage.getItem(lector ? "temaLector" : sesion ? "tema" : "temaLogin");
         document.documentElement.setAttribute("data-theme", (lector || !sesion) ? (t === "dark" ? "dark" : "light") : (t === "light" ? "light" : "dark"));
       } catch (e) {}
+      // La barra del sistema (hora, batería, isla) toma el color de fondo del tema: sin contenido ni desenfoque debajo
+      var pintarBarra = function () {
+        var m = document.querySelector('meta[name="theme-color"]');
+        if (m) m.setAttribute("content", document.documentElement.getAttribute("data-theme") === "light" ? "#eef1f5" : "#0a1420");
+      };
+      new MutationObserver(pintarBarra).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+      document.addEventListener("DOMContentLoaded", pintarBarra);
     })();
   </script>
   <title>Desabollito · Gestión del sacabollo</title>
@@ -22,7 +29,7 @@
   <link rel="canonical" href="https://desabollito.com/">
   <meta name="theme-color" content="#0e1b2c">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Desabollito">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Desabollito">
