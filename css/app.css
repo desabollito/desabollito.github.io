@@ -1473,3 +1473,7 @@ button.vchip { cursor: pointer; }
 .g-fijos-sep a .ic { width: 14px; height: 14px; }
 a.g-bar-fijo { text-decoration: none; color: inherit; }
 .casa-body { padding: 0 18px 18px; display: flex; flex-direction: column; gap: 12px; } .fijos-page .casa { margin-bottom: 12px; }
+.tbl-reparto { min-width: 0; }
+.tbl-reparto th { padding: 10px 12px; font-size: 13px; font-weight: 700; color: var(--ink-2); white-space: nowrap; }
+.tbl-reparto tbody tr { cursor: default; }
+.est-acc { display: inline-flex; gap: 12px; align-items: center; }

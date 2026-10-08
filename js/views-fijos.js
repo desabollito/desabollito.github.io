@@ -134,7 +134,7 @@ export function vistaFijos(view) {
     $("#f-body", view).addEventListener("click", clic);
     $("#f-body", view).addEventListener("change", cambio);
     // Se recuerda qué casas están abiertas
-    $("#f-body", view).addEventListener("toggle", e => { const d = e.target; if (!d?.dataset?.casa) return;
+    $("#f-body", view).addEventListener("toggle", e => { const d = e.target; if (d?.dataset && "total" in d.dataset) { F.totalAbierto = d.open; return; } if (!d?.dataset?.casa) return;
       d.open ? F.abiertas.add(d.dataset.casa) : F.abiertas.delete(d.dataset.casa); }, true);
   };
 
@@ -203,7 +203,7 @@ export function vistaFijos(view) {
   const casas = () => casasDe(fijos);
   const guardarCasas = l => guardar({ alquiler: { casas: l } });
   const updCasa = (cid, fn) => guardarCasas(casas().map(c => c.id === cid ? fn({ ...c }) : c));
-  const tablaReparto = (r, titulo) => `<div class="table-wrap"><table class="tbl"><thead><tr><th>${titulo}</th><th class="num">Noches</th><th class="num">Le toca</th></tr></thead><tbody>
+  const tablaReparto = (r, titulo) => `<div class="table-wrap"><table class="tbl tbl-reparto"><thead><tr><th>${titulo}</th><th class="num">Noches</th><th class="num">Corresponde</th></tr></thead><tbody>
       ${cfg.tecnicos.filter(t => r.diasTec[t.id] || r.porTec[t.id] > 0.5).map(t => `<tr><td>${esc(t.nombre)}</td><td class="num">${r.diasTec[t.id] || 0}</td><td class="num">${pesos(r.porTec[t.id])}</td></tr>`).join("")}
       ${r.sinAsignar > 0.5 ? `<tr><td class="muted">Noches sin nadie</td><td></td><td class="num muted">${pesos(r.sinAsignar)}</td></tr>` : ""}
       <tr class="tec-sub"><td>TOTAL PAGADO</td><td></td><td class="num">${pesos(r.total)}</td></tr></tbody></table></div>`;
@@ -224,15 +224,17 @@ export function vistaFijos(view) {
               ${ed ? `<button type="button" class="icon-btn sm" data-del-pago="${esc(p.id)}" aria-label="Quitar">${icon("x")}</button>` : ""}</li>`; }).join("")}</ul>`
             : `<p class="muted small">Sin pagos cargados.</p>`}
           ${ed ? `<button type="button" class="btn btn-ghost btn-block" data-act="pago">${icon("plus")}Agregar pago</button>` : ""}
-          <h3 class="fijos-tit">Técnicos en la casa</h3>
+          ${ed ? `<h3 class="fijos-tit">Técnicos en la casa</h3>
           <div class="fijos-est">${cfg.tecnicos.filter(t => ed || estadiasDe(est, t.id).length).map(t => { const es = estadiasDe(est, t.id);
             return `<div class="fijos-est-tec" data-tecid="${esc(t.id)}"><div class="fijos-est-nom"><b>${esc(t.nombre)}</b>
-                ${ed ? `<button type="button" class="link-btn small" data-add-est>+ Estadía</button>` : ""}</div>
+                ${ed ? `<span class="est-acc">${es.length ? `<button type="button" class="link-btn small" data-copiar-est title="Copiar estas fechas">Copiar</button>` : ""}
+                  ${F.copiaEst ? `<button type="button" class="link-btn small" data-pegar-est title="Pegar las fechas copiadas">Pegar</button>` : ""}
+                  <button type="button" class="link-btn small" data-add-est>+ Estadía</button></span>` : ""}</div>
               ${es.map(e => `<div class="fijos-est-fila" data-est="${esc(e.id)}">
                 <label><small>Llegó</small><input type="date" data-campo="llegada" value="${esc(e.llegada || "")}" ${ed ? "" : "disabled"}></label>
                 <label><small>Se fue</small><input type="date" data-campo="salida" value="${esc(e.salida || "")}" ${ed ? "" : "disabled"}></label>
                 ${ed ? `<button type="button" class="icon-btn sm" data-del-est aria-label="Quitar estadía">${icon("x")}</button>` : "<span></span>"}</div>`).join("")}</div>`; }).join("")
-              || `<p class="muted small">Sin técnicos cargados${ed ? "" : " · tocá Editar"}.</p>`}</div>
+              || `<p class="muted small">Sin técnicos cargados.</p>`}</div>` : ""}
           <h3 class="fijos-tit">Reparto de esta casa</h3>
           ${tablaReparto(r, "Técnico")}
         </div></details>`;
@@ -241,7 +243,8 @@ export function vistaFijos(view) {
     return `${l.map(tarjeta).join("")}
       ${l.length ? "" : `<div class="empty small"><p>Todavía no cargaste ninguna casa.</p></div>`}
       ${ed || !l.length ? `<button type="button" class="btn ${l.length ? "btn-ghost" : "btn-primary"} btn-block" data-act="casa">${icon("plus")}Agregar casa</button>` : ""}
-      ${l.length > 1 ? `<section class="card"><h3 class="fijos-tit">Reparto de todas las casas</h3>${tablaReparto(rt, "Técnico")}</section>` : ""}
+      ${l.length ? `<details class="card plegable casa" data-total ${F.totalAbierto ? "open" : ""}><summary><span>${icon("money")}Reparto total <small class="muted">${pesos(rt.total)}</small></span>${icon("next")}</summary>
+        <div class="casa-body">${tablaReparto(rt, "Técnico")}</div></details>` : ""}
       ${l.length && !ed ? `<p class="muted small">Tocá <b>Editar</b> para cargar casas, pagos y fechas.</p>` : ""}`;
   };
   const sheetPago = cid => {
@@ -297,6 +300,16 @@ export function vistaFijos(view) {
     if (t.closest("[data-add-est]") && tecEl && cid && F.editando) {
       const id = tecEl.dataset.tecid;
       return updCasa(cid, c => ({ ...c, estadias: { ...(c.estadias || {}), [id]: [...estadiasDe(c.estadias, id), { id: nuevoId(), llegada: hoyISO(), salida: "" }] } }));
+    }
+    // Copiar y pegar las fechas de un técnico a otro (también entre casas)
+    if (t.closest("[data-copiar-est]") && tecEl && cid) {
+      const c = casas().find(x => x.id === cid);
+      F.copiaEst = estadiasDe(c?.estadias, tecEl.dataset.tecid).map(({ llegada, salida }) => ({ llegada, salida }));
+      toast("Fechas copiadas: tocá Pegar en otro técnico", "success"); return pintar();
+    }
+    if (t.closest("[data-pegar-est]") && tecEl && cid && F.copiaEst) {
+      const id = tecEl.dataset.tecid;
+      return updCasa(cid, c => ({ ...c, estadias: { ...(c.estadias || {}), [id]: F.copiaEst.map(e => ({ id: nuevoId(), ...e })) } }));
     }
     const de = t.closest("[data-del-est]");
     if (de && tecEl && cid && F.editando && await confirmar({ title: "¿Quitar esta estadía?", ok: "Quitar", danger: true })) {
