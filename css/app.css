@@ -1400,7 +1400,7 @@ body[data-lector="1"] [data-act="pdf"] { display: none !important; }
 .plegable-btn > .ic:last-child { flex-shrink: 0; }
 /* Link de un solo vehículo: sin navegación */
 body[data-lector-uno="1"] .tabbar, body[data-lector-uno="1"] .side-nav, body[data-lector-uno="1"] .side-new { display: none !important; }
-.tec-excel .tec-sepcol { background: transparent !important; border: 0 !important; padding: 0; }
+.tec-excel .tec-sepcol { padding: 0; }
 .tl-def { color: var(--muted); font-size: 11px; white-space: nowrap; }
 .fijos-page .card { margin-bottom: 14px; }
 .fijos-kv { display: flex; justify-content: space-between; gap: 12px; }

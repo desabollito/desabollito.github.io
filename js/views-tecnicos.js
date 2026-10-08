@@ -123,7 +123,7 @@ export function vistaTecnicos(view) {
     const ed = T.editando, tecs = cfg.tecnicos, nc = 4 + tecs.length + (ed ? 1 : 0), w = anchos();
     // Entre Importe y los técnicos va una columna vacía de separación
     const cols = [["veh", "Vehículo", 120], ["pat", "Patente", 90], ["imp", "Importe", 100], ["sep", "", 16], ...tecs.map(t => [t.id, t.nombre, 95])];
-    const th = ([k, txt], i) => k === "sep" ? `<th class="tec-sepcol"></th>` : `<th class="${i >= 2 ? "num" : ""} ${k === "imp" ? "col-imp" : ""}" data-col="${esc(k)}">${esc(txt)}<span class="col-res" aria-hidden="true"></span></th>`;
+    const th = ([k, txt], i) => k === "sep" ? `<th class="tec-sepcol" data-col="sep"><span class="col-res" aria-hidden="true"></span></th>` : `<th class="${i >= 2 ? "num" : ""} ${k === "imp" ? "col-imp" : ""}" data-col="${esc(k)}">${esc(txt)}<span class="col-res" aria-hidden="true"></span></th>`;
     const semanas = [...new Set(rows.map(r => lunesDe(r.fecha)))];
     const fila = r => `<tr data-vid="${esc(r.v.id)}">
       <td>${esc((r.v.modelo || "—").toUpperCase())}</td><td>${esc(r.v.patente || "")}</td>
@@ -155,7 +155,7 @@ export function vistaTecnicos(view) {
       e.preventDefault(); e.stopPropagation();
       const k = h.parentElement.dataset.col, col = $(`col[data-col="${CSS.escape(k)}"]`, body);
       const x0 = e.clientX, w0 = col.getBoundingClientRect().width || parseInt(col.style.width) || 100;
-      const mover = ev => { col.style.width = Math.max(40, Math.round(w0 + ev.clientX - x0)) + "px"; ajustarTabla(body); };
+      const mover = ev => { col.style.width = Math.max(k === "sep" ? 4 : 40, Math.round(w0 + ev.clientX - x0)) + "px"; ajustarTabla(body); };
       const soltar = () => { removeEventListener("pointermove", mover); removeEventListener("pointerup", soltar);
         const w = anchos(); w[k] = parseInt(col.style.width); try { localStorage.setItem("tecCols", JSON.stringify(w)); } catch { /* sin almacenamiento */ } };
       addEventListener("pointermove", mover); addEventListener("pointerup", soltar);
