@@ -1,7 +1,7 @@
 {
   "name": "Desabollito",
   "short_name": "Desabollito",
-  "description": "La web-app intuitiva para la gestión del sacabollos: tracking vehicular, presupuestos, calendario y bot de WhatsApp.",
+  "description": "La web-app intuitiva para la gestión del sacabollo: tracking vehicular, presupuestos, calendario y bot de WhatsApp.",
   "id": "/",
   "start_url": "./",
   "scope": "./",
