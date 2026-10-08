@@ -157,7 +157,7 @@ export function vistaFijos(view) {
         ${ult ? `<div class="fijos-kv"><span>Vianda por técnico</span><b>${pesos(ult.vianda)}</b></div>
           <div class="fijos-kv"><span>Envío por día (se reparte)</span><b>${pesos(ult.envio)}</b></div>`
           : `<p class="muted">Todavía no empezaste. Elegí los técnicos que están ahora y los valores: se repite solo todos los días.</p>`}
-        <button type="button" class="btn ${ult ? "btn-ghost" : "btn-primary"} btn-block" data-act="cambio">${icon(ult ? "edit" : "plus")}${ult ? "Cambiar técnicos o valores" : "Empezar"}</button>
+        ${!ult || ed ? `<button type="button" class="btn ${ult ? "btn-ghost" : "btn-primary"} btn-block" data-act="cambio">${icon(ult ? "edit" : "plus")}${ult ? "Cambiar técnicos o valores" : "Empezar"}</button>` : ""}
       </section>
       ${dias.length ? `<details class="card plegable fijos-tot">
           <summary><span>Total por técnico <small class="muted">${dias.length} ${dias.length === 1 ? "día" : "días"} · ${pesos(Object.values(tot).reduce((a, b) => a + b, 0))}</small></span>${icon("next")}</summary>
