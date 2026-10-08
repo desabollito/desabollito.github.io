@@ -665,8 +665,8 @@ const fijarOperativo = (env, numero, op) => fsSet(env, `bot_operativo/${numero}`
 async function listaOperativos(env, uid) {
   if (!uid) return [];
   return (await fsQuery(env, "", "companies", { field: "members", op: "ARRAY_CONTAINS", value: uid }, 50))
-    .map(o => ({ cid: o.__ruta.split("/")[1], operativo: o.name || "Operativo" }))
-    .sort((a, b) => a.operativo.localeCompare(b.operativo)).slice(0, 20);
+    .map(o => ({ cid: o.__ruta.split("/")[1], operativo: o.name || "Operativo", t: Date.parse(o.createdAt || "") || 9e15 }))
+    .sort((a, b) => a.t - b.t || a.operativo.localeCompare(b.operativo)).slice(0, 20);   // por orden de creación
 }
 const menuOperativos = ops => ops.map((o, i) => `${i + 1}. ${o.operativo}`).join("\n") + "\n\n0. Cancelar";
 
@@ -2746,9 +2746,8 @@ async function adminDatos(env, { idToken }) {
     usuarios: users.map(u => ({ uid: u.__id, name: u.name || "", username: u.username || "", whatsapp: u.whatsapp || "",
       aprobado: u.aprobado !== false, rechazado: !!u.rechazado }))
       .sort((a, b) => (a.name || a.username).localeCompare(b.name || b.username)),
-    operativos: comps.map(c => ({ id: c.__id, name: c.name || "Sin nombre", vehiculos: cuentas[c.__id],
-      miembros: (c.members || []).map(m => ({ uid: m, quien: nombreDe[m] || c.memberNames?.[m] || "(usuario borrado)", rol: c.roles?.[m] || "" })) }))
-      .sort((a, b) => a.name.localeCompare(b.name)) });
+    operativos: comps.sort((a, b) => (Date.parse(a.createdAt || "") || 9e15) - (Date.parse(b.createdAt || "") || 9e15)).map(c => ({ id: c.__id, name: c.name || "Sin nombre", vehiculos: cuentas[c.__id],
+      miembros: (c.members || []).map(m => ({ uid: m, quien: nombreDe[m] || c.memberNames?.[m] || "(usuario borrado)", rol: c.roles?.[m] || "" })) })) });
 }
 
 // Ajustes generales (por ahora: aviso al cliente cuando el auto queda reparado)

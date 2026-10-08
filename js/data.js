@@ -258,7 +258,7 @@ function escucharEmpresas() {
   let creando = false;
   unsubCompanies = onSnapshot(q, { includeMetadataChanges: true }, async snap => {
     S.companies = snap.docs.map(d => ({ id: d.id, ...d.data() }))
-      .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+      .sort((a, b) => (a.createdAt?.seconds ?? 9e12) - (b.createdAt?.seconds ?? 9e12) || (a.name || "").localeCompare(b.name || ""));   // por orden de creación
     // Sin operativos: la app ofrece pedir unirse a uno o crear uno (ya no se crea solo)
     const sinOp = !S.companies.length && !snap.metadata.fromCache;
     if (sinOp !== !!S.sinOperativo) { S.sinOperativo = sinOp; emit("sin-operativo"); }
