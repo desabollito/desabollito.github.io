@@ -12,7 +12,6 @@ const listar = async ruta => { const out = []; let t = ""; do { const j = await 
 const get = async p => (await fetch(`${base}/${p}`, { headers: H })).json();
 const s = v => v?.stringValue ?? "";
 const norm = t => t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
-const u = await get("usernames/gzmatte"); const uid = s(u.fields?.uid), nombre = s(u.fields?.name) || "gzmatte";
 const reg = await get("usernames/tec"); const uid = s(reg.fields?.uid);
 if (!uid) { console.log("::notice::no existe el usuario tec"); process.exit(0); }
 const u = await get(`users/${uid}`);
