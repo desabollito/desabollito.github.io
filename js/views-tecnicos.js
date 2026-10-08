@@ -97,7 +97,7 @@ export function vistaTecnicos(view) {
     $("#t-body", view).addEventListener("change", cambio);
   };
 
-  const nombreTec = id => cfg.tecnicos.find(t => t.id === id)?.nombre || "?";
+  const nombreTec = id => cfg.tecnicos.find(t => t.id === id)?.nombre || (fijos.tecnicos || []).find(t => t.id === id)?.nombre || "?";
   const sumaPorTec = rows => { const s = Object.fromEntries(cfg.tecnicos.map(t => [t.id, 0])); rows.forEach(r => r.tecs.forEach(id => { s[id] += r.parte; })); return s; };
 
   const pintar = () => {
@@ -168,34 +168,39 @@ export function vistaTecnicos(view) {
     const movs = (cfg.movs || []).filter(enPeriodo);
     const de = (id, tipo) => movs.filter(m => m.tec === id && m.tipo === tipo);
     const suma = l => l.reduce((a, m) => a + (Number(m.monto) || 0), 0);
-    // Gastos fijos (viandas y alquiler) de cada técnico en el período
-    const hayFijos = !!(fijos.viandas?.cambios?.length || fijos.alquiler?.pagos?.length);
-    // Gastos fijos tiene sus propios técnicos: se cruzan por nombre
-    const fx = fijosPorNombre(fijos, T.desde, T.hasta), nf = t => fx[String(t.nombre || "").trim().toUpperCase()] || {};
-    const vi = Object.fromEntries(cfg.tecnicos.map(t => [t.id, nf(t).viandas || 0])), al = Object.fromEntries(cfg.tecnicos.map(t => [t.id, nf(t).alquiler || 0]));
+    // Gastos fijos (viandas y alquiler) de cada técnico en el período: gastos fijos tiene sus propios técnicos y se cruzan por nombre
+    const norm = n => String(n || "").trim().toUpperCase();
+    const fx = fijosPorNombre(fijos, T.desde, T.hasta), nf = t => fx[norm(t.nombre)] || {};
+    const hayFijos = !!(fijos.viandas?.cambios?.length || fijos.alquiler?.pagos?.length || fijos.alquiler?.casas?.length);
+    // Los que están en viandas/alquiler pero no en la planilla de autos (uno por nombre)
+    const enAutos = new Set(cfg.tecnicos.map(t => norm(t.nombre))), vistos = new Set();
+    const extras = (fijos.tecnicos || []).filter(t => { const k = norm(t.nombre); if (!k || enAutos.has(k) || vistos.has(k)) return false; vistos.add(k); return true; });
+    const tarjeta = (t, extra) => {
+      const f = nf(t), vi = f.viandas || 0, al = f.alquiler || 0, ganado = extra ? 0 : s[t.id] || 0;
+      const ad = de(t.id, "adelanto"), ga = de(t.id, "gasto"), fin = ganado - suma(ad) - suma(ga) - vi - al;
+      const items = (l, tipo) => l.map(m => `<li><span>${fechaCorta(m.fecha)}${m.nota ? " · " + esc(m.nota) : ""}</span><b>-${pesos(m.monto)}</b>
+        ${T.editando ? `<button type="button" class="icon-btn sm" data-del-mov="${esc(m.id)}" aria-label="Quitar">${icon("x")}</button>` : ""}</li>`).join("") ||
+        `<li class="muted small">Sin ${tipo === "adelanto" ? "adelantos" : "gastos"}</li>`;
+      return `<section class="tec-cierre" data-tecid="${esc(t.id)}" data-tecnom="${esc(t.nombre)}">
+        <h3 class="tec-cierre-nombre">${esc(t.nombre)}${extra ? "" : ` <small>${rows.filter(r => r.tecs.includes(t.id)).length} autos</small>`}</h3>
+        ${extra ? "" : `<div class="tec-linea"><span>Total ganado</span><b>${pesos(ganado)}</b></div>`}
+        <div class="tec-linea"><span>Adelantos</span><b>-${pesos(suma(ad))}</b>${T.editando ? `<button type="button" class="link-btn small" data-add-mov="adelanto">+ Adelanto</button>` : ""}</div>
+        <ul class="tec-movs">${items(ad, "adelanto")}</ul>
+        <div class="tec-linea"><span>Gastos</span><b>-${pesos(suma(ga))}</b>${T.editando ? `<button type="button" class="link-btn small" data-add-mov="gasto">+ Gasto</button>` : ""}</div>
+        <ul class="tec-movs">${items(ga, "gasto")}</ul>
+        ${hayFijos ? `<div class="tec-linea"><span>Viandas</span><b>-${pesos(vi)}</b></div>
+        <div class="tec-linea"><span>Alquiler</span><b>-${pesos(al)}</b></div>` : ""}
+        <div class="tec-linea tec-final"><span>${extra ? "Total a descontar" : "Final a pagar"}</span><b>${extra ? pesos(-fin) : pesos(fin)}</b></div>
+      </section>`;
+    };
     return `<div class="tec-cierre-top">
         <div class="tec-stat"><small>Autos</small><strong>${rows.length}</strong></div>
         <div class="tec-stat"><small>Valor de todos los autos</small><strong>${pesos(total)}</strong></div>
       </div>
       <h3 class="tec-cierre-tit">Por técnico</h3>
-      <div class="tec-cierre-grid">
-      ${cfg.tecnicos.map(t => {
-        const ad = de(t.id, "adelanto"), ga = de(t.id, "gasto"), fin = s[t.id] - suma(ad) - suma(ga) - (vi[t.id] || 0) - (al[t.id] || 0);
-        const items = (l, tipo) => l.map(m => `<li><span>${fechaCorta(m.fecha)}${m.nota ? " · " + esc(m.nota) : ""}</span><b>-${pesos(m.monto)}</b>
-          ${T.editando ? `<button type="button" class="icon-btn sm" data-del-mov="${esc(m.id)}" aria-label="Quitar">${icon("x")}</button>` : ""}</li>`).join("") ||
-          `<li class="muted small">Sin ${tipo === "adelanto" ? "adelantos" : "gastos"}</li>`;
-        return `<section class="tec-cierre" data-tecid="${esc(t.id)}">
-          <h3 class="tec-cierre-nombre">${esc(t.nombre)} <small>${rows.filter(r => r.tecs.includes(t.id)).length} autos</small></h3>
-          <div class="tec-linea"><span>Total ganado</span><b>${pesos(s[t.id])}</b></div>
-          <div class="tec-linea"><span>Adelantos</span><b>-${pesos(suma(ad))}</b>${T.editando ? `<button type="button" class="link-btn small" data-add-mov="adelanto">+ Adelanto</button>` : ""}</div>
-          <ul class="tec-movs">${items(ad, "adelanto")}</ul>
-          <div class="tec-linea"><span>Gastos</span><b>-${pesos(suma(ga))}</b>${T.editando ? `<button type="button" class="link-btn small" data-add-mov="gasto">+ Gasto</button>` : ""}</div>
-          <ul class="tec-movs">${items(ga, "gasto")}</ul>
-          ${hayFijos ? `<div class="tec-linea"><span>Viandas</span><b>-${pesos(vi[t.id])}</b></div>
-          <div class="tec-linea"><span>Alquiler</span><b>-${pesos(al[t.id])}</b></div>` : ""}
-          <div class="tec-linea tec-final"><span>Final a pagar</span><b>${pesos(fin)}</b></div>
-        </section>`;
-      }).join("")}</div>`;
+      <div class="tec-cierre-grid">${cfg.tecnicos.map(t => tarjeta(t, false)).join("")}</div>
+      ${extras.length ? `<h3 class="tec-cierre-tit">Solo viandas y alquiler</h3>
+      <div class="tec-cierre-grid">${extras.map(t => tarjeta(t, true)).join("")}</div>` : ""}`;
   };
 
   // ── Acciones ──

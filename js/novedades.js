@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "2.45.32", items: ["Cierre: abajo aparecen los técnicos que solo están en viandas o alquiler, para cerrarlos ahí."] },
   { v: "2.45.31", items: ["Alquiler: la fecha de inicio solo se cambia al editar."] },
   { v: "2.45.30", items: ["Viandas: «Cambiar técnicos o valores» aparece solo al editar.", "Links de perito cortos con vista previa en WhatsApp."] },
   { v: "2.45.28", items: ["Alquiler: «Reparto total» plegable, columna «Corresponde», técnicos solo al editar y copiar/pegar fechas entre técnicos."] },

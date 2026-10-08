@@ -1408,6 +1408,7 @@ body[data-lector-uno="1"] .tabbar, body[data-lector-uno="1"] .side-nav, body[dat
 .fijos-hist ul, .fijos-pagos { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .fijos-hist li, .fijos-pagos li { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 14px; }
 .fijos-tit { margin: 0; font-size: 15px; }
+.casa-body > .fijos-tit:not(:first-child) { margin-top: 12px; }
 .fijos-est { display: flex; flex-direction: column; gap: 10px; }
 .fijos-est-tec { display: flex; flex-direction: column; gap: 6px; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
 .fijos-est-tec:last-child { border-bottom: 0; }
