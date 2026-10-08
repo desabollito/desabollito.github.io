@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "2.45.17", items: ["Viandas: listado por día con quiénes estuvieron y cuánto gastó cada uno."] },
   { v: "2.45.16", items: ["Modo oscuro más oscuro (gris/negro en vez de azul)."] },
   { v: "2.45.15", items: ["Agregar personas: buscador con los usuarios de la app (sin escribir el @usuario).", "Rol por defecto al agregar: Administrador."] },
   { v: "2.45.14", items: ["Gastos fijos con su propia lista de técnicos.", "Gestión del operativo: @usuario debajo de cada nombre."] },

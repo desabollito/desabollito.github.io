@@ -1454,3 +1454,11 @@ body[data-lector-uno="1"] .tabbar, body[data-lector-uno="1"] .side-nav, body[dat
 .usr-chip strong { font-size: 13px; white-space: nowrap; } .usr-chip small { font-size: 11px; color: var(--muted); }
 .usr-chip.on { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); }
 .avatar.sm { width: 30px; height: 30px; font-size: 12px; }
+.fijos-kv-total { border-top: 1px solid var(--line); padding-top: 8px; margin-top: 2px; font-weight: 700; }
+.vdias { display: flex; flex-direction: column; gap: 10px; }
+.vdia { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+.vdia-top { display: flex; justify-content: space-between; align-items: baseline; }
+.vdia-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.vchip { border: 1px dashed var(--line-2); background: none; color: var(--muted); border-radius: 999px; padding: 4px 10px; font: inherit; font-size: 13px; font-weight: 600; }
+.vchip.on { border-style: solid; border-color: var(--primary); color: var(--primary); background: var(--primary-soft); }
+button.vchip { cursor: pointer; }

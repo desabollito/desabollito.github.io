@@ -125,16 +125,21 @@ export function vistaFijos(view) {
           `<li><span>${fechaCorta(c.fecha)} · ${pesos(c.vianda)} + envío ${pesos(c.envio)} · ${c.tecs.length} técnicos</span>
             ${ed ? `<button type="button" class="icon-btn sm" data-del-cambio="${esc(c.id)}" aria-label="Borrar">${icon("x")}</button>` : ""}</li>`).join("")}</ul></details>` : ""}
       </section>
-      ${dias.length ? `<div class="table-wrap"><table class="tbl tec-excel fijos-tbl">
-        <thead><tr><th>Día</th>${tecs.map(t => `<th class="num">${esc(t.nombre)}</th>`).join("")}<th class="num">Total día</th></tr></thead>
-        <tbody>
-          <tr class="tec-sub"><td>TOTAL</td>${tecs.map(t => `<td class="num">${pesos(tot[t.id])}</td>`).join("")}<td class="num">${pesos(Object.values(tot).reduce((a, b) => a + b, 0))}</td></tr>
-          ${dias.map(d => `<tr data-dia="${d.fecha}"><td>${diaLabel(d.fecha)}${d.ajustado ? ' <small class="muted">·</small>' : ""}</td>
-            ${tecs.map(t => { const si = d.tecs.includes(t.id);
-              return `<td class="num ${si ? "" : "tec-no"}">${ed ? `<button type="button" class="tec-celda ${si ? "on" : ""}" data-tec="${esc(t.id)}">${si ? pesos(d.parte) : "⨯"}</button>` : si ? pesos(d.parte) : "⨯"}</td>`; }).join("")}
-            <td class="num">${pesos(d.vianda * d.tecs.length + (d.tecs.length ? d.envio : 0))}</td></tr>`).join("")}
-        </tbody></table></div>
-        ${ed ? `<p class="muted small">Tocá un técnico en un día para sacarlo o sumarlo solo ese día. El envío se reparte entre los que estén.</p>` : ""}` : ""}`;
+      ${dias.length ? `<section class="card fijos-tot">
+          <h3 class="fijos-tit">Total por técnico <small class="muted">${dias.length} ${dias.length === 1 ? "día" : "días"}</small></h3>
+          ${tecs.map(t => `<div class="fijos-kv"><span>${esc(t.nombre)}</span><b>${pesos(tot[t.id])}</b></div>`).join("")}
+          <div class="fijos-kv fijos-kv-total"><span>Total</span><b>${pesos(Object.values(tot).reduce((a, b) => a + b, 0))}</b></div>
+        </section>
+        ${ed ? `<p class="muted small">Tocá un técnico en un día para sacarlo o sumarlo solo ese día. El envío se reparte entre los que estén.</p>` : ""}
+        <div class="vdias">${dias.map(d => {
+          const totalDia = d.vianda * d.tecs.length + (d.tecs.length ? d.envio : 0);
+          const chips = tecs.filter(t => ed || d.tecs.includes(t.id)).map(t => { const si = d.tecs.includes(t.id);
+            return `<${ed ? "button type=\"button\"" : "span"} class="vchip ${si ? "on" : ""}" data-tec="${esc(t.id)}">${esc(t.nombre)}${si ? ` <b>${pesos(d.parte)}</b>` : ""}</${ed ? "button" : "span"}>`; }).join("");
+          return `<div class="vdia" data-dia="${d.fecha}">
+            <div class="vdia-top"><strong>${diaLabel(d.fecha)}</strong><b>${pesos(totalDia)}</b></div>
+            <div class="vdia-chips">${chips || `<span class="muted small">Nadie</span>`}</div>
+            <small class="muted">${d.tecs.length} ${d.tecs.length === 1 ? "técnico" : "técnicos"} · vianda ${pesos(d.vianda)} c/u${d.envio ? ` + envío ${pesos(d.envio)}` : ""}${d.ajustado ? " · ajustado a mano" : ""}</small>
+          </div>`; }).join("")}</div>` : ""}`;
   };
   const sheetCambio = () => {
     const v = fijos.viandas || {}, cambios = v.cambios || [];
