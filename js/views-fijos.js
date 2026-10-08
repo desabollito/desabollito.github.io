@@ -117,8 +117,7 @@ export function vistaFijos(view) {
     const ed = F.editando;
     return `<section class="card fijos-actual">
         ${ult ? `<div class="fijos-kv"><span>Vianda por técnico</span><b>${pesos(ult.vianda)}</b></div>
-          <div class="fijos-kv"><span>Envío por día (se reparte)</span><b>${pesos(ult.envio)}</b></div>
-          <div class="fijos-kv"><span>Técnicos desde el ${fechaCorta(ult.fecha)}</span><b>${ult.tecs.map(id => esc(nombre(id))).join(", ") || "—"}</b></div>`
+          <div class="fijos-kv"><span>Envío por día (se reparte)</span><b>${pesos(ult.envio)}</b></div>`
           : `<p class="muted">Todavía no empezaste. Elegí los técnicos que están ahora y los valores: se repite solo todos los días.</p>`}
         <button type="button" class="btn ${ult ? "btn-ghost" : "btn-primary"} btn-block" data-act="cambio">${icon(ult ? "edit" : "plus")}${ult ? "Cambiar técnicos o valores" : "Empezar"}</button>
       </section>
