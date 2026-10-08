@@ -27,8 +27,8 @@ const lunesDe = iso => { const [y, m, d] = iso.split("-").map(Number); const f =
 const masDias = (iso, n) => { const [y, m, d] = iso.split("-").map(Number); const f = new Date(y, m - 1, d + n);
   return `${f.getFullYear()}-${String(f.getMonth() + 1).padStart(2, "0")}-${String(f.getDate()).padStart(2, "0")}`; };
 // Fecha de la reparación (Revisión en adelante)
-// Solo cuentan los autos entregados (o ya facturados); la fecha es la de entrega
-const entregado = v => ["entregado", "facturado"].includes(estadoActual(v));
+// Cuentan los autos desde que entran a reparar (Reparando, Revisión, Contactado, Entregado o Facturado)
+const entregado = v => ["enreparacion", "reparado", "llamado", "entregado", "facturado"].includes(estadoActual(v));
 // El día del auto en la planilla es el de la reparación (no el de la entrega)
 const fechaRep = v => v.fechas?.reparado || v.fechas?.enreparacion || v.fechas?.llamado || v.fechas?.entregado || v.fechas?.facturado || "";
 const nuevoId = () => Math.random().toString(36).slice(2, 9);
@@ -116,7 +116,7 @@ export function vistaTecnicos(view) {
   // Las columnas se pueden ensanchar o achicar arrastrando el borde del título (se recuerda en este equipo).
   const anchos = () => { try { return JSON.parse(localStorage.getItem("tecCols") || "{}"); } catch { return {}; } };
   const pintarAutos = rows => {
-    if (!rows.length) return `<div class="empty small"><p>Todavía no hay autos entregados${T.desde || T.hasta ? " en ese período" : ""}.</p></div>`;
+    if (!rows.length) return `<div class="empty small"><p>Todavía no hay autos en reparación ni entregados${T.desde || T.hasta ? " en ese período" : ""}.</p></div>`;
     const ed = T.editando, tecs = cfg.tecnicos, nc = 4 + tecs.length + (ed ? 1 : 0), w = anchos();
     const cols = [["veh", "Vehículo", 120], ["pat", "Patente", 90], ["cia", "Compañía", 110], ["imp", "Importe", 100], ...tecs.map(t => [t.id, t.nombre, 95])];
     const th = ([k, txt], i) => `<th class="${i >= 3 ? "num" : ""} ${k === "imp" ? "col-imp" : ""}" data-col="${esc(k)}">${esc(txt)}<span class="col-res" aria-hidden="true"></span></th>`;
@@ -165,7 +165,7 @@ export function vistaTecnicos(view) {
     const de = (id, tipo) => movs.filter(m => m.tec === id && m.tipo === tipo);
     const suma = l => l.reduce((a, m) => a + (Number(m.monto) || 0), 0);
     return `<div class="tec-cierre-top">
-        <div class="tec-stat"><small>Autos entregados</small><strong>${rows.length}</strong></div>
+        <div class="tec-stat"><small>Autos</small><strong>${rows.length}</strong></div>
         <div class="tec-stat"><small>Valor de todos los autos</small><strong>${pesos(total)}</strong></div>
       </div>
       <h3 class="tec-cierre-tit">Por técnico</h3>
