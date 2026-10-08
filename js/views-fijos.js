@@ -3,7 +3,7 @@
 //  Se guardan en companies/{cid}/planTec/_fijos (solo administradores).
 //   viandas:  { cambios: [{ id, fecha, tecs: [ids], vianda, envio }], dias: { "AAAA-MM-DD": [ids] } }
 //             Cada cambio vale desde su fecha en adelante; "dias" son los ajustes de un día puntual.
-//   alquiler: { inicio, pagos: [{ id, monto, meses, desde }], estadias: { idTec: { llegada, salida } } }
+//   alquiler: { casas: [{ id, nombre, inicio, pagos: [{ id, monto, desde, hasta }], estadias: { idTec: [{ id, llegada, salida }] } }] }
 // ═════════════════════════════════════════════════════════════
 import { db, collection, doc, onSnapshot, setDoc } from "./firebase.js";
 import { S, soyAdmin, mensajeError } from "./data.js";
@@ -43,13 +43,19 @@ export const rangoPago = (p, a = {}) => {
 };
 // Estadías de un técnico en la casa: varias por técnico (las viejas eran una sola)
 export const estadiasDe = (est, id) => Array.isArray(est?.[id]) ? est[id] : est?.[id]?.llegada ? [{ id: "e0", ...est[id] }] : [];
-// Alquiler: cada pago cubre su período; el costo de cada día se reparte entre los técnicos que estaban en la casa
-export function repartoAlquiler(fijos, tecnicos, desde = "", hasta = "") {
-  const a = fijos?.alquiler || {}, porTec = Object.fromEntries((tecnicos || []).map(t => [t.id, 0])), diasTec = { ...Object.fromEntries(Object.keys(porTec).map(k => [k, 0])) };
+// Casas alquiladas (varias). Los datos viejos (una sola casa sin nombre) se leen como "Casa 1".
+export function casasDe(fijos) {
+  const a = fijos?.alquiler || {};
+  if (Array.isArray(a.casas)) return a.casas;
+  return (a.pagos?.length || a.inicio || Object.keys(a.estadias || {}).length) ? [{ id: "c0", nombre: "Casa 1", inicio: a.inicio || "", pagos: a.pagos || [], estadias: a.estadias || {} }] : [];
+}
+// Una casa: cada pago cubre su período; el costo de cada día se reparte entre los técnicos que estaban en esa casa
+export function repartoCasa(casa, tecnicos, desde = "", hasta = "") {
+  const porTec = Object.fromEntries((tecnicos || []).map(t => [t.id, 0])), diasTec = Object.fromEntries(Object.keys(porTec).map(k => [k, 0]));
   let sinAsignar = 0, total = 0;
-  const est = a.estadias || {};
-  for (const p of a.pagos || []) {
-    const [ini, fin] = rangoPago(p, a); if (!ini || !fin || fin < ini) continue;
+  const est = casa.estadias || {};
+  for (const p of casa.pagos || []) {
+    const [ini, fin] = rangoPago(p, casa); if (!ini || !fin || fin < ini) continue;
     const dias = [...diasEntre(ini, fin)], porDia = (Number(p.monto) || 0) / dias.length;
     total += Number(p.monto) || 0;
     for (const d of dias) {
@@ -60,6 +66,16 @@ export function repartoAlquiler(fijos, tecnicos, desde = "", hasta = "") {
     }
   }
   return { porTec, diasTec, sinAsignar, total };
+}
+// Todas las casas juntas
+export function repartoAlquiler(fijos, tecnicos, desde = "", hasta = "") {
+  const out = { porTec: Object.fromEntries((tecnicos || []).map(t => [t.id, 0])), diasTec: Object.fromEntries((tecnicos || []).map(t => [t.id, 0])), sinAsignar: 0, total: 0 };
+  for (const c of casasDe(fijos)) {
+    const r = repartoCasa(c, tecnicos, desde, hasta);
+    Object.keys(out.porTec).forEach(id => { out.porTec[id] += r.porTec[id] || 0; out.diasTec[id] += r.diasTec[id] || 0; });
+    out.sinAsignar += r.sinAsignar; out.total += r.total;
+  }
+  return out;
 }
 // Para el Cierre de la planilla de técnicos: lo que le toca a cada técnico de gastos fijos, por nombre
 export function fijosPorNombre(fijos, desde = "", hasta = "") {
@@ -76,7 +92,7 @@ export function viandasPorTec(fijos, tecnicos, desde = "", hasta = "") {
   return s;
 }
 
-const F = { tab: "viandas", editando: false };
+const F = { tab: "viandas", editando: false, abiertas: new Set() };
 let unsub = null;
 
 export function vistaFijos(view) {
@@ -90,11 +106,12 @@ export function vistaFijos(view) {
   // Orden de ingreso: el primer día en que cada técnico aparece en las viandas (si no, el día que llegó a la casa);
   // los que entraron el mismo día quedan en el orden en que se cargaron. Así un técnico nuevo nunca se mete entre los anteriores.
   const cfg = { get tecnicos() {
-    const est = fijos.alquiler?.estadias || {}, l = fijos.tecnicos || [], primero = {};
+    const l = fijos.tecnicos || [], primero = {};
+    const llegadas = id => casasDe(fijos).flatMap(c => estadiasDe(c.estadias, id).map(e => e.llegada)).filter(Boolean).sort();
     for (const c of [...(fijos.viandas?.cambios || [])].sort((a, b) => a.fecha.localeCompare(b.fecha)))
       (c.tecs || []).forEach(id => { if (!primero[id] || c.fecha < primero[id]) primero[id] = c.fecha; });
     Object.entries(fijos.viandas?.dias || {}).forEach(([d, ids]) => (ids || []).forEach(id => { if (!primero[id] || d < primero[id]) primero[id] = d; }));
-    return l.map((t, i) => ({ t, i, f: primero[t.id] || estadiasDe(est, t.id).map(e => e.llegada).filter(Boolean).sort()[0] || "9999" })).sort((a, b) => a.f.localeCompare(b.f) || a.i - b.i).map(x => x.t);
+    return l.map((t, i) => ({ t, i, f: primero[t.id] || llegadas(t.id)[0] || "9999" })).sort((a, b) => a.f.localeCompare(b.f) || a.i - b.i).map(x => x.t);
   } };
   unsub?.();
   unsub = onSnapshot(col, snap => {
@@ -115,6 +132,9 @@ export function vistaFijos(view) {
       $$("#f-tabs .seg-btn", view).forEach(x => x.classList.toggle("on", x === b)); pintar(); };
     $("#f-body", view).addEventListener("click", clic);
     $("#f-body", view).addEventListener("change", cambio);
+    // Se recuerda qué casas están abiertas
+    $("#f-body", view).addEventListener("toggle", e => { const d = e.target; if (!d?.dataset?.casa) return;
+      d.open ? F.abiertas.add(d.dataset.casa) : F.abiertas.delete(d.dataset.casa); }, true);
   };
 
   const pintar = () => {
@@ -178,47 +198,57 @@ export function vistaFijos(view) {
     };
   };
 
-  // ── Alquiler ──
+  // ── Alquiler: varias casas, cada una con su nombre, pagos y estadías ──
+  const casas = () => casasDe(fijos);
+  const guardarCasas = l => guardar({ alquiler: { casas: l } });
+  const updCasa = (cid, fn) => guardarCasas(casas().map(c => c.id === cid ? fn({ ...c }) : c));
+  const tablaReparto = (r, titulo) => `<div class="table-wrap"><table class="tbl"><thead><tr><th>${titulo}</th><th class="num">Días</th><th class="num">Le toca</th></tr></thead><tbody>
+      ${cfg.tecnicos.filter(t => r.diasTec[t.id] || r.porTec[t.id] > 0.5).map(t => `<tr><td>${esc(t.nombre)}</td><td class="num">${r.diasTec[t.id] || 0}</td><td class="num">${pesos(r.porTec[t.id])}</td></tr>`).join("")}
+      ${r.sinAsignar > 0.5 ? `<tr><td class="muted">Días sin nadie</td><td></td><td class="num muted">${pesos(r.sinAsignar)}</td></tr>` : ""}
+      <tr class="tec-sub"><td>TOTAL PAGADO</td><td></td><td class="num">${pesos(r.total)}</td></tr></tbody></table></div>`;
   const pintarAlquiler = () => {
-    const a = fijos.alquiler || {}, ed = F.editando, est = a.estadias || {};
-    const r = repartoAlquiler(fijos, cfg.tecnicos);
-    const pagos = [...(a.pagos || [])].sort((x, y) => (x.desde || "").localeCompare(y.desde || ""));
-    return `<section class="card">
-        <label class="field"><span>Empezamos a alquilar la casa el</span><input type="date" data-campo="inicio" value="${esc(a.inicio || "")}" ${ed ? "" : "disabled"}></label>
-        <h3 class="fijos-tit">Pagos</h3>
-        ${pagos.length ? `<ul class="fijos-pagos">${pagos.map(p => { const [ini, fin] = rangoPago(p, a);
-          return `<li><span><b>${pesos(p.monto)}</b>${ini ? ` <small class="muted">· ${fechaCorta(ini)} al ${fechaCorta(fin)}</small>` : ""}</span>
-            ${ed ? `<button type="button" class="icon-btn sm" data-del-pago="${esc(p.id)}" aria-label="Quitar">${icon("x")}</button>` : ""}</li>`; }).join("")}</ul>`
-          : `<p class="muted small">Sin pagos cargados.</p>`}
-        ${ed ? `<button type="button" class="btn btn-ghost btn-block" data-act="pago">${icon("plus")}Agregar pago</button>` : ""}
-      </section>
-      <section class="card">
-        <h3 class="fijos-tit">Técnicos en la casa</h3>
-        <p class="muted small">Cada día de alquiler se reparte entre los técnicos que estaban ese día. Sin fecha de salida = sigue en la casa.</p>
-        <div class="fijos-est">${cfg.tecnicos.map(t => { const es = estadiasDe(est, t.id);
-          return `<div class="fijos-est-tec" data-tecid="${esc(t.id)}"><div class="fijos-est-nom"><b>${esc(t.nombre)}</b>
-              ${ed ? `<button type="button" class="link-btn small" data-add-est>+ Estadía</button>` : ""}</div>
-            ${es.length ? es.map(e => `<div class="fijos-est-fila" data-est="${esc(e.id)}">
-              <label><small>Llegó</small><input type="date" data-campo="llegada" value="${esc(e.llegada || "")}" ${ed ? "" : "disabled"}></label>
-              <label><small>Se fue</small><input type="date" data-campo="salida" value="${esc(e.salida || "")}" ${ed ? "" : "disabled"}></label>
-              ${ed ? `<button type="button" class="icon-btn sm" data-del-est aria-label="Quitar estadía">${icon("x")}</button>` : "<span></span>"}</div>`).join("")
-              : `<p class="muted small">Sin fechas${ed ? "" : " · tocá Editar"}</p>`}</div>`; }).join("")}</div>
-      </section>
-      <section class="card">
-        <h3 class="fijos-tit">Reparto</h3>
-        <div class="table-wrap"><table class="tbl"><thead><tr><th>Técnico</th><th class="num">Días</th><th class="num">Le toca</th></tr></thead><tbody>
-          ${cfg.tecnicos.map(t => `<tr><td>${esc(t.nombre)}</td><td class="num">${r.diasTec[t.id] || 0}</td><td class="num">${pesos(r.porTec[t.id])}</td></tr>`).join("")}
-          ${r.sinAsignar > 0.5 ? `<tr><td class="muted">Días sin técnicos en la casa</td><td></td><td class="num muted">${pesos(r.sinAsignar)}</td></tr>` : ""}
-          <tr class="tec-sub"><td>TOTAL PAGADO</td><td></td><td class="num">${pesos(r.total)}</td></tr>
-        </tbody></table></div>
-        ${ed ? "" : `<p class="muted small">Tocá <b>Editar</b> para cargar pagos y fechas.</p>`}
-      </section>`;
+    const ed = F.editando, l = casas();
+    const tarjeta = c => {
+      const est = c.estadias || {}, pagos = [...(c.pagos || [])].sort((x, y) => (rangoPago(x, c)[0] || "").localeCompare(rangoPago(y, c)[0] || ""));
+      const r = repartoCasa(c, cfg.tecnicos);
+      return `<details class="card plegable casa" data-casa="${esc(c.id)}" ${F.abiertas?.has(c.id) ? "open" : ""}>
+        <summary><span>${icon("team")}${esc(c.nombre || "Casa")} <small class="muted">${pesos(r.total)}</small></span>${icon("next")}</summary>
+        <div class="casa-body">
+          ${ed ? `<div class="row-btns"><button type="button" class="btn btn-ghost btn-sm" data-ren-casa>${icon("edit")}Nombre</button>
+            <button type="button" class="btn btn-danger-ghost btn-sm" data-del-casa>${icon("trash")}Quitar casa</button></div>` : ""}
+          <label class="field"><span>Empezamos a alquilar el</span><input type="date" data-campo="inicio" value="${esc(c.inicio || "")}" ${ed ? "" : "disabled"}></label>
+          <h3 class="fijos-tit">Pagos</h3>
+          ${pagos.length ? `<ul class="fijos-pagos">${pagos.map(p => { const [ini, fin] = rangoPago(p, c);
+            return `<li><span><b>${pesos(p.monto)}</b>${ini ? ` <small class="muted">· ${fechaCorta(ini)} al ${fechaCorta(fin)}</small>` : ""}</span>
+              ${ed ? `<button type="button" class="icon-btn sm" data-del-pago="${esc(p.id)}" aria-label="Quitar">${icon("x")}</button>` : ""}</li>`; }).join("")}</ul>`
+            : `<p class="muted small">Sin pagos cargados.</p>`}
+          ${ed ? `<button type="button" class="btn btn-ghost btn-block" data-act="pago">${icon("plus")}Agregar pago</button>` : ""}
+          <h3 class="fijos-tit">Técnicos en la casa</h3>
+          <div class="fijos-est">${cfg.tecnicos.filter(t => ed || estadiasDe(est, t.id).length).map(t => { const es = estadiasDe(est, t.id);
+            return `<div class="fijos-est-tec" data-tecid="${esc(t.id)}"><div class="fijos-est-nom"><b>${esc(t.nombre)}</b>
+                ${ed ? `<button type="button" class="link-btn small" data-add-est>+ Estadía</button>` : ""}</div>
+              ${es.map(e => `<div class="fijos-est-fila" data-est="${esc(e.id)}">
+                <label><small>Llegó</small><input type="date" data-campo="llegada" value="${esc(e.llegada || "")}" ${ed ? "" : "disabled"}></label>
+                <label><small>Se fue</small><input type="date" data-campo="salida" value="${esc(e.salida || "")}" ${ed ? "" : "disabled"}></label>
+                ${ed ? `<button type="button" class="icon-btn sm" data-del-est aria-label="Quitar estadía">${icon("x")}</button>` : "<span></span>"}</div>`).join("")}</div>`; }).join("")
+              || `<p class="muted small">Sin técnicos cargados${ed ? "" : " · tocá Editar"}.</p>`}</div>
+          <h3 class="fijos-tit">Reparto de esta casa</h3>
+          ${tablaReparto(r, "Técnico")}
+        </div></details>`;
+    };
+    const rt = repartoAlquiler(fijos, cfg.tecnicos);
+    return `${l.map(tarjeta).join("")}
+      ${l.length ? "" : `<div class="empty small"><p>Todavía no cargaste ninguna casa.</p></div>`}
+      ${ed || !l.length ? `<button type="button" class="btn ${l.length ? "btn-ghost" : "btn-primary"} btn-block" data-act="casa">${icon("plus")}Agregar casa</button>` : ""}
+      ${l.length > 1 ? `<section class="card"><h3 class="fijos-tit">Reparto de todas las casas</h3>${tablaReparto(rt, "Técnico")}</section>` : ""}
+      ${l.length && !ed ? `<p class="muted small">Tocá <b>Editar</b> para cargar casas, pagos y fechas.</p>` : ""}`;
   };
-  const sheetPago = () => {
-    const a = fijos.alquiler || {}, pagos = a.pagos || [];
-    const ult = [...pagos].sort((x, y) => (rangoPago(x, a)[1] || "").localeCompare(rangoPago(y, a)[1] || "")).pop();
-    const ini = ult ? masDias(rangoPago(ult, a)[1], 1) : (a.inicio || hoyISO());
-    const s = openSheet({ title: "Pago de alquiler", body: `<form class="stack">
+  const sheetPago = cid => {
+    const c = casas().find(x => x.id === cid); if (!c) return;
+    const pagos = c.pagos || [];
+    const ult = [...pagos].sort((x, y) => (rangoPago(x, c)[1] || "").localeCompare(rangoPago(y, c)[1] || "")).pop();
+    const ini = ult ? masDias(rangoPago(ult, c)[1], 1) : (c.inicio || hoyISO());
+    const s = openSheet({ title: `Pago · ${c.nombre || "Casa"}`, body: `<form class="stack">
       <label class="field"><span>Total pagado</span><input type="number" inputmode="numeric" name="monto" min="0" required></label>
       <label class="field"><span>Desde</span><input type="date" name="desde" value="${esc(ini)}" required></label>
       <label class="field"><span>Hasta</span><input type="date" name="hasta" value="${esc(masDias(masMeses(ini, 1), -1))}" required></label>
@@ -227,15 +257,32 @@ export function vistaFijos(view) {
       e.preventDefault(); const f = e.target;
       if (f.hasta.value < f.desde.value) return toast("La fecha de fin es anterior al inicio", "warning");
       const p = { id: nuevoId(), monto: Number(f.monto.value) || 0, desde: f.desde.value, hasta: f.hasta.value };
-      guardar({ alquiler: { ...a, inicio: a.inicio || p.desde, pagos: [...pagos, p] } }); s.close();
+      updCasa(cid, x => ({ ...x, inicio: x.inicio || p.desde, pagos: [...(x.pagos || []), p] })); s.close();
     };
+  };
+  const nuevaCasa = async () => {
+    const n = await pedirTexto({ title: "Nueva casa", label: "Nombre de la casa", placeholder: "Ej: Casa San Martín", ok: "Agregar" });
+    if (!n?.trim()) return;
+    const id = nuevoId(); (F.abiertas ||= new Set()).add(id);
+    if (!F.editando) $("#f-edit")?.click();
+    guardarCasas([...casas(), { id, nombre: n.trim(), inicio: "", pagos: [], estadias: {} }]);
   };
 
   async function clic(e) {
     const t = e.target;
     if (t.closest("[data-act=cambio]")) return sheetCambio();
     if (t.closest("[data-act=tecnicos]")) return gestionarTecnicos();
-    if (t.closest("[data-act=pago]")) return sheetPago();
+    const casaEl = t.closest("[data-casa]"), cid = casaEl?.dataset.casa;
+    if (t.closest("[data-act=casa]")) return nuevaCasa();
+    if (t.closest("[data-act=pago]") && cid) return sheetPago(cid);
+    if (t.closest("[data-ren-casa]") && cid) {
+      const c = casas().find(x => x.id === cid);
+      const n = await pedirTexto({ title: "Nombre de la casa", label: "Nombre", value: c?.nombre || "" });
+      if (n?.trim()) updCasa(cid, x => ({ ...x, nombre: n.trim() }));
+      return;
+    }
+    if (t.closest("[data-del-casa]") && cid && await confirmar({ title: "¿Quitar esta casa?", message: "Se borran sus pagos y estadías.", ok: "Quitar", danger: true }))
+      return guardarCasas(casas().filter(x => x.id !== cid));
     const dia = t.closest("[data-dia]"), cel = t.closest("[data-tec]");
     if (dia && cel && F.editando) {
       const d = diasViandas(fijos).find(x => x.fecha === dia.dataset.dia); if (!d) return;
@@ -246,29 +293,25 @@ export function vistaFijos(view) {
     if (dc && await confirmar({ title: "¿Borrar este cambio?", ok: "Borrar", danger: true }))
       return guardar({ viandas: { ...(fijos.viandas || {}), cambios: (fijos.viandas?.cambios || []).filter(c => c.id !== dc.dataset.delCambio) } });
     const tecEl = t.closest("[data-tecid]");
-    if (t.closest("[data-add-est]") && tecEl && F.editando) {
-      const a = fijos.alquiler || {}, est = { ...(a.estadias || {}) }, id = tecEl.dataset.tecid;
-      est[id] = [...estadiasDe(est, id), { id: nuevoId(), llegada: hoyISO(), salida: "" }];
-      return guardar({ alquiler: { ...a, estadias: est } });
+    if (t.closest("[data-add-est]") && tecEl && cid && F.editando) {
+      const id = tecEl.dataset.tecid;
+      return updCasa(cid, c => ({ ...c, estadias: { ...(c.estadias || {}), [id]: [...estadiasDe(c.estadias, id), { id: nuevoId(), llegada: hoyISO(), salida: "" }] } }));
     }
     const de = t.closest("[data-del-est]");
-    if (de && tecEl && F.editando && await confirmar({ title: "¿Quitar esta estadía?", ok: "Quitar", danger: true })) {
-      const a = fijos.alquiler || {}, est = { ...(a.estadias || {}) }, id = tecEl.dataset.tecid, eid = de.closest("[data-est]").dataset.est;
-      est[id] = estadiasDe(est, id).filter(e => e.id !== eid);
-      return guardar({ alquiler: { ...a, estadias: est } });
+    if (de && tecEl && cid && F.editando && await confirmar({ title: "¿Quitar esta estadía?", ok: "Quitar", danger: true })) {
+      const id = tecEl.dataset.tecid, eid = de.closest("[data-est]").dataset.est;
+      return updCasa(cid, c => ({ ...c, estadias: { ...(c.estadias || {}), [id]: estadiasDe(c.estadias, id).filter(e => e.id !== eid) } }));
     }
     const dp = t.closest("[data-del-pago]");
-    if (dp && await confirmar({ title: "¿Quitar este pago?", ok: "Quitar", danger: true }))
-      return guardar({ alquiler: { ...(fijos.alquiler || {}), pagos: (fijos.alquiler?.pagos || []).filter(p => p.id !== dp.dataset.delPago) } });
+    if (dp && cid && await confirmar({ title: "¿Quitar este pago?", ok: "Quitar", danger: true }))
+      return updCasa(cid, c => ({ ...c, pagos: (c.pagos || []).filter(p => p.id !== dp.dataset.delPago) }));
   }
   function cambio(e) {
     const inp = e.target.closest("[data-campo]"); if (!inp || !F.editando) return;
-    const a = fijos.alquiler || {};
-    if (inp.dataset.campo === "inicio") return guardar({ alquiler: { ...a, inicio: inp.value } });
+    const cid = inp.closest("[data-casa]")?.dataset.casa; if (!cid) return;
+    if (inp.dataset.campo === "inicio") return updCasa(cid, c => ({ ...c, inicio: inp.value }));
     const tec = inp.closest("[data-tecid]")?.dataset.tecid, eid = inp.closest("[data-est]")?.dataset.est; if (!tec || !eid) return;
-    const est = { ...(a.estadias || {}) };
-    est[tec] = estadiasDe(est, tec).map(e => e.id === eid ? { ...e, [inp.dataset.campo]: inp.value } : e);
-    guardar({ alquiler: { ...a, estadias: est } });
+    updCasa(cid, c => ({ ...c, estadias: { ...(c.estadias || {}), [tec]: estadiasDe(c.estadias, tec).map(e => e.id === eid ? { ...e, [inp.dataset.campo]: inp.value } : e) } }));
   }
 
   // Técnicos propios de gastos fijos: agregar, renombrar, quitar

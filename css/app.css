@@ -1472,3 +1472,4 @@ button.vchip { cursor: pointer; }
 .g-fijos-sep a { display: inline-flex; align-items: center; gap: 2px; color: var(--primary); text-transform: none; letter-spacing: 0; }
 .g-fijos-sep a .ic { width: 14px; height: 14px; }
 a.g-bar-fijo { text-decoration: none; color: inherit; }
+.casa-body { padding: 0 18px 18px; display: flex; flex-direction: column; gap: 12px; } .fijos-page .casa { margin-bottom: 12px; }

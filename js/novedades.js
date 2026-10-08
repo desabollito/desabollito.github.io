@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "2.45.26", items: ["Alquiler: varias casas, cada una con su nombre, sus pagos y sus estadías."] },
   { v: "2.45.25", items: ["Planilla de gastos: los gastos fijos se suman al total y aparecen en el mismo resumen."] },
   { v: "2.45.24", items: ["Alquiler: cada pago con fecha de inicio y de fin.", "Alquiler: varias estadías por técnico (llegó / se fue)."] },
   { v: "2.45.23", items: ["Planilla de gastos: los gastos fijos (viandas y alquiler) aparecen arriba, aparte de los comunes.", "Gastos fijos: técnicos en orden de ingreso."] },
