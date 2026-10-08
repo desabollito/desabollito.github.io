@@ -1,0 +1,15 @@
+name: Ver DNS
+on:
+  push:
+    branches: [main]
+    paths: [".github/workflows/dns.yml"]
+jobs:
+  ver:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "::notice::fav $(curl -sI https://desabollito.com/favicon.ico | grep -iE '^(HTTP|content-type)' | tr '\r\n' '  ')"
+          echo "::notice::og $(curl -s -A 'WhatsApp/2.23' https://desabollito.com/ | grep -o 'og:[a-z:]*" content="[^"]*' | head -5 | tr '\n' ' ')"
+          echo "::notice::v $(curl -sIL -A 'facebookexternalhit/1.1' 'https://desabollito.com/v/?smg-abcd' | grep -iE '^(HTTP|location)' | tr '\r\n' '  ')"
+          echo "::notice::vog $(curl -s 'https://desabollito.com/v/?smg-abcd' | grep -o 'og:title" content="[^"]*')"
+          echo "::notice::ogimg $(curl -sI https://desabollito.com/img/og.png | grep -iE '^(HTTP|content-type)' | tr '\r\n' '  ')"
