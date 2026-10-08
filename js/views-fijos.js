@@ -80,10 +80,14 @@ export function vistaFijos(view) {
   const col = collection(db, "companies", S.company.id, "planTec");
   // Los técnicos de gastos fijos son propios (no los de la planilla de técnicos)
   let fijos = {};
-  // Ordenados por fecha de llegada a la casa (los que no tienen fecha, al final en el orden en que se cargaron)
+  // Orden de ingreso: el primer día en que cada técnico aparece en las viandas (si no, el día que llegó a la casa);
+  // los que entraron el mismo día quedan en el orden en que se cargaron. Así un técnico nuevo nunca se mete entre los anteriores.
   const cfg = { get tecnicos() {
-    const est = fijos.alquiler?.estadias || {}, l = fijos.tecnicos || [];
-    return l.map((t, i) => ({ t, i, f: est[t.id]?.llegada || "9999" })).sort((a, b) => a.f.localeCompare(b.f) || a.i - b.i).map(x => x.t);
+    const est = fijos.alquiler?.estadias || {}, l = fijos.tecnicos || [], primero = {};
+    for (const c of [...(fijos.viandas?.cambios || [])].sort((a, b) => a.fecha.localeCompare(b.fecha)))
+      (c.tecs || []).forEach(id => { if (!primero[id] || c.fecha < primero[id]) primero[id] = c.fecha; });
+    Object.entries(fijos.viandas?.dias || {}).forEach(([d, ids]) => (ids || []).forEach(id => { if (!primero[id] || d < primero[id]) primero[id] = d; }));
+    return l.map((t, i) => ({ t, i, f: primero[t.id] || est[t.id]?.llegada || "9999" })).sort((a, b) => a.f.localeCompare(b.f) || a.i - b.i).map(x => x.t);
   } };
   unsub?.();
   unsub = onSnapshot(col, snap => {
