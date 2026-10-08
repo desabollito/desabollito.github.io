@@ -1441,3 +1441,8 @@ body[data-lector-uno="1"] .tabbar, body[data-lector-uno="1"] .side-nav, body[dat
   .topbar { background: var(--bg); backdrop-filter: none; -webkit-backdrop-filter: none; }
   .topbar::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: var(--safe-t); background: var(--bg); }
 }
+.novedades-log { margin-top: 8px; font-size: 14px; }
+.novedades-log > summary { cursor: pointer; text-align: center; color: var(--muted); font-size: 13px; font-weight: 600; list-style: none; }
+.novedades-log > summary::-webkit-details-marker { display: none; }
+.novedades-log section { margin-top: 10px; }
+.novedades-log ul { margin: 4px 0 0; padding-left: 20px; display: flex; flex-direction: column; gap: 3px; }

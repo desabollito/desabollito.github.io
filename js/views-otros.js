@@ -10,6 +10,7 @@ import {
   pedirTexto, busy, debounce, initials, tsToISO, elegirDescarga, horaDe
 } from "./ui.js";
 import { imagenChica, avatar } from "./media.js";
+import { NOVEDADES } from "./novedades.js";
 import { planillaPDF } from "./pdf.js";
 import { exportarExcel } from "./excel.js";
 import { setTopbar, go, logoOperativo } from "./shell.js";
@@ -529,6 +530,9 @@ export function vistaAjustes(view) {
       <p class="center"><button type="button" class="version-btn" onclick="window.dispatchEvent(new Event('forzar-actualizacion'))"
         title="Tocá para forzar la actualización">Desabollito ${APP_VERSION} ${icon("rotate")}</button></p>
       <p class="center firma-autor">by @gzmatte</p>
+      <details class="novedades-log"><summary>Novedades</summary>
+        ${NOVEDADES.map(n => `<section><small class="muted">Versión ${esc(n.v)}</small><ul>${n.items.map(i => `<li>${esc(i)}</li>`).join("")}</ul></section>`).join("")}
+      </details>
     </section>
   </div>`;
 

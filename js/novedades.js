@@ -1,6 +1,6 @@
-// Novedades que se muestran al actualizar (la más nueva arriba). Agregar una entrada con cada versión que valga la pena contar.
+// Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
-  { v: "2.45.6", items: ["Aviso de versión nueva más chico: un botón redondo arriba a la derecha."] },
+  { v: "2.45.10", items: ["Aviso de versión nueva: un autito arriba a la derecha; al tocarlo se actualiza.", "Novedades en Ajustes.", "iPhone instalada: barra superior sólida debajo de la isla.", "Operativos ordenados por fecha de creación."] },
   { v: "2.45.5", items: ["Pantalla de inicio de sesión clara, con botón para modo oscuro."] },
   { v: "2.45.3", items: ["Ícono de la web y vistas previas al compartir links.", "Links de perito y de vehículo con formato nuevo."] },
   { v: "2.45.2", items: ["Mantener apretado el paso de reparación o Facturado para cambiar fechas.", "Facturado con un solo toque (fecha de hoy)."] },

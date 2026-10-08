@@ -2,8 +2,7 @@ import {
   S, onChange, iniciarSesion, ingresar, crearCuenta, mensajeError, elegirEmpresa
 } from "./data.js";
 import { $, $$, esc, toast, busy, openSheet } from "./ui.js";
-import { FIREBASE, BOT_API, APP_VERSION } from "./config.js";
-import { NOVEDADES } from "./novedades.js";
+import { FIREBASE, BOT_API } from "./config.js";
 import { iniciarFechas } from "./fecha.js";
 import { cuentaPendiente, salir, marcarOperativosVistos, soyCreador, crearEmpresa, pedirUnion, cancelarPedidoUnion, escucharMiPedido, responderPedidoUnion, soyDesmontaje, miRol, soyAdmin, getVehiculo, iniciarInvitado, soyLector } from "./data.js";
 import { marcarNav, pintarLateral, esAncho } from "./shell.js";
@@ -344,18 +343,6 @@ function mostrarSegunAprobacion() {
 }
 
 // ── Actualizaciones ───────────────────────────────────────────
-// Después de actualizar desde el botón: las novedades desde la versión que tenía
-{
-  let previa = null; try { previa = localStorage.getItem("verNovedades"); localStorage.removeItem("verNovedades"); } catch { /* */ }
-  if (previa && previa !== APP_VERSION) {
-    const num = v => String(v).split(".").map(n => n.padStart(4, "0")).join(".");
-    const nuevas = NOVEDADES.filter(n => num(n.v) > num(previa)).slice(0, 6);
-    setTimeout(() => openSheet({ title: "¡Novedades!", body: `<div class="stack novedades">
-      ${(nuevas.length ? nuevas : NOVEDADES.slice(0, 1)).map(n => `<section><small class="muted">Versión ${esc(n.v)}</small><ul>${n.items.map(i => `<li>${esc(i)}</li>`).join("")}</ul></section>`).join("")}
-      <button class="btn btn-primary btn-block" data-close>Listo</button></div>` }), 900);
-  }
-}
-// Tocar la versión en Ajustes fuerza la actualización: borra la copia guardada de la app y recarga desde el servidor.
 if (/[?&]act=\d+/.test(location.search)) history.replaceState(null, "", location.pathname + location.hash);
 addEventListener("forzar-actualizacion", async () => {
   toast("Actualizando a la última versión…");
@@ -388,7 +375,6 @@ if ("serviceWorker" in navigator) {
     bar.innerHTML = `<span class="pop-auto"><i class="pop-lineas"></i><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5.6 16H4a1 1 0 0 1-1-1v-2.4c0-.6.4-1.1 1-1.3l2.4-.7 2.5-3A2 2 0 0 1 10.4 7h4.4a2 2 0 0 1 1.6.8l2.4 3.2 1.4.4c.8.2 1.3.9 1.3 1.7V15a1 1 0 0 1-1 1h-1.1M9.4 16h5.2"/><circle cx="7.5" cy="16" r="1.9"/><circle cx="16.5" cy="16" r="1.9"/></svg></span>`;
     bar.onclick = () => {
       bar.classList.add("cargando"); bar.disabled = true;
-      try { localStorage.setItem("verNovedades", APP_VERSION); } catch { /* sin almacenamiento */ }
       recargarAlCambiar = true; sw.postMessage("activar");
       setTimeout(() => location.reload(), 6000);   // por si el navegador no recarga solo
     };
