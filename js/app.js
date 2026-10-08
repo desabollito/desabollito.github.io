@@ -376,6 +376,15 @@ if ("serviceWorker" in navigator) {
     bar.onclick = () => {
       bar.classList.add("cargando"); bar.disabled = true;
       recargarAlCambiar = true; sw.postMessage("activar");
+      // Cartelito debajo del botón, por si el navegador no recarga solo
+      if (!$(".update-hint")) {
+        const hint = document.createElement("button");
+        hint.type = "button"; hint.className = "update-hint update-hint-pop";
+        hint.textContent = "Si no se actualiza, tocá acá para recargar";
+        hint.onclick = () => location.reload();
+        document.body.appendChild(hint);
+        requestAnimationFrame(() => hint.classList.add("in"));
+      }
       setTimeout(() => location.reload(), 6000);   // por si el navegador no recarga solo
     };
     document.body.appendChild(bar);

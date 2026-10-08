@@ -1446,3 +1446,5 @@ body[data-lector-uno="1"] .tabbar, body[data-lector-uno="1"] .side-nav, body[dat
 .novedades-log > summary::-webkit-details-marker { display: none; }
 .novedades-log section { margin-top: 10px; }
 .novedades-log ul { margin: 4px 0 0; padding-left: 20px; display: flex; flex-direction: column; gap: 3px; }
+.update-hint.update-hint-pop { left: auto; right: 12px; width: auto; max-width: calc(100vw - 24px); top: calc(var(--safe-t) + var(--top) + 62px); padding: 8px 12px; border-radius: 12px; font-size: 12.5px; }
+@media (min-width: 1100px) { .update-hint.update-hint-pop { right: 22px; top: calc(var(--top) + 66px); width: auto; } }

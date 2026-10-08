@@ -262,7 +262,7 @@ export function vistaEmpresa(view) {
   if (!c) { view.innerHTML = `<div class="skeleton tall"></div>`; return; }
   const admin = soyAdmin(), duenio = miRol() === "owner";
   const miembros = c.members.map(uid => ({
-    uid, name: c.memberNames?.[uid] || "Usuario", rol: c.roles?.[uid] || "tecnico", tags: c.memberTags?.[uid] || [],
+    uid, name: c.memberNames?.[uid] || "Usuario", user: c.memberUsers?.[uid] || "", rol: c.roles?.[uid] || "tecnico", tags: c.memberTags?.[uid] || [],
     foto: ""
   })).sort((a, b) => (a.rol === "owner" ? -1 : b.rol === "owner" ? 1 : a.name.localeCompare(b.name)));
   const sello = c.seal || {};
@@ -281,7 +281,7 @@ export function vistaEmpresa(view) {
           <span class="avatar">${esc(initials(m.name))}</span>
           <span class="m-meta">
             <strong>${esc(m.name)}${m.uid === S.user.uid ? " (vos)" : ""}</strong>
-            <small>${ROLES[m.rol]?.label || m.rol}</small>
+            <small>${m.user ? `@${esc(m.user)} · ` : ""}${ROLES[m.rol]?.label || m.rol}</small>
           </span>
           ${admin && m.rol !== "owner" && m.uid !== S.user.uid ? `
             <span class="m-actions">
