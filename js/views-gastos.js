@@ -3,6 +3,9 @@ import { exportarExcel } from "./excel.js";
 import { $, $$, esc, money, fechaCorta, hoyISO, icon, toast, openSheet, confirmar, debounce, busy, elegirDescarga, marcarError, pedirTexto } from "./ui.js";
 import { setTopbar } from "./shell.js";
 import { gastosPDF } from "./pdf.js";
+import { db, doc, onSnapshot } from "./firebase.js";
+import { diasViandas, repartoAlquiler } from "./views-fijos.js";
+let unsubFijos = null;
 
 export const CATEGORIAS = [
   { key: "herramientas", label: "Herramientas", color: "#4f8ff7" },
@@ -68,12 +71,36 @@ export function vistaGastos(view) {
       <button class="btn btn-primary hide-mobile" id="g-nuevo">${icon("plus")}Agregar gasto</button>
     </section>
     <section class="g-list-wrap">
+      <div id="g-fijos"></div>
       <label class="search">${icon("search")}<input type="search" id="g-q" placeholder="Buscar concepto, categoría, técnico…" value="${esc(G.q)}"></label>
       <div id="g-list" class="g-list"></div>
     </section>
   </div>`;
 
+  // Gastos fijos (viandas y alquiler) arriba y aparte: no suman al total de gastos comunes. Solo administradores.
+  let fijos = null;
+  const pintarFijos = () => {
+    const box = $("#g-fijos", view); if (!box) return;
+    if (!fijos || !(fijos.viandas?.cambios?.length || fijos.alquiler?.pagos?.length)) { box.innerHTML = ""; return; }
+    const ini = G.mes ? G.mes + "-01" : "", fin = G.mes ? G.mes + "-31" : "";
+    const vi = diasViandas(fijos).filter(d => (!ini || d.fecha >= ini) && (!fin || d.fecha <= fin))
+      .reduce((a, d) => a + d.vianda * d.tecs.length + (d.tecs.length ? d.envio : 0), 0);
+    const r = repartoAlquiler(fijos, fijos.tecnicos || [], ini, fin);
+    const al = Object.values(r.porTec).reduce((a, b) => a + b, 0) + r.sinAsignar;
+    box.innerHTML = `<a class="card g-fijos" href="#/fijos">
+      <div class="g-fijos-top"><strong>Gastos fijos</strong><small class="muted">${G.mes ? nombreMes(G.mes) : "Total"} · aparte de los gastos comunes</small></div>
+      <div class="fijos-kv"><span>Viandas</span><b>${money(vi) || "$0"}</b></div>
+      <div class="fijos-kv"><span>Alquiler</span><b>${money(al) || "$0"}</b></div>
+      <div class="fijos-kv fijos-kv-total"><span>Total fijos</span><b>${money(vi + al) || "$0"}</b></div></a>`;
+  };
+  unsubFijos?.(); unsubFijos = null;
+  if (soyAdmin() && S.company) unsubFijos = onSnapshot(doc(db, "companies", S.company.id, "planTec", "_fijos"), d => {
+    if (!document.body.contains(view) || location.hash !== "#/gastos") { unsubFijos?.(); unsubFijos = null; return; }
+    fijos = d.exists() ? d.data() : null; pintarFijos();
+  }, () => {});
+
   const pintar = () => {
+    pintarFijos();
     $("#g-mes", view).textContent = G.mes ? nombreMes(G.mes) : "Todos los gastos";
     $("#g-total-l", view).textContent = G.mes ? "Total del mes" : "Total del operativo";
     const todosMes = S.gastos.filter(g => (g.fecha || "").startsWith(claveMes()));
