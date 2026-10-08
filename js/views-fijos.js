@@ -26,6 +26,8 @@ export function diasViandas(fijos, hasta = hoyISO()) {
   if (!cambios.length) return [];
   const out = [];
   for (const d of diasEntre(cambios[0].fecha, hasta)) {
+    const [yy, mm, dd] = d.split("-").map(Number);
+    if (new Date(yy, mm - 1, dd).getDay() === 0) continue;   // los domingos no hay vianda
     const c = [...cambios].reverse().find(x => x.fecha <= d);
     const tecs = v.dias?.[d] || c.tecs || [];
     const vianda = Number(c.vianda) || 0, envio = Number(c.envio) || 0;
