@@ -121,15 +121,13 @@ export function vistaFijos(view) {
           <div class="fijos-kv"><span>Técnicos desde el ${fechaCorta(ult.fecha)}</span><b>${ult.tecs.map(id => esc(nombre(id))).join(", ") || "—"}</b></div>`
           : `<p class="muted">Todavía no empezaste. Elegí los técnicos que están ahora y los valores: se repite solo todos los días.</p>`}
         <button type="button" class="btn ${ult ? "btn-ghost" : "btn-primary"} btn-block" data-act="cambio">${icon(ult ? "edit" : "plus")}${ult ? "Cambiar técnicos o valores" : "Empezar"}</button>
-        ${cambios.length > 1 ? `<details class="fijos-hist"><summary class="muted small">Cambios anteriores (${cambios.length})</summary><ul>${cambios.slice().reverse().map(c =>
-          `<li><span>${fechaCorta(c.fecha)} · ${pesos(c.vianda)} + envío ${pesos(c.envio)} · ${c.tecs.length} técnicos</span>
-            ${ed ? `<button type="button" class="icon-btn sm" data-del-cambio="${esc(c.id)}" aria-label="Borrar">${icon("x")}</button>` : ""}</li>`).join("")}</ul></details>` : ""}
       </section>
-      ${dias.length ? `<section class="card fijos-tot">
-          <h3 class="fijos-tit">Total por técnico <small class="muted">${dias.length} ${dias.length === 1 ? "día" : "días"}</small></h3>
+      ${dias.length ? `<details class="card plegable fijos-tot">
+          <summary><span>Total por técnico <small class="muted">${dias.length} ${dias.length === 1 ? "día" : "días"} · ${pesos(Object.values(tot).reduce((a, b) => a + b, 0))}</small></span>${icon("next")}</summary>
+          <div class="fijos-tot-body">
           ${tecs.map(t => `<div class="fijos-kv"><span>${esc(t.nombre)}</span><b>${pesos(tot[t.id])}</b></div>`).join("")}
           <div class="fijos-kv fijos-kv-total"><span>Total</span><b>${pesos(Object.values(tot).reduce((a, b) => a + b, 0))}</b></div>
-        </section>
+          </div></details>
         ${ed ? `<p class="muted small">Tocá un técnico en un día para sacarlo o sumarlo solo ese día. El envío se reparte entre los que estén.</p>` : ""}
         <div class="vdias">${dias.map(d => {
           const totalDia = d.vianda * d.tecs.length + (d.tecs.length ? d.envio : 0);
@@ -138,7 +136,6 @@ export function vistaFijos(view) {
           return `<div class="vdia" data-dia="${d.fecha}">
             <div class="vdia-top"><strong>${diaLabel(d.fecha)}</strong><b>${pesos(totalDia)}</b></div>
             <div class="vdia-chips">${chips || `<span class="muted small">Nadie</span>`}</div>
-            <small class="muted">${d.tecs.length} ${d.tecs.length === 1 ? "técnico" : "técnicos"} · vianda ${pesos(d.vianda)} c/u${d.envio ? ` + envío ${pesos(d.envio)}` : ""}${d.ajustado ? " · ajustado a mano" : ""}</small>
           </div>`; }).join("")}</div>` : ""}`;
   };
   const sheetCambio = () => {

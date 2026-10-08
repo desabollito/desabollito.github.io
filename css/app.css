@@ -1462,3 +1462,4 @@ body[data-lector-uno="1"] .tabbar, body[data-lector-uno="1"] .side-nav, body[dat
 .vchip { border: 1px dashed var(--line-2); background: none; color: var(--muted); border-radius: 999px; padding: 4px 10px; font: inherit; font-size: 13px; font-weight: 600; }
 .vchip.on { border-style: solid; border-color: var(--primary); color: var(--primary); background: var(--primary-soft); }
 button.vchip { cursor: pointer; }
+.fijos-tot-body { padding: 0 18px 16px; display: flex; flex-direction: column; gap: 8px; }
