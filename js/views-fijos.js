@@ -7,7 +7,7 @@
 // ═════════════════════════════════════════════════════════════
 import { db, collection, doc, onSnapshot, setDoc } from "./firebase.js";
 import { S, soyAdmin, mensajeError } from "./data.js";
-import { $, $$, esc, icon, toast, openSheet, confirmar, fechaCorta, hoyISO } from "./ui.js";
+import { $, $$, esc, icon, toast, openSheet, confirmar, pedirTexto, fechaCorta, hoyISO } from "./ui.js";
 import { setTopbar } from "./shell.js";
 
 const pesos = n => "$" + Math.round(Number(n) || 0).toLocaleString("es-AR");
@@ -52,6 +52,14 @@ export function repartoAlquiler(fijos, tecnicos, desde = "", hasta = "") {
   }
   return { porTec, diasTec, sinAsignar, total };
 }
+// Para el Cierre de la planilla de técnicos: lo que le toca a cada técnico de gastos fijos, por nombre
+export function fijosPorNombre(fijos, desde = "", hasta = "") {
+  const tecs = fijos?.tecnicos || [], vi = viandasPorTec(fijos, tecs, desde, hasta), al = repartoAlquiler(fijos, tecs, desde, hasta).porTec;
+  const norm = n => String(n || "").trim().toUpperCase();
+  const out = {};
+  tecs.forEach(t => { const k = norm(t.nombre); out[k] = { viandas: (out[k]?.viandas || 0) + (vi[t.id] || 0), alquiler: (out[k]?.alquiler || 0) + (al[t.id] || 0) }; });
+  return out;
+}
 export function viandasPorTec(fijos, tecnicos, desde = "", hasta = "") {
   const s = Object.fromEntries((tecnicos || []).map(t => [t.id, 0]));
   diasViandas(fijos, hasta && hasta < hoyISO() ? hasta : hoyISO()).filter(d => !desde || d.fecha >= desde)
@@ -64,14 +72,16 @@ let unsub = null;
 
 export function vistaFijos(view) {
   setTopbar({ title: "Gastos fijos", sub: S.company?.name, back: "#/planillas",
-    actions: `<button class="btn btn-sm ${F.editando ? "btn-primary" : "btn-ghost"}" id="f-edit">${icon(F.editando ? "check" : "edit")}<span>${F.editando ? "Listo" : "Editar"}</span></button>` });
+    actions: `<button class="btn btn-ghost btn-sm" id="f-tec">${icon("team")}<span class="hide-sm">Técnicos</span></button><button class="btn btn-sm ${F.editando ? "btn-primary" : "btn-ghost"}" id="f-edit">${icon(F.editando ? "check" : "edit")}<span>${F.editando ? "Listo" : "Editar"}</span></button>` });
   if (!soyAdmin()) { view.innerHTML = `<div class="empty"><p>Solo los administradores ven esta planilla.</p></div>`; return; }
   view.innerHTML = `<div class="skeleton tall"></div>`;
   const col = collection(db, "companies", S.company.id, "planTec");
-  let cfg = { tecnicos: [] }, fijos = {};
+  // Los técnicos de gastos fijos son propios (no los de la planilla de técnicos)
+  let fijos = {};
+  const cfg = { get tecnicos() { return fijos.tecnicos || []; } };
   unsub?.();
   unsub = onSnapshot(col, snap => {
-    snap.docs.forEach(d => { if (d.id === "_config") cfg = { tecnicos: [], ...d.data() }; if (d.id === "_fijos") fijos = d.data(); });
+    snap.docs.forEach(d => { if (d.id === "_fijos") fijos = d.data(); });
     if (!document.body.contains(view) || location.hash !== "#/fijos") { unsub?.(); unsub = null; return; }
     if (!$(".fijos-page", view)) estructura();
     pintar();
@@ -92,7 +102,8 @@ export function vistaFijos(view) {
 
   const pintar = () => {
     const body = $("#f-body", view); if (!body) return;
-    if (!cfg.tecnicos.length) { body.innerHTML = `<div class="empty small"><p>Primero cargá los técnicos en la <a href="#/tecnicos">planilla de técnicos</a>.</p></div>`; return; }
+    if (!cfg.tecnicos.length) { body.innerHTML = `<div class="empty small"><p>Primero agregá los técnicos de los gastos fijos.</p>
+      <button class="btn btn-primary" data-act="tecnicos">${icon("plus")}Agregar técnicos</button></div>`; return; }
     body.innerHTML = F.tab === "alquiler" ? pintarAlquiler() : pintarViandas();
   };
 
@@ -128,7 +139,7 @@ export function vistaFijos(view) {
   const sheetCambio = () => {
     const v = fijos.viandas || {}, cambios = v.cambios || [];
     const ult = [...cambios].sort((a, b) => a.fecha.localeCompare(b.fecha)).pop();
-    const marcados = new Set(ult?.tecs || cfg.tecnicos.filter(t => t.activo !== false).map(t => t.id));
+    const marcados = new Set(ult?.tecs || cfg.tecnicos.map(t => t.id));
     const s = openSheet({ title: ult ? "Cambiar viandas" : "Empezar viandas", body: `<form class="stack">
       <label class="field"><span>Desde el día</span><input type="date" name="fecha" value="${hoyISO()}" required></label>
       <label class="field"><span>Valor de la vianda (por técnico, por día)</span><input type="number" inputmode="numeric" name="vianda" min="0" value="${Number(ult?.vianda) || ""}" required></label>
@@ -199,6 +210,7 @@ export function vistaFijos(view) {
   async function clic(e) {
     const t = e.target;
     if (t.closest("[data-act=cambio]")) return sheetCambio();
+    if (t.closest("[data-act=tecnicos]")) return gestionarTecnicos();
     if (t.closest("[data-act=pago]")) return sheetPago();
     const dia = t.closest("[data-dia]"), cel = t.closest("[data-tec]");
     if (dia && cel && F.editando) {
@@ -221,6 +233,34 @@ export function vistaFijos(view) {
     const est = { ...(a.estadias || {}) }; est[tec] = { ...(est[tec] || {}), [inp.dataset.campo]: inp.value };
     guardar({ alquiler: { ...a, estadias: est } });
   }
+
+  // Técnicos propios de gastos fijos: agregar, renombrar, quitar
+  function gestionarTecnicos() {
+    const s = openSheet({ title: "Técnicos (gastos fijos)", body: `<div class="stack">
+      <p class="muted small">Son aparte de la planilla de técnicos. En el Cierre se descuentan a quien tenga el mismo nombre.</p>
+      <ul class="tec-lista" id="ftl"></ul>
+      <button type="button" class="btn btn-ghost btn-block" id="ftl-add">${icon("plus")}Agregar técnico</button></div>` });
+    const pintarL = () => { $("#ftl", s.el).innerHTML = cfg.tecnicos.map(t => `<li data-id="${esc(t.id)}"><span class="tl-nombre">${esc(t.nombre)}</span>
+      <button type="button" class="icon-btn sm" data-ren aria-label="Renombrar">${icon("edit")}</button>
+      <button type="button" class="icon-btn sm danger" data-del aria-label="Quitar">${icon("trash")}</button></li>`).join("") || `<li class="muted small">Sin técnicos</li>`; };
+    pintarL();
+    const guardarTecs = tecnicos => { fijos = { ...fijos, tecnicos }; pintarL(); return guardar({ tecnicos }); };
+    $("#ftl-add", s.el).onclick = async () => {
+      const n = await pedirTexto({ title: "Nuevo técnico", label: "Nombre", placeholder: "Ej: Juan", ok: "Agregar" });
+      if (n?.trim()) guardarTecs([...cfg.tecnicos, { id: nuevoId(), nombre: n.trim().toUpperCase() }]);
+    };
+    $("#ftl", s.el).onclick = async e => {
+      const li = e.target.closest("[data-id]"); if (!li) return;
+      const t = cfg.tecnicos.find(x => x.id === li.dataset.id);
+      if (e.target.closest("[data-ren]")) {
+        const n = await pedirTexto({ title: "Renombrar", label: "Nombre", value: t.nombre });
+        if (n?.trim()) guardarTecs(cfg.tecnicos.map(x => x.id === t.id ? { ...x, nombre: n.trim().toUpperCase() } : x));
+      }
+      if (e.target.closest("[data-del]") && await confirmar({ title: `¿Quitar a ${t.nombre}?`, ok: "Quitar", danger: true }))
+        guardarTecs(cfg.tecnicos.filter(x => x.id !== t.id));
+    };
+  }
+  $("#f-tec")?.addEventListener("click", gestionarTecnicos);
 
   $("#f-edit")?.addEventListener("click", () => {
     F.editando = !F.editando;

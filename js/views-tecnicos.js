@@ -8,7 +8,7 @@ import { S, activos, soyAdmin, mensajeError } from "./data.js";
 import { $, $$, esc, icon, toast, openSheet, confirmar, pedirTexto, fechaCorta, hoyISO } from "./ui.js";
 import { setTopbar } from "./shell.js";
 import { estadoActual } from "./domain.js";
-import { viandasPorTec, repartoAlquiler } from "./views-fijos.js";
+import { fijosPorNombre } from "./views-fijos.js";
 
 export function vistaPlanillas(view) {
   setTopbar({ title: "Planillas", sub: S.company?.name });
@@ -170,7 +170,9 @@ export function vistaTecnicos(view) {
     const suma = l => l.reduce((a, m) => a + (Number(m.monto) || 0), 0);
     // Gastos fijos (viandas y alquiler) de cada técnico en el período
     const hayFijos = !!(fijos.viandas?.cambios?.length || fijos.alquiler?.pagos?.length);
-    const vi = viandasPorTec(fijos, cfg.tecnicos, T.desde, T.hasta), al = repartoAlquiler(fijos, cfg.tecnicos, T.desde, T.hasta).porTec;
+    // Gastos fijos tiene sus propios técnicos: se cruzan por nombre
+    const fx = fijosPorNombre(fijos, T.desde, T.hasta), nf = t => fx[String(t.nombre || "").trim().toUpperCase()] || {};
+    const vi = Object.fromEntries(cfg.tecnicos.map(t => [t.id, nf(t).viandas || 0])), al = Object.fromEntries(cfg.tecnicos.map(t => [t.id, nf(t).alquiler || 0]));
     return `<div class="tec-cierre-top">
         <div class="tec-stat"><small>Autos</small><strong>${rows.length}</strong></div>
         <div class="tec-stat"><small>Valor de todos los autos</small><strong>${pesos(total)}</strong></div>
