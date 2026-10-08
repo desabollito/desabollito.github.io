@@ -1415,3 +1415,16 @@ body[data-lector-uno="1"] .tabbar, body[data-lector-uno="1"] .side-nav, body[dat
 @media (max-width: 480px) { .fijos-est-fila { grid-template-columns: 1fr 1fr; } .fijos-est-fila b { grid-column: 1 / -1; } .fijos-est-fila input { max-width: none; width: 100%; } }
 .firma-autor { margin: -6px 0 0; font-size: 11px; color: var(--muted); opacity: .8; }
 .login-tema { position: fixed; right: max(16px, env(safe-area-inset-right)); bottom: max(16px, env(safe-area-inset-bottom)); z-index: 5; background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow); }
+/* Aviso de versión nueva: botón redondo que se mueve */
+.update-pop { position: fixed; z-index: 85; top: calc(var(--safe-t) + var(--top) + 10px); right: 14px; width: 44px; height: 44px; border-radius: 50%; border: 0; cursor: pointer;
+  display: grid; place-items: center; color: #fff; background: var(--primary); box-shadow: 0 6px 18px color-mix(in srgb, var(--primary) 45%, transparent);
+  opacity: 0; transform: scale(.4); transition: opacity .25s, transform .25s; }
+.update-pop.in { opacity: 1; transform: none; animation: novedad 2.4s ease-in-out .4s infinite; }
+.update-pop::after { content: ""; position: absolute; inset: 0; border-radius: 50%; border: 2px solid var(--primary); animation: novedad-onda 2.4s ease-out .4s infinite; }
+.update-pop.cargando { animation: girar 1s linear infinite; }
+.update-pop.cargando::after { display: none; }
+@keyframes novedad { 0%, 70%, 100% { transform: none; } 75% { transform: rotate(-14deg) scale(1.08); } 82% { transform: rotate(12deg) scale(1.08); } 89% { transform: rotate(-6deg); } }
+@keyframes novedad-onda { 0% { transform: scale(1); opacity: .7; } 70%, 100% { transform: scale(1.7); opacity: 0; } }
+@keyframes girar { to { transform: rotate(360deg); } }
+@media (min-width: 1100px) { .update-pop { top: calc(var(--top) + 14px); right: 22px; } }
+.novedades ul { margin: 4px 0 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; }

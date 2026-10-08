@@ -2,7 +2,8 @@ import {
   S, onChange, iniciarSesion, ingresar, crearCuenta, mensajeError, elegirEmpresa
 } from "./data.js";
 import { $, $$, esc, toast, busy, openSheet } from "./ui.js";
-import { FIREBASE, BOT_API } from "./config.js";
+import { FIREBASE, BOT_API, APP_VERSION } from "./config.js";
+import { NOVEDADES } from "./novedades.js";
 import { iniciarFechas } from "./fecha.js";
 import { cuentaPendiente, salir, marcarOperativosVistos, soyCreador, crearEmpresa, pedirUnion, cancelarPedidoUnion, escucharMiPedido, responderPedidoUnion, soyDesmontaje, miRol, soyAdmin, getVehiculo, iniciarInvitado, soyLector } from "./data.js";
 import { marcarNav, pintarLateral, esAncho } from "./shell.js";
@@ -343,6 +344,17 @@ function mostrarSegunAprobacion() {
 }
 
 // ── Actualizaciones ───────────────────────────────────────────
+// Después de actualizar desde el botón: las novedades desde la versión que tenía
+{
+  let previa = null; try { previa = localStorage.getItem("verNovedades"); localStorage.removeItem("verNovedades"); } catch { /* */ }
+  if (previa && previa !== APP_VERSION) {
+    const num = v => String(v).split(".").map(n => n.padStart(4, "0")).join(".");
+    const nuevas = NOVEDADES.filter(n => num(n.v) > num(previa)).slice(0, 6);
+    setTimeout(() => openSheet({ title: "¡Novedades!", body: `<div class="stack novedades">
+      ${(nuevas.length ? nuevas : NOVEDADES.slice(0, 1)).map(n => `<section><small class="muted">Versión ${esc(n.v)}</small><ul>${n.items.map(i => `<li>${esc(i)}</li>`).join("")}</ul></section>`).join("")}
+      <button class="btn btn-primary btn-block" data-close>Listo</button></div>` }), 900);
+  }
+}
 // Tocar la versión en Ajustes fuerza la actualización: borra la copia guardada de la app y recarga desde el servidor.
 if (/[?&]act=\d+/.test(location.search)) history.replaceState(null, "", location.pathname + location.hash);
 addEventListener("forzar-actualizacion", async () => {
@@ -367,24 +379,18 @@ if ("serviceWorker" in navigator) {
     location.reload();
   });
 
+  // Versión nueva: un botón redondo arriba a la derecha que se mueve; al tocarlo se actualiza y se muestran las novedades
   const avisar = sw => {
     if ($("#update-bar")) return;
-    const bar = document.createElement("div");
-    bar.id = "update-bar";
-    bar.className = "update-bar";
-    bar.setAttribute("role", "status");
-    bar.innerHTML = `<span>Hay una versión nueva de Desabollito</span><button class="btn btn-primary btn-sm">Actualizar</button>`;
-    bar.querySelector("button").onclick = () => {
-      busy(bar.querySelector("button"), true, "Actualizando…"); recargarAlCambiar = true; sw.postMessage("activar");
-      // Aviso abajo de la barra, por si el navegador no recarga solo
-      if (!$(".update-hint")) {
-        const hint = document.createElement("button");
-        hint.type = "button"; hint.className = "update-hint";
-        hint.textContent = "Si se queda cargando, recargá la página";
-        hint.onclick = () => location.reload();
-        bar.after(hint);
-        requestAnimationFrame(() => hint.classList.add("in"));
-      }
+    const bar = document.createElement("button");
+    bar.type = "button"; bar.id = "update-bar"; bar.className = "update-pop";
+    bar.setAttribute("aria-label", "Hay una versión nueva: tocá para actualizar"); bar.title = "Versión nueva";
+    bar.innerHTML = `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.6L18.5 9l-4.6 1.9L12 15.5l-1.9-4.6L5.5 9l4.6-1.4z"/><path d="M19 15l.8 1.9 1.9.8-1.9.8L19 20.4l-.8-1.9-1.9-.8 1.9-.8z"/></svg>`;
+    bar.onclick = () => {
+      bar.classList.add("cargando"); bar.disabled = true;
+      try { localStorage.setItem("verNovedades", APP_VERSION); } catch { /* sin almacenamiento */ }
+      recargarAlCambiar = true; sw.postMessage("activar");
+      setTimeout(() => location.reload(), 6000);   // por si el navegador no recarga solo
     };
     document.body.appendChild(bar);
     requestAnimationFrame(() => bar.classList.add("in"));
