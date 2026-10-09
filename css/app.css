@@ -1481,3 +1481,6 @@ a.g-bar-fijo { text-decoration: none; color: inherit; }
 .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .switch-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-weight: 600; font-size: 14px; }
 .switch-row input { width: 22px; height: 22px; accent-color: var(--brand, #2b5ce6); }
+.tec-desc { align-items: center; }
+.tec-aparte { opacity: .55; border-left: 2px dashed var(--line); padding-left: 8px; margin: 4px 0; }
+.tec-aparte .tec-linea b { text-decoration: none; }

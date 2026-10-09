@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "2.45.37", items: ["Cierre: a los de sueldo se puede elegir «Descontar gastos»; si no, los gastos quedan aparte."] },
   { v: "2.45.36", items: ["Planilla de técnicos: al tocar un técnico la tabla queda donde la deslizaste."] },
   { v: "2.45.35", items: ["Sueldos: desde/hasta, monto y opción fijo mensual; agregar técnicos que solo están a sueldo."] },
   { v: "2.45.33", items: ["Planilla de técnicos: pestañas Sacabollos, Sueldos y Cierre (con todos).", "Viandas y alquiler de PABLO y RODRI se suman al sacabollo PAB+ROD."] },

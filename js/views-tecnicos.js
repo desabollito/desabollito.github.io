@@ -235,16 +235,22 @@ export function vistaTecnicos(view) {
     const tarjeta = (t, ids, sueldo) => {
       const v = ids.reduce((a, id) => a + (vi[id] || 0), 0), a = ids.reduce((x, id) => x + (al[id] || 0), 0);
       const ganado = sueldo ? totalSueldo(t.id) : s[t.id] || 0;
-      const ad = movsDe(t.id, "adelanto"), ga = movsDe(t.id, "gasto"), fin = ganado - suma(ad) - suma(ga) - v - a;
+      const ad = movsDe(t.id, "adelanto"), ga = movsDe(t.id, "gasto");
+      // A los de sueldo por defecto no se les descuentan los gastos (quedan aparte, a la vista); los adelantos sí
+      const desc = !sueldo || !!cfg.descontar?.[t.id], gastos = suma(ga) + v + a;
+      const fin = ganado - suma(ad) - (desc ? gastos : 0);
+      const sw = sueldo ? `<div class="tec-linea tec-desc"><span>Descontar gastos</span><button type="button" class="switch ${desc ? "on" : ""}" data-descontar role="switch" aria-checked="${desc}" aria-label="Descontar gastos"><span class="sw-txt sw-si">Sí</span><span class="sw-txt sw-no">No</span><i class="sw-bola"></i></button></div>` : "";
       return `<section class="tec-cierre" data-tecid="${esc(t.id)}">
         <h3 class="tec-cierre-nombre">${esc(t.nombre)}${sueldo ? "" : ` <small>${rows.filter(r => r.tecs.includes(t.id)).length} autos</small>`}</h3>
         <div class="tec-linea"><span>${sueldo ? "Sueldo" : "Total ganado"}</span><b>${pesos(ganado)}</b></div>
         <div class="tec-linea"><span>Adelantos</span><b>-${pesos(suma(ad))}</b>${T.editando ? `<button type="button" class="link-btn small" data-add-mov="adelanto">+ Adelanto</button>` : ""}</div>
         <ul class="tec-movs">${listaMovs(ad, "Sin adelantos")}</ul>
+        ${sw}<div class="${desc ? "" : "tec-aparte"}">
+        ${desc ? "" : `<div class="tec-linea"><span>Gastos aparte (no se descuentan)</span><b>${pesos(gastos)}</b></div>`}
         <div class="tec-linea"><span>Gastos</span><b>-${pesos(suma(ga))}</b>${T.editando ? `<button type="button" class="link-btn small" data-add-mov="gasto">+ Gasto</button>` : ""}</div>
         <ul class="tec-movs">${listaMovs(ga, "Sin gastos")}</ul>
         ${hayFijos ? `<div class="tec-linea"><span>Viandas</span><b>-${pesos(v)}</b></div>
-        <div class="tec-linea"><span>Alquiler</span><b>-${pesos(a)}</b></div>` : ""}
+        <div class="tec-linea"><span>Alquiler</span><b>-${pesos(a)}</b></div>` : ""}</div>
         <div class="tec-linea tec-final"><span>Final a pagar</span><b>${pesos(fin)}</b></div>
       </section>`;
     };
@@ -263,6 +269,8 @@ export function vistaTecnicos(view) {
   async function clic(e) {
     const t = e.target;
     if (t.closest("[data-act=tecnicos]")) return gestionarTecnicos();
+    const dsw = t.closest("[data-descontar]");
+    if (dsw) { const id = dsw.closest("[data-tecid]").dataset.tecid; return guardarCfg({ descontar: { ...(cfg.descontar || {}), [id]: !cfg.descontar?.[id] } }); }
     if (t.closest("[data-act=persona]")) {
       const nombre = (await pedirTexto({ title: "Técnico a sueldo", label: "Nombre", ok: "Agregar" }))?.trim();
       if (nombre) guardarCfg({ personas: [...(cfg.personas || []), { id: nuevoId(), nombre: nombre.toUpperCase() }] });
