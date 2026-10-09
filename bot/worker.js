@@ -143,6 +143,8 @@ async function procesar(m, env) {
     return vincular(env, m, quien);
   }
   quien.waNombre = m._nombre || ""; quien.appNombre = cuenta.name || ""; quien.uid = cuenta.uid; quien.username = cuenta.username; quien.nombre = cuenta.name || quien.nombre;
+  // Grupo con operativo asignado (!operativo): todo lo que se carga ahí va a ese operativo
+  if (m._grupo) quien.grupoOp = await fsGet(env, `bot_grupo_op/${idGrupo(m)}`).catch(() => null);
 
   if (m.type === "text") return alRecibirTexto(env, m, quien, (m.text?.body || "").trim());
   if (m.type === "image" || m.type === "document" || m.type === "video") return alRecibirArchivo(env, m, quien);
@@ -651,7 +653,12 @@ async function leerSesion(env, numero) {
 const abierta = s => !!(s?.vid && !s.cerradaEn);
 
 // Operativo "fijo" de cada número: donde se crean los vehículos nuevos
-async function operativoFijo(env, numero, uid) {
+async function operativoFijo(env, numero, uid, q = null) {
+  // Primero: el operativo asignado al grupo (si quien escribe es miembro)
+  if (q?.grupoOp?.cid) {
+    const cg = await fsGet(env, `companies/${q.grupoOp.cid}`).catch(() => null);
+    if (cg && (!uid || (cg.members || []).includes(uid))) return { cid: q.grupoOp.cid, operativo: cg.name || q.grupoOp.operativo, grupo: true };
+  }
   let o = await fsGet(env, `bot_operativo/${numero}`);
   // Si el operativo se eligió en la app después que en el bot, manda el de la app
   const u = uid ? await fsGet(env, `users/${uid}`).catch(() => null) : null;
@@ -715,6 +722,11 @@ async function alRecibirTexto(env, m, quien, texto) {
   const s = await leerSesion(env, numero);
 
   // "!resumendiario": este chat recibe todos los días a las 20 hs el resumen de los peritados del día
+  // "!operativo" en un grupo: asigna un operativo al grupo (todo lo que se cargue ahí va a ese operativo)
+  const cmdOp = String(texto).trim().match(/^!\s*operativo\b\s*(.*)$/i);
+  if (cmdOp) return comandoOperativoGrupo(env, m, quien, cmdOp[1]);
+  if (grupo && s?.grupoOpMenu?.t && Date.now() - s.grupoOpMenu.t < 10 * 60_000 && s.grupoOpMenu.to === dest(m) && /^\s*\d{1,2}\s*$/.test(texto))
+    return elegirOperativoGrupo(env, m, quien, Number(texto.trim()), s.grupoOpMenu);
   const cmdRes = String(texto).trim().match(/^!\s*resumen\s*diario\b\s*(.*)$/i);
   if (cmdRes) return comandoResumenDiario(env, m, quien, cmdRes[1]);
   // Respuesta al menú del resumen diario: "1", "1,3", "T" (todos) o "0" (apagar)
@@ -755,9 +767,10 @@ async function alRecibirTexto(env, m, quien, texto) {
 
   // Comando: cambiar de operativo (en grupos, solo la palabra "operativo" sola)
   if (grupo ? limpio(sinMencion) === "operativo" : esCambioOperativo(texto)) {
+    if (grupo && quien.grupoOp?.cid) return responder(env, dest(m), `🏢 Este grupo carga siempre en *${quien.grupoOp.operativo}*. Para cambiarlo: *!operativo*`);
     const ops = await listaOperativos(env, quien.uid);
     if (!ops.length) return responder(env, dest(m), "No hay operativos creados en la app todavía.");
-    const fijo = await operativoFijo(env, numero, quien.uid);
+    const fijo = await operativoFijo(env, numero, quien.uid, quien);
     await fsMerge(env, `bot_sesiones/${numero}`, { elegirOperativo: ops, ts: Date.now() });
     return responder(env, dest(m), (fijo ? `🏢 Operativo actual: *${fijo.operativo}*\n\n` : "") +
       "¿En qué operativo cargo los vehículos nuevos? Respondé con el número:\n\n" + menuOperativos(ops));
@@ -883,7 +896,7 @@ async function alRecibirTexto(env, m, quien, texto) {
   // (el operativo solo se cambia con el comando "operativo"; nombres en el mensaje no lo cambian)
   // "agregar/añadir AB123CD …": suma los datos a un vehículo ya cargado (no crea uno nuevo)
   if (RE_AGREGAR.test(sinMencion) && buscarPatenteEnTexto(sinMencion)) {
-    const fijoA = await operativoFijo(env, numero, quien.uid);
+    const fijoA = await operativoFijo(env, numero, quien.uid, quien);
     if (fijoA && await esDesm(env, fijoA.cid, quien.uid)) return responder(env, dest(m), NO_DESM);
     const extra = interpretar(sinMencion.replace(RE_AGREGAR, " "));
     const r = await agregarAVehiculo(env, numero, extra, hora, s, quien);
@@ -952,7 +965,7 @@ async function prepararVehiculo(env, numero, datos, hora, previa, quien) {
   const encontrados = await buscarPatente(env, datos.patente, quien?.uid);
   // Prioridad: operativo nombrado en el mensaje → último operativo usado → preguntar
   const mencionado = null;
-  const fijo = await operativoFijo(env, numero, quien?.uid);
+  const fijo = await operativoFijo(env, numero, quien?.uid, quien);
   delete datos.operativo;
 
   if (encontrados.length) {
@@ -1171,7 +1184,7 @@ async function abrirModoDesm(env, numero, quien, texto, datos, hora) {
   const antes = String(texto || "").split(/(?:^|\s)(?:detalles?|adicional(?:es)?|observaci[oó]n(?:es)?|obs|repuestos?|pintura)\b/i)[0];
   const kw = RE_DESM.test(antes) && !/(^|\s)no\s+desmont/i.test(antes);
   const enc = await buscarPatente(env, datos.patente, quien.uid);
-  const fijo = await operativoFijo(env, numero, quien.uid);
+  const fijo = await operativoFijo(env, numero, quien.uid, quien);
   const e = enc.find(x => x.cid === fijo?.cid) || enc[0];
   const rol = e ? await esDesm(env, e.cid, quien.uid) : fijo ? await esDesm(env, fijo.cid, quien.uid) : false;
   if (!kw && !rol) return null;
@@ -1275,7 +1288,7 @@ async function textoTurnosHoy(env, numero, uid) {
 async function agregarAVehiculo(env, numero, datos, hora, previa, quien) {
   const encontrados = await buscarPatente(env, datos.patente, quien?.uid);
   if (!encontrados.length) return `🔎 No encontré la patente *${datos.patente}*. Para cargarla como nueva, mandá los datos sin "agregar" ni "añadir".`;
-  const fijo = await operativoFijo(env, numero, quien?.uid);
+  const fijo = await operativoFijo(env, numero, quien?.uid, quien);
   const e = encontrados.find(x => x.cid === fijo?.cid) || encontrados[0];
   const ruta = `companies/${e.cid}/vehicles/${e.vid}`;
   const v = await fsGet(env, ruta);
@@ -2490,7 +2503,7 @@ async function pedirFormXlsx(env, m, quien, texto) {
   let d = { patente: p?.patente || "" }, ref = null;
   if (p) {
     const enc = await buscarPatente(env, p.patente, quien.uid);
-    const fijo = enc.length ? await operativoFijo(env, quien.numero, quien.uid) : null;
+    const fijo = enc.length ? await operativoFijo(env, quien.numero, quien.uid, quien) : null;
     const e = enc.find(x => x.cid === fijo?.cid) || enc[0];
     const v = e ? await fsGet(env, `companies/${e.cid}/vehicles/${e.vid}`) : null;
     if (v && !v.deleted) { d = { ...v, patente: v.patente || p.patente }; ref = { cid: e.cid, vid: e.vid }; }
@@ -2514,7 +2527,7 @@ async function completarFormXlsx(env, m, quien, texto, form) {
   let v = null, ruta = form?.vid ? `companies/${form.cid}/vehicles/${form.vid}` : null;
   if (!ruta) {
     const enc = await buscarPatente(env, pat, quien.uid);
-    const fijo = enc.length ? await operativoFijo(env, quien.numero, quien.uid) : null;
+    const fijo = enc.length ? await operativoFijo(env, quien.numero, quien.uid, quien) : null;
     const e = enc.find(x => x.cid === fijo?.cid) || enc[0];
     if (e) ruta = `companies/${e.cid}/vehicles/${e.vid}`;
   }
@@ -3028,4 +3041,32 @@ async function borrarOperativoCompleto(env, cid) {
   await fsDelete(env, `companies/${cid}`);
   await registrar(env, { ultimoOperativoBorrado: `${new Date().toISOString()} · ${cid} · ${nVeh} vehículos` }).catch(() => {});
   return nVeh;
+}
+
+// ── Operativo fijo por grupo ─────────────────────────────────
+// "!operativo" en un grupo → menú con los operativos de quien escribe; el elegido queda para todo el grupo,
+// sin importar qué operativo tenga elegido cada uno en la app o en el bot. "0" lo quita.
+async function comandoOperativoGrupo(env, m, quien, arg) {
+  if (!m._grupo) return responder(env, dest(m), "📌 *!operativo* se usa en un grupo: deja ese grupo cargando siempre en un operativo. Para cambiar tu operativo acá mandá *operativo*.");
+  if (!quien.uid) return responder(env, dest(m), "Primero vinculá tu número con la app.");
+  if (/^(off|no|quitar|sacar|borrar|0)$/i.test(String(arg || "").trim())) return elegirOperativoGrupo(env, m, quien, 0, { ops: [] });
+  const ops = await listaOperativos(env, quien.uid);
+  if (!ops.length) return responder(env, dest(m), "No estás en ningún operativo.");
+  const actual = quien.grupoOp;
+  await fsMerge(env, `bot_sesiones/${quien.numero}`, { grupoOpMenu: { t: Date.now(), to: dest(m), ops }, ts: Date.now() });
+  return responder(env, dest(m), `🏢 *Operativo de este grupo*\n${actual?.cid ? `Ahora carga en *${actual.operativo}*.` : "Ahora no tiene ninguno: cada uno carga en el suyo."}\n\n` +
+    "¿En qué operativo se cargan los vehículos de este grupo? Respondé con el número:\n\n" + ops.map((o, i) => `${i + 1}. ${o.operativo}`).join("\n") +
+    (actual?.cid ? "\n\n0. Quitar (cada uno carga en el suyo)" : ""));
+}
+async function elegirOperativoGrupo(env, m, quien, n, menu) {
+  await fsMerge(env, `bot_sesiones/${quien.numero}`, { grupoOpMenu: null, ts: Date.now() }).catch(() => {});
+  const id = idGrupo(m);
+  if (n === 0) {
+    await fsDelete(env, `bot_grupo_op/${id}`).catch(() => {});
+    return responder(env, dest(m), "👌 Listo: este grupo ya no tiene operativo fijo, cada uno carga en el suyo.");
+  }
+  const op = (menu.ops || [])[n - 1];
+  if (!op) return responder(env, dest(m), `Elegí un número del 1 al ${(menu.ops || []).length}.`);
+  await fsSet(env, `bot_grupo_op/${id}`, { cid: op.cid, operativo: op.operativo, por: quien.uid, porNombre: quien.nombre || "", ts: Date.now() });
+  return responder(env, dest(m), `✅ Listo: todo lo que se cargue en este grupo va a *${op.operativo}*.\n_(Si alguien del grupo no es parte de ese operativo, se le carga en el suyo.)_`);
 }
