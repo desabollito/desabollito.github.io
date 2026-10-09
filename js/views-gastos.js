@@ -1,4 +1,4 @@
-import { S, guardarGasto, borrarGasto, soyAdmin, mensajeError, buscarMiembro, guardarEtiquetasGasto } from "./data.js";
+import { S, guardarGasto, borrarGasto, soyAdmin, puedeVer, mensajeError, buscarMiembro, guardarEtiquetasGasto } from "./data.js";
 import { exportarExcel } from "./excel.js";
 import { $, $$, esc, money, fechaCorta, hoyISO, icon, toast, openSheet, confirmar, debounce, busy, elegirDescarga, marcarError, pedirTexto } from "./ui.js";
 import { setTopbar } from "./shell.js";
@@ -57,6 +57,7 @@ export function vistaGastos(view) {
     actions: `<button class="icon-btn filtro-btn ${G.cat || G.metodo ? "activo" : ""}" id="g-filtros" aria-label="Filtros" title="Filtros">${icon("filter")}</button><button class="icon-btn filtro-btn ${G.orden !== "fecha" || G.dir !== -1 ? "activo" : ""}" id="g-orden" aria-label="Ordenar" title="Ordenar">${icon("sort")}</button><button class="btn btn-ghost btn-sm" id="g-dl" aria-label="Descargar">${icon("download")}<span class="hide-sm">Descargar</span></button>`
   });
 
+  if (!puedeVer("gastos")) { view.innerHTML = `<div class="empty"><p>No tenés acceso a esta planilla.</p></div>`; return; }
   view.innerHTML = `
   <div class="gastos-page">
     <section class="g-summary card">
@@ -88,7 +89,7 @@ export function vistaGastos(view) {
   };
   const pintarFijos = () => pintar();
   unsubFijos?.(); unsubFijos = null;
-  if (soyAdmin() && S.company) unsubFijos = onSnapshot(doc(db, "companies", S.company.id, "planTec", "_fijos"), d => {
+  if (puedeVer("fijos") && S.company) unsubFijos = onSnapshot(doc(db, "companies", S.company.id, "planTec", "_fijos"), d => {
     if (!document.body.contains(view) || location.hash !== "#/gastos") { unsubFijos?.(); unsubFijos = null; return; }
     fijos = d.exists() ? d.data() : null; pintarFijos();
   }, () => {});

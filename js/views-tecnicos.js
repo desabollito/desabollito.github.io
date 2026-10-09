@@ -4,7 +4,7 @@
 //  cada auto se guardan aparte (companies/{cid}/planTec) y no cambian nada del vehículo.
 // ═════════════════════════════════════════════════════════════
 import { db, collection, doc, onSnapshot, setDoc, writeBatch } from "./firebase.js";
-import { S, activos, soyAdmin, mensajeError } from "./data.js";
+import { S, activos, puedeVer, mensajeError } from "./data.js";
 import { $, $$, esc, icon, toast, openSheet, confirmar, pedirTexto, fechaCorta, hoyISO } from "./ui.js";
 import { setTopbar } from "./shell.js";
 import { estadoActual } from "./domain.js";
@@ -12,12 +12,11 @@ import { viandasPorTec, repartoAlquiler } from "./views-fijos.js";
 
 export function vistaPlanillas(view) {
   setTopbar({ title: "Planillas", sub: S.company?.name });
-  const admin = soyAdmin();
   view.innerHTML = `<div class="planillas-hub">
     <a class="hub-btn" href="#/planilla">${icon("table")}<span><strong>Planilla de vehículos</strong><small>Todos los vehículos del operativo</small></span></a>
-    ${admin ? `<a class="hub-btn" href="#/tecnicos">${icon("team")}<span><strong>Planilla de técnicos</strong><small>Sacabollos, sueldos y cierre</small></span></a>` : ""}
-    <a class="hub-btn" href="#/gastos">${icon("money")}<span><strong>Planilla de gastos</strong><small>Gastos del operativo</small></span></a>
-    ${admin ? `<a class="hub-btn" href="#/fijos">${icon("wallet")}<span><strong>Gastos fijos</strong><small>Viandas y alquiler, repartidos entre los técnicos</small></span></a>` : ""}
+    ${puedeVer("tecnicos") ? `<a class="hub-btn" href="#/tecnicos">${icon("team")}<span><strong>Planilla de técnicos</strong><small>Sacabollos, sueldos y cierre</small></span></a>` : ""}
+    ${puedeVer("gastos") ? `<a class="hub-btn" href="#/gastos">${icon("money")}<span><strong>Planilla de gastos</strong><small>Gastos del operativo</small></span></a>` : ""}
+    ${puedeVer("fijos") ? `<a class="hub-btn" href="#/fijos">${icon("wallet")}<span><strong>Gastos fijos</strong><small>Viandas y alquiler, repartidos entre los técnicos</small></span></a>` : ""}
   </div>`;
 }
 
@@ -42,7 +41,7 @@ export function vistaTecnicos(view) {
   setTopbar({ title: "Planilla de técnicos", sub: S.company?.name, back: "#/planillas",
     actions: `<button class="btn btn-ghost btn-sm" id="t-tec">${icon("team")}<span class="hide-sm">Técnicos</span></button>
       <button class="btn btn-sm ${T.editando ? "btn-primary" : "btn-ghost"}" id="t-edit">${icon(T.editando ? "check" : "edit")}<span>${T.editando ? "Listo" : "Editar"}</span></button>` });
-  if (!soyAdmin()) { view.innerHTML = `<div class="empty"><p>Solo los administradores ven esta planilla.</p></div>`; return; }
+  if (!puedeVer("tecnicos")) { view.innerHTML = `<div class="empty"><p>No tenés acceso a esta planilla.</p></div>`; return; }
   view.innerHTML = `<div class="skeleton tall"></div>`;
   const cid = S.company.id, col = collection(db, "companies", cid, "planTec");
   let cfg = null, filas = {}, fijos = {}, creando = false, gestionando = false;

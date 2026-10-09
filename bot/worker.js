@@ -2390,8 +2390,9 @@ async function verificarIdToken(env, token) {
 async function soloCreador(env, idToken) {
   try {
     const uid = await verificarIdToken(env, idToken);
-    const u = await fsGet(env, `users/${uid}`);
-    return u?.username === CREADOR ? uid : null;
+    // El nombre de usuario @gzmatte es único y solo lo puede tener su dueño (el perfil solo no alcanza: cada uno edita el suyo)
+    const [u, n] = await Promise.all([fsGet(env, `users/${uid}`), fsGet(env, `usernames/${CREADOR}`)]);
+    return u?.username === CREADOR && n?.uid === uid ? uid : null;
   } catch { return null; }
 }
 
@@ -2773,9 +2774,13 @@ async function adminConfig(env, body) {
   if (!(await soloCreador(env, body.idToken))) return json({ ok: false, error: "No autorizado" }, 403);
   const cambios = Object.fromEntries(CONFIG_CLAVES.filter(k => typeof body[k] === "boolean").map(k => [k, body[k]]));
   if (typeof body.mensajeWa === "string") cambios.mensajeWa = body.mensajeWa.slice(0, 2000);
+  // Quién ve Técnicos / Gastos / Gastos fijos: { uid: { tecnicos, gastos, fijos } } (solo booleanos)
+  if (body.accesos && typeof body.accesos === "object") cambios.accesos = Object.fromEntries(Object.entries(body.accesos)
+    .filter(([u, a]) => idValido(u) && a && typeof a === "object")
+    .map(([u, a]) => [u, Object.fromEntries(["tecnicos", "gastos", "fijos"].filter(k => typeof a[k] === "boolean").map(k => [k, a[k]]))]));
   if (Object.keys(cambios).length) await fsMerge(env, "config/app", cambios);
   const c = await fsGet(env, "config/app");
-  return json({ ok: true, config: { ...Object.fromEntries(CONFIG_CLAVES.map(k => [k, c?.[k] !== false])), padronN: c?.padronN || 0, mensajeWa: c?.mensajeWa || "" } });
+  return json({ ok: true, config: { ...Object.fromEntries(CONFIG_CLAVES.map(k => [k, c?.[k] !== false])), padronN: c?.padronN || 0, mensajeWa: c?.mensajeWa || "", accesos: c?.accesos || {} } });
 }
 
 // Elimina un usuario de la app: cuenta de acceso, perfil, nombre de usuario, WhatsApp y membresías

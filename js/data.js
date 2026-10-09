@@ -646,9 +646,10 @@ export async function eliminarDefinitivo(id) {
 const colGastos = () => collection(db, "companies", S.company.id, "gastos");
 
 function escucharGastos() {
-  unsubGastos?.();
+  unsubGastos?.(); unsubGastos = null;
   S.gastos = []; S.loadingGastos = true;
   if (!S.company) return;
+  if (!puedeVer("gastos")) { S.loadingGastos = false; return; }
   unsubGastos = onSnapshot(colGastos(), { includeMetadataChanges: true }, snap => {
     S.gastos = snap.docs.map(d => ({ id: d.id, ...d.data(), _pending: d.metadata.hasPendingWrites }))
       .sort((a, b) => (b.fecha || "").localeCompare(a.fecha || "") || (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
@@ -675,6 +676,13 @@ export const borrarGasto = id => deleteDoc(doc(colGastos(), id));
 
 // ── Panel del creador (@gzmatte): todos los operativos y usuarios ─────
 export const soyCreador = () => S.profile?.username === "gzmatte";
+// Quién ve Técnicos, Gastos y Gastos fijos: lo elige el creador (config/app.accesos[uid][seccion]).
+// Sin elegir: Técnicos y Gastos fijos los ven los administradores; Gastos, todos los miembros. Las reglas de Firestore piden lo mismo.
+export const puedeVer = sec => {
+  if (soyCreador()) return true;
+  const v = S.config?.accesos?.[S.user?.uid]?.[sec];
+  return typeof v === "boolean" ? v : sec === "gastos" ? true : soyAdmin();
+};
 export async function llamarAdmin(ruta, datos = {}) {
   const idToken = await S.user.getIdToken();
   const r = await fetch(`${BOT_API}/admin/${ruta}`, { method: "POST", headers: { "Content-Type": "application/json" },
@@ -722,14 +730,18 @@ export async function responderPedidoUnion(p, cid, rol = "tecnico") {
 }
 
 // ── Configuración general de la app (config/app) ─────────────────
-S.config = { avisoReparado: true, documentos: true, mensajeWa: "" };
+S.config = { avisoReparado: true, documentos: true, mensajeWa: "", accesos: {} };
 let unsubConfig = null;
 export function escucharConfig() {
   if (unsubConfig) return;
   unsubConfig = onSnapshot(doc(db, "config", "app"), d => {
     const antes = JSON.stringify(S.config);
-    S.config = { avisoReparado: d.data()?.avisoReparado !== false, documentos: d.data()?.documentos !== false, mensajeWa: d.data()?.mensajeWa || "" };
-    if (JSON.stringify(S.config) !== antes) emit("config");
+    S.config = { avisoReparado: d.data()?.avisoReparado !== false, documentos: d.data()?.documentos !== false, mensajeWa: d.data()?.mensajeWa || "", accesos: d.data()?.accesos || {} };
+    if (JSON.stringify(S.config) !== antes) {
+      // Si cambió el permiso de gastos, prender o apagar la escucha
+      if (S.company && puedeVer("gastos") !== !!unsubGastos) escucharGastos();
+      emit("config");
+    }
   },
     () => { unsubConfig = null; });
 }

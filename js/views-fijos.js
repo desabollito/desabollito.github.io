@@ -6,7 +6,7 @@
 //   alquiler: { casas: [{ id, nombre, inicio, pagos: [{ id, monto, desde, hasta }], estadias: { idTec: [{ id, llegada, salida }] } }] }
 // ═════════════════════════════════════════════════════════════
 import { db, collection, doc, onSnapshot, setDoc } from "./firebase.js";
-import { S, soyAdmin, mensajeError } from "./data.js";
+import { S, puedeVer, mensajeError } from "./data.js";
 import { $, $$, esc, icon, toast, openSheet, confirmar, pedirTexto, fechaCorta, hoyISO } from "./ui.js";
 import { setTopbar } from "./shell.js";
 
@@ -99,7 +99,7 @@ let unsub = null;
 export function vistaFijos(view) {
   setTopbar({ title: "Gastos fijos", sub: S.company?.name, back: "#/planillas",
     actions: `<button class="btn btn-ghost btn-sm" id="f-tec">${icon("team")}<span class="hide-sm">Técnicos</span></button><button class="btn btn-sm ${F.editando ? "btn-primary" : "btn-ghost"}" id="f-edit">${icon(F.editando ? "check" : "edit")}<span>${F.editando ? "Listo" : "Editar"}</span></button>` });
-  if (!soyAdmin()) { view.innerHTML = `<div class="empty"><p>Solo los administradores ven esta planilla.</p></div>`; return; }
+  if (!puedeVer("fijos")) { view.innerHTML = `<div class="empty"><p>No tenés acceso a esta planilla.</p></div>`; return; }
   view.innerHTML = `<div class="skeleton tall"></div>`;
   const col = collection(db, "companies", S.company.id, "planTec");
   // Los técnicos de gastos fijos son propios (no los de la planilla de técnicos)
@@ -115,8 +115,8 @@ export function vistaFijos(view) {
     return l.map((t, i) => ({ t, i, f: primero[t.id] || llegadas(t.id)[0] || "9999" })).sort((a, b) => a.f.localeCompare(b.f) || a.i - b.i).map(x => x.t);
   } };
   unsub?.();
-  unsub = onSnapshot(col, snap => {
-    snap.docs.forEach(d => { if (d.id === "_fijos") fijos = d.data(); });
+  unsub = onSnapshot(doc(col, "_fijos"), d => {
+    fijos = d.data() || {};
     if (!document.body.contains(view) || location.hash !== "#/fijos") { unsub?.(); unsub = null; return; }
     if (!$(".fijos-page", view)) estructura();
     pintar();

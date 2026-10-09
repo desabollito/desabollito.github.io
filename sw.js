@@ -1,6 +1,6 @@
 // Service worker: la app abre al instante y funciona sin señal.
 // Subí el número de versión en cada publicación para forzar la actualización.
-const VERSION = "desabollito-v2.45.37";
+const VERSION = "desabollito-v2.45.38";
 const SHELL = [
   "./", "./index.html", "./manifest.json", "./css/app.css",
   "./js/app.js", "./js/config.js", "./js/firebase.js", "./js/data.js", "./js/domain.js", "./js/ui.js",

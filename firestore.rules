@@ -11,6 +11,12 @@ service cloud.firestore {
     function isMember(cid) { return signedIn() && uid() in company(cid).members; }
     function isAdmin(cid) { return isMember(cid) && company(cid).roles[uid()] in ['owner', 'admin']; }
     // Rol Desmontaje: solo ve los vehículos y carga desmontajes (fotos, notas y desmontador)
+    // Acceso a Técnicos / Gastos / Gastos fijos: lo elige el creador en config/app.accesos[uid][seccion]; sin elegir, vale el de siempre
+    function acceso(sec) {
+      let p = /databases/$(database)/documents/config/app;
+      return exists(p) ? get(p).data.get('accesos', {}).get(uid(), {}).get(sec, null) : null;
+    }
+    function puede(cid, sec, porDefecto) { let v = acceso(sec); return isMember(cid) && (v == true || (v == null && porDefecto)); }
     function esDesmontaje(cid) { return isMember(cid) && company(cid).roles.get(uid(), '') == 'desmontaje'; }
     // Cuentas aprobadas (las cuentas viejas no tienen el campo y cuentan como aprobadas)
     function aprobado() {
@@ -137,19 +143,20 @@ service cloud.firestore {
 
       // ── Planilla de técnicos (valor por auto, reparto, adelantos): solo administradores ──
       match /planTec/{d} {
-        allow read, write: if isAdmin(cid);
+        allow read: if puede(cid, 'tecnicos', isAdmin(cid)) || (d == '_fijos' && puede(cid, 'fijos', isAdmin(cid)));
+        allow write: if d == '_fijos' ? puede(cid, 'fijos', isAdmin(cid)) : puede(cid, 'tecnicos', isAdmin(cid));
       }
 
       // ── Gastos del operativo ───────────────────────────────
       match /gastos/{gid} {
-        allow read: if isMember(cid);
-        allow create: if isMember(cid) && request.resource.data.createdBy == uid()
+        allow read: if puede(cid, 'gastos', true);
+        allow create: if puede(cid, 'gastos', true) && request.resource.data.createdBy == uid()
           && request.resource.data.monto is number && request.resource.data.monto >= 0;
-        allow update: if isMember(cid)
+        allow update: if puede(cid, 'gastos', true)
           && request.resource.data.createdBy == resource.data.createdBy
           && (isAdmin(cid) || resource.data.createdBy == uid());
         allow delete: if isAdmin(cid)
-          || (isMember(cid) && resource.data.createdBy == uid());
+          || (puede(cid, 'gastos', true) && resource.data.createdBy == uid());
       }
     }
 

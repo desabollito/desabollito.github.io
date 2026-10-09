@@ -4,7 +4,7 @@ import {
 import { $, $$, esc, toast, busy, openSheet } from "./ui.js";
 import { FIREBASE, BOT_API } from "./config.js";
 import { iniciarFechas } from "./fecha.js";
-import { cuentaPendiente, salir, marcarOperativosVistos, soyCreador, crearEmpresa, pedirUnion, cancelarPedidoUnion, escucharMiPedido, responderPedidoUnion, soyDesmontaje, miRol, soyAdmin, getVehiculo, iniciarInvitado, soyLector } from "./data.js";
+import { cuentaPendiente, salir, marcarOperativosVistos, soyCreador, crearEmpresa, pedirUnion, cancelarPedidoUnion, escucharMiPedido, responderPedidoUnion, soyDesmontaje, miRol, soyAdmin, getVehiculo, iniciarInvitado, soyLector, puedeVer } from "./data.js";
 import { marcarNav, pintarLateral, esAncho } from "./shell.js";
 import { vistaVehiculos, vistaDetalle, vistaFormulario, reiniciarVista3D, elegirVehiculoDesmontaje } from "./views-vehiculos.js";
 import {
@@ -91,7 +91,7 @@ function render({ conservarScroll = false, reabrir = false } = {}) {
   const enPlan = ["planillas", "planilla", "gastos", "tecnicos", "fijos"].includes(hit[1]);
   $(".side-grupo")?.classList.toggle("abierto", enPlan);
   $$(".side-sub a").forEach(a => a.classList.toggle("on", a.dataset.sub === hit[1]));
-  $$('.side-sub [data-sub="tecnicos"], .side-sub [data-sub="fijos"]').forEach(a => { a.hidden = !soyAdmin(); });
+  $$(".side-sub [data-sub=tecnicos], .side-sub [data-sub=fijos], .side-sub [data-sub=gastos]").forEach(a => { a.hidden = !puedeVer(a.dataset.sub); });
   if (hit[1] === "calendario" && !mismaRuta) calendarioAlEntrar();
   if (!mismaRuta) reiniciarVista3D(); // cada vez que se abre un vehículo, arranca en 2D
   ultimoRender = Date.now();

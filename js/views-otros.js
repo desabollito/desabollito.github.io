@@ -685,7 +685,11 @@ export function vistaPapelera(view) {
 export async function panelCreador() {
   const s = openSheet({ title: "Administración", wide: true, body: `<div class="adm"><div class="skeleton" style="height:160px"></div></div>` });
   const caja = $(".adm", s.el);
-  let tab = "operativos", datos = null;
+  let tab = "operativos", datos = null, accAbierto = false;
+  // Acceso efectivo de cada usuario (lo elegido o, si no, lo de siempre)
+  const esAdminEnAlguno = uid => datos.operativos.some(o => o.miembros.some(m => m.uid === uid && ["admin", "owner"].includes(m.rol)));
+  const accesoDe = uid => { const e = datos.config?.accesos?.[uid] || {}, adm = esAdminEnAlguno(uid);
+    return { tecnicos: e.tecnicos ?? adm, gastos: e.gastos ?? true, fijos: e.fijos ?? adm }; };
   const nVeh = n => n === null || n === undefined ? "" : `${n} ${n === 1 ? "vehículo" : "vehículos"}`;
   const pintar = () => {
     const { operativos, usuarios } = datos;
@@ -709,6 +713,14 @@ export async function panelCreador() {
           ${datos.config?.padronN ? `<button type="button" class="btn btn-ghost btn-sm danger" id="adm-padron-del">${icon("trash")}Borrar</button>` : ""}
         </span>
       </div>
+      <details class="adm-toggles adm-accesos" ${accAbierto ? "open" : ""}>
+        <summary><b>Quién ve las planillas</b> <small class="muted">Técnicos · Gastos · Gastos fijos</small></summary>
+        <div class="adm-acc-head"><span></span><small>Técnicos</small><small>Gastos</small><small>Fijos</small></div>
+        ${usuarios.filter(u => u.username !== "gzmatte" && u.aprobado !== false && !u.rechazado).map(u => { const a = accesoDe(u.uid);
+          return `<div class="adm-acc-fila" data-acc="${esc(u.uid)}"><span><b>${esc(u.name || "Sin nombre")}</b> <small class="muted">@${esc(u.username)}</small></span>
+            ${["tecnicos", "gastos", "fijos"].map(k => `<input type="checkbox" data-acc-sec="${k}" ${a[k] ? "checked" : ""} aria-label="${k}">`).join("")}</div>`; }).join("")}
+        <small class="muted">Sin tocar: Técnicos y Gastos fijos los ven los administradores y Gastos todos. Vos siempre ves todo.</small>
+      </details>
       <div class="seg seg-sm adm-tabs">
         <button type="button" class="seg-btn ${tab === "operativos" ? "on" : ""}" data-tab="operativos">Operativos <small>${operativos.length}</small></button>
         <button type="button" class="seg-btn ${tab === "usuarios" ? "on" : ""}" data-tab="usuarios">Usuarios <small>${usuarios.length}</small></button>
@@ -745,6 +757,18 @@ export async function panelCreador() {
       } catch (err) { toast(err.message || mensajeError(err), "error"); }
       return;
     }
+    const sec = e.target.dataset.accSec;
+    if (sec) {
+      const uid = e.target.closest("[data-acc]").dataset.acc, on = e.target.checked;
+      // Se guarda todo lo que se ve (así queda explícito para cada uno)
+      const accesos = Object.fromEntries(datos.usuarios.filter(u => u.username !== "gzmatte").map(u => [u.uid, accesoDe(u.uid)]));
+      accesos[uid] = { ...accesos[uid], [sec]: on };
+      e.target.disabled = true;
+      try { const r = await llamarAdmin("config", { accesos }); datos.config = r.config; S.config = { ...S.config, accesos: r.config.accesos || {} }; toast("Acceso guardado", "success"); }
+      catch (err) { e.target.checked = !on; toast(err.message, "error"); }
+      e.target.disabled = false;
+      return;
+    }
     const clave = e.target.dataset.config;
     if (!clave) return;
     const on = e.target.checked;
@@ -756,6 +780,7 @@ export async function panelCreador() {
     } catch (err) { e.target.checked = !on; toast(err.message, "error"); }
     e.target.disabled = false;
   });
+  caja.addEventListener("toggle", e => { if (e.target.classList?.contains("adm-accesos")) accAbierto = e.target.open; }, true);
   caja.addEventListener("click", async e => {
     const chip = e.target.closest("[data-var]");
     if (chip) {
