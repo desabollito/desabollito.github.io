@@ -1381,7 +1381,8 @@ body[data-rol="desmontaje"] a[href^="#/editar"] { display: none !important; }
 
 /* Link de solo lectura (perito de una compañía): sin nada para cargar, editar ni configurar */
 body[data-lector="1"] .fab, body[data-lector="1"] a[href="#/nuevo"], body[data-lector="1"] a[href^="#/editar"],
-body[data-lector="1"] [data-nav="planillas"], body[data-lector="1"] .side-grupo, body[data-lector="1"] #tab-planilla,
+body[data-lector-uno="1"] [data-nav="planillas"], body[data-lector-uno="1"] .side-grupo, body[data-lector-uno="1"] #tab-planilla,
+body[data-lector="1"] .side-sub, body[data-lector="1"] .side-chev,
 body[data-lector="1"] a[href="#/ajustes"], body[data-lector="1"] [data-nav="ajustes"], body[data-lector="1"] .viewer-add, body[data-lector="1"] #vw-rot,
 body[data-lector="1"] [data-act="desmontaje"], body[data-lector="1"] [data-act="anular"], body[data-lector="1"] [data-act="borrar"],
 body[data-lector="1"] [data-act="mover"], body[data-lector="1"] [data-act="firma"], body[data-lector="1"] [data-del-foto], body[data-lector="1"] [data-del-doc],

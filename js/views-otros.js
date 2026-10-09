@@ -44,7 +44,7 @@ function filasPlanilla() {
 
 export function vistaPlanilla(view) {
   setTopbar({
-    title: "Planilla de vehículos", sub: S.company?.name, back: "#/planillas",
+    title: "Planilla de vehículos", sub: S.invitado ? S.invitado.compania : S.company?.name, back: S.invitado ? "" : "#/planillas",
     actions: `<button class="btn btn-ghost btn-sm" id="dl" aria-label="Descargar">${icon("download")}<span class="hide-sm">Descargar</span></button>`
   });
   const ordenes = [["fecha", "Fecha"], ["patente", "Patente"], ["modelo", "Modelo"], ["estado", "Estado"]];

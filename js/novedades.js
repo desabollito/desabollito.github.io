@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "2.45.39", items: ["Link de peritos: también ven la planilla, solo con sus vehículos."] },
   { v: "2.45.38", items: ["Panel del creador: elegir quién ve Técnicos, Gastos y Gastos fijos."] },
   { v: "2.45.37", items: ["Cierre: a los de sueldo se puede elegir «Descontar gastos»; si no, los gastos quedan aparte."] },
   { v: "2.45.36", items: ["Planilla de técnicos: al tocar un técnico la tabla queda donde la deslizaste."] },

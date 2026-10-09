@@ -54,7 +54,7 @@ function render({ conservarScroll = false, reabrir = false } = {}) {
   const h = location.hash || "#/";
   let hit = RUTAS.find(([re]) => re.test(h)) || RUTAS[0];
   // Link de perito: solo Vehículos y Calendario
-  if (soyLector() && !["vehiculos", "calendario"].includes(hit[1])) { history.replaceState(null, "", "#/"); hit = RUTAS[0]; }
+  if (soyLector() && !["vehiculos", "calendario", "planilla"].includes(hit[1])) { history.replaceState(null, "", "#/"); hit = RUTAS[0]; }
   // Link de un solo vehículo: siempre ese vehículo
   if (S.invitado?.uno && h !== `#/v/${S.invitado.uno}`) { history.replaceState(null, "", `#/v/${S.invitado.uno}`); return render(); }
   // Rol Desmontaje: no carga ni edita vehículos; "nuevo" abre la elección de vehículo para el desmontaje
@@ -306,6 +306,10 @@ if (tokenVer) {
     if (!ok) { $("#login").hidden = true; document.body.insertAdjacentHTML("beforeend", `<section class="espera"><div class="espera-caja"><img src="img/logo-oscuro.png" alt="" class="espera-logo"><h1>Link no disponible</h1><p>${esc(err?.message || "")}</p></div></section>`); return; }
     $("#login").hidden = true; $("#shell").hidden = false;
     if (S.invitado?.uno) document.body.dataset.lectorUno = "1";
+    else {   // El perito también ve la planilla (solo con sus vehículos): la pestaña va directo a la planilla
+      $("#tab-planilla").href = "#/planilla"; $(".tab-label", $("#tab-planilla")).textContent = "Planilla";
+      const side = $('.side-grupo [data-nav="planillas"]'); if (side) side.href = "#/planilla";
+    }
     const v1 = S.invitado?.uno ? S.vehicles[0] : null;
     document.title = v1 ? `${[v1.modelo, v1.patente].filter(Boolean).join(" ")} · Desabollito` : `${S.invitado?.compania || "Vehículos"} · Desabollito`;
     pintarLateral(); render();
