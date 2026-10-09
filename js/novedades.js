@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "2.45.44", items: ["Al actualizar: un auto acelera y cruza la pantalla, con ruido de motor."] },
   { v: "2.45.43", items: ["Computadora: los estados del inicio en una fila a lo ancho, arriba de la búsqueda."] },
   { v: "2.45.41", items: ["PDF: la firma va en su propia hoja, antes de las fotos."] },
   { v: "2.45.40", items: ["Planilla del perito sin total.", "Eliminar un operativo ahora pide confirmación por WhatsApp al creador."] },

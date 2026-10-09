@@ -347,9 +347,45 @@ function mostrarSegunAprobacion() {
 }
 
 // ── Actualizaciones ───────────────────────────────────────────
+// Al actualizar: un auto que acelera y cruza la pantalla, con ruido de motor (hecho con Web Audio, sin archivos)
+function ruidoMotor() {
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
+    const ac = new AC(), t = ac.currentTime, dur = 1.25;
+    const salida = ac.createGain(); salida.gain.setValueAtTime(0.0001, t);
+    salida.gain.exponentialRampToValueAtTime(0.32, t + 0.08); salida.gain.setValueAtTime(0.32, t + dur - 0.35);
+    salida.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    const filtro = ac.createBiquadFilter(); filtro.type = "lowpass"; filtro.Q.value = 6;
+    filtro.frequency.setValueAtTime(400, t); filtro.frequency.exponentialRampToValueAtTime(2200, t + dur * 0.8);
+    filtro.connect(salida); salida.connect(ac.destination);
+    // Dos osciladores desafinados: el motor, que sube de vueltas (con un "cambio" a mitad)
+    [[0, "sawtooth"], [7, "square"]].forEach(([det, tipo]) => {
+      const o = ac.createOscillator(); o.type = tipo; o.detune.value = det;
+      const f = o.frequency; f.setValueAtTime(48, t); f.exponentialRampToValueAtTime(150, t + 0.5);
+      f.exponentialRampToValueAtTime(105, t + 0.58); f.exponentialRampToValueAtTime(260, t + dur);
+      const g = ac.createGain(); g.gain.value = tipo === "square" ? 0.35 : 0.6;
+      o.connect(g); g.connect(filtro); o.start(t); o.stop(t + dur + 0.05);
+    });
+    // Vibración del motor: modula el volumen rápido
+    const lfo = ac.createOscillator(), lg = ac.createGain(); lfo.frequency.setValueAtTime(18, t); lfo.frequency.linearRampToValueAtTime(45, t + dur);
+    lg.gain.value = 0.12; lfo.connect(lg); lg.connect(salida.gain); lfo.start(t); lfo.stop(t + dur + 0.05);
+    setTimeout(() => ac.close().catch(() => {}), (dur + 0.3) * 1000);
+  } catch (e) { console.warn("sonido", e); }
+}
+const AUTO_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5.6 16H4a1 1 0 0 1-1-1v-2.4c0-.6.4-1.1 1-1.3l2.4-.7 2.5-3A2 2 0 0 1 10.4 7h4.4a2 2 0 0 1 1.6.8l2.4 3.2 1.4.4c.8.2 1.3.9 1.3 1.7V15a1 1 0 0 1-1 1h-1.1M9.4 16h5.2"/><circle cx="7.5" cy="16" r="1.9"/><circle cx="16.5" cy="16" r="1.9"/></svg>`;
+function animacionActualizar() {
+  ruidoMotor();
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return Promise.resolve();
+  const capa = document.createElement("div");
+  capa.className = "arranque";
+  capa.innerHTML = `<div class="arranque-auto"><i class="arranque-humo"></i><i class="arranque-lineas"></i>${AUTO_SVG}</div>`;
+  document.body.appendChild(capa);
+  return new Promise(r => setTimeout(r, 1150));
+}
 if (/[?&]act=\d+/.test(location.search)) history.replaceState(null, "", location.pathname + location.hash);
 addEventListener("forzar-actualizacion", async () => {
   toast("Actualizando a la última versión…");
+  await animacionActualizar();
   try {
     const keys = await caches.keys();
     await Promise.all(keys.filter(k => !k.endsWith("-ext")).map(k => caches.delete(k)));   // el lector de patentes se conserva
@@ -377,8 +413,9 @@ if ("serviceWorker" in navigator) {
     bar.type = "button"; bar.id = "update-bar"; bar.className = "update-pop";
     bar.setAttribute("aria-label", "Hay una versión nueva: tocá para actualizar"); bar.title = "Versión nueva";
     bar.innerHTML = `<span class="pop-auto"><i class="pop-lineas"></i><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5.6 16H4a1 1 0 0 1-1-1v-2.4c0-.6.4-1.1 1-1.3l2.4-.7 2.5-3A2 2 0 0 1 10.4 7h4.4a2 2 0 0 1 1.6.8l2.4 3.2 1.4.4c.8.2 1.3.9 1.3 1.7V15a1 1 0 0 1-1 1h-1.1M9.4 16h5.2"/><circle cx="7.5" cy="16" r="1.9"/><circle cx="16.5" cy="16" r="1.9"/></svg></span>`;
-    bar.onclick = () => {
-      bar.classList.add("cargando"); bar.disabled = true;
+    bar.onclick = async () => {
+      bar.classList.add("cargando", "arranca"); bar.disabled = true;
+      await animacionActualizar();
       recargarAlCambiar = true; sw.postMessage("activar");
       // Cartelito debajo del botón, por si el navegador no recarga solo
       if (!$(".update-hint")) {
