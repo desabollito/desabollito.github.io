@@ -159,7 +159,7 @@ export function vistaVehiculos(view, selId = null) {
     todos.forEach(v => cuenta[estadoActual(v)]++);
     $("#estado-strip", view).innerHTML =
       // Link de perito: solo los estados que tienen algún vehículo
-      ESTADOS.filter(e => !soyLector() || cuenta[e.key] || F.estado === e.key).map(e => `<button class="est ${F.estado === e.key ? "on" : ""}" data-e="${e.key}" style="--c:${e.color}">
+      ESTADOS.filter(e => !soyLector() || cuenta[e.key] || F.estado === e.key).map(e => `<button class="est ${F.estado === e.key ? "on" : ""} ${cuenta[e.key] ? "" : "cero"}" data-e="${e.key}" style="--c:${e.color}">
         <b>${cuenta[e.key]}</b><span>${e.label}</span></button>`).join("");
     $("#estado-strip", view).setAttribute("aria-label", `Filtrar por estado (${todos.length} en total)`);
 
