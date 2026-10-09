@@ -47,7 +47,7 @@ export default {
       "/admin/datos": adminDatos, "/admin/borrar-usuario": adminBorrarUsuario, "/admin/config": adminConfig, "/admin/padron": adminPadron, "/mover-vehiculo": moverVehiculo,
       "/borrar-media": borrarMediaApi, "/eliminar-vehiculo": eliminarVehiculoApi,
       "/compartir": compartirApi, "/compartido": compartidoApi,
-      "/aviso-version": avisoVersion,
+      "/aviso-version": avisoVersion, "/pedir-borrar-operativo": pedirBorrarOperativo,
       "/recuperar": recuperarApi, "/restablecer": restablecerApi, "/usuarios-app": usuariosAppApi,
       "/admin/resumen-ahora": async (env, { idToken, forzar }) => (await soloCreador(env, idToken)) ? json({ ok: true, enviados: await enviarResumenesDiarios(env, forzar) }) : json({ ok: false }, 403) };
     if (API[url.pathname]) {
@@ -2272,6 +2272,9 @@ Si cambiaste de número, entrá a la app → Ajustes → *Desvincular WhatsApp* 
 // El administrador responde "SI usuario" / "NO usuario" (o solo SI/NO si hay una sola solicitud)
 async function comandoAdmin(env, m, texto) {
   const t = limpio(texto);
+  // Confirmar o rechazar la eliminación de un operativo: "BORRAR ab12" / "NO BORRAR ab12"
+  const bo = t.match(/^(no\s+)?borrar\s+([a-z0-9]{4,8})$/);
+  if (bo) { await confirmarBorrado(env, m, bo[2], !bo[1]); return true; }
   if (t === "pendientes") {
     const pend = await fsList(env, "bot_pendientes");
     await responder(env, dest(m), pend.length ? "📋 Cuentas esperando aprobación:\n\n" + pend.map(p => `• ${p.name || ""} (@${p.username})`).join("\n") + "\n\nRespondé *SI usuario* o *NO usuario*."
@@ -2980,4 +2983,49 @@ async function avisoVersion(env) {
   await fsSet(env, "bot_meta/deploy", { version: v, fecha: new Date().toISOString() });
   await enviar(env, destinoNumero(env, numeroAdmin(env)), { type: "text", text: { body: `✅ ${v}` } });
   return json({ ok: true, version: v, avisado: true });
+}
+
+// ── Eliminar un operativo: solo con confirmación del creador por WhatsApp ──
+// La app ya no puede borrar operativos (reglas): el dueño lo pide, al creador le llega un código y responde BORRAR código.
+const HORAS_PEDIDO_BORRAR = 48;
+async function pedirBorrarOperativo(env, { idToken, cid }) {
+  const m = await miembroDe(env, idToken, cid);
+  if (!m || m.c.ownerId !== m.uid) return json({ ok: false, error: "Solo el dueño puede pedir eliminar el operativo" }, 403);
+  const previo = (await fsList(env, "bot_borrados").catch(() => [])).find(p => p.cid === cid && Date.parse(p.fecha) > Date.now() - HORAS_PEDIDO_BORRAR * 3600_000);
+  if (previo) return json({ ok: true, yaPedido: true });
+  const codigo = Math.random().toString(36).slice(2, 6);
+  const u = await fsGet(env, `users/${m.uid}`).catch(() => null);
+  const nVeh = (await fsList(env, `companies/${cid}/vehicles`).catch(() => [])).length;
+  await fsSet(env, `bot_borrados/${codigo}`, { cid, nombre: m.c.name || "", uid: m.uid, quien: u?.name || "", usuario: u?.username || "", fecha: new Date().toISOString() });
+  await enviar(env, destinoNumero(env, numeroAdmin(env)), { type: "text", text: { body:
+    `🗑️ *${u?.name || "Alguien"}* (@${u?.username || "?"}) quiere *eliminar el operativo «${m.c.name || cid}»* (${nVeh} ${nVeh === 1 ? "vehículo" : "vehículos"}).\n\n` +
+    `Para confirmar respondé:\n*BORRAR ${codigo}*\n\nPara rechazarlo: *NO BORRAR ${codigo}*\n_(vence en ${HORAS_PEDIDO_BORRAR} h)_` } });
+  return json({ ok: true });
+}
+async function confirmarBorrado(env, m, codigo, confirmar) {
+  const p = await fsGet(env, `bot_borrados/${codigo}`).catch(() => null);
+  if (!p) return responder(env, dest(m), `No hay ningún pedido de eliminación con el código *${codigo}*.`);
+  await fsDelete(env, `bot_borrados/${codigo}`).catch(() => {});
+  if (!confirmar) return responder(env, dest(m), `👍 No se elimina «${p.nombre}».`);
+  if (Date.parse(p.fecha) < Date.now() - HORAS_PEDIDO_BORRAR * 3600_000) return responder(env, dest(m), "⌛ Ese pedido venció. Que lo vuelvan a pedir desde la app.");
+  const c = await fsGet(env, `companies/${p.cid}`).catch(() => null);
+  if (!c) return responder(env, dest(m), `«${p.nombre}» ya no existe.`);
+  await responder(env, dest(m), `⏳ Eliminando «${p.nombre}»…`);
+  const n = await borrarOperativoCompleto(env, p.cid);
+  return responder(env, dest(m), `✅ Operativo «${p.nombre}» eliminado (${n} ${n === 1 ? "vehículo" : "vehículos"}).`);
+}
+async function borrarOperativoCompleto(env, cid) {
+  const commit = writes => fs(env, `${base(env)}:commit`, { method: "POST", body: JSON.stringify({ writes }) });
+  const media = new Map(); let nVeh = 0;
+  for (const sub of ["vehicles", "gastos", "planTec", "solicitudes"]) {
+    const docs = await fsList(env, `companies/${cid}/${sub}`).catch(() => []);
+    if (sub === "vehicles") { nVeh = docs.length; docs.forEach(v => mediaDe(v, media)); }
+    for (let i = 0; i < docs.length; i += 400) await commit(docs.slice(i, i + 400).map(d => ({ delete: nombreDoc(env, d.__ruta) })));
+  }
+  await borrarCloudinary(env, [...media.values()].filter(x => x.publicId.startsWith("desabollito/"))).catch(e => console.error("cloudinary operativo", e));
+  const links = (await fsList(env, "compartidos").catch(() => [])).filter(l => l.cid === cid);
+  if (links.length) await commit(links.map(l => ({ delete: nombreDoc(env, l.__ruta) })));
+  await fsDelete(env, `companies/${cid}`);
+  await registrar(env, { ultimoOperativoBorrado: `${new Date().toISOString()} · ${cid} · ${nVeh} vehículos` }).catch(() => {});
+  return nVeh;
 }

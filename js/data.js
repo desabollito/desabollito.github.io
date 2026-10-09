@@ -384,18 +384,14 @@ export async function salirDeEmpresa() {
   localStorage.removeItem("empresaActiva");
 }
 
+// Eliminar un operativo no se hace desde la app: se pide y el creador lo confirma por WhatsApp
 export async function eliminarEmpresa() {
-  const cid = S.company.id;
-  for (const sub of ["vehicles", "gastos"]) {
-    const snap = await getDocs(collection(db, "companies", cid, sub));
-    for (let i = 0; i < snap.docs.length; i += 400) {
-      const b = writeBatch(db);
-      snap.docs.slice(i, i + 400).forEach(d => b.delete(d.ref));
-      await b.commit();
-    }
-  }
-  await deleteDoc(doc(db, "companies", cid));
-  localStorage.removeItem("empresaActiva");
+  const idToken = await S.user.getIdToken();
+  const r = await fetch(`${BOT_API}/pedir-borrar-operativo`, { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ idToken, cid: S.company.id }) });
+  const j = await r.json().catch(() => ({}));
+  if (!j.ok) throw new Error(j.error || "No se pudo pedir la eliminación");
+  return j;
 }
 
 // ── Vehículos ─────────────────────────────────────────────────

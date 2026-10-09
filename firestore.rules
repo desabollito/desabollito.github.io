@@ -105,7 +105,8 @@ service cloud.firestore {
         && request.resource.data.get('memberPhotos', {}).diff(resource.data.get('memberPhotos', {})).affectedKeys().hasOnly([uid()])
         && request.resource.data.get('memberUsers', {}).diff(resource.data.get('memberUsers', {})).affectedKeys().hasOnly([uid()]);
 
-      allow delete: if signedIn() && resource.data.ownerId == uid();
+      // Eliminar un operativo solo lo hace el bot, después de que el creador lo confirma por WhatsApp
+      allow delete: if false;
 
       // ── Vehículos del operativo ────────────────────────────
       match /vehicles/{vid} {
@@ -130,8 +131,8 @@ service cloud.firestore {
                     .hasOnly(['estado', 'fechas', 'horas', 'etapasRepuestos', 'etapasPintura', 'postReparacion', 'razonAnulacion', 'turnoConfirmado', 'horaTurno', 'fotos', 'archivos', 'firma', 'historial', 'desFotos', 'desNotas', 'desmontador', 'updatedAt', 'updatedBy'])
                   && request.resource.data.get('fotos', []).size() >= resource.data.get('fotos', []).size()
                   && request.resource.data.get('archivos', []).size() >= resource.data.get('archivos', []).size()));
-        allow delete: if isAdmin(cid)
-          || (isMember(cid) && !esDesmontaje(cid) && (resource.data.get('createdBy', '') == uid() || resource.data.get('createdByUid', '') == uid()));
+        // Se borran de verdad solo desde el bot (papelera de 48 h, "eliminar para siempre" o mover de operativo)
+        allow delete: if false;
       }
 
       // ── Solicitudes de eliminación (las resuelven los administradores)

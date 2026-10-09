@@ -281,7 +281,7 @@ export async function presupuestoPDF(v, empresa, { conFotos = false, onProgreso 
   return doc;
 }
 
-export function planillaPDF(lista, empresa, filtroTexto = "") {
+export function planillaPDF(lista, empresa, filtroTexto = "", sinTotal = false) {
   acento(empresa);
   const doc = nuevoDoc("landscape");
   const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), M = 12;
@@ -319,7 +319,7 @@ export function planillaPDF(lista, empresa, filtroTexto = "") {
   y += 3;
   doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(...INK);
   doc.text(`${lista.length} vehículos`, x0, y + 4);
-  doc.text(`Total ${money(total) || "$0"}`, x0 + tw - 2, y + 4, { align: "right" });
+  if (!sinTotal) doc.text(`Total ${money(total) || "$0"}`, x0 + tw - 2, y + 4, { align: "right" });
   pie(doc, `${empresa?.name || "Desabollito"} · planilla`);
   return doc;
 }

@@ -80,7 +80,7 @@ export function vistaPlanilla(view) {
     pintarOrden();
     const filas = filasPlanilla();
     const total = filas.reduce((s, v) => s + (estadoActual(v) === "anulado" ? 0 : Number(v.precio || 0)), 0);
-    $("#psum", view).innerHTML = `<span><b>${filas.length}</b> ${filas.length === 1 ? "vehículo" : "vehículos"}</span><span>Total <b>${money(total) || "$0"}</b></span>`;
+    $("#psum", view).innerHTML = `<span><b>${filas.length}</b> ${filas.length === 1 ? "vehículo" : "vehículos"}</span>${S.invitado ? "" : `<span>Total <b>${money(total) || "$0"}</b></span>`}`;
 
     // Celular
     $("#plist", view).innerHTML = filas.length ? filas.map(v => `
@@ -103,7 +103,7 @@ export function vistaPlanilla(view) {
         <td>${esc(v.compania || "—")}</td><td>${esc(v.localidad || "—")}</td>
         <td>${estadoPill(v)}</td><td class="num">${money(v.precio) || "—"}</td></tr>`).join("")
       : `<tr><td colspan="7" class="empty-cell">Sin resultados.</td></tr>`;
-    $("#tf", view).innerHTML = `<tr><td colspan="6">${filas.length} ${filas.length === 1 ? "vehículo" : "vehículos"}</td><td class="num">${money(total) || "$0"}</td></tr>`;
+    $("#tf", view).innerHTML = `<tr><td colspan="6">${filas.length} ${filas.length === 1 ? "vehículo" : "vehículos"}</td><td class="num">${S.invitado ? "" : money(total) || "$0"}</td></tr>`;
   };
   pintar();
 
@@ -127,7 +127,7 @@ export function vistaPlanilla(view) {
   $("#tb", view).onclick = e => { const tr = e.target.closest("[data-id]"); if (tr) go(`#/v/${tr.dataset.id}`); };
   $("#tb", view).onkeydown = e => { if (e.key === "Enter") e.target.closest("[data-id]")?.click(); };
 
-  const pdf = () => planillaPDF(filasPlanilla(), S.company, P.q ? `búsqueda “${P.q}”` : "").save(`Planilla_${hoyISO()}.pdf`);
+  const pdf = () => planillaPDF(filasPlanilla(), S.company, P.q ? `búsqueda “${P.q}”` : "", !!S.invitado).save(`Planilla_${hoyISO()}.pdf`);
   const excel = async () => {
     const filas = filasPlanilla();
     await exportarExcel({
@@ -150,7 +150,7 @@ export function vistaPlanilla(view) {
         { titulo: "Cargado por", ancho: 18, valor: v => v.createdByName }
       ],
       filas,
-      total: [{ etiqueta: "Total", valor: filas.reduce((s, v) => s + (estadoActual(v) === "anulado" ? 0 : Number(v.precio || 0)), 0) }]
+      total: S.invitado ? [] : [{ etiqueta: "Total", valor: filas.reduce((s, v) => s + (estadoActual(v) === "anulado" ? 0 : Number(v.precio || 0)), 0) }]
     });
   };
   $("#dl").onclick = () => {
@@ -418,7 +418,8 @@ export function vistaEmpresa(view) {
     const dos = await confirmar({ title: "¿Estás completamente seguro?",
       message: `Se borra “${c.name}” con todo su contenido. No se puede deshacer.`, ok: "Eliminar definitivamente", danger: true });
     if (!dos) return;
-    try { await eliminarEmpresa(); toast("Operativo eliminado"); go("#/"); } catch (e) { toast(mensajeError(e), "error"); }
+    try { const j = await eliminarEmpresa(); toast(j.yaPedido ? "Ya está pedido: falta que lo confirmen por WhatsApp" : "Pedido enviado: se elimina cuando lo confirmen por WhatsApp", "success"); }
+    catch (e) { toast(e.message || mensajeError(e), "error"); }
   });
 }
 
