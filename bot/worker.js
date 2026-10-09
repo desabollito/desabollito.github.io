@@ -650,7 +650,11 @@ async function leerSesion(env, numero) {
   if (Date.now() - Number(s.ts || 0) > SESION_HORAS * 3600 * 1000) return null;
   return s;
 }
-const abierta = s => !!(s?.vid && !s.cerradaEn);
+// La espera de fotos de un vehículo se cierra sola a los 5 minutos sin actividad (sin fotos ni mensajes)
+const ESPERA_FOTOS = 300;   // segundos
+const ultimaActividad = s => Math.max(Number(s?.desde || 0), Number(s?.ultimaAct || 0), Math.floor(Number(s?.ts || 0) / 1000));
+const vencida = (s, hora = Math.floor(Date.now() / 1000)) => hora - ultimaActividad(s) > ESPERA_FOTOS;
+const abierta = s => !!(s?.vid && !s.cerradaEn && !vencida(s));
 
 // Operativo "fijo" de cada número: donde se crean los vehículos nuevos
 async function operativoFijo(env, numero, uid, q = null) {
@@ -1452,7 +1456,7 @@ async function crearVehiculo(env, op, d, quien) {
 // ¿A qué vehículo va un archivo enviado a la hora "hora"?
 function destinoDe(s, hora) {
   if (!s) return null;
-  if (s.vid && hora >= Number(s.desde || 0) && (!s.cerradaEn || hora <= Number(s.cerradaEn))) return { ...s, esActual: true };
+  if (s.vid && hora >= Number(s.desde || 0) && (s.cerradaEn ? hora <= Number(s.cerradaEn) : !vencida(s, hora))) return { ...s, esActual: true };
   const a = s.anterior;
   if (a?.vid && hora >= Number(a.desde || 0) && hora <= Number(a.cerradaEn || 0)) return { ...a, esActual: false };
   return null;
@@ -1557,6 +1561,9 @@ async function alRecibirArchivo(env, m, quien) {
       { url: subido.secure_url, publicId: subido.public_id, name: nombre, bytes: subido.bytes || null, format: subido.format || null, at: Date.now(), ...origen });
   }
   await fsIncrementar(env, `bot_sesiones/${numero}`, campoConteo(destino.vid)).catch(() => {});
+  // Cada foto estira la espera otros 5 minutos (también la del vehículo abierto del grupo)
+  if (destino.esActual) await fsMaximo(env, `bot_sesiones/${numero}`, "ultimaAct", hora).catch(() => {});
+  if (m._grupo) { const g2 = await grupoAbierto(env, m); if (g2?.vid === destino.vid) await fsMaximo(env, `bot_grupos/${idGrupo(m)}`, "ultimaAct", hora).catch(() => {}); }
   // Vehículo abierto del grupo: con la primera foto, el ▶️ del mensaje pasa a ✅
   if (m._grupo) {
     const g = await grupoAbierto(env, m);
@@ -1818,6 +1825,12 @@ async function fsList(env, coleccion) {
 }
 
 // Agrega un elemento a una lista del documento sin pisar lo que haya (seguro con fotos simultáneas)
+async function fsMaximo(env, ruta, campo, valor) {
+  const r = await fs(env, `${base(env)}:commit`, { method: "POST", body: JSON.stringify({ writes: [{
+    transform: { document: nombreDoc(env, ruta), fieldTransforms: [{ fieldPath: campo, maximum: { integerValue: String(Math.floor(valor)) } }] },
+    currentDocument: { exists: true } }] }) });
+  if (!r.ok) throw new Error(`Firestore maximum ${ruta}: ${r.status}`);
+}
 async function fsIncrementar(env, ruta, campo) {
   const r = await fs(env, `${base(env)}:commit`, {
     method: "POST",
@@ -2976,7 +2989,7 @@ const idGrupo = m => String(m._to || "").replace(/[^A-Za-z0-9_-]/g, "_");
 async function grupoAbierto(env, m) {
   if (!m._grupo) return null;
   const g = await fsGet(env, `bot_grupos/${idGrupo(m)}`);
-  if (!g?.vid || Date.now() - Number(g.ts || 0) > SESION_HORAS * 3600 * 1000) return null;
+  if (!g?.vid || Date.now() / 1000 - Math.max(Number(g.ts || 0) / 1000, Number(g.ultimaAct || 0)) > ESPERA_FOTOS) return null;
   return g;
 }
 async function abrirParaGrupo(env, m, s) {
