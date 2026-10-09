@@ -140,13 +140,16 @@ export function vistaVehiculos(view, selId = null) {
     actions: `<button class="icon-btn filtro-btn ${filtroActivo() ? "activo" : ""}" id="tb-filtros" aria-label="Filtros" title="Filtros">${icon("filter")}</button><button class="icon-btn filtro-btn ${ordenActivo() ? "activo" : ""}" id="tb-orden" aria-label="Ordenar" title="Ordenar">${icon("sort")}</button>`
   });
 
+  // En computadora los estados van en una fila a lo ancho de la pantalla, arriba de todo
+  const strip = `<div class="estado-strip" id="estado-strip" role="tablist" aria-label="Filtrar por estado"></div>`;
   view.innerHTML = `
+    ${ancho ? `<div class="estado-fila">${strip}</div>` : ""}
     <div class="split ${ancho ? "split-on" : ""}">
       <section class="pane-list">
         <div class="list-tools">
           <label class="search">${icon("search")}
             <input type="search" id="q" placeholder="Buscar patente, modelo…" value="${esc(F.q)}" autocomplete="off"></label>
-          <div class="estado-strip" id="estado-strip" role="tablist" aria-label="Filtrar por estado"></div>
+          ${ancho ? "" : strip}
         </div>
         <div id="vlist" class="vlist"></div>
       </section>
@@ -159,7 +162,7 @@ export function vistaVehiculos(view, selId = null) {
     todos.forEach(v => cuenta[estadoActual(v)]++);
     $("#estado-strip", view).innerHTML =
       // Link de perito: solo los estados que tienen algún vehículo
-      ESTADOS.filter(e => !soyLector() || cuenta[e.key] || F.estado === e.key).map(e => `<button class="est ${F.estado === e.key ? "on" : ""} ${cuenta[e.key] ? "" : "cero"}" data-e="${e.key}" style="--c:${e.color}">
+      ESTADOS.filter(e => !soyLector() || cuenta[e.key] || F.estado === e.key).map(e => `<button class="est ${F.estado === e.key ? "on" : ""}" data-e="${e.key}" style="--c:${e.color}">
         <b>${cuenta[e.key]}</b><span>${e.label}</span></button>`).join("");
     $("#estado-strip", view).setAttribute("aria-label", `Filtrar por estado (${todos.length} en total)`);
 

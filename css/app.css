@@ -1492,13 +1492,8 @@ a.g-bar-fijo { text-decoration: none; color: inherit; }
 .adm-acc-fila { padding: 7px 0; border-top: 1px solid var(--line); }
 .adm-acc-fila > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .adm-acc-fila input { justify-self: center; width: 20px; height: 20px; accent-color: var(--brand, #2b5ce6); }
-/* Computadora: los estados en una grilla pareja de 3 columnas (en vez de pastillas amontonadas) */
-.split-on .estado-strip { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
-.split-on .est { display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; column-gap: 7px; row-gap: 1px;
-  align-items: center; padding: 7px 10px; min-height: 0; border-radius: 10px; text-align: left; }
-.split-on .est::before { grid-row: 1 / 3; align-self: stretch; width: 4px; height: auto; border-radius: 3px; }
-.split-on .est b { font-size: 16px; line-height: 1.1; }
-.split-on .est span { font-size: 12px; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; }
-.split-on .est:hover { border-color: var(--line-2); }
-.split-on .est.on:hover { border-color: var(--c); }
-.split-on .est.cero:not(.on) { opacity: .5; }
+/* Computadora: los estados en una fila a lo ancho, arriba de la lista y el detalle */
+.estado-fila { margin-bottom: 14px; }
+.estado-fila .estado-strip { margin: 0; padding: 0 0 2px; display: flex; flex-wrap: nowrap; overflow-x: auto; }
+.estado-fila .est { flex: 1 1 auto; justify-content: center; gap: 5px; padding: 0 9px 0 8px; }
+@media (max-width: 1400px) { .estado-fila .est { padding: 0 7px 0 6px; gap: 4px; } .estado-fila .est span { font-size: 12px; } .estado-fila .est b { font-size: 13px; } .estado-fila .estado-strip { gap: 4px; } }
