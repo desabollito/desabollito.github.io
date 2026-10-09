@@ -225,17 +225,6 @@ export async function presupuestoPDF(v, empresa, { conFotos = false, onProgreso 
     y += 2;
   }
 
-  // Firma del cliente
-  if (v.firma) {
-    if (y + 42 > H - 23) { doc.addPage(); y = 24; }
-    titulo(doc, "Conformidad del cliente", M, y, CW); y += 5;
-    try { doc.addImage(v.firma, "PNG", M, y, 70, 26); } catch (e) { console.warn(e); }
-    doc.setDrawColor(...LINEA); doc.line(M, y + 28, M + 70, y + 28);
-    doc.setFontSize(8); doc.setTextColor(...GRIS);
-    doc.text(v.asegurado ? `Firma de ${v.asegurado}` : "Firma", M, y + 32);
-    y += 38;
-  }
-
   // Total: barra siempre al pie de la hoja (texto a la izquierda y precio a la derecha, centrados en alto)
   if (v.precio) {
     const AB = 14.5;   // alto de la barra
@@ -249,6 +238,20 @@ export async function presupuestoPDF(v, empresa, { conFotos = false, onProgreso 
     doc.text("TOTAL DEL PRESUPUESTO", M + 5, yt);
     doc.text(money(v.precio), W - M - 5, yt, { align: "right" });
     y += 15;
+  }
+
+  // Firma del cliente: en su propia hoja, antes de las fotos
+  if (v.firma) {
+    doc.addPage();
+    const hf = encabezado(doc, empresa, "", "CONFORMIDAD DEL CLIENTE", { soloLogo: true });
+    let fy = hf + 14;
+    doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.setTextColor(...GRIS);
+    doc.text(`Conformidad con el trabajo realizado en ${[v.modelo, v.patente].filter(Boolean).join(" · ") || "el vehículo"}.`, M, fy);
+    fy += 8;
+    try { doc.addImage(v.firma, "PNG", M, fy, 100, 37); } catch (e) { console.warn(e); }
+    doc.setDrawColor(...LINEA); doc.line(M, fy + 40, M + 100, fy + 40);
+    doc.setFontSize(9); doc.setTextColor(...GRIS);
+    doc.text(v.asegurado ? `Firma de ${v.asegurado}` : "Firma", M, fy + 45);
   }
 
   // Fotos
