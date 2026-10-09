@@ -2466,19 +2466,23 @@ const fechaCortaAR = iso => iso.split("-").reverse().slice(0, 2).join("/");
 async function textoResumenDiario(env, uid, hoy, cfg = { todos: true }) {
   const ops = (await listaOperativos(env, uid)).filter(o => cfg.todos !== false || (cfg.cids || []).includes(o.cid));
   const bloques = [];
-  let total = 0;
+  let total = 0, totalEnt = 0;
+  const ok = v => !v.deleted && v.estado !== "anulado" && !v.fechas?.anulado;
   for (const o of ops) {
-    const vs = (await fsQuery(env, `companies/${o.cid}`, "vehicles", { field: "fechas.peritado", op: "EQUAL", value: hoy }, 300).catch(() => []))
-      .filter(v => !v.deleted && v.estado !== "anulado" && !v.fechas?.anulado);
-    if (!vs.length) continue;
-    total += vs.length;
-    vs.sort((a, b) => String(a.horas?.peritado || "99").localeCompare(String(b.horas?.peritado || "99")));
+    const [vs, ent] = await Promise.all([
+      fsQuery(env, `companies/${o.cid}`, "vehicles", { field: "fechas.peritado", op: "EQUAL", value: hoy }, 300).catch(() => []),
+      fsQuery(env, `companies/${o.cid}`, "vehicles", { field: "fechas.entregado", op: "EQUAL", value: hoy }, 300).catch(() => [])]);
+    const per = vs.filter(ok), nEnt = ent.filter(ok).length;
+    if (!per.length && !nEnt) continue;
+    total += per.length; totalEnt += nEnt;
+    per.sort((a, b) => String(a.horas?.peritado || "99").localeCompare(String(b.horas?.peritado || "99")));
     const linea = v => [v.modelo || "Sin modelo", v.patente, ciaCorta(v.compania)].filter(Boolean).map(x => "`" + x + "`").join(" ");
-    bloques.push(`*${o.operativo}* · ${vs.length} ${vs.length === 1 ? "vehículo" : "vehículos"}\n\n` + vs.map(linea).join("\n\n"));
+    bloques.push(`*${o.operativo}* · ${per.length} ${per.length === 1 ? "peritado" : "peritados"} · ${nEnt} ${nEnt === 1 ? "entregado" : "entregados"}` +
+      (per.length ? "\n\n" + per.map(linea).join("\n\n") : ""));
   }
   const tit = `📋 *Resumen del día · ${fechaCortaAR(hoy)}*`;
-  if (!total) return `${tit}\n\nHoy no se peritaron vehículos.`;
-  return `${tit}\nTotal: *${total}* ${total === 1 ? "vehículo peritado" : "vehículos peritados"}\n\n` + bloques.join("\n\n━━━━━━━━━━\n\n");
+  if (!total && !totalEnt) return `${tit}\n\nHoy no se peritaron ni se entregaron vehículos.`;
+  return `${tit}\nPeritados: *${total}* · Entregados: *${totalEnt}*\n\n` + bloques.join("\n\n━━━━━━━━━━\n\n");
 }
 async function enviarResumenesDiarios(env, forzar = false) {
   const hoy = new Date(Date.now() - 3 * 3600 * 1000).toISOString().slice(0, 10);
