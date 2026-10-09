@@ -109,7 +109,12 @@ export function vistaTecnicos(view) {
       return;
     }
     if (!["sueldos", "cierre"].includes(T.tab)) T.tab = "autos";
-    if (T.tab === "autos") { body.innerHTML = pintarAutos(rows); conectarAnchos(body); }
+    if (T.tab === "autos") {
+      // Al repintar (por ej. al tocar un técnico) la tabla queda donde estaba deslizada
+      const tw = $(".table-wrap", body), sx = tw?.scrollLeft || 0, sy = tw?.scrollTop || 0;
+      body.innerHTML = pintarAutos(rows); conectarAnchos(body);
+      const nw = $(".table-wrap", body); if (nw && tw) { nw.scrollLeft = sx; nw.scrollTop = sy; }
+    }
     else if (T.tab === "sueldos") body.innerHTML = pintarSueldos();
     else body.innerHTML = pintarCierre(rows);
   };
