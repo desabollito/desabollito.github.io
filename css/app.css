@@ -1653,12 +1653,14 @@ a.g-bar-fijo { text-decoration: none; color: inherit; }
 .fo-chips .fo-op b { font-size: 10.5px; line-height: 1; }
 
 /* ── Transiciones entre pantallas ── */
-@keyframes anim-der { from { opacity: 0; transform: translateX(28px); } to { opacity: 1; transform: none; } }
-@keyframes anim-izq { from { opacity: 0; transform: translateX(-28px); } to { opacity: 1; transform: none; } }
-@keyframes anim-push { from { opacity: 0; transform: translateX(40px) scale(.99); } to { opacity: 1; transform: none; } }
-@keyframes anim-pop { from { opacity: 0; transform: translateX(-30px); } to { opacity: 1; transform: none; } }
-@keyframes anim-sube { from { opacity: 0; transform: translateY(36px) scale(.97); } to { opacity: 1; transform: none; } }
-@keyframes anim-fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+/* Se anima con "left" (no transform) para no mover los botones fijos que hay adentro de la pantalla */
+.view { position: relative; }
+@keyframes anim-der { from { opacity: 0; left: 28px; } to { opacity: 1; left: 0; } }
+@keyframes anim-izq { from { opacity: 0; left: -28px; } to { opacity: 1; left: 0; } }
+@keyframes anim-push { from { opacity: 0; left: 40px; } to { opacity: 1; left: 0; } }
+@keyframes anim-pop { from { opacity: 0; left: -30px; } to { opacity: 1; left: 0; } }
+@keyframes anim-sube { from { opacity: 0; top: 36px; } to { opacity: 1; top: 0; } }
+@keyframes anim-fade { from { opacity: 0; } to { opacity: 1; } }
 .view.anim-der { animation: anim-der .28s cubic-bezier(.2,.8,.2,1); }
 .view.anim-izq { animation: anim-izq .28s cubic-bezier(.2,.8,.2,1); }
 .view.anim-push { animation: anim-push .3s cubic-bezier(.2,.8,.2,1); }
@@ -1668,7 +1670,7 @@ a.g-bar-fijo { text-decoration: none; color: inherit; }
 /* Pestañas: el ícono de la elegida da un saltito */
 @keyframes tab-salto { 0% { transform: scale(1); } 40% { transform: scale(1.18) translateY(-2px); } 100% { transform: scale(1); } }
 .tabbar a .ic, #tab-planilla .ic { transition: color .2s, transform .2s; }
-.tabbar a.on .ic { animation: tab-salto .35s ease-out; }
+.tabbar a.on { animation: tab-salto .35s ease-out; }
 /* Botón +: gira y late */
 @keyframes fab-pulsa { 0% { transform: scale(1) rotate(0); } 35% { transform: scale(.86) rotate(90deg); } 70% { transform: scale(1.1) rotate(90deg); } 100% { transform: scale(1) rotate(90deg); } }
 @keyframes fab-onda { from { box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 55%, transparent); } to { box-shadow: 0 0 0 22px transparent; } }
@@ -1676,7 +1678,7 @@ a.g-bar-fijo { text-decoration: none; color: inherit; }
 .fab.pulsa .ic { animation: fab-pulsa .45s cubic-bezier(.3,.7,.3,1); }
 .side-new.pulsa .ic { animation: fab-pulsa .45s cubic-bezier(.3,.7,.3,1); }
 @media (prefers-reduced-motion: reduce) { .view[class*="anim-"], .pane-detail.anim-fade, .fab.pulsa, .fab.pulsa .ic, .tabbar a.on .ic { animation: none !important; } }
-@keyframes anim-op { from { opacity: 0; transform: scale(.97); } to { opacity: 1; transform: none; } }
+@keyframes anim-op { from { opacity: 0; top: 10px; } to { opacity: 1; top: 0; } }
 .view.anim-op { animation: anim-op .32s cubic-bezier(.2,.8,.2,1); }
 /* Estados */
 @keyframes step-toca { 0% { transform: scale(1); } 40% { transform: scale(.82); } 100% { transform: scale(1); } }
@@ -1703,9 +1705,13 @@ a.g-bar-fijo { text-decoration: none; color: inherit; }
   background: repeating-linear-gradient(90deg, var(--line-2) 0 22px, transparent 22px 40px); background-size: 40px 3px; animation: sp-ruta .45s linear infinite; }
 .sp-vel { position: absolute; height: 3px; border-radius: 2px; background: color-mix(in srgb, var(--primary) 70%, transparent); opacity: 0; animation: sp-vel .9s linear infinite; }
 .sp-v1 { top: 46px; width: 34px; } .sp-v2 { top: 60px; width: 22px; animation-delay: .3s; } .sp-v3 { top: 72px; width: 28px; animation-delay: .6s; }
-.sp-marca { font-weight: 800; font-size: 20px; letter-spacing: .02em; color: var(--ink); opacity: 0; animation: sp-marca .6s .15s ease-out forwards; }
+.sp-marca { display: flex; font-weight: 850; font-size: 24px; letter-spacing: .02em; opacity: 0; animation: sp-marca .5s .1s ease-out forwards, sp-vaiven 1.6s .6s ease-in-out infinite; }
+.sp-marca span { display: inline-block; background: linear-gradient(180deg, #8fb8ff, var(--primary)); -webkit-background-clip: text; background-clip: text; color: transparent;
+  filter: drop-shadow(0 0 8px color-mix(in srgb, var(--primary) 45%, transparent)); animation: sp-salto 1.2s calc(.6s + var(--i) * .07s) cubic-bezier(.3,.7,.4,1.4) infinite; }
+@keyframes sp-salto { 0%, 55%, 100% { transform: translateY(0) scale(1); } 20% { transform: translateY(-9px) scale(1.06, .96); } 35% { transform: translateY(0) scale(1.08, .9); } 45% { transform: translateY(-2px); } }
+@keyframes sp-vaiven { 0%, 100% { transform: translateX(0) rotate(0); } 25% { transform: translateX(-6px) rotate(-2deg); } 75% { transform: translateX(6px) rotate(2deg); } }
 @keyframes sp-andar { from { transform: translateY(0) rotate(0); } to { transform: translateY(-2px) rotate(-1deg); } }
 @keyframes sp-ruta { to { background-position: -40px 0; } }
 @keyframes sp-vel { 0% { left: 26%; opacity: 0; } 15% { opacity: .9; } 100% { left: -20%; opacity: 0; } }
 @keyframes sp-marca { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
-@media (prefers-reduced-motion: reduce) { .sp-auto, .sp-ruta, .sp-vel { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .sp-auto, .sp-ruta, .sp-vel, .sp-marca span { animation: none; } .sp-marca { animation: sp-marca .5s forwards; } }
