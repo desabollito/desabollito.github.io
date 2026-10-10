@@ -212,10 +212,15 @@ export function vistaVehiculos(view, selId = null) {
     // Opción de una fila: texto, cantidad y color opcional
     const op = (grupo, val, txt, cant, on, color) => `<button type="button" class="fo-op ${on ? "on" : ""}" data-g="${grupo}" data-v="${esc(String(val))}" ${color ? `style="--c:${color}"` : ""}>
       <span class="fo-txt">${color ? `<i class="f-dot"></i>` : ""}${txt}</span>${cant !== null && cant !== undefined ? `<b>${cant}</b>` : ""}</button>`;
+    // Degradé continuo de color entre las opciones de una fila (rojo → amarillo → azul → verde)
+    const degrade = (id, colores) => { const e = el(id); if (!e) return; e.classList.add("fo-grad");
+      e.style.setProperty("--grad", `linear-gradient(90deg, ${colores.map((c, i) => `color-mix(in srgb, ${c} 16%, transparent) ${Math.round((i + 0.5) / colores.length * 100)}%`).join(", ")})`); };
     const pintarHoja = () => {
       el("#fo-orden").innerHTML = ORDENES.map(([k, t]) => op("orden", k, F.orden === k ? `${t} <i class="fo-flecha">${F.dir > 0 ? "↑" : "↓"}</i>` : t, null, F.orden === k)).join("");
       const gr = [[1, "G1"], [2, "G2"], [3, "G3"], [4, "G4"], [0, "Sin"]].filter(([g]) => !(g === 4 && lector) && (g !== 0 || n(v => !v.grado) || F.grado === 0));
       el("#fo-grado").innerHTML = gr.map(([g, t]) => op("grado", g, t, n(v => (v.grado || 0) === g), F.grado === g)).join("");
+      degrade("#fo-turno", ["#22b07d", "#e0a526"]);
+      ["pintura", "repuestos"].forEach(tipo => degrade(`#fo-${tipo}`, ETAPAS[tipo].map(e => e[2])));
       el("#fo-turno").innerHTML = [["si", "Confirmados", "#22b07d", true], ["no", "Sin confirmar", "#e0a526", false]].map(([k, t, c, si]) =>
           op("turno", k, t, n(v => estadoActual(v) === "turnado" && (v.turnoConfirmado === true) === si), F.turno === k, c)).join("");
       ["pintura", "repuestos"].forEach(tipo => {

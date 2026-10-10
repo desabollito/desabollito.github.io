@@ -1641,3 +1641,5 @@ a.g-bar-fijo { text-decoration: none; color: inherit; }
 .fo-seg .fo-op[style].on { background: color-mix(in srgb, var(--c) 22%, var(--surface)); color: var(--ink); outline-color: color-mix(in srgb, var(--c) 75%, transparent); }
 .fo-compacto .fo-seg .fo-op[style] { padding: 4px 6px; }
 .fo-op { transition: background-color .25s ease, color .25s ease, box-shadow .25s ease, outline-color .25s ease; }
+.fo-seg.fo-grad { background: var(--grad), var(--surface-2); }
+.fo-seg.fo-grad .fo-op[style]:not(.on) { background: transparent; }
