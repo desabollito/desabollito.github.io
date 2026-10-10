@@ -1635,3 +1635,9 @@ a.g-bar-fijo { text-decoration: none; color: inherit; }
   .split-on .pane-detail .d-piezas .carmap-sm { max-width: 92px; }
   .split-on .pane-detail .d-foot { padding: 0 2px; }
 }
+/* Opciones con color: tinte suave en vez de la rayita, y transición suave al elegir */
+.fo-seg .fo-op[style]::after { display: none; }
+.fo-seg .fo-op[style] { padding-bottom: 6px; background: color-mix(in srgb, var(--c) 9%, transparent); color: color-mix(in srgb, var(--c) 55%, var(--ink-2)); }
+.fo-seg .fo-op[style].on { background: color-mix(in srgb, var(--c) 22%, var(--surface)); color: var(--ink); outline-color: color-mix(in srgb, var(--c) 75%, transparent); }
+.fo-compacto .fo-seg .fo-op[style] { padding: 4px 6px; }
+.fo-op { transition: background-color .25s ease, color .25s ease, box-shadow .25s ease, outline-color .25s ease; }
