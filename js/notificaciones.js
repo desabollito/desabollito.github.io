@@ -43,6 +43,15 @@ export function listaNotifs() {
       tandas.set(k, x);
     }
     for (const x of tandas.values()) out.push({ ...x, txt: `Subió ${x.n} ${x.video === x.n ? (x.n === 1 ? "video" : "videos") : x.n === 1 ? "foto" : "fotos"}` });
+    // Documentos que agregó otro (los viejos sin autor no se avisan)
+    const docs = new Map();
+    for (const d of v.archivos || []) {
+      const t = d.at || 0; if (!t || t < desde || (!d.by && !d.byWhatsApp) || d.by === yo) continue;
+      const k = (d.by || d.byWhatsApp) + "|" + Math.floor(t / 600_000);
+      const x = docs.get(k) || { ...base, t: 0, por: d.byName || "Alguien", n: 0, nombre: d.name || "" };
+      x.t = Math.max(x.t, t); x.n++; docs.set(k, x);
+    }
+    for (const x of docs.values()) out.push({ ...x, txt: x.n === 1 ? `Agregó el documento “${x.nombre || "sin nombre"}”` : `Agregó ${x.n} documentos` });
     // Desmontaje: fotos y notas que cargó otro (una línea por persona y tanda)
     const desm = new Map();
     for (const f of [...(v.desFotos || []).map(x => ({ ...x, foto: 1 })), ...(v.desNotas || []).map(x => ({ ...x, nota: 1 }))]) {

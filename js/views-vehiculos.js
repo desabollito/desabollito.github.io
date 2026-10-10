@@ -902,7 +902,7 @@ async function subirAdjuntos(v, files, tipo, root) {
           if (file.size > 10 * 1024 * 1024) throw new Error(`${file.name}: supera 10 MB`);
           const r = await subir(file, carpeta, { tipo: "auto", nombre: file.name });
           if (r.deleteToken) tokensBorrado.set(r.publicId, r.deleteToken);
-          nuevos.push({ url: r.url, publicId: r.publicId, name: file.name, bytes: r.bytes, format: r.format, at: Date.now(), n });
+          nuevos.push({ url: r.url, publicId: r.publicId, name: file.name, bytes: r.bytes, format: r.format, at: Date.now(), by: S.user.uid, byName: S.profile?.name || "", n });
         }
       } catch (e) {
         console.error(e); toast(e.message, "error");
