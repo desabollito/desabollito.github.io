@@ -40,6 +40,15 @@ export function listaNotifs() {
       tandas.set(k, x);
     }
     for (const x of tandas.values()) out.push({ ...x, txt: `Subió ${x.n} ${x.video === x.n ? (x.n === 1 ? "video" : "videos") : x.n === 1 ? "foto" : "fotos"}` });
+    // Desmontaje: fotos y notas que cargó otro (una línea por persona y tanda)
+    const desm = new Map();
+    for (const f of [...(v.desFotos || []).map(x => ({ ...x, foto: 1 })), ...(v.desNotas || []).map(x => ({ ...x, nota: 1 }))]) {
+      const t = f.t || 0; if (!t || t < desde || f.uid === yo) continue;
+      const k = (f.uid || f.por) + "|" + Math.floor(t / 600_000);
+      const x = desm.get(k) || { ...base, t: 0, por: f.por || "Alguien", fotos: 0, notas: 0 };
+      x.t = Math.max(x.t, t); x.fotos += f.foto || 0; x.notas += f.nota || 0; desm.set(k, x);
+    }
+    for (const x of desm.values()) out.push({ ...x, txt: "Cargó desmontaje: " + [x.fotos && `${x.fotos} ${x.fotos === 1 ? "foto" : "fotos"}`, x.notas && `${x.notas} ${x.notas === 1 ? "nota" : "notas"}`].filter(Boolean).join(" y ") });
   }
   return out.sort((a, b) => b.t - a.t).slice(0, MAX);
 }
