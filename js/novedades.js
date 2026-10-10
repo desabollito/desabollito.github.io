@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "2.46.3", items: ["Notificaciones: sin cambios de estado; las de fotos abren directo esa foto."] },
   { v: "2.46.2", items: ["Filtrar y ordenar: sin el botón «Todos» (sin nada marcado se ven todos).", "La fecha que se muestra en la lista ahora se elige en Ajustes, debajo de Apariencia."] },
   { v: "2.46.1", items: ["Notificaciones: también aparece lo que se carga de desmontaje."] },
   { v: "2.46.0", items: ["Filtrar y ordenar en un solo botón, con opciones más claras (pintura, repuestos, grado, turnos, compañías).", "Notificaciones: la campanita avisa los cambios que hacen otros en los vehículos.", "Celular: Ajustes ahora está en el menú de operativos, junto con Gestionar, Unirme y Crear."] },

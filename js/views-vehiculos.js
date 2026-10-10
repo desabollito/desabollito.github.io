@@ -358,6 +358,11 @@ function elegirEtapa(v, tipo, item) {
 }
 
 function renderDetalle(root, v, embebido) {
+  // Llegó desde una notificación de fotos: se abre esa foto
+  if (S.abrirFoto?.vid === v.id) {
+    const f = S.abrirFoto; S.abrirFoto = null;
+    setTimeout(() => { const lista = (f.desm ? v.desFotos : v.fotos) || [], i = lista.findIndex(x => x.url === f.url); if (i >= 0) visor(lista, i, f.desm ? null : v); }, 250);
+  }
   if (vid3D !== v.id) { vid3D = v.id; modo3D = false; } // al abrir otro vehículo, arranca en 2D
   const est = estadoActual(v);
   const anulado = est === "anulado";

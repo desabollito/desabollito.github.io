@@ -24,6 +24,7 @@ export function listaNotifs() {
     for (const e of v.historial || []) {
       if (/^Carg[óo] el veh/.test(e.txt || "")) cargaEnHist = true;
       if (!e.t || e.t < desde || e.uid === yo) continue;
+      if (/^(Pasó a|Volvió a)\b/.test(e.txt || "")) continue;   // los cambios de estado no se avisan
       out.push({ ...base, t: e.t, por: e.por || "Alguien", txt: e.txt || "Modificó el vehículo" });
     }
     // Vehículo nuevo cargado por otro (por WhatsApp no deja historial)
@@ -35,8 +36,9 @@ export function listaNotifs() {
     for (const f of v.fotos || []) {
       const t = f.at || 0; if (!t || t < desde || f.by === yo) continue;
       const quien = f.byName || f.by || f.byWhatsApp || "?", k = quien + "|" + Math.floor(t / 600_000);
-      const x = tandas.get(k) || { ...base, t: 0, por: f.byName || "Alguien", n: 0, video: 0 };
+      const x = tandas.get(k) || { ...base, t: 0, t0: Infinity, por: f.byName || "Alguien", n: 0, video: 0 };
       x.t = Math.max(x.t, t); x.n++; if (f.tipo === "video") x.video++;
+      if (t < x.t0) { x.t0 = t; x.foto = f.url; }   // al tocar, abre la primera foto de esa tanda
       tandas.set(k, x);
     }
     for (const x of tandas.values()) out.push({ ...x, txt: `Subió ${x.n} ${x.video === x.n ? (x.n === 1 ? "video" : "videos") : x.n === 1 ? "foto" : "fotos"}` });
@@ -46,7 +48,9 @@ export function listaNotifs() {
       const t = f.t || 0; if (!t || t < desde || f.uid === yo) continue;
       const k = (f.uid || f.por) + "|" + Math.floor(t / 600_000);
       const x = desm.get(k) || { ...base, t: 0, por: f.por || "Alguien", fotos: 0, notas: 0 };
-      x.t = Math.max(x.t, t); x.fotos += f.foto || 0; x.notas += f.nota || 0; desm.set(k, x);
+      x.t = Math.max(x.t, t); x.fotos += f.foto || 0; x.notas += f.nota || 0;
+      if (f.foto && f.url && (!x.t0 || t < x.t0)) { x.t0 = t; x.foto = f.url; x.desm = true; }
+      desm.set(k, x);
     }
     for (const x of desm.values()) out.push({ ...x, txt: "Cargó desmontaje: " + [x.fotos && `${x.fotos} ${x.fotos === 1 ? "foto" : "fotos"}`, x.notas && `${x.notas} ${x.notas === 1 ? "nota" : "notas"}`].filter(Boolean).join(" y ") });
   }
@@ -77,12 +81,15 @@ export function abrirNotifs() {
   const nuevas = lista.filter(n => n.t > v0).length;
   const s = openSheet({ title: "Notificaciones", body: lista.length
     ? `<p class="muted small notif-sub">${nuevas ? `${nuevas} ${nuevas === 1 ? "nueva" : "nuevas"} · ` : ""}Cambios de los últimos ${DIAS} días hechos por otros</p>
-      <ul class="notif-list">${lista.map(n => `<li><a href="#/v/${esc(n.vid)}" class="notif-item ${n.t > v0 ? "nueva" : ""}">
+      <ul class="notif-list">${lista.map(n => `<li><a href="#/v/${esc(n.vid)}" class="notif-item ${n.t > v0 ? "nueva" : ""}" ${n.foto ? `data-foto-url="${esc(n.foto)}" ${n.desm ? "data-desm" : ""}` : ""}>
         <span class="notif-veh">${plate(n.patente, "sm")}<small>${esc(n.modelo || "")}</small></span>
         <span class="notif-txt"><b>${esc(n.por)}</b> ${esc(minus(String(n.txt).replace(/ por WhatsApp/g, "")))}</span>
         <time>${cuando(n.t)}</time></a></li>`).join("")}</ul>`
     : `<div class="empty small">${icon("bell")}<p>No hay cambios nuevos de otros en los últimos ${DIAS} días.</p></div>` });
-  s.el.addEventListener("click", e => { const a = e.target.closest(".notif-item"); if (a) { e.preventDefault(); s.close(); location.hash = a.getAttribute("href"); } });
+  s.el.addEventListener("click", e => { const a = e.target.closest(".notif-item"); if (a) { e.preventDefault(); s.close();
+    // Notificación de fotos: el vehículo se abre directo en esa foto
+    S.abrirFoto = a.dataset.fotoUrl ? { vid: a.getAttribute("href").split("/").pop(), url: a.dataset.fotoUrl, desm: a.hasAttribute("data-desm") } : null;
+    location.hash = a.getAttribute("href"); } });
   // Al abrirla queda todo visto
   const cid = S.company?.id;
   if (cid && S.user?.uid) {
