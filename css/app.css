@@ -1691,3 +1691,21 @@ a.g-bar-fijo { text-decoration: none; color: inherit; }
 .sheet-backdrop.in { backdrop-filter: blur(2px); }
 .sheet.sheet-visor { transform: scale(.92); }
 @media (prefers-reduced-motion: reduce) { .view.anim-op, .step.toca .dot, .step.recien .dot { animation: none !important; } .sheet { transition: none; } }
+
+/* ── Pantalla de carga: un auto andando con brillo sobre una ruta que pasa ── */
+.splash { gap: 18px; }
+.sp-escena { position: relative; width: 220px; height: 110px; overflow: hidden; -webkit-mask-image: linear-gradient(90deg, transparent, #000 22%, #000 78%, transparent); mask-image: linear-gradient(90deg, transparent, #000 22%, #000 78%, transparent); }
+.sp-auto { position: absolute; left: 50%; bottom: 14px; width: 84px; height: 84px; margin-left: -42px; color: var(--primary);
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--primary) 80%, transparent)) drop-shadow(0 0 18px color-mix(in srgb, var(--primary) 45%, transparent));
+  animation: sp-andar .5s ease-in-out infinite alternate; }
+.sp-auto svg { width: 100%; height: 100%; }
+.sp-ruta { position: absolute; left: 0; right: 0; bottom: 18px; height: 3px; border-radius: 2px;
+  background: repeating-linear-gradient(90deg, var(--line-2) 0 22px, transparent 22px 40px); background-size: 40px 3px; animation: sp-ruta .45s linear infinite; }
+.sp-vel { position: absolute; height: 3px; border-radius: 2px; background: color-mix(in srgb, var(--primary) 70%, transparent); opacity: 0; animation: sp-vel .9s linear infinite; }
+.sp-v1 { top: 46px; width: 34px; } .sp-v2 { top: 60px; width: 22px; animation-delay: .3s; } .sp-v3 { top: 72px; width: 28px; animation-delay: .6s; }
+.sp-marca { font-weight: 800; font-size: 20px; letter-spacing: .02em; color: var(--ink); opacity: 0; animation: sp-marca .6s .15s ease-out forwards; }
+@keyframes sp-andar { from { transform: translateY(0) rotate(0); } to { transform: translateY(-2px) rotate(-1deg); } }
+@keyframes sp-ruta { to { background-position: -40px 0; } }
+@keyframes sp-vel { 0% { left: 26%; opacity: 0; } 15% { opacity: .9; } 100% { left: -20%; opacity: 0; } }
+@keyframes sp-marca { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .sp-auto, .sp-ruta, .sp-vel { animation: none; } }
