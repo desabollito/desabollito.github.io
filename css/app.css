@@ -1626,3 +1626,12 @@ a.g-bar-fijo { text-decoration: none; color: inherit; }
 .fo-compacto .fo-seg .fo-op[style]::after { bottom: 3px; height: 2px; }
 .fo-switch { padding: 9px 14px; }
 @media (min-width: 1100px) { body[data-ruta="calendario"] .view { max-width: none; } }
+/* Computadora: detalle más compacto para que entre sin desplazar */
+@media (min-width: 1100px) {
+  .split-on .pane-detail .detail { gap: 9px; padding-bottom: 8px; }
+  .split-on .pane-detail .d-sec { padding: 12px 14px; gap: 9px; }
+  .split-on .pane-detail .d-cover { width: 112px; height: 112px; }
+  .split-on .pane-detail .d-head { padding: 2px 2px 0; }
+  .split-on .pane-detail .d-piezas .carmap-sm { max-width: 92px; }
+  .split-on .pane-detail .d-foot { padding: 0 2px; }
+}
