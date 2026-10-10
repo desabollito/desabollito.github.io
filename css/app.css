@@ -1623,3 +1623,4 @@ a.g-bar-fijo { text-decoration: none; color: inherit; }
 .fo-compacto .fo-seg .fo-op { min-height: 34px; flex-direction: row; gap: 6px; padding: 4px 6px 7px; }
 .fo-compacto .fo-seg .fo-op[style]::after { bottom: 3px; height: 2px; }
 .fo-switch { padding: 9px 14px; }
+@media (min-width: 1100px) { body[data-ruta="calendario"] .view { max-width: none; } }
