@@ -113,7 +113,7 @@ function piezasAgrupadas(v) {
 
 // Fecha de las tarjetas: la del peritaje o la del último estado (se elige en Ordenar y se recuerda en este equipo)
 // Fecha de la lista (se elige en Ajustes)
-const fechaVista = () => { try { return localStorage.getItem("fechaVista") || "peritado"; } catch { return "peritado"; } };
+const fechaVista = () => { if (S.config?.fechaVista === false) return "peritado"; try { return localStorage.getItem("fechaVista") || "peritado"; } catch { return "peritado"; } };
 const claveFecha = v => { if (fechaVista() !== "estado" && !soyLector()) return "peritado"; const e = estadoActual(v); return v.fechas?.[e] ? e : "peritado"; };
 function tarjeta(v, sel) {
   const foto = v.fotos?.[0]?.url, rot0 = v.fotos?.[0]?.rot, kf = claveFecha(v);

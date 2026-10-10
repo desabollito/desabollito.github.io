@@ -545,9 +545,9 @@ export function vistaAjustes(view) {
         <button class="seg-btn ${oscuro ? "" : "on"}" data-t="light">Claro</button>
         <button class="seg-btn ${oscuro ? "on" : ""}" data-t="dark">Oscuro</button>
       </div>
-      <span class="muted small aj-sub">Fecha que se muestra en la lista de vehículos</span>
+      ${S.config?.fechaVista === false ? "" : `<span class="muted small aj-sub">Fecha que se muestra en la lista de vehículos</span>
       <div class="seg" id="fecha-vista">${[["peritado", "Día de peritación"], ["estado", "Último estado"]].map(([k, t]) =>
-        `<button class="seg-btn ${(() => { try { return localStorage.getItem("fechaVista") || "peritado"; } catch { return "peritado"; } })() === k ? "on" : ""}" data-fv="${k}">${t}</button>`).join("")}</div>
+        `<button class="seg-btn ${(() => { try { return localStorage.getItem("fechaVista") || "peritado"; } catch { return "peritado"; } })() === k ? "on" : ""}" data-fv="${k}">${t}</button>`).join("")}</div>`}
     </section>
 
     <nav class="card menu">
@@ -574,7 +574,7 @@ export function vistaAjustes(view) {
     b.setAttribute("aria-label", on ? "Silenciar sonidos" : "Activar sonidos"); b.title = b.getAttribute("aria-label"); };
   $("#aj-sonidos", view).onclick = () => { setSonidos(!sonidosOn()); pintarSon(); if (sonidosOn()) sonidoNotif(); };
   pintarSon();
-  $("#fecha-vista", view).onclick = e => {
+  if ($("#fecha-vista", view)) $("#fecha-vista", view).onclick = e => {
     const b = e.target.closest("[data-fv]"); if (!b) return;
     try { localStorage.setItem("fechaVista", b.dataset.fv); } catch { /* sin almacenamiento */ }
     $$(".seg-btn", $("#fecha-vista", view)).forEach(x => x.classList.toggle("on", x === b));
@@ -722,6 +722,8 @@ export async function panelCreador() {
           <span>Avisar al cliente al marcar Contactado</span></label>
         <label class="toggle"><input type="checkbox" data-config="documentos" ${datos.config?.documentos !== false ? "checked" : ""}>
           <span>Documentos en los vehículos</span></label>
+        <label class="toggle"><input type="checkbox" data-config="fechaVista" ${datos.config?.fechaVista !== false ? "checked" : ""}>
+          <span>Elegir en Ajustes la fecha que se muestra en la lista</span></label>
       </div>
       <div class="adm-toggles adm-sonido">
         <span><b>Sonido al actualizar la app</b> <small class="muted">(lo escuchan todos)</small></span>
@@ -810,7 +812,7 @@ export async function panelCreador() {
     try {
       const r = await llamarAdmin("config", { [clave]: on });
       datos.config = r.config; S.config = { ...S.config, ...r.config };
-      toast(`${clave === "documentos" ? "Documentos" : "Aviso al cliente"} ${on ? "activado" : "desactivado"}`, "success");
+      toast(`${{ documentos: "Documentos", fechaVista: "Elegir fecha" }[clave] || "Aviso al cliente"} ${on ? "activado" : "desactivado"}`, "success");
     } catch (err) { e.target.checked = !on; toast(err.message, "error"); }
     e.target.disabled = false;
   });
