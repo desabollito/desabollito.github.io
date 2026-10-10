@@ -494,7 +494,7 @@ export function elegirEmpresaSheet() {
           <button type="button" class="op-opc" id="unir-op">${icon("swap")}<span><strong>Unirme a un operativo</strong><small>Pedir unirme a uno que ya existe</small></span></button>
           ${soloDesmontaje() ? "" : `<button type="button" class="op-opc" id="nuevo-op">${icon("plus")}<span><strong>Crear un operativo</strong><small>Empezá uno nuevo</small></span></button>`}
         </div>
-        <a class="op-mas op-ajustes only-mobile" href="#/ajustes" data-close>${icon("settings")}<span><strong>Ajustes</strong><small>Perfil, tema, WhatsApp y papelera</small></span>${icon("next")}</a>
+        <a class="op-mas op-ajustes only-mobile" href="#/ajustes" data-close>${icon("settings")}<span><strong>Ajustes</strong></span>${icon("next")}</a>
       </div>`
   });
   s.body.addEventListener("click", e => {
