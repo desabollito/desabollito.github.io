@@ -514,6 +514,8 @@ export function aplicarTema(t) {
   document.documentElement.setAttribute("data-theme", t === "light" ? "light" : "dark");
 }
 
+const ICO_SON = `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg>`;
+const ICO_MUTE = `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="m16 9 6 6M22 9l-6 6"/></svg>`;
 export function vistaAjustes(view) {
   setTopbar({ title: "Ajustes", back: "#/" });
   const p = S.profile;
@@ -522,6 +524,7 @@ export function vistaAjustes(view) {
   view.innerHTML = `
   <div class="page narrow">
     <section class="card profile">
+      <button type="button" class="icon-btn aj-son" id="aj-sonidos"></button>
       <div class="profile-row">
         <span class="avatar lg">${esc(initials(p.name))}</span>
         <div class="profile-meta"><h2>${esc(p.name)}</h2><p class="muted">@${esc(p.username)}</p>
@@ -542,7 +545,6 @@ export function vistaAjustes(view) {
         <button class="seg-btn ${oscuro ? "" : "on"}" data-t="light">Claro</button>
         <button class="seg-btn ${oscuro ? "on" : ""}" data-t="dark">Oscuro</button>
       </div>
-      <label class="fo-switch aj-sonidos"><span>Sonidos <small class="muted">notificaciones y actualización</small></span><input type="checkbox" id="aj-sonidos" ${sonidosOn() ? "checked" : ""}></label>
       <span class="muted small aj-sub">Fecha que se muestra en la lista de vehículos</span>
       <div class="seg" id="fecha-vista">${[["peritado", "Día de peritación"], ["estado", "Último estado"]].map(([k, t]) =>
         `<button class="seg-btn ${(() => { try { return localStorage.getItem("fechaVista") || "peritado"; } catch { return "peritado"; } })() === k ? "on" : ""}" data-fv="${k}">${t}</button>`).join("")}</div>
@@ -568,7 +570,10 @@ export function vistaAjustes(view) {
     const b = e.target.closest("[data-t]"); if (!b) return;
     aplicarTema(b.dataset.t); $$(".seg-btn", $("#tema", view)).forEach(x => x.classList.toggle("on", x === b));
   };
-  $("#aj-sonidos", view).onchange = e => { setSonidos(e.target.checked); if (e.target.checked) sonidoNotif(); };
+  const pintarSon = () => { const b = $("#aj-sonidos", view), on = sonidosOn(); b.innerHTML = on ? ICO_SON : ICO_MUTE; b.classList.toggle("off", !on);
+    b.setAttribute("aria-label", on ? "Silenciar sonidos" : "Activar sonidos"); b.title = b.getAttribute("aria-label"); };
+  $("#aj-sonidos", view).onclick = () => { setSonidos(!sonidosOn()); pintarSon(); if (sonidosOn()) sonidoNotif(); };
+  pintarSon();
   $("#fecha-vista", view).onclick = e => {
     const b = e.target.closest("[data-fv]"); if (!b) return;
     try { localStorage.setItem("fechaVista", b.dataset.fv); } catch { /* sin almacenamiento */ }
