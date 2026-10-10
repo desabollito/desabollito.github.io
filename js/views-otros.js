@@ -541,6 +541,9 @@ export function vistaAjustes(view) {
         <button class="seg-btn ${oscuro ? "" : "on"}" data-t="light">Claro</button>
         <button class="seg-btn ${oscuro ? "on" : ""}" data-t="dark">Oscuro</button>
       </div>
+      <span class="muted small aj-sub">Fecha que se muestra en la lista de vehículos</span>
+      <div class="seg" id="fecha-vista">${[["peritado", "Día de peritación"], ["estado", "Último estado"]].map(([k, t]) =>
+        `<button class="seg-btn ${(() => { try { return localStorage.getItem("fechaVista") || "peritado"; } catch { return "peritado"; } })() === k ? "on" : ""}" data-fv="${k}">${t}</button>`).join("")}</div>
     </section>
 
     <nav class="card menu">
@@ -562,6 +565,11 @@ export function vistaAjustes(view) {
   $("#tema", view).onclick = e => {
     const b = e.target.closest("[data-t]"); if (!b) return;
     aplicarTema(b.dataset.t); $$(".seg-btn", $("#tema", view)).forEach(x => x.classList.toggle("on", x === b));
+  };
+  $("#fecha-vista", view).onclick = e => {
+    const b = e.target.closest("[data-fv]"); if (!b) return;
+    try { localStorage.setItem("fechaVista", b.dataset.fv); } catch { /* sin almacenamiento */ }
+    $$(".seg-btn", $("#fecha-vista", view)).forEach(x => x.classList.toggle("on", x === b));
   };
   $("#salir", view).onclick = async () => { if (await confirmar({ title: "¿Cerrar sesión?", ok: "Cerrar sesión" })) salir(); };
 }

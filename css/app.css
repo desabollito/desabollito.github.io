@@ -1589,3 +1589,4 @@ a.g-bar-fijo { text-decoration: none; color: inherit; }
 .op-opc { border-color: transparent; background: var(--surface-2); }
 .op-opc:hover, .op-mas:hover { border-color: var(--line-2); }
 .op-ajustes { margin-top: 4px; }
+.aj-sub { display: block; margin: 12px 0 6px; } .fo-ayuda { margin: -6px 0 -4px; }

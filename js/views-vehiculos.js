@@ -112,8 +112,9 @@ function piezasAgrupadas(v) {
 }
 
 // Fecha de las tarjetas: la del peritaje o la del último estado (se elige en Ordenar y se recuerda en este equipo)
-let fechaVista = (() => { try { return localStorage.getItem("fechaVista") || "peritado"; } catch { return "peritado"; } })();
-const claveFecha = v => { if (fechaVista !== "estado" && !soyLector()) return "peritado"; const e = estadoActual(v); return v.fechas?.[e] ? e : "peritado"; };
+// Fecha de la lista (se elige en Ajustes)
+const fechaVista = () => { try { return localStorage.getItem("fechaVista") || "peritado"; } catch { return "peritado"; } };
+const claveFecha = v => { if (fechaVista() !== "estado" && !soyLector()) return "peritado"; const e = estadoActual(v); return v.fechas?.[e] ? e : "peritado"; };
 function tarjeta(v, sel) {
   const foto = v.fotos?.[0]?.url, rot0 = v.fotos?.[0]?.rot, kf = claveFecha(v);
   return `
@@ -198,7 +199,7 @@ export function vistaVehiculos(view, selId = null) {
     const lector = soyLector();
     const hoja = openSheet({ title: "Filtrar y ordenar", body: `<div class="fo">
       <section class="fo-sec"><h3>Ordenar por <small>tocá de nuevo para invertir</small></h3><div class="fo-seg" id="fo-orden"></div></section>
-      ${lector ? "" : `<section class="fo-sec"><h3>Fecha que se muestra</h3><div class="fo-seg" id="fo-fecha"></div></section>`}
+      <p class="muted small fo-ayuda">Sin nada marcado se ven todos. Tocá una opción para filtrar y tocala de nuevo para quitarla.</p>
       <section class="fo-sec"><h3>Grado</h3><div class="fo-seg" id="fo-grado"></div></section>
       <section class="fo-sec"><h3>Turnos</h3><div class="fo-seg" id="fo-turno"></div></section>
       <section class="fo-sec"><h3>Pintura</h3><div class="fo-seg" id="fo-pintura"></div></section>
@@ -214,15 +215,12 @@ export function vistaVehiculos(view, selId = null) {
       <span class="fo-txt">${color ? `<i class="f-dot"></i>` : ""}${txt}</span>${cant !== null && cant !== undefined ? `<b>${cant}</b>` : ""}</button>`;
     const pintarHoja = () => {
       el("#fo-orden").innerHTML = ORDENES.map(([k, t]) => op("orden", k, F.orden === k ? `${t} <i class="fo-flecha">${F.dir > 0 ? "↑" : "↓"}</i>` : t, null, F.orden === k)).join("");
-      if (el("#fo-fecha")) el("#fo-fecha").innerHTML = [["peritado", "Día de peritación"], ["estado", "Último estado"]].map(([k, t]) => op("fecha", k, t, null, fechaVista === k)).join("");
       const gr = [[1, "G1"], [2, "G2"], [3, "G3"], [4, "G4"], [0, "Sin"]].filter(([g]) => !(g === 4 && lector) && (g !== 0 || n(v => !v.grado) || F.grado === 0));
-      el("#fo-grado").innerHTML = op("grado", "", "Todos", activos().length, F.grado === null) + gr.map(([g, t]) => op("grado", g, t, n(v => (v.grado || 0) === g), F.grado === g)).join("");
-      el("#fo-turno").innerHTML = op("turno", "", "Todos", n(v => estadoActual(v) === "turnado"), !F.turno) +
-        [["si", "Confirmados", "#22b07d", true], ["no", "Sin confirmar", "#e0a526", false]].map(([k, t, c, si]) =>
+      el("#fo-grado").innerHTML = gr.map(([g, t]) => op("grado", g, t, n(v => (v.grado || 0) === g), F.grado === g)).join("");
+      el("#fo-turno").innerHTML = [["si", "Confirmados", "#22b07d", true], ["no", "Sin confirmar", "#e0a526", false]].map(([k, t, c, si]) =>
           op("turno", k, t, n(v => estadoActual(v) === "turnado" && (v.turnoConfirmado === true) === si), F.turno === k, c)).join("");
       ["pintura", "repuestos"].forEach(tipo => {
-        el(`#fo-${tipo}`).innerHTML = op(tipo, "", "Todos", n(v => itemsTexto(v[tipo]).length > 0), !F[tipo]) +
-          ETAPAS[tipo].map(([k, t, c]) => op(tipo, k, t, n(v => tieneEtapa(v, tipo, k)), F[tipo] === k, c)).join("");
+        el(`#fo-${tipo}`).innerHTML = ETAPAS[tipo].map(([k, t, c]) => op(tipo, k, t, n(v => tieneEtapa(v, tipo, k)), F[tipo] === k, c)).join("");
       });
       if (el("#fo-cias")) el("#fo-cias").innerHTML = ciasDisponibles().map(([c, k]) => `<button type="button" class="fo-op ${F.cias.has(c) ? "on" : ""}" data-cia="${esc(c)}">${esc(c)} <b>${k}</b></button>`).join("")
         || `<span class="muted small">Sin vehículos</span>`;
@@ -239,9 +237,9 @@ export function vistaVehiculos(view, selId = null) {
       const b = e.target.closest("[data-g]"); if (!b) return;
       const g = b.dataset.g, v = b.dataset.v;
       if (g === "orden") { if (F.orden === v) F.dir *= -1; else { F.orden = v; F.dir = v === "fecha" ? -1 : 1; } }
-      else if (g === "fecha") { fechaVista = v; try { localStorage.setItem("fechaVista", fechaVista); } catch { /* sin almacenamiento */ } }
-      else if (g === "grado") F.grado = v === "" ? null : Number(v);
-      else F[g] = v || null;   // turno, pintura, repuestos
+      // Sin "Todos": tocar la opción elegida la quita (ninguna elegida = todos)
+      else if (g === "grado") F.grado = F.grado === Number(v) ? null : Number(v);
+      else F[g] = F[g] === v ? null : v;   // turno, pintura, repuestos
       aplicar();
     });
     el("#fo-mios")?.addEventListener("change", e => { F.mios = e.target.checked; aplicar(); });
