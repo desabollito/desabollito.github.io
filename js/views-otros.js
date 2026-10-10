@@ -9,6 +9,7 @@ import {
   $, $$, esc, money, fechaCorta, fechaLarga, hoyISO, plate, estadoPill, icon, toast, openSheet, confirmar,
   pedirTexto, busy, debounce, initials, tsToISO, elegirDescarga, horaDe
 } from "./ui.js";
+import { sonidosOn, setSonidos, sonidoNotif, ruidoMotor, SONIDOS_AUTO } from "./sonidos.js";
 import { imagenChica, avatar } from "./media.js";
 import { NOVEDADES } from "./novedades.js";
 import { planillaPDF } from "./pdf.js";
@@ -541,6 +542,7 @@ export function vistaAjustes(view) {
         <button class="seg-btn ${oscuro ? "" : "on"}" data-t="light">Claro</button>
         <button class="seg-btn ${oscuro ? "on" : ""}" data-t="dark">Oscuro</button>
       </div>
+      <label class="fo-switch aj-sonidos"><span>Sonidos <small class="muted">notificaciones y actualización</small></span><input type="checkbox" id="aj-sonidos" ${sonidosOn() ? "checked" : ""}></label>
       <span class="muted small aj-sub">Fecha que se muestra en la lista de vehículos</span>
       <div class="seg" id="fecha-vista">${[["peritado", "Día de peritación"], ["estado", "Último estado"]].map(([k, t]) =>
         `<button class="seg-btn ${(() => { try { return localStorage.getItem("fechaVista") || "peritado"; } catch { return "peritado"; } })() === k ? "on" : ""}" data-fv="${k}">${t}</button>`).join("")}</div>
@@ -566,6 +568,7 @@ export function vistaAjustes(view) {
     const b = e.target.closest("[data-t]"); if (!b) return;
     aplicarTema(b.dataset.t); $$(".seg-btn", $("#tema", view)).forEach(x => x.classList.toggle("on", x === b));
   };
+  $("#aj-sonidos", view).onchange = e => { setSonidos(e.target.checked); if (e.target.checked) sonidoNotif(); };
   $("#fecha-vista", view).onclick = e => {
     const b = e.target.closest("[data-fv]"); if (!b) return;
     try { localStorage.setItem("fechaVista", b.dataset.fv); } catch { /* sin almacenamiento */ }
@@ -715,6 +718,12 @@ export async function panelCreador() {
         <label class="toggle"><input type="checkbox" data-config="documentos" ${datos.config?.documentos !== false ? "checked" : ""}>
           <span>Documentos en los vehículos</span></label>
       </div>
+      <div class="adm-toggles adm-sonido">
+        <span><b>Sonido al actualizar la app</b> <small class="muted">(lo escuchan todos)</small></span>
+        <div class="adm-son">${SONIDOS_AUTO.map(([k, t, d]) => `<div class="adm-son-op ${(datos.config?.sonidoAuto || "deportivo") === k ? "on" : ""}">
+          <label><input type="radio" name="son-auto" value="${k}" ${(datos.config?.sonidoAuto || "deportivo") === k ? "checked" : ""}><span><b>${t}</b><small class="muted">${d}</small></span></label>
+          <button type="button" class="btn btn-ghost btn-sm" data-probar="${k}">▶ Probar</button></div>`).join("")}</div>
+      </div>
       <div class="adm-toggles adm-wa">
         <label class="field"><span><b>Mensaje del botón WhatsApp</b> <small class="muted">(Contactar → WhatsApp, en Revisión o Contactado)</small></span>
           <textarea id="adm-wa" rows="3" placeholder="Hola {Asegurado}! Te escribimos por tu {Vehiculo} patente {Patente}…">${esc(datos.config?.mensajeWa || "")}</textarea></label>
@@ -772,6 +781,11 @@ export async function panelCreador() {
       } catch (err) { toast(err.message || mensajeError(err), "error"); }
       return;
     }
+    if (e.target.name === "son-auto") {
+      try { const r = await llamarAdmin("config", { sonidoAuto: e.target.value }); datos.config = r.config; S.config = { ...S.config, sonidoAuto: r.config.sonidoAuto }; pintar(); toast("Sonido guardado", "success"); }
+      catch (err) { toast(err.message, "error"); }
+      return;
+    }
     const sec = e.target.dataset.accSec;
     if (sec) {
       const uid = e.target.closest("[data-acc]").dataset.acc, on = e.target.checked;
@@ -796,6 +810,7 @@ export async function panelCreador() {
     e.target.disabled = false;
   });
   caja.addEventListener("toggle", e => { if (e.target.classList?.contains("adm-accesos")) accAbierto = e.target.open; }, true);
+  caja.addEventListener("click", e => { const p = e.target.closest("[data-probar]"); if (p) ruidoMotor(p.dataset.probar, true); });
   caja.addEventListener("click", async e => {
     const chip = e.target.closest("[data-var]");
     if (chip) {

@@ -2807,13 +2807,14 @@ async function adminConfig(env, body) {
   if (!(await soloCreador(env, body.idToken))) return json({ ok: false, error: "No autorizado" }, 403);
   const cambios = Object.fromEntries(CONFIG_CLAVES.filter(k => typeof body[k] === "boolean").map(k => [k, body[k]]));
   if (typeof body.mensajeWa === "string") cambios.mensajeWa = body.mensajeWa.slice(0, 2000);
+  if (["deportivo", "turbo", "v8"].includes(body.sonidoAuto)) cambios.sonidoAuto = body.sonidoAuto;   // sonido al actualizar la app
   // Quién ve Técnicos / Gastos / Gastos fijos: { uid: { tecnicos, gastos, fijos } } (solo booleanos)
   if (body.accesos && typeof body.accesos === "object") cambios.accesos = Object.fromEntries(Object.entries(body.accesos)
     .filter(([u, a]) => idValido(u) && a && typeof a === "object")
     .map(([u, a]) => [u, Object.fromEntries(["tecnicos", "gastos", "fijos"].filter(k => typeof a[k] === "boolean").map(k => [k, a[k]]))]));
   if (Object.keys(cambios).length) await fsMerge(env, "config/app", cambios);
   const c = await fsGet(env, "config/app");
-  return json({ ok: true, config: { ...Object.fromEntries(CONFIG_CLAVES.map(k => [k, c?.[k] !== false])), padronN: c?.padronN || 0, mensajeWa: c?.mensajeWa || "", accesos: c?.accesos || {} } });
+  return json({ ok: true, config: { ...Object.fromEntries(CONFIG_CLAVES.map(k => [k, c?.[k] !== false])), padronN: c?.padronN || 0, mensajeWa: c?.mensajeWa || "", accesos: c?.accesos || {}, sonidoAuto: c?.sonidoAuto || "deportivo" } });
 }
 
 // Elimina un usuario de la app: cuenta de acceso, perfil, nombre de usuario, WhatsApp y membresías

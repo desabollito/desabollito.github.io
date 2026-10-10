@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "2.46.5", items: ["Sonido cuando llega una notificación nueva.", "Ajustes: interruptor para silenciar los sonidos.", "Sonido del auto al actualizar renovado, con 3 opciones."] },
   { v: "2.46.4", items: ["Notificaciones: solo cambios de datos (pestaña de edición, repuestos, detalles…) y fotos nuevas en vehículos ya cargados; sin estados ni etapas de repuestos y pintura."] },
   { v: "2.46.3", items: ["Notificaciones: sin cambios de estado; las de fotos abren directo esa foto."] },
   { v: "2.46.2", items: ["Filtrar y ordenar: sin el botón «Todos» (sin nada marcado se ven todos).", "La fecha que se muestra en la lista ahora se elige en Ajustes, debajo de Apariencia."] },

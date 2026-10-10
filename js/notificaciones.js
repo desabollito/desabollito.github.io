@@ -7,6 +7,7 @@
 import { db, doc, updateDoc } from "./firebase.js";
 import { S, activos, onChange } from "./data.js";
 import { $, esc, icon, openSheet, plate } from "./ui.js";
+import { sonidoNotif } from "./sonidos.js";
 
 const DIAS = 7, MAX = 80;
 const ms = t => typeof t === "number" ? t : t?.toMillis?.() || (t?.seconds ? t.seconds * 1000 : 0);
@@ -65,7 +66,16 @@ export function pintarCampana() {
   if (p) { p.hidden = !n; p.textContent = n > 9 ? "9+" : n || ""; }
   b.setAttribute("aria-label", n ? `Notificaciones: ${n} nuevas` : "Notificaciones");
 }
-onChange(e => { if (e === "vehicles" || e === "companies" || e === "perfil") pintarCampana(); });
+// Sonido: cuando llega una nueva estando en la app, y una vez al entrar si hay sin ver
+let antes = null, cidAntes = null;
+function revisarSonido() {
+  if (!S.user || S.invitado || S.loadingVehicles || !S.company) return;
+  const n = cuantasNuevas();
+  if (cidAntes !== S.company.id) { cidAntes = S.company.id; if (antes === null && n > 0) sonidoNotif(); antes = n; return; }
+  if (antes !== null && n > antes) sonidoNotif();
+  antes = n;
+}
+onChange(e => { if (e === "vehicles" || e === "companies" || e === "perfil") { pintarCampana(); if (e === "vehicles") revisarSonido(); } });
 
 const cuando = t => {
   const d = Date.now() - t, min = Math.round(d / 60_000);

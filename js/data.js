@@ -726,13 +726,13 @@ export async function responderPedidoUnion(p, cid, rol = "tecnico") {
 }
 
 // ── Configuración general de la app (config/app) ─────────────────
-S.config = { avisoReparado: true, documentos: true, mensajeWa: "", accesos: {} };
+S.config = { avisoReparado: true, documentos: true, mensajeWa: "", accesos: {}, sonidoAuto: "deportivo" };
 let unsubConfig = null;
 export function escucharConfig() {
   if (unsubConfig) return;
   unsubConfig = onSnapshot(doc(db, "config", "app"), d => {
     const antes = JSON.stringify(S.config);
-    S.config = { avisoReparado: d.data()?.avisoReparado !== false, documentos: d.data()?.documentos !== false, mensajeWa: d.data()?.mensajeWa || "", accesos: d.data()?.accesos || {} };
+    S.config = { avisoReparado: d.data()?.avisoReparado !== false, documentos: d.data()?.documentos !== false, mensajeWa: d.data()?.mensajeWa || "", accesos: d.data()?.accesos || {}, sonidoAuto: d.data()?.sonidoAuto || "deportivo" };
     if (JSON.stringify(S.config) !== antes) {
       // Si cambió el permiso de gastos, prender o apagar la escucha
       if (S.company && puedeVer("gastos") !== !!unsubGastos) escucharGastos();
