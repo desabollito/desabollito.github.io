@@ -350,14 +350,32 @@ function mostrarSegunAprobacion() {
 // ── Actualizaciones ───────────────────────────────────────────
 // Al actualizar: un auto que acelera y cruza la pantalla, con ruido de motor (hecho con Web Audio, sin archivos)
 const AUTO_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5.6 16H4a1 1 0 0 1-1-1v-2.4c0-.6.4-1.1 1-1.3l2.4-.7 2.5-3A2 2 0 0 1 10.4 7h4.4a2 2 0 0 1 1.6.8l2.4 3.2 1.4.4c.8.2 1.3.9 1.3 1.7V15a1 1 0 0 1-1 1h-1.1M9.4 16h5.2"/><circle cx="7.5" cy="16" r="1.9"/><circle cx="16.5" cy="16" r="1.9"/></svg>`;
-function animacionActualizar() {
+// El botón se convierte en el auto: viaja hasta la izquierda, acelera en el lugar y cruza toda la pantalla
+function animacionActualizar(boton = null) {
   ruidoMotor(S.config?.sonidoAuto);
   if (matchMedia("(prefers-reduced-motion: reduce)").matches) return Promise.resolve();
   const capa = document.createElement("div");
   capa.className = "arranque";
-  capa.innerHTML = `<div class="arranque-auto"><i class="arranque-humo"></i><i class="arranque-lineas"></i>${AUTO_SVG}</div>`;
+  capa.innerHTML = `<div class="arranque-auto"><i class="arranque-estela"></i><i class="arranque-lineas"></i><i class="arranque-humo"></i>${AUTO_SVG}</div>`;
   document.body.appendChild(capa);
-  return new Promise(r => setTimeout(r, 1150));
+  const auto = capa.firstElementChild, T = 84;   // tamaño del auto
+  const y = innerHeight * 0.45 - T / 2, x0 = 24;
+  // Arranca donde está el botón (del mismo tamaño) y crece hasta el auto
+  const r = boton?.getBoundingClientRect();
+  const ini = r ? `translate(${r.left + r.width / 2 - T / 2}px, ${r.top + r.height / 2 - T / 2}px) scale(${r.width / T})` : `translate(${-T - 20}px, ${y}px)`;
+  if (boton) boton.classList.add("se-va");
+  const fin = `translate(${innerWidth + T + 60}px, ${y}px)`;
+  const a = auto.animate([
+    { transform: ini, offset: 0 },
+    { transform: `translate(${x0}px, ${y}px) scale(1)`, offset: 0.24, easing: "ease-in-out" },
+    { transform: `translate(${x0 - 3}px, ${y + 1}px) rotate(-3deg)`, offset: 0.3 },
+    { transform: `translate(${x0 + 2}px, ${y - 1}px) rotate(2deg)`, offset: 0.36 },
+    { transform: `translate(${x0 - 3}px, ${y + 1}px) rotate(-3deg)`, offset: 0.42 },
+    { transform: `translate(${x0 - 8}px, ${y}px) rotate(-6deg)`, offset: 0.5, easing: "cubic-bezier(.6,0,.85,.4)" },
+    { transform: fin, offset: 1 }
+  ], { duration: 1700, fill: "forwards" });
+  capa.classList.add("en-marcha");
+  return a.finished.catch(() => {}).then(() => capa.remove());
 }
 if (/[?&]act=\d+/.test(location.search)) history.replaceState(null, "", location.pathname + location.hash);
 addEventListener("forzar-actualizacion", async () => {
@@ -395,12 +413,12 @@ if ("serviceWorker" in navigator) {
       // Segundo toque (si no se actualizó solo): recarga directo
       if (tocado) return location.reload();
       tocado = true;
-      bar.classList.add("cargando", "arranca");
-      await animacionActualizar();
+      bar.classList.add("cargando");
+      await animacionActualizar(bar);
       recargarAlCambiar = true; sw.postMessage("activar");
-      // Un segundo después de la animación, por si el navegador no recarga solo
+      // 3 segundos después de la animación (si el navegador no recargó solo): vuelve el botón y el cartel
       setTimeout(() => {
-        bar.classList.remove("arranca");
+        bar.classList.remove("se-va");
         if ($(".update-hint")) return;
         const hint = document.createElement("button");
         hint.type = "button"; hint.className = "update-hint update-hint-pop";
@@ -408,8 +426,8 @@ if ("serviceWorker" in navigator) {
         hint.onclick = () => location.reload();
         document.body.appendChild(hint);
         requestAnimationFrame(() => hint.classList.add("in"));
-      }, 1000);
-      setTimeout(() => location.reload(), 7000);   // por si el navegador no recarga solo
+      }, 3000);
+      setTimeout(() => location.reload(), 9000);   // por si el navegador no recarga solo
     };
     document.body.appendChild(bar);
     requestAnimationFrame(() => bar.classList.add("in"));
