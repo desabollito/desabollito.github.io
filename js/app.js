@@ -60,6 +60,10 @@ function animarCambio(antes, ahora) {
   let clase = "";
   if (["nuevo", "editar"].includes(ahora.nombre)) clase = "anim-sube";
   else if (["nuevo", "editar"].includes(antes.nombre)) clase = "anim-fade";
+  else if (ahora.nombre === "vehiculos" && ahora.arg && antes.nombre !== "vehiculos") clase = "anim-push";   // desde el calendario, notificaciones, etc.
+  else if (antes.nombre === "vehiculos" && antes.arg && ahora.nombre !== "vehiculos") clase = "anim-pop";
+  else if (ahora.nombre === "planillas" && ORDEN_TAB[antes.nombre] === 2) clase = "anim-pop";   // de una planilla al menú
+  else if (antes.nombre === "planillas" && ORDEN_TAB[ahora.nombre] === 2) clase = "anim-push";
   else if (ahora.nombre === "vehiculos" && antes.nombre === "vehiculos") {
     if (esAncho()) { const p = $(".pane-detail"); if (p && ahora.arg) { p.classList.remove("anim-fade"); void p.offsetWidth; p.classList.add("anim-fade"); } return; }
     clase = ahora.arg ? "anim-push" : "anim-pop";
@@ -72,6 +76,18 @@ function animarCambio(antes, ahora) {
   view.classList.add(clase);
   view.addEventListener("animationend", () => view.classList.remove(clase), { once: true });
 }
+// Cambio de operativo: la pantalla entra con un zoom suave
+document.addEventListener("click", e => {
+  if (!e.target.closest(".company-opt[data-id]")) return;
+  setTimeout(() => { const v = $("#view"); v.classList.remove("anim-op"); void v.offsetWidth; v.classList.add("anim-op");
+    v.addEventListener("animationend", () => v.classList.remove("anim-op"), { once: true }); }, 30);
+});
+// Botones de estado: el círculo late al tocarlo y el nuevo estado "aparece" al redibujarse
+document.addEventListener("pointerdown", e => {
+  const st = e.target.closest(".step[data-estado]"); if (!st) return;
+  st.classList.remove("toca"); void st.offsetWidth; st.classList.add("toca");
+  S.pasoTocado = { k: st.dataset.estado, t: Date.now() };
+});
 // Botón +: gira y late al tocarlo
 document.addEventListener("pointerdown", e => {
   const f = e.target.closest(".fab, .side-new"); if (!f) return;

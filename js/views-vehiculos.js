@@ -381,6 +381,9 @@ function renderDetalle(root, v, embebido) {
   const soloVer = soyDesmontaje() || soyLector();   // Desmontaje: solo ve y carga desmontajes; link de perito: solo ve
   const nDesm = (v.desFotos?.length || 0) + (v.desNotas?.length || 0);
 
+  // Estado recién tocado: al redibujar, su círculo aparece con un "pop"
+  if (S.pasoTocado && Date.now() - S.pasoTocado.t < 4000) { const k = S.pasoTocado.k; queueMicrotask(() => { const b = root.querySelector(`.step[data-estado="${k}"]`);
+    if (b && (b.classList.contains("done") || b.classList.contains("now"))) { b.classList.add("recien"); S.pasoTocado = null; } }); }
   root.innerHTML = `
   <article class="detail">
     <header class="d-head">

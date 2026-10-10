@@ -1676,3 +1676,18 @@ a.g-bar-fijo { text-decoration: none; color: inherit; }
 .fab.pulsa .ic { animation: fab-pulsa .45s cubic-bezier(.3,.7,.3,1); }
 .side-new.pulsa .ic { animation: fab-pulsa .45s cubic-bezier(.3,.7,.3,1); }
 @media (prefers-reduced-motion: reduce) { .view[class*="anim-"], .pane-detail.anim-fade, .fab.pulsa, .fab.pulsa .ic, .tabbar a.on .ic { animation: none !important; } }
+@keyframes anim-op { from { opacity: 0; transform: scale(.97); } to { opacity: 1; transform: none; } }
+.view.anim-op { animation: anim-op .32s cubic-bezier(.2,.8,.2,1); }
+/* Estados */
+@keyframes step-toca { 0% { transform: scale(1); } 40% { transform: scale(.82); } 100% { transform: scale(1); } }
+@keyframes step-pop { 0% { transform: scale(.5); } 60% { transform: scale(1.25); } 100% { transform: scale(1); } }
+@keyframes step-anillo { from { box-shadow: 0 0 0 0 color-mix(in srgb, var(--c) 60%, transparent); } to { box-shadow: 0 0 0 14px transparent; } }
+.step.toca .dot { animation: step-toca .25s ease-out; }
+.step.recien .dot { animation: step-pop .4s cubic-bezier(.3,.7,.3,1.3), step-anillo .6s ease-out; }
+/* Hojas (contactar, compartir, filtros…): suben con rebote suave; el visor de fotos entra con zoom */
+.sheet { transform: translateY(40px) scale(.98); transition: transform .3s cubic-bezier(.2,.9,.25,1.05), opacity .25s; opacity: .6; }
+.sheet-backdrop.in .sheet { transform: none; opacity: 1; }
+.sheet-backdrop { transition: opacity .25s, backdrop-filter .25s; }
+.sheet-backdrop.in { backdrop-filter: blur(2px); }
+.sheet.sheet-visor { transform: scale(.92); }
+@media (prefers-reduced-motion: reduce) { .view.anim-op, .step.toca .dot, .step.recien .dot { animation: none !important; } .sheet { transition: none; } }
