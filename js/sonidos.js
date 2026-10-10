@@ -10,6 +10,13 @@ export const sonidosOn = () => { try { return localStorage.getItem("sonidos") !=
 export const setSonidos = on => { try { localStorage.setItem("sonidos", on ? "on" : "off"); } catch { /* sin almacenamiento */ } };
 
 let ctx = null;
+// Volumen general de todos los sonidos (70%)
+const VOLUMEN = 0.7, maestros = new WeakMap();
+function maestro(ac) {
+  let m = maestros.get(ac);
+  if (!m) { m = ac.createGain(); m.gain.value = VOLUMEN; m.connect(ac.destination); maestros.set(ac, m); }
+  return m;
+}
 function contexto() {
   const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return null;
   if (!ctx || ctx.state === "closed") ctx = new AC();
@@ -45,7 +52,7 @@ export function sonidoNotif() {
       const o = ac.createOscillator(), g = ac.createGain();
       o.type = "sine"; o.frequency.value = f;
       g.gain.setValueAtTime(0.0001, t + d); g.gain.exponentialRampToValueAtTime(0.22, t + d + 0.015); g.gain.exponentialRampToValueAtTime(0.0001, t + d + 0.45);
-      o.connect(g); g.connect(ac.destination); o.start(t + d); o.stop(t + d + 0.5);
+      o.connect(g); g.connect(maestro(ac)); o.start(t + d); o.stop(t + d + 0.5);
     });
   });
 }
@@ -58,7 +65,7 @@ function motor(ac, t, { dur, curva, tipos, filtro, vol, pulso, ruidoVol = 0.08 }
   salida.gain.setValueAtTime(vol, t + dur - 0.3); salida.gain.exponentialRampToValueAtTime(0.0001, t + dur);
   const lp = ac.createBiquadFilter(); lp.type = "lowpass"; lp.Q.value = 5;
   lp.frequency.setValueAtTime(filtro[0], t); lp.frequency.exponentialRampToValueAtTime(filtro[1], t + dur * 0.85);
-  lp.connect(salida); salida.connect(ac.destination);
+  lp.connect(salida); salida.connect(maestro(ac));
   const pon = (f, k = 1) => { f.setValueAtTime(curva[0][1] * k, t); curva.slice(1).forEach(([s, hz]) => f.exponentialRampToValueAtTime(hz * k, t + s)); };
   tipos.forEach(([tipo, det, g0]) => {
     const o = ac.createOscillator(); o.type = tipo; o.detune.value = det; pon(o.frequency);
@@ -88,12 +95,12 @@ const PERFILES = {
     const o = ac.createOscillator(), g = ac.createGain();
     o.type = "sine"; o.frequency.setValueAtTime(1800, t + 0.15); o.frequency.exponentialRampToValueAtTime(5200, t + 1.05);
     g.gain.setValueAtTime(0.0001, t + 0.15); g.gain.exponentialRampToValueAtTime(0.045, t + 0.9); g.gain.exponentialRampToValueAtTime(0.0001, t + 1.12);
-    o.connect(g); g.connect(ac.destination); o.start(t + 0.15); o.stop(t + 1.2);
+    o.connect(g); g.connect(maestro(ac)); o.start(t + 0.15); o.stop(t + 1.2);
     // "Pssshh" de la válvula de alivio al soltar
     const n = ruido(ac, 0.5), hp = ac.createBiquadFilter(), ng = ac.createGain();
     hp.type = "highpass"; hp.frequency.value = 2500; ng.gain.setValueAtTime(0.0001, t + 1.05);
     ng.gain.exponentialRampToValueAtTime(0.16, t + 1.09); ng.gain.exponentialRampToValueAtTime(0.0001, t + 1.5);
-    n.connect(hp); hp.connect(ng); ng.connect(ac.destination); n.start(t + 1.05); n.stop(t + 1.55);
+    n.connect(hp); hp.connect(ng); ng.connect(maestro(ac)); n.start(t + 1.05); n.stop(t + 1.55);
   },
   v8: (ac, t) => {
     motor(ac, t, { dur: 1.45, vol: 0.34, filtro: [260, 1200], pulso: [11, 26], ruidoVol: 0.12,
