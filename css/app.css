@@ -1617,3 +1617,9 @@ a.g-bar-fijo { text-decoration: none; color: inherit; }
   body[data-ruta="calendario"] .cd { min-height: 0; overflow: hidden; }
   body[data-ruta="calendario"] .cal-day { position: static; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
 }
+.fo-scroll { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 -18px; padding: 2px 18px; scroll-padding-inline: 18px; }
+.fo-scroll::-webkit-scrollbar { display: none; }
+@media (min-width: 700px) { .fo-scroll { margin: 0 -22px; padding: 2px 22px; } }
+.fo-compacto .fo-seg .fo-op { min-height: 34px; flex-direction: row; gap: 6px; padding: 4px 6px 7px; }
+.fo-compacto .fo-seg .fo-op[style]::after { bottom: 3px; height: 2px; }
+.fo-switch { padding: 9px 14px; }

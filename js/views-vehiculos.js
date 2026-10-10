@@ -199,13 +199,13 @@ export function vistaVehiculos(view, selId = null) {
     const lector = soyLector();
     const hoja = openSheet({ title: "Filtrar y ordenar", body: `<div class="fo">
       <section class="fo-sec"><h3>Ordenar por <small>tocá de nuevo para invertir</small></h3><div class="fo-seg" id="fo-orden"></div></section>
+      ${lector ? "" : `<section class="fo-sec"><h3>Compañías <small>podés marcar varias</small></h3><div class="fo-chips fo-scroll" id="fo-cias"></div></section>`}
       <p class="muted small fo-ayuda">Sin nada marcado se ven todos. Tocá una opción para filtrar y tocala de nuevo para quitarla.</p>
       <section class="fo-sec"><h3>Grado</h3><div class="fo-seg" id="fo-grado"></div></section>
-      <section class="fo-sec"><h3>Turnos</h3><div class="fo-seg" id="fo-turno"></div></section>
       <section class="fo-sec"><h3>Pintura</h3><div class="fo-seg" id="fo-pintura"></div></section>
       <section class="fo-sec"><h3>Repuestos</h3><div class="fo-seg" id="fo-repuestos"></div></section>
-      ${lector ? "" : `<section class="fo-sec"><h3>Compañías <small>podés marcar varias</small></h3><div class="fo-chips" id="fo-cias"></div></section>
-      <label class="fo-switch"><span>Solo los que cargué yo</span><input type="checkbox" id="fo-mios" ${F.mios ? "checked" : ""}></label>`}
+      <section class="fo-sec fo-compacto"><h3>Turnos</h3><div class="fo-seg" id="fo-turno"></div></section>
+      ${lector ? "" : `<label class="fo-switch"><span>Solo los que cargué yo</span><input type="checkbox" id="fo-mios" ${F.mios ? "checked" : ""}></label>`}
       <div class="fo-pie"><button type="button" class="btn btn-ghost" id="fo-reset">Limpiar</button><button type="button" class="btn btn-primary" data-close id="fo-ver"></button></div>
     </div>` });
     const el = id => $(id, hoja.el);
