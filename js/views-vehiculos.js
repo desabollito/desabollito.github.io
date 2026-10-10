@@ -200,7 +200,7 @@ export function vistaVehiculos(view, selId = null) {
     const hoja = openSheet({ title: "Filtrar y ordenar", body: `<div class="fo">
       <section class="fo-sec"><h3>Ordenar por</h3><div class="fo-seg" id="fo-orden"></div></section>
       ${lector ? "" : `<section class="fo-sec"><h3>Compañías <small>podés marcar varias</small></h3><div class="fo-chips fo-scroll" id="fo-cias"></div></section>`}
-      <section class="fo-sec fo-compacto"><h3>Grado</h3><div class="fo-seg" id="fo-grado"></div></section>
+      <section class="fo-sec fo-grados"><h3>Grado</h3><div class="fo-seg" id="fo-grado"></div></section>
       <section class="fo-sec"><h3>Pintura</h3><div class="fo-seg" id="fo-pintura"></div></section>
       <section class="fo-sec"><h3>Repuestos</h3><div class="fo-seg" id="fo-repuestos"></div></section>
       <section class="fo-sec fo-compacto"><h3>Turnos</h3><div class="fo-seg" id="fo-turno"></div></section>
@@ -217,7 +217,7 @@ export function vistaVehiculos(view, selId = null) {
       e.style.setProperty("--grad", `linear-gradient(90deg, ${colores.map((c, i) => `color-mix(in srgb, ${c} 16%, transparent) ${Math.round((i + 0.5) / colores.length * 100)}%`).join(", ")})`); };
     const pintarHoja = () => {
       el("#fo-orden").innerHTML = ORDENES.map(([k, t]) => op("orden", k, F.orden === k ? `${t} <i class="fo-flecha">${F.dir > 0 ? "↑" : "↓"}</i>` : t, null, F.orden === k)).join("");
-      const gr = [[1, "G1"], [2, "G2"], [3, "G3"], [4, "G4"], [0, "Sin"]].filter(([g]) => !(g === 4 && lector) && (g !== 0 || n(v => !v.grado) || F.grado === 0));
+      const gr = [[0, "–"], [1, "G1"], [2, "G2"], [3, "G3"], [4, "G4"]].filter(([g]) => !(g === 4 && lector) && (g !== 0 || n(v => !v.grado) || F.grado === 0));
       el("#fo-grado").innerHTML = gr.map(([g, t]) => op("grado", g, t, n(v => (v.grado || 0) === g), F.grado === g)).join("");
       degrade("#fo-turno", ["#22b07d", "#e0a526"]);
       ["pintura", "repuestos"].forEach(tipo => degrade(`#fo-${tipo}`, ETAPAS[tipo].map(e => e[2])));

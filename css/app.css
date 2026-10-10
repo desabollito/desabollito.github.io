@@ -1643,3 +1643,11 @@ a.g-bar-fijo { text-decoration: none; color: inherit; }
 .fo-op { transition: background-color .25s ease, color .25s ease, box-shadow .25s ease, outline-color .25s ease; }
 .fo-seg.fo-grad { background: var(--grad), var(--surface-2); }
 .fo-seg.fo-grad .fo-op[style]:not(.on) { background: transparent; }
+/* Grado: número arriba y cantidad chiquita abajo */
+.fo-grados .fo-seg .fo-op { min-height: 40px; padding: 4px 2px; gap: 0; }
+.fo-grados .fo-seg .fo-op b { font-size: 10.5px; font-weight: 700; line-height: 1; }
+/* Compañías y estados del inicio: rectángulos redondeados como el resto */
+.fo-chips .fo-op { border-radius: 10px; min-height: 36px; }
+.est { border-radius: 10px; }
+.fo-chips .fo-op { flex-direction: column; gap: 0; min-height: 42px; padding: 4px 14px; background: var(--surface-2); }
+.fo-chips .fo-op b { font-size: 10.5px; line-height: 1; }
