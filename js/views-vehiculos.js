@@ -187,6 +187,11 @@ export function vistaVehiculos(view, selId = null) {
     $("#limpiar", box)?.addEventListener("click", () => { F.q = ""; F.estado = "todos"; F.mios = false; F.cias.clear(); F.grado = null; F.repuestos = null; F.pintura = null; F.turno = null; marcarBoton(); $("#q", view).value = ""; pintar(); });
   };
 
+  // Computadora: tocar de nuevo el vehículo marcado lo desmarca y cierra el detalle
+  $("#vlist", view).addEventListener("click", e => {
+    const a = e.target.closest("a.vcard.sel"); if (!a || !ancho || e.metaKey || e.ctrlKey) return;
+    e.preventDefault(); S.ultimoVid = null; a.classList.remove("sel"); go("#/");
+  });
   $("#q", view).addEventListener("input", debounce(e => { F.q = e.target.value; pintar(); }, 120));
   // Doble clic selecciona toda la búsqueda (en Mac no lo hacía solo)
   $("#q", view).addEventListener("dblclick", e => { e.target.select(); });
