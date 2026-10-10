@@ -15,26 +15,26 @@ const visto = () => {
   return typeof v === "number" ? v : Date.now() - 24 * 3600_000;   // la primera vez: lo de las últimas 24 h
 };
 
+// Solo se avisan cambios a los datos del vehículo y fotos nuevas: no la carga, ni los estados,
+// ni las etapas de repuestos y pintura (Pedido, Recibido, Pintado…)
+const ETAPAS_TXT = /: (Sin pedir|Pedido|Recibido|Colocado|Sin pintar|Turnado|Pintado)$/;
+const avisable = txt => !!txt && !/^(Pasó a|Volvió a|Carg[óo] el veh)/.test(txt) && !ETAPAS_TXT.test(txt);
+const MIN_CARGA = 30 * 60_000;   // fotos de los primeros 30 min = las de la carga, no se avisan
 export function listaNotifs() {
   const yo = S.user?.uid, desde = Date.now() - DIAS * 86400_000, out = [];
   if (!yo || S.invitado) return out;
   for (const v of activos()) {
     const base = { vid: v.id, patente: v.patente, modelo: v.modelo };
-    let cargaEnHist = false;
+    const t0h = Math.min(...(v.historial || []).map(e => e.t || Infinity)), tc = ms(v.createdAt) || (Number.isFinite(t0h) ? t0h : 0);
     for (const e of v.historial || []) {
-      if (/^Carg[óo] el veh/.test(e.txt || "")) cargaEnHist = true;
       if (!e.t || e.t < desde || e.uid === yo) continue;
-      if (/^(Pasó a|Volvió a)\b/.test(e.txt || "")) continue;   // los cambios de estado no se avisan
+      if (!avisable(e.txt)) continue;
       out.push({ ...base, t: e.t, por: e.por || "Alguien", txt: e.txt || "Modificó el vehículo" });
     }
-    // Vehículo nuevo cargado por otro (por WhatsApp no deja historial)
-    const tc = ms(v.createdAt);
-    if (!cargaEnHist && tc >= desde && (v.createdBy || v.createdByUid) !== yo)
-      out.push({ ...base, t: tc, por: String(v.createdByName || "Alguien").replace(/\s*\(WhatsApp\)$/, ""), txt: "Cargó el vehículo" });
     // Fotos que subió otro: una línea por persona y por tanda (10 min)
     const tandas = new Map();
     for (const f of v.fotos || []) {
-      const t = f.at || 0; if (!t || t < desde || f.by === yo) continue;
+      const t = f.at || 0; if (!t || t < desde || f.by === yo || (tc && t - tc < MIN_CARGA)) continue;
       const quien = f.byName || f.by || f.byWhatsApp || "?", k = quien + "|" + Math.floor(t / 600_000);
       const x = tandas.get(k) || { ...base, t: 0, t0: Infinity, por: f.byName || "Alguien", n: 0, video: 0 };
       x.t = Math.max(x.t, t); x.n++; if (f.tipo === "video") x.video++;
