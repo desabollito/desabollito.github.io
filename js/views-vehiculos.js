@@ -198,9 +198,8 @@ export function vistaVehiculos(view, selId = null) {
   $("#tb-filtros")?.addEventListener("click", () => {
     const lector = soyLector();
     const hoja = openSheet({ title: "Filtrar y ordenar", body: `<div class="fo">
-      <section class="fo-sec"><h3>Ordenar por <small>tocá de nuevo para invertir</small></h3><div class="fo-seg" id="fo-orden"></div></section>
+      <section class="fo-sec"><h3>Ordenar por</h3><div class="fo-seg" id="fo-orden"></div></section>
       ${lector ? "" : `<section class="fo-sec"><h3>Compañías <small>podés marcar varias</small></h3><div class="fo-chips fo-scroll" id="fo-cias"></div></section>`}
-      <p class="muted small fo-ayuda">Sin nada marcado se ven todos. Tocá una opción para filtrar y tocala de nuevo para quitarla.</p>
       <section class="fo-sec"><h3>Grado</h3><div class="fo-seg" id="fo-grado"></div></section>
       <section class="fo-sec"><h3>Pintura</h3><div class="fo-seg" id="fo-pintura"></div></section>
       <section class="fo-sec"><h3>Repuestos</h3><div class="fo-seg" id="fo-repuestos"></div></section>
