@@ -11,10 +11,12 @@ export const setSonidos = on => { try { localStorage.setItem("sonidos", on ? "on
 
 let ctx = null;
 // Volumen general de todos los sonidos (70%)
-const VOLUMEN = 0.7, maestros = new WeakMap();
-function maestro(ac) {
-  let m = maestros.get(ac);
-  if (!m) { m = ac.createGain(); m.gain.value = VOLUMEN; m.connect(ac.destination); maestros.set(ac, m); }
+// Volumen de cada sonido: notificación al 100%, auto de actualizar al 50%
+const VOLUMEN = { notif: 1, auto: 0.5 }, maestros = new WeakMap();
+function maestro(ac, tipo = "auto") {
+  let ms = maestros.get(ac); if (!ms) { ms = {}; maestros.set(ac, ms); }
+  let m = ms[tipo];
+  if (!m) { m = ac.createGain(); m.gain.value = VOLUMEN[tipo]; m.connect(ac.destination); ms[tipo] = m; }
   return m;
 }
 function contexto() {
@@ -52,7 +54,7 @@ export function sonidoNotif() {
       const o = ac.createOscillator(), g = ac.createGain();
       o.type = "sine"; o.frequency.value = f;
       g.gain.setValueAtTime(0.0001, t + d); g.gain.exponentialRampToValueAtTime(0.22, t + d + 0.015); g.gain.exponentialRampToValueAtTime(0.0001, t + d + 0.45);
-      o.connect(g); g.connect(maestro(ac)); o.start(t + d); o.stop(t + d + 0.5);
+      o.connect(g); g.connect(maestro(ac, "notif")); o.start(t + d); o.stop(t + d + 0.5);
     });
   });
 }
