@@ -478,6 +478,7 @@ async function crearOperativo() {
 }
 
 export function elegirEmpresaSheet() {
+  // Lista de operativos; abajo un solo botón con las opciones (gestionar / unirme / crear) y, en celular, Ajustes
   const s = openSheet({
     title: "Tus operativos",
     body: `<ul class="company-list">${S.companies.map(c => `
@@ -485,15 +486,20 @@ export function elegirEmpresaSheet() {
         ${logoOperativo("", c.name)}
         <span><strong>${esc(c.name)}</strong><small>${ROLES[c.roles?.[S.user.uid]]?.label || ""} · ${c.members.length} ${c.members.length === 1 ? "persona" : "personas"}</small></span>
         ${c.id === S.company?.id ? icon("check") : ""}</button></li>`).join("")}</ul>
-      <div class="stack-sm full">
-        <a class="btn btn-primary btn-block" href="#/operativo" data-close>${icon("team")}Gestionar</a>
-        <button class="btn btn-ghost btn-block" id="unir-op">${icon("team")}Unirme</button>
-        ${soloDesmontaje() ? "" : `<button class="btn btn-ghost btn-block" id="nuevo-op">${icon("plus")}Crear</button>`}
+      <div class="op-menu">
+        <button type="button" class="op-mas" id="op-mas" aria-expanded="false">${icon("team")}<span><strong>Operativos</strong><small>Gestionar, unirme o crear</small></span>${icon("next")}</button>
+        <div class="op-opciones" id="op-opciones" hidden>
+          ${S.company ? `<a class="op-opc" href="#/operativo" data-close>${icon("settings")}<span><strong>Gestionar ${esc(S.company.name)}</strong><small>Usuarios, roles, sello y links</small></span></a>` : ""}
+          <button type="button" class="op-opc" id="unir-op">${icon("swap")}<span><strong>Unirme a un operativo</strong><small>Pedir unirme a uno que ya existe</small></span></button>
+          ${soloDesmontaje() ? "" : `<button type="button" class="op-opc" id="nuevo-op">${icon("plus")}<span><strong>Crear un operativo</strong><small>Empezá uno nuevo</small></span></button>`}
+        </div>
+        <a class="op-mas op-ajustes only-mobile" href="#/ajustes" data-close>${icon("settings")}<span><strong>Ajustes</strong><small>Perfil, tema, WhatsApp y papelera</small></span>${icon("next")}</a>
       </div>`
   });
   s.body.addEventListener("click", e => {
     const b = e.target.closest("[data-id]");
     if (b) { elegirEmpresa(b.dataset.id); s.close(); go("#/"); }
+    if (e.target.closest("#op-mas")) { const o = $("#op-opciones", s.el), m = $("#op-mas", s.el); o.hidden = !o.hidden; m.setAttribute("aria-expanded", String(!o.hidden)); m.classList.toggle("abierto", !o.hidden); }
     if (e.target.closest("#nuevo-op")) { s.close(); crearOperativo(); }
     if (e.target.closest("#unir-op")) { s.close(); unirOperativo(); }
   });

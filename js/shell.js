@@ -2,6 +2,7 @@ import { S } from "./data.js";
 import { $, $$, esc, icon, initials } from "./ui.js";
 import { ROLES } from "./domain.js";
 import { avatar } from "./media.js";
+import { pintarCampana } from "./notificaciones.js";
 
 export const go = hash => { if (location.hash !== hash) location.hash = hash; };
 export const esAncho = () => matchMedia("(min-width: 1100px)").matches;
@@ -16,7 +17,9 @@ export function setTopbar({ title = "", back = null, actions = "", sub = "" } = 
   tb.innerHTML = `
     ${backBtn}
     <div class="tb-title"><h1>${esc(title)}</h1>${sub ? `<small>${esc(sub)}</small>` : ""}</div>
-    <div class="tb-actions">${actions}${S.invitado ? `<button class="icon-btn only-sm" data-tema-lector aria-label="Modo claro / oscuro" title="Modo claro / oscuro">${ICONO_TEMA}</button>` : back ? "" : `<a class="icon-btn only-sm" href="#/ajustes" aria-label="Ajustes">${icon("settings")}</a>`}</div>`;
+    <div class="tb-actions">${actions}${S.invitado ? `<button class="icon-btn only-sm" data-tema-lector aria-label="Modo claro / oscuro" title="Modo claro / oscuro">${ICONO_TEMA}</button>`
+      : S.company ? `<button class="icon-btn notif-btn" id="tb-notif" aria-label="Notificaciones" title="Notificaciones">${icon("bell")}<span class="notif-dot" hidden></span></button>` : ""}</div>`;
+  pintarCampana();
   $("#tb-back", tb)?.addEventListener("click", () => {
     if (back === true || history.length < 2) history.length > 1 ? history.back() : go("#/");
     else go(back);

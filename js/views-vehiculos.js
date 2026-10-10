@@ -132,12 +132,14 @@ export function vistaVehiculos(view, selId = null) {
   const sel = selId ? getVehiculo(selId) : null;
   if (selId && !ancho) return vistaDetalle(view, selId);
 
-  const filtroActivo = () => F.mios || F.grado !== null || F.repuestos || F.pintura || F.turno;
-  const ordenActivo = () => F.orden !== "fecha" || F.dir !== -1 || F.cias.size > 0;
+  // Cuántos filtros/órdenes distintos de lo normal hay puestos (se ve en el botón)
+  const cuantosActivos = () => [F.mios, F.grado !== null, F.repuestos, F.pintura, F.turno, F.cias.size > 0, F.orden !== "fecha" || F.dir !== -1].filter(Boolean).length;
+  const marcarBoton = () => { const b = $("#tb-filtros"); if (!b) return; const k = cuantosActivos();
+    b.classList.toggle("activo", k > 0); const n = $(".fo-badge", b); if (n) { n.textContent = k; n.hidden = !k; } };
   setTopbar({
     title: "Vehículos",
     sub: S.company?.name,
-    actions: `<button class="icon-btn filtro-btn ${filtroActivo() ? "activo" : ""}" id="tb-filtros" aria-label="Filtros" title="Filtros">${icon("filter")}</button><button class="icon-btn filtro-btn ${ordenActivo() ? "activo" : ""}" id="tb-orden" aria-label="Ordenar" title="Ordenar">${icon("sort")}</button>`
+    actions: `<button class="icon-btn filtro-btn ${cuantosActivos() ? "activo" : ""}" id="tb-filtros" aria-label="Filtrar y ordenar" title="Filtrar y ordenar">${icon("filter")}<span class="fo-badge" ${cuantosActivos() ? "" : "hidden"}>${cuantosActivos()}</span></button>`
   });
 
   // En computadora los estados van en una fila a lo ancho de la pantalla, arriba de todo
@@ -181,7 +183,7 @@ export function vistaVehiculos(view, selId = null) {
       ? lista.map(v => tarjeta(v, v.id === selId)).join("")
       : `<div class="empty small"><p>Ningún vehículo coincide con la búsqueda.</p>
          <button class="btn btn-ghost" id="limpiar">Limpiar filtros</button></div>`;
-    $("#limpiar", box)?.addEventListener("click", () => { F.q = ""; F.estado = "todos"; F.mios = false; F.cias.clear(); $("#tb-orden")?.classList.remove("activo"); F.grado = null; F.repuestos = null; F.pintura = null; F.turno = null; $("#tb-filtros")?.classList.remove("activo"); $("#q", view).value = ""; pintar(); });
+    $("#limpiar", box)?.addEventListener("click", () => { F.q = ""; F.estado = "todos"; F.mios = false; F.cias.clear(); F.grado = null; F.repuestos = null; F.pintura = null; F.turno = null; marcarBoton(); $("#q", view).value = ""; pintar(); });
   };
 
   $("#q", view).addEventListener("input", debounce(e => { F.q = e.target.value; pintar(); }, 120));
@@ -191,72 +193,59 @@ export function vistaVehiculos(view, selId = null) {
     const b = e.target.closest("[data-e]"); if (!b) return;
     F.estado = F.estado === b.dataset.e ? "todos" : b.dataset.e; pintar();
   });
-  // Filtros: orden (como en la planilla) y "Cargados por mí"
+  // Un solo botón "Filtrar y ordenar": cada grupo es una fila de opciones (tocar una la elige; "Todos" la quita)
   $("#tb-filtros")?.addEventListener("click", () => {
-    const s = openSheet({ title: "Filtros", body: `<div class="stack filtros">
-      <span class="muted small">Grado</span><div class="p-chips" id="f-grado"></div>
-      <span class="muted small">Turnos</span><div class="p-chips" id="f-turno"></div>
-      <span class="muted small">Pintura</span><div class="p-chips" id="f-pintura"></div>
-      <span class="muted small">Repuestos</span><div class="p-chips" id="f-repuestos"></div>
-      <button class="btn btn-ghost btn-sm" id="f-reset">Quitar filtros</button></div>` });
-    const chipsGrado = () => {
-      const n = g => activos().filter(v => (v.grado || 0) === g).length;
-      $("#f-grado", s.el).innerHTML = [[1, "Grado 1"], [2, "Grado 2"], [3, "Grado 3"], [4, "Grado 4"], [0, "Sin grado"]].filter(([g]) => (g !== 0 || n(0) || F.grado === 0) && !(g === 4 && soyLector()) && (!soyLector() || n(g) || F.grado === g)).map(([g, t]) =>
-        `<button type="button" class="p-chip ${F.grado === g ? "on" : ""}" data-grado="${g}">${t} <b class="f-n">${n(g)}</b></button>`).join("");
-    };
-    chipsGrado();
-    const chipsTurno = () => {
-      const n = si => activos().filter(v => estadoActual(v) === "turnado" && (v.turnoConfirmado === true) === si).length;
-      $("#f-turno", s.el).innerHTML = [["si", "Confirmados", "#22b07d", true], ["no", "Sin confirmar", "#e0a526", false]].filter(([k, , , si]) => !soyLector() || n(si) || F.turno === k).map(([k, t, color, si]) =>
-        `<button type="button" class="p-chip ${F.turno === k ? "on" : ""}" data-turno="${k}" style="--c:${color}"><i class="f-dot"></i>${t} <b class="f-n">${n(si)}</b></button>`).join("");
-    };
-    chipsTurno();
-    $("#f-turno", s.el).onclick = e => {
-      const b = e.target.closest("[data-turno]"); if (!b) return;
-      F.turno = F.turno === b.dataset.turno ? null : b.dataset.turno; chipsTurno(); aplicar();
-    };
-    const chipsEtapas = () => ["repuestos", "pintura"].forEach(tipo => {
-      $(`#f-${tipo}`, s.el).innerHTML = ETAPAS[tipo].filter(([k]) => !soyLector() || F[tipo] === k || activos().some(v => tieneEtapa(v, tipo, k))).map(([k, t, color]) =>
-        `<button type="button" class="p-chip ${F[tipo] === k ? "on" : ""}" data-fase="${k}" data-tipo="${tipo}" style="--c:${color}"><i class="f-dot"></i>${t} <b class="f-n">${activos().filter(v => tieneEtapa(v, tipo, k)).length}</b></button>`).join("");
-    });
-    chipsEtapas();
-    ["repuestos", "pintura"].forEach(tipo => {
-      $(`#f-${tipo}`, s.el).onclick = e => {
-        const b = e.target.closest("[data-fase]"); if (!b) return;
-        F[tipo] = F[tipo] === b.dataset.fase ? null : b.dataset.fase; chipsEtapas(); aplicar();
-      };
-    });
-    $("#f-grado", s.el).onclick = e => {
-      const b = e.target.closest("[data-grado]"); if (!b) return;
-      const g = Number(b.dataset.grado);
-      F.grado = F.grado === g ? null : g; chipsGrado(); aplicar();
-    };
-    const aplicar = () => { pintar(); $("#tb-filtros")?.classList.toggle("activo", filtroActivo()); };
-    $("#f-reset", s.el).onclick = () => { F.mios = false; F.grado = null; F.repuestos = null; F.pintura = null; F.turno = null; chipsTurno(); chipsEtapas(); chipsGrado(); aplicar(); };
-  });
-  // Ordenar (botón al lado de Filtros): tocar un criterio lo elige; tocarlo de nuevo invierte el orden
-  $("#tb-orden")?.addEventListener("click", () => {
-    const hoja = openSheet({ title: "Ordenar por", body: `<div class="stack filtros"><div class="p-chips" id="o-chips"></div>
-      ${soyLector() ? "" : `<span class="muted small">Compañías <small>(podés marcar varias)</small></span><div class="p-chips" id="o-cias"></div>
-      <span class="muted small">Fecha a mostrar en la pantalla principal</span>
-      <div class="seg" id="o-fecha"><button type="button" class="seg-btn" data-fv="peritado">Día de peritación</button><button type="button" class="seg-btn" data-fv="estado">Último estado</button></div>`}</div>` });
-    const chips = () => {
-      $("#o-chips", hoja.el).innerHTML = ORDENES.map(([k, t]) => `<button type="button" class="p-chip ${F.orden === k ? "on" : ""}" data-orden="${k}">${t}${F.orden === k ? `<i>${F.dir > 0 ? "↑" : "↓"}</i>` : ""}</button>`).join("");
-      if ($("#o-cias", hoja.el)) $("#o-cias", hoja.el).innerHTML = ciasDisponibles().map(([c, n]) => `<button type="button" class="p-chip ${F.cias.has(c) ? "on" : ""}" data-cia="${esc(c)}">${esc(c)} <b class="f-n">${n}</b></button>`).join("")
+    const lector = soyLector();
+    const hoja = openSheet({ title: "Filtrar y ordenar", body: `<div class="fo">
+      <section class="fo-sec"><h3>Ordenar por <small>tocá de nuevo para invertir</small></h3><div class="fo-seg" id="fo-orden"></div></section>
+      ${lector ? "" : `<section class="fo-sec"><h3>Fecha que se muestra</h3><div class="fo-seg" id="fo-fecha"></div></section>`}
+      <section class="fo-sec"><h3>Grado</h3><div class="fo-seg" id="fo-grado"></div></section>
+      <section class="fo-sec"><h3>Turnos</h3><div class="fo-seg" id="fo-turno"></div></section>
+      <section class="fo-sec"><h3>Pintura</h3><div class="fo-seg" id="fo-pintura"></div></section>
+      <section class="fo-sec"><h3>Repuestos</h3><div class="fo-seg" id="fo-repuestos"></div></section>
+      ${lector ? "" : `<section class="fo-sec"><h3>Compañías <small>podés marcar varias</small></h3><div class="fo-chips" id="fo-cias"></div></section>
+      <label class="fo-switch"><span>Solo los que cargué yo</span><input type="checkbox" id="fo-mios" ${F.mios ? "checked" : ""}></label>`}
+      <div class="fo-pie"><button type="button" class="btn btn-ghost" id="fo-reset">Limpiar</button><button type="button" class="btn btn-primary" data-close id="fo-ver"></button></div>
+    </div>` });
+    const el = id => $(id, hoja.el);
+    const n = f => activos().filter(f).length;
+    // Opción de una fila: texto, cantidad y color opcional
+    const op = (grupo, val, txt, cant, on, color) => `<button type="button" class="fo-op ${on ? "on" : ""}" data-g="${grupo}" data-v="${esc(String(val))}" ${color ? `style="--c:${color}"` : ""}>
+      <span class="fo-txt">${color ? `<i class="f-dot"></i>` : ""}${txt}</span>${cant !== null && cant !== undefined ? `<b>${cant}</b>` : ""}</button>`;
+    const pintarHoja = () => {
+      el("#fo-orden").innerHTML = ORDENES.map(([k, t]) => op("orden", k, F.orden === k ? `${t} <i class="fo-flecha">${F.dir > 0 ? "↑" : "↓"}</i>` : t, null, F.orden === k)).join("");
+      if (el("#fo-fecha")) el("#fo-fecha").innerHTML = [["peritado", "Día de peritación"], ["estado", "Último estado"]].map(([k, t]) => op("fecha", k, t, null, fechaVista === k)).join("");
+      const gr = [[1, "G1"], [2, "G2"], [3, "G3"], [4, "G4"], [0, "Sin"]].filter(([g]) => !(g === 4 && lector) && (g !== 0 || n(v => !v.grado) || F.grado === 0));
+      el("#fo-grado").innerHTML = op("grado", "", "Todos", activos().length, F.grado === null) + gr.map(([g, t]) => op("grado", g, t, n(v => (v.grado || 0) === g), F.grado === g)).join("");
+      el("#fo-turno").innerHTML = op("turno", "", "Todos", n(v => estadoActual(v) === "turnado"), !F.turno) +
+        [["si", "Confirmados", "#22b07d", true], ["no", "Sin confirmar", "#e0a526", false]].map(([k, t, c, si]) =>
+          op("turno", k, t, n(v => estadoActual(v) === "turnado" && (v.turnoConfirmado === true) === si), F.turno === k, c)).join("");
+      ["pintura", "repuestos"].forEach(tipo => {
+        el(`#fo-${tipo}`).innerHTML = op(tipo, "", "Todos", n(v => itemsTexto(v[tipo]).length > 0), !F[tipo]) +
+          ETAPAS[tipo].map(([k, t, c]) => op(tipo, k, t, n(v => tieneEtapa(v, tipo, k)), F[tipo] === k, c)).join("");
+      });
+      if (el("#fo-cias")) el("#fo-cias").innerHTML = ciasDisponibles().map(([c, k]) => `<button type="button" class="fo-op ${F.cias.has(c) ? "on" : ""}" data-cia="${esc(c)}">${esc(c)} <b>${k}</b></button>`).join("")
         || `<span class="muted small">Sin vehículos</span>`;
-      $$("#o-fecha [data-fv]", hoja.el).forEach(b => b.classList.toggle("on", b.dataset.fv === fechaVista));
-      $("#tb-orden")?.classList.toggle("activo", ordenActivo());
+      const cant = filtrar(activos()).length;
+      el("#fo-ver").textContent = `Ver ${cant} ${cant === 1 ? "vehículo" : "vehículos"}`;
+      marcarBoton();
     };
-    chips();
+    const aplicar = () => { pintar(); pintarHoja(); };
     hoja.el.addEventListener("click", e => {
       const c = e.target.closest("[data-cia]");
-      if (c) { const k = c.dataset.cia; F.cias.has(k) ? F.cias.delete(k) : F.cias.add(k); pintar(); chips(); return; }
-      const fv = e.target.closest("[data-fv]");
-      if (fv) { fechaVista = fv.dataset.fv; try { localStorage.setItem("fechaVista", fechaVista); } catch { /* sin almacenamiento */ } chips(); pintar(); return; }
-      const b = e.target.closest("[data-orden]"); if (!b) return;
-      if (F.orden === b.dataset.orden) F.dir *= -1; else { F.orden = b.dataset.orden; F.dir = F.orden === "fecha" ? -1 : 1; }
-      chips(); pintar();
+      if (c) { const k = c.dataset.cia; F.cias.has(k) ? F.cias.delete(k) : F.cias.add(k); return aplicar(); }
+      if (e.target.closest("#fo-reset")) { F.mios = false; F.grado = null; F.repuestos = null; F.pintura = null; F.turno = null; F.cias.clear(); F.orden = "fecha"; F.dir = -1;
+        if (el("#fo-mios")) el("#fo-mios").checked = false; return aplicar(); }
+      const b = e.target.closest("[data-g]"); if (!b) return;
+      const g = b.dataset.g, v = b.dataset.v;
+      if (g === "orden") { if (F.orden === v) F.dir *= -1; else { F.orden = v; F.dir = v === "fecha" ? -1 : 1; } }
+      else if (g === "fecha") { fechaVista = v; try { localStorage.setItem("fechaVista", fechaVista); } catch { /* sin almacenamiento */ } }
+      else if (g === "grado") F.grado = v === "" ? null : Number(v);
+      else F[g] = v || null;   // turno, pintura, repuestos
+      aplicar();
     });
+    el("#fo-mios")?.addEventListener("change", e => { F.mios = e.target.checked; aplicar(); });
+    pintarHoja();
   });
   pintar();
 
