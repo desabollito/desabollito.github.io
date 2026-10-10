@@ -1651,3 +1651,28 @@ a.g-bar-fijo { text-decoration: none; color: inherit; }
 .est { border-radius: 10px; }
 .fo-chips .fo-op { flex-direction: column; gap: 0; min-height: 42px; padding: 4px 14px; background: var(--surface-2); }
 .fo-chips .fo-op b { font-size: 10.5px; line-height: 1; }
+
+/* ── Transiciones entre pantallas ── */
+@keyframes anim-der { from { opacity: 0; transform: translateX(28px); } to { opacity: 1; transform: none; } }
+@keyframes anim-izq { from { opacity: 0; transform: translateX(-28px); } to { opacity: 1; transform: none; } }
+@keyframes anim-push { from { opacity: 0; transform: translateX(40px) scale(.99); } to { opacity: 1; transform: none; } }
+@keyframes anim-pop { from { opacity: 0; transform: translateX(-30px); } to { opacity: 1; transform: none; } }
+@keyframes anim-sube { from { opacity: 0; transform: translateY(36px) scale(.97); } to { opacity: 1; transform: none; } }
+@keyframes anim-fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.view.anim-der { animation: anim-der .28s cubic-bezier(.2,.8,.2,1); }
+.view.anim-izq { animation: anim-izq .28s cubic-bezier(.2,.8,.2,1); }
+.view.anim-push { animation: anim-push .3s cubic-bezier(.2,.8,.2,1); }
+.view.anim-pop { animation: anim-pop .28s cubic-bezier(.2,.8,.2,1); }
+.view.anim-sube { animation: anim-sube .34s cubic-bezier(.2,.8,.2,1); }
+.view.anim-fade, .pane-detail.anim-fade { animation: anim-fade .25s ease-out; }
+/* Pestañas: el ícono de la elegida da un saltito */
+@keyframes tab-salto { 0% { transform: scale(1); } 40% { transform: scale(1.18) translateY(-2px); } 100% { transform: scale(1); } }
+.tabbar a .ic, #tab-planilla .ic { transition: color .2s, transform .2s; }
+.tabbar a.on .ic { animation: tab-salto .35s ease-out; }
+/* Botón +: gira y late */
+@keyframes fab-pulsa { 0% { transform: scale(1) rotate(0); } 35% { transform: scale(.86) rotate(90deg); } 70% { transform: scale(1.1) rotate(90deg); } 100% { transform: scale(1) rotate(90deg); } }
+@keyframes fab-onda { from { box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 55%, transparent); } to { box-shadow: 0 0 0 22px transparent; } }
+.fab.pulsa { animation: fab-onda .5s ease-out; }
+.fab.pulsa .ic { animation: fab-pulsa .45s cubic-bezier(.3,.7,.3,1); }
+.side-new.pulsa .ic { animation: fab-pulsa .45s cubic-bezier(.3,.7,.3,1); }
+@media (prefers-reduced-motion: reduce) { .view[class*="anim-"], .pane-detail.anim-fade, .fab.pulsa, .fab.pulsa .ic, .tabbar a.on .ic { animation: none !important; } }

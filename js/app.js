@@ -50,6 +50,35 @@ const RUTAS = [
   [/^#\/papelera$/,         "papelera",   () => vistaPapelera(view)]
 ];
 
+// ── Transiciones entre pantallas ──
+// Pestañas: se desliza hacia el lado de la pestaña nueva. Vehículo (celular): entra desde la derecha y vuelve desde la izquierda.
+// Nuevo/editar: sube desde abajo. En computadora, cambiar de vehículo funde el detalle.
+const ORDEN_TAB = { vehiculos: 0, calendario: 1, planillas: 2, planilla: 2, gastos: 2, tecnicos: 2, fijos: 2 };
+function animarCambio(antes, ahora) {
+  if (!antes.nombre || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const view = $("#view");
+  let clase = "";
+  if (["nuevo", "editar"].includes(ahora.nombre)) clase = "anim-sube";
+  else if (["nuevo", "editar"].includes(antes.nombre)) clase = "anim-fade";
+  else if (ahora.nombre === "vehiculos" && antes.nombre === "vehiculos") {
+    if (esAncho()) { const p = $(".pane-detail"); if (p && ahora.arg) { p.classList.remove("anim-fade"); void p.offsetWidth; p.classList.add("anim-fade"); } return; }
+    clase = ahora.arg ? "anim-push" : "anim-pop";
+  } else if (ahora.nombre in ORDEN_TAB && antes.nombre in ORDEN_TAB) {
+    const d = ORDEN_TAB[ahora.nombre] - ORDEN_TAB[antes.nombre];
+    clase = d > 0 ? "anim-der" : d < 0 ? "anim-izq" : "anim-push";
+  } else clase = ahora.arg || !(ahora.nombre in ORDEN_TAB) ? "anim-push" : "anim-pop";
+  view.classList.remove("anim-sube", "anim-fade", "anim-push", "anim-pop", "anim-der", "anim-izq");
+  void view.offsetWidth;
+  view.classList.add(clase);
+  view.addEventListener("animationend", () => view.classList.remove(clase), { once: true });
+}
+// Botón +: gira y late al tocarlo
+document.addEventListener("pointerdown", e => {
+  const f = e.target.closest(".fab, .side-new"); if (!f) return;
+  f.classList.remove("pulsa"); void f.offsetWidth; f.classList.add("pulsa");
+  f.addEventListener("animationend", () => f.classList.remove("pulsa"), { once: true });
+});
+
 function render({ conservarScroll = false, reabrir = false } = {}) {
   if (!S.user || !S.profile || S.sinOperativo) return;
   const h = location.hash || "#/";
@@ -97,6 +126,7 @@ function render({ conservarScroll = false, reabrir = false } = {}) {
   if (!mismaRuta) reiniciarVista3D(); // cada vez que se abre un vehículo, arranca en 2D
   ultimoRender = Date.now();
   ctrl = hit[2](arg) || null;
+  if (!mismaRuta && !reabrir) animarCambio(previa, ruta);
   if (hit[1] === "vehiculos" && arg) S.ultimoVid = arg;
   // Último vehículo abierto: marcado en la lista y el calendario
   const marcar = () => { if (!S.ultimoVid) return null;
