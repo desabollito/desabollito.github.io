@@ -390,20 +390,26 @@ if ("serviceWorker" in navigator) {
     bar.type = "button"; bar.id = "update-bar"; bar.className = "update-pop";
     bar.setAttribute("aria-label", "Hay una versión nueva: tocá para actualizar"); bar.title = "Versión nueva";
     bar.innerHTML = `<span class="pop-auto"><i class="pop-lineas"></i><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5.6 16H4a1 1 0 0 1-1-1v-2.4c0-.6.4-1.1 1-1.3l2.4-.7 2.5-3A2 2 0 0 1 10.4 7h4.4a2 2 0 0 1 1.6.8l2.4 3.2 1.4.4c.8.2 1.3.9 1.3 1.7V15a1 1 0 0 1-1 1h-1.1M9.4 16h5.2"/><circle cx="7.5" cy="16" r="1.9"/><circle cx="16.5" cy="16" r="1.9"/></svg></span>`;
+    let tocado = false;
     bar.onclick = async () => {
-      bar.classList.add("cargando", "arranca"); bar.disabled = true;
+      // Segundo toque (si no se actualizó solo): recarga directo
+      if (tocado) return location.reload();
+      tocado = true;
+      bar.classList.add("cargando", "arranca");
       await animacionActualizar();
       recargarAlCambiar = true; sw.postMessage("activar");
-      // Cartelito debajo del botón, por si el navegador no recarga solo
-      if (!$(".update-hint")) {
+      // Un segundo después de la animación, por si el navegador no recarga solo
+      setTimeout(() => {
+        bar.classList.remove("arranca");
+        if ($(".update-hint")) return;
         const hint = document.createElement("button");
         hint.type = "button"; hint.className = "update-hint update-hint-pop";
-        hint.textContent = "Si no se actualiza, tocá acá para recargar";
+        hint.textContent = "Si no se actualiza, tocá de nuevo";
         hint.onclick = () => location.reload();
         document.body.appendChild(hint);
         requestAnimationFrame(() => hint.classList.add("in"));
-      }
-      setTimeout(() => location.reload(), 6000);   // por si el navegador no recarga solo
+      }, 1000);
+      setTimeout(() => location.reload(), 7000);   // por si el navegador no recarga solo
     };
     document.body.appendChild(bar);
     requestAnimationFrame(() => bar.classList.add("in"));
