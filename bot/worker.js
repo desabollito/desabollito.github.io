@@ -650,8 +650,8 @@ async function leerSesion(env, numero) {
   if (Date.now() - Number(s.ts || 0) > SESION_HORAS * 3600 * 1000) return null;
   return s;
 }
-// La espera de fotos de un vehículo se cierra sola a los 5 minutos sin actividad (sin fotos ni mensajes)
-const ESPERA_FOTOS = 300;   // segundos
+// La espera de fotos de un vehículo se cierra sola a los 60 minutos sin actividad (sin fotos ni mensajes)
+const ESPERA_FOTOS = 3600;   // segundos (60 min)
 const ultimaActividad = s => Math.max(Number(s?.desde || 0), Number(s?.ultimaAct || 0), Math.floor(Number(s?.ts || 0) / 1000));
 const vencida = (s, hora = Math.floor(Date.now() / 1000)) => hora - ultimaActividad(s) > ESPERA_FOTOS;
 const abierta = s => !!(s?.vid && !s.cerradaEn && !vencida(s));
