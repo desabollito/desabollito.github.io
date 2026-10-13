@@ -2,6 +2,7 @@ import {
   S, onChange, iniciarSesion, ingresar, crearCuenta, mensajeError, elegirEmpresa
 } from "./data.js";
 import { ruidoMotor } from "./sonidos.js";
+import { cerrarSplash, veloCambio } from "./efectos.js";
 import { $, $$, esc, toast, busy, openSheet } from "./ui.js";
 import { FIREBASE, BOT_API } from "./config.js";
 import { iniciarFechas } from "./fecha.js";
@@ -73,7 +74,7 @@ function animarCambio(antes, ahora) {
   } else clase = ahora.arg || !(ahora.nombre in ORDEN_TAB) ? "anim-push" : "anim-pop";
   view.classList.remove("anim-sube", "anim-fade", "anim-push", "anim-pop", "anim-der", "anim-izq");
   void view.offsetWidth;
-  view.classList.add(clase);
+  view.classList.add(clase); veloCambio();
   view.addEventListener("animationend", () => view.classList.remove(clase), { once: true });
 }
 // Cambio de operativo: la pantalla entra con un zoom suave
@@ -324,7 +325,7 @@ if (FIREBASE.apiKey.startsWith("TU_")) {
 }
 const tokenVer = new URLSearchParams(location.search).get("ver");
 const alEntrar = (logueado, error) => {
-  $("#splash").hidden = true;
+  cerrarSplash();
   $("#login").hidden = logueado;
   // Login: tema propio (claro por defecto); con sesión, el tema elegido en Ajustes (oscuro por defecto)
   try {
@@ -349,7 +350,7 @@ if (tokenVer) {
   // Link de solo lectura para un perito: sin login, solo ve los vehículos de su compañía
   document.body.dataset.lector = "1";
   iniciarInvitado(tokenVer, (ok, err) => {
-    $("#splash").hidden = true;
+    cerrarSplash();
     if (!ok) { $("#login").hidden = true; document.body.insertAdjacentHTML("beforeend", `<section class="espera"><div class="espera-caja"><img src="img/logo-oscuro.png" alt="" class="espera-logo"><h1>Link no disponible</h1><p>${esc(err?.message || "")}</p></div></section>`); return; }
     $("#login").hidden = true; $("#shell").hidden = false;
     if (S.invitado?.uno) document.body.dataset.lectorUno = "1";

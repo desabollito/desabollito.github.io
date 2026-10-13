@@ -318,7 +318,7 @@ export function vistaEmpresa(view) {
           ${admin ? `<button type="button" class="link-btn" id="tam-def">Tamaños normales</button>` : ""}</div>
         <div class="field color-pdf"><span>Colores del PDF</span>
           <div class="colores-grid">${[["color", "Encabezado"], ["colorPanos", "Paños afectados"], ["colorTitulos", "Subtítulos y líneas"], ["colorPuntos", "Puntitos"]].map(([k, t]) =>
-            `<label class="color-item"><input type="color" name="${k}" value="${esc(sello[k] || sello.color || "#DD3C33")}" ${admin ? "" : "disabled"}><span>${t}</span></label>`).join("")}</div>
+            `<label class="color-item"><input type="color" name="${k}" value="${esc(sello[k] || sello.color || "#2b5ce6")}" ${admin ? "" : "disabled"}><span>${t}</span></label>`).join("")}</div>
           ${admin ? `<button type="button" class="link-btn" id="color-def">Volver al azul</button>` : ""}</div>
         ${admin ? `<button class="btn btn-primary">Guardar sello</button>` : ""}
       </form>
@@ -400,7 +400,7 @@ export function vistaEmpresa(view) {
     const b = e.target.closest("[data-diseno]"); if (!b || !admin) return;
     diseno = b.dataset.diseno; $$("#diseno-pdf .seg-btn", view).forEach(x => x.classList.toggle("on", x === b));
   });
-  $("#color-def", view)?.addEventListener("click", () => { $$("#sello input[type=color]", view).forEach(i => { i.value = "#DD3C33"; }); });
+  $("#color-def", view)?.addEventListener("click", () => { $$("#sello input[type=color]", view).forEach(i => { i.value = "#2b5ce6"; }); });
   if ($("#sello", view)) $("#sello", view).onsubmit = async e => {
     e.preventDefault(); if (!admin) return;
     try { await guardarSello({ texto: e.target.texto.value.trim(), logo, color: e.target.color.value,

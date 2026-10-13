@@ -29,6 +29,13 @@ export function carMapSVG(piezas = {}, { editable = false, size = "" } = {}) {
   </svg>`;
 }
 
+// Feedback breve al tocar un paño (la animación está en .panel.pulso del CSS)
+export function pulsar(g) {
+  if (!g) return;
+  g.classList.remove("pulso"); g.getBoundingClientRect(); g.classList.add("pulso");
+  g.addEventListener("animationend", () => g.classList.remove("pulso"), { once: true });
+}
+
 // Conecta el mapa editable con un objeto de piezas y una lista de chips.
 export function montarMapa(root, piezas, onToggle) {
   const svg = root.querySelector(".carmap");
@@ -42,6 +49,10 @@ export function montarMapa(root, piezas, onToggle) {
         : sel.length ? `${sel.length} ${sel.length === 1 ? "paño" : "paños"}: ${sel.join(", ")}` : "Ningún paño marcado todavía.";
     }
     if (!lista) return;
+    // Ya dibujados: solo cambia la clase, así el color pasa con transición
+    if (lista.children.length) return lista.querySelectorAll("[data-pieza]").forEach(b => {
+      const on = !!piezas[b.dataset.pieza]; b.classList.toggle("on", on); b.setAttribute("aria-pressed", on);
+    });
     lista.innerHTML = ORDEN_PIEZAS.map(k => `
       <button type="button" class="chip ${piezas[k] ? "on" : ""}" data-pieza="${k}" aria-pressed="${!!piezas[k]}">
         ${esc(PIEZA[k].label)}</button>`).join("");
@@ -52,6 +63,7 @@ export function montarMapa(root, piezas, onToggle) {
     const g = svg.querySelector(`[data-pieza="${key}"]`);
     g.classList.toggle("on", piezas[key]);
     g.setAttribute("aria-checked", piezas[key]);
+    pulsar(g);
     pintarLista();
     onToggle?.(piezas);
     navigator.vibrate?.(8);
