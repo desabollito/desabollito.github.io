@@ -18,7 +18,7 @@
       // La barra del sistema (hora, batería, isla) toma el color de fondo del tema: sin contenido ni desenfoque debajo
       var pintarBarra = function () {
         var m = document.querySelector('meta[name="theme-color"]');
-        if (m) m.setAttribute("content", document.documentElement.getAttribute("data-theme") === "light" ? "#eef1f5" : "#0e0e10");
+        if (m) m.setAttribute("content", document.documentElement.getAttribute("data-theme") === "light" ? "#F7F6F3" : "#0b0a09");
       };
       new MutationObserver(pintarBarra).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
       document.addEventListener("DOMContentLoaded", pintarBarra);
@@ -28,7 +28,7 @@
   <meta name="description" content="El futuro llegó y ahora gestionarte es más sencillo. by @gzmatte">
   <meta name="author" content="@gzmatte">
   <link rel="canonical" href="https://desabollito.com/">
-  <meta name="theme-color" content="#0e1b2c">
+  <meta name="theme-color" content="#0b0a09">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Desabollito">
@@ -54,7 +54,7 @@
   <link rel="manifest" href="manifest.json">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/app.css">
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>

@@ -6,8 +6,8 @@
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#0e1b2c",
-  "theme_color": "#0e1b2c",
+  "background_color": "#0b0a09",
+  "theme_color": "#0b0a09",
   "lang": "es-AR",
   "categories": [
     "business",

@@ -13,7 +13,7 @@
   --muted: #68788d;
   --line: #dce2ea;
   --line-2: #c9d2dd;
-  --primary: #2b5ce6;
+  --primary: #DD3C33;
   --primary-2: #1f47bd;
   --primary-soft: #e6edff;
   --on-primary: #ffffff;
@@ -175,7 +175,7 @@ button { cursor: pointer; }
 .splash img { width: 72px; height: 72px; border-radius: 18px; }
 
 .login { min-height: 100dvh; display: grid; place-items: center; padding: 24px 16px calc(24px + var(--safe-b)); position: relative; overflow: hidden; }
-.login-art { position: absolute; inset: 0; background: #0e1b2c; }
+.login-art { position: absolute; inset: 0; background: #0b0a09; }
 .login-card {
   position: relative; width: min(420px, 100%); background: var(--surface); border-radius: 22px; padding: 30px 24px 24px;
   box-shadow: var(--shadow-lg); display: flex; flex-direction: column; gap: 16px;
@@ -461,7 +461,7 @@ fieldset.card legend + * { clear: both; }
 .ph { margin: 0; position: relative; aspect-ratio: 1; border-radius: 10px; overflow: hidden; background: var(--surface-2); }
 .ph-open { border: 0; padding: 0; width: 100%; height: 100%; background: none; }
 .ph img { width: 100%; height: 100%; object-fit: cover; }
-.ph-del { position: absolute; top: 4px; right: 4px; width: 28px; height: 28px; border-radius: 8px; border: 0; background: rgba(10,20,32,.65); color: #fff; display: grid; place-items: center; }
+.ph-del { position: absolute; top: 4px; right: 4px; width: 28px; height: 28px; border-radius: 8px; border: 0; background: rgba(11,10,9,.65); color: #fff; display: grid; place-items: center; }
 .ph-del .ic { width: 15px; height: 15px; }
 .ph.uploading { display: grid; place-items: center; color: var(--primary); border: 1.5px dashed var(--line-2); }
 .docs { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
@@ -471,7 +471,7 @@ fieldset.card legend + * { clear: both; }
 .firma-img { max-width: 320px; background: #fff; border-radius: 10px; border: 1px solid var(--line); padding: 6px; }
 
 /* ── Hojas / diálogos ─────────────────────────────────────── */
-.sheet-backdrop { position: fixed; inset: 0; z-index: 60; background: rgba(8, 15, 26, .5); display: flex; align-items: flex-end; justify-content: center; opacity: 0; transition: opacity .2s; }
+.sheet-backdrop { position: fixed; inset: 0; z-index: 60; background: rgba(5, 5, 5, .5); display: flex; align-items: flex-end; justify-content: center; opacity: 0; transition: opacity .2s; }
 .sheet-backdrop.in { opacity: 1; }
 .sheet {
   width: 100%; max-height: 92dvh; overflow-y: auto; background: var(--surface); border-radius: 20px 20px 0 0;
@@ -570,7 +570,7 @@ body[data-ruta="vehiculos"] .toasts, body[data-ruta="planilla"] .toasts, body[da
 .add-member select { width: auto; }
 @media (max-width: 520px) { .add-member { grid-template-columns: 1fr 1fr; } .add-member .field { grid-column: 1 / -1; } }
 .logo-row { display: flex; align-items: center; gap: 14px; }
-.logo-prev { width: 140px; height: 70px; border-radius: 10px; background: #0e1b2c; display: grid; place-items: center; padding: 8px; color: #8395ab; font-size: 13px; }
+.logo-prev { width: 140px; height: 70px; border-radius: 10px; background: #0b0a09; display: grid; place-items: center; padding: 8px; color: #8395ab; font-size: 13px; }
 .logo-prev img { max-height: 100%; object-fit: contain; }
 .logo-prev.vacio { background: var(--surface-2); border: 1.5px dashed var(--line-2); color: var(--muted); }
 .danger-zone { background: none; border-style: dashed; }
@@ -727,7 +727,7 @@ body[data-detalle="1"] .fab { display: none !important; }
   background: var(--surface-2); cursor: pointer; display: grid; place-items: center; color: var(--muted); }
 .d-cover img { width: 100%; height: 100%; object-fit: cover; }
 .d-cover-n { position: absolute; right: 6px; bottom: 6px; display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px;
-  border-radius: 999px; background: rgba(10,20,32,.72); color: #fff; font-size: 12.5px; font-weight: 700; }
+  border-radius: 999px; background: rgba(11,10,9,.72); color: #fff; font-size: 12.5px; font-weight: 700; }
 .d-cover-n .ic { width: 14px; height: 14px; }
 .d-cover.vacio { border: 1.5px dashed var(--line-2); flex-direction: column; gap: 4px; align-content: center; }
 .d-cover.vacio small { font-size: 11.5px; font-weight: 600; }
@@ -1028,8 +1028,8 @@ details.vform-det .field + .field { margin-top: 12px; }
 
 /* Visor: descargar arriba a la derecha de la foto */
 .viewer-foto { position: relative; }
-.viewer-dl { position: absolute; top: 10px; right: 10px; background: rgba(10,20,32,.62); color: #fff; border-radius: 50%; -webkit-touch-callout: none; user-select: none; }
-.viewer-dl:hover { background: rgba(10,20,32,.8); }
+.viewer-dl { position: absolute; top: 10px; right: 10px; background: rgba(11,10,9,.62); color: #fff; border-radius: 50%; -webkit-touch-callout: none; user-select: none; }
+.viewer-dl:hover { background: rgba(11,10,9,.8); }
 
 /* Detalle: tira desplegable "Adicionales" */
 .d-adic > summary { list-style: none; cursor: pointer; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; position: relative; padding-right: 26px; }
@@ -1058,8 +1058,8 @@ details.vform-det .field + .field { margin-top: 12px; }
 .viewer-carga { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; }
 .viewer-carga[hidden] { display: none; }
 .viewer-carga .spin { width: 34px; height: 34px; border-width: 3px; }
-.viewer-ov { position: absolute; background: rgba(10,20,32,.55); color: #fff; border-radius: 50%; -webkit-touch-callout: none; user-select: none; }
-.viewer-ov:hover { background: rgba(10,20,32,.8); }
+.viewer-ov { position: absolute; background: rgba(11,10,9,.55); color: #fff; border-radius: 50%; -webkit-touch-callout: none; user-select: none; }
+.viewer-ov:hover { background: rgba(11,10,9,.8); }
 .viewer-dl { top: 10px; right: 10px; }
 .viewer-rot { top: 10px; left: 10px; }
 .viewer-prev, .viewer-next { top: 50%; transform: translateY(-50%); }
@@ -1093,7 +1093,7 @@ details.vform-det .field + .field { margin-top: 12px; }
 .zoom-foto { position: fixed; inset: 0; z-index: 90; background: #000; display: flex; align-items: center; justify-content: center; touch-action: none; overflow: hidden; }
 .zoom-foto img { max-width: 100%; max-height: 100%; object-fit: contain; transform-origin: center; user-select: none; -webkit-user-drag: none; pointer-events: none; }
 .zoom-foto .zoom-x { position: absolute; top: 0; left: 0; right: 0; z-index: 1; border: 0; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;
-  padding: calc(14px + var(--safe-t, 0px)) 16px 14px; background: rgba(20, 30, 45, .85); color: #fff; font: inherit; font-size: 16px; font-weight: 800; }
+  padding: calc(14px + var(--safe-t, 0px)) 16px 14px; background: rgba(20, 18, 16, .85); color: #fff; font: inherit; font-size: 16px; font-weight: 800; }
 .zoom-foto .zoom-x .ic { width: 20px; height: 20px; }
 .viewer-x { display: none; }
 @media (max-width: 699px) {
@@ -1181,7 +1181,7 @@ html, body { overscroll-behavior-y: none; }
 .etapa-item { background: var(--surface-2); color: var(--ink); border: 1px solid var(--line); }
 
 /* Ventanas emergentes: el fondo se ve desenfocado (en vez de oscurecido) */
-.sheet-backdrop { background: rgba(8, 15, 26, .15); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+.sheet-backdrop { background: rgba(5, 5, 5, .15); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
 /* Visor de fotos en celular: la pantalla de atrás también se ve desenfocada */
 @media (max-width: 699px) {
   .sheet.sheet-visor { background: color-mix(in srgb, var(--surface) 72%, transparent); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
@@ -1189,7 +1189,7 @@ html, body { overscroll-behavior-y: none; }
 .hist-undo { margin-bottom: 12px; justify-content: flex-start; text-align: left; white-space: normal; }
 
 /* Menú Contactar: fondo desenfocado */
-.menu-velo { position: fixed; inset: 0; z-index: 14; background: rgba(8, 15, 26, .15); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+.menu-velo { position: fixed; inset: 0; z-index: 14; background: rgba(5, 5, 5, .15); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
 .d-contacto { z-index: 15; }
 .d-contacto:has(.d-menu:not([hidden])) { position: relative; z-index: 16; }
 
@@ -1481,7 +1481,7 @@ a.g-bar-fijo { text-decoration: none; color: inherit; }
 .est-acc { display: inline-flex; gap: 12px; align-items: center; }
 .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .switch-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-weight: 600; font-size: 14px; }
-.switch-row input { width: 22px; height: 22px; accent-color: var(--brand, #2b5ce6); }
+.switch-row input { width: 22px; height: 22px; accent-color: var(--brand, #DD3C33); }
 .tec-desc { align-items: center; }
 .tec-aparte { opacity: .55; border-left: 2px dashed var(--line); padding-left: 8px; margin: 4px 0; }
 .tec-aparte .tec-linea b { text-decoration: none; }
@@ -1491,7 +1491,7 @@ a.g-bar-fijo { text-decoration: none; color: inherit; }
 .adm-acc-head { margin-top: 10px; color: var(--ink-2); font-weight: 700; text-align: center; }
 .adm-acc-fila { padding: 7px 0; border-top: 1px solid var(--line); }
 .adm-acc-fila > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.adm-acc-fila input { justify-self: center; width: 20px; height: 20px; accent-color: var(--brand, #2b5ce6); }
+.adm-acc-fila input { justify-self: center; width: 20px; height: 20px; accent-color: var(--brand, #DD3C33); }
 /* Computadora: los estados en una fila a lo ancho, arriba de la lista y el detalle */
 .estado-fila { margin-bottom: 14px; }
 .estado-fila .estado-strip { margin: 0; padding: 0 0 2px; display: flex; flex-wrap: nowrap; overflow-x: auto; }
@@ -1717,3 +1717,80 @@ a.g-bar-fijo { text-decoration: none; color: inherit; }
 @media (prefers-reduced-motion: reduce) { .sp-auto, .sp-ruta, .sp-vel, .sp-marca span { animation: none; } .sp-marca { animation: sp-marca .5s forwards; } }
 /* La animación de pestañas desplaza la pantalla de costado: que no genere desplazamiento horizontal (eso hacía saltar la vista) */
 html, body, .main { overflow-x: clip; }
+
+/* ══════════════════════════════════════════════════════════
+   Tema Chapistería Omar (ver ChapisteriaOmarDESIGN.md)
+   Pisa los tokens de arriba: oscuro cálido, acento rojo,
+   vidrio esmerilado, Inter ajustada y easing de la marca.
+   ══════════════════════════════════════════════════════════ */
+:root {
+  --bg: #F7F6F3; --surface: #ffffff; --surface-2: #efece8; --ink: #23201B; --ink-2: #4a463f;
+  --muted: #716D67; --line: #DEDAD5; --line-2: #c9c4bd; --primary: #DD3C33; --primary-2: #b8302a;
+  --primary-soft: #fbe7e5; --danger: #c4302a; --danger-soft: #fbe7e5; --ok: #2e9d5b; --warn: #c27a1f;
+  --glass: #d6d2cb; --card-bg: rgba(255,255,255,.55); --edge: rgba(35,32,27,.12);
+  --shadow: 0 1px 2px rgba(35,32,27,.06), 0 10px 28px -14px rgba(35,32,27,.2);
+  --shadow-lg: 0 24px 64px -16px rgba(35,32,27,.35);
+  --r-lg: 22px; --r: 12px;
+  --font: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --ease: cubic-bezier(.2,.7,.2,1);
+  --blob: .22;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0b0a09; --surface: #1c1a17; --surface-2: #141210; --ink: #F7F6F3; --ink-2: #d2cdc5;
+    --muted: #a8a39b; --line: #2c2925; --line-2: #4a463f; --primary: #DD3C33; --primary-2: #ff5a4f;
+    --primary-soft: #3a1714; --danger: #ff6b5f; --danger-soft: #3a1714; --ok: #3ddc84; --warn: #f0a04b;
+    --glass: #2c2925; --card-bg: rgba(255,255,255,.06); --edge: rgba(255,255,255,.12);
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px -14px rgba(0,0,0,.6); --shadow-lg: 0 28px 70px -18px rgba(0,0,0,.7);
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0b0a09; --surface: #1c1a17; --surface-2: #141210; --ink: #F7F6F3; --ink-2: #d2cdc5;
+  --muted: #a8a39b; --line: #2c2925; --line-2: #4a463f; --primary: #DD3C33; --primary-2: #ff5a4f;
+  --primary-soft: #3a1714; --danger: #ff6b5f; --danger-soft: #3a1714; --ok: #3ddc84; --warn: #f0a04b;
+  --glass: #2c2925; --card-bg: rgba(255,255,255,.06); --edge: rgba(255,255,255,.12);
+  --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px -14px rgba(0,0,0,.6); --shadow-lg: 0 28px 70px -18px rgba(0,0,0,.7);
+}
+:root[data-theme="light"] { --blob: .12; }
+
+/* Manchas de luz detrás del vidrio */
+body::before {
+  content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background:
+    radial-gradient(60vmax 50vmax at 0% 0%, rgb(221 60 51 / var(--blob)), transparent 60%),
+    radial-gradient(55vmax 45vmax at 100% 100%, rgb(221 60 51 / calc(var(--blob) * .64)), transparent 60%),
+    radial-gradient(40vmax 30vmax at 50% 0%, rgb(255 255 255 / .05), transparent 70%);
+}
+h1, h2 { letter-spacing: -.03em; }
+h3 { letter-spacing: -.02em; }
+html { scrollbar-width: none; }
+::-webkit-scrollbar { display: none; }
+:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
+
+/* Vidrio: barras y paneles con desenfoque; tarjetas solo translúcidas */
+.topbar, .tabbar, .side, .sheet {
+  background: color-mix(in srgb, var(--surface) 62%, transparent);
+  -webkit-backdrop-filter: blur(18px) saturate(140%); backdrop-filter: blur(18px) saturate(140%);
+  border-color: var(--edge);
+}
+@media (min-width: 1100px) { .topbar { background: color-mix(in srgb, var(--bg) 55%, transparent); } }
+/* shortcut: tarjetas sin backdrop-filter (hay listas con cientos y el celular se traba), sumarlo si se ve pobre */
+.card { background: var(--card-bg); border-color: var(--edge); box-shadow: var(--shadow); }
+.sheet-backdrop { background: rgba(5,5,5,.55); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); }
+.sheet { transition-timing-function: var(--ease); }
+
+/* Botones píldora con brillo rojo */
+.btn { border-radius: 999px; transition: background .2s var(--ease), border-color .2s var(--ease), box-shadow .25s var(--ease), transform .1s; }
+.btn-primary:hover { box-shadow: 0 0 28px color-mix(in srgb, var(--btn) 55%, transparent); }
+.btn-ghost { background: var(--card-bg); border-color: var(--edge); }
+.btn-ghost:hover { border-color: var(--primary); }
+.field input, .field textarea, .field select, select, .money-in { border-radius: 12px; }
+.tabbar a { transition: color .2s var(--ease); }
+.tabbar a.on .ic { filter: drop-shadow(0 0 8px rgba(221,60,51,.6)); }
+.sp-marca span { background: linear-gradient(180deg, #ff8a5c, var(--primary)); -webkit-background-clip: text; background-clip: text; }
+
+/* Transiciones de pantalla con el easing de la marca */
+.view.anim-der, .view.anim-izq, .view.anim-push, .view.anim-pop, .view.anim-sube, .view.anim-op { animation-timing-function: var(--ease); }
+
+/* En la app instalada la barra sigue siendo sólida (isla del iPhone) */
+@media (display-mode: standalone) { .topbar { background: var(--bg); -webkit-backdrop-filter: none; backdrop-filter: none; } }
