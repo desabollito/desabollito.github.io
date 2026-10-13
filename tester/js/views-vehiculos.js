@@ -1049,7 +1049,12 @@ function visor(fotos = [], inicio = 0, v = null) {
   });
   $(".sheet", s.el).classList.add("sheet-visor");
   const img0 = $("#vw-img", s.el), carga = $(".viewer-carga", s.el);
-  img0.addEventListener("load", () => { carga.hidden = true; img0.classList.remove("cargando"); });
+  // Al cargar la principal, se precargan en grande la anterior y la siguiente (pasar de foto es instantáneo)
+  const precargar = () => [-1, 1].forEach(d => {
+    const f = fotos[(i + d + fotos.length) % fotos.length];
+    if (fotos.length > 1 && !esVideo(f)) new Image().src = grande(f.url, 1600, f.rot);
+  });
+  img0.addEventListener("load", () => { carga.hidden = true; img0.classList.remove("cargando"); precargar(); });
   img0.addEventListener("error", () => { carga.hidden = true; img0.classList.remove("cargando"); });
   const vid = $("#vw-vid", s.el);
   const show = (dir = 0) => {

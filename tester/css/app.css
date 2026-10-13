@@ -1761,9 +1761,10 @@ body::before {
 .field input, .field textarea, .field select, select, .money-in { border-radius: 12px; }
 .tabbar a.on .ic { filter: drop-shadow(0 0 8px color-mix(in srgb, var(--primary) 60%, transparent)); }
 
-/* Spotlight Card (solo con mouse) */
+/* Glow alrededor del mouse en toda la app (solo con mouse) */
 @media (hover: hover) and (pointer: fine) {
-  .card, .d-sec, .vcard { background-image: radial-gradient(circle 240px at var(--mx, -999px) var(--my, -999px), color-mix(in srgb, var(--primary) 13%, transparent), transparent 70%); }
+  .glow-mouse { position: fixed; left: -280px; top: -280px; width: 560px; height: 560px; z-index: 9000; pointer-events: none; opacity: 0;
+    border-radius: 50%; background: radial-gradient(closest-side, color-mix(in srgb, var(--primary) 12%, transparent), transparent); transition: opacity .3s; will-change: transform; }
 }
 
 /* Intro: aurora azul, logo y nombre que entran desenfocados; al terminar se abre un agujero desde el centro */
@@ -1852,3 +1853,15 @@ html.lenis, html.lenis body { height: auto; }
 @media (prefers-reduced-motion: reduce) {
   .aurora i, .intro-barra::after, .bw, .velo-cambio, .step .dot, .carmap .panel rect, .dc-sig, .dc-ant { animation: none !important; }
 }
+
+/* Vehículo elegido: glow en vez de contorno */
+.vcard.sel { border-color: var(--edge); box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary) 35%, transparent), 0 0 26px color-mix(in srgb, var(--primary) 32%, transparent); }
+.vcard { -webkit-tap-highlight-color: transparent; transition: box-shadow .3s var(--ease), border-color .3s var(--ease); }
+.vcard:focus:not(:focus-visible) { outline: none; }
+/* Calendario: el "+N" no se recorta */
+.cd-ev i.more { overflow: visible; text-overflow: clip; flex-shrink: 0; padding: 0 2px; line-height: 1.25; }
+/* Visor: menos transparente */
+.sheet.sheet-visor { background: color-mix(in srgb, var(--surface) 94%, transparent); }
+/* Mantener para borrar: el anillo rojo solo aparece al apretar */
+.hold-del .anillo circle:not(.base) { opacity: 0; }
+.hold-del.cargando .anillo circle:not(.base) { opacity: 1; }

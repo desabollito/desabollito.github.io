@@ -53,18 +53,13 @@ export function veloCambio() {
   document.body.appendChild(v);
 }
 
-// Spotlight Card: un brillo que sigue al mouse dentro de la tarjeta
+// Glow que sigue al mouse por toda la app (se mueve con transform: no recalcula estilos)
 if (matchMedia("(hover: hover) and (pointer: fine)").matches) {
-  let ultima = null;
-  document.addEventListener("pointermove", e => {
-    const c = e.target.closest?.(".vcard, .card, .d-sec");
-    if (ultima && ultima !== c) { ultima.style.removeProperty("--mx"); ultima.style.removeProperty("--my"); }
-    ultima = c;
-    if (!c) return;
-    const r = c.getBoundingClientRect();
-    c.style.setProperty("--mx", `${e.clientX - r.left}px`);
-    c.style.setProperty("--my", `${e.clientY - r.top}px`);
-  }, { passive: true });
+  const glow = document.createElement("div");
+  glow.className = "glow-mouse"; glow.setAttribute("aria-hidden", "true");
+  document.body.appendChild(glow);
+  document.addEventListener("pointermove", e => { glow.style.transform = `translate3d(${e.clientX}px, ${e.clientY}px, 0)`; glow.style.opacity = 1; }, { passive: true });
+  document.documentElement.addEventListener("pointerleave", () => { glow.style.opacity = 0; });
 }
 
 // Scroll suave con la rueda o el touchpad (en el celular queda el nativo)
