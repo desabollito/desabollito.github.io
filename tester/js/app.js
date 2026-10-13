@@ -1,0 +1,620 @@
+import {
+  S, onChange, iniciarSesion, ingresar, crearCuenta, mensajeError, elegirEmpresa
+} from "./data.js";
+import { ruidoMotor } from "./sonidos.js";
+import { $, $$, esc, toast, busy, openSheet } from "./ui.js";
+import { FIREBASE, BOT_API } from "./config.js";
+import { iniciarFechas } from "./fecha.js";
+import { cuentaPendiente, salir, marcarOperativosVistos, soyCreador, crearEmpresa, pedirUnion, cancelarPedidoUnion, escucharMiPedido, responderPedidoUnion, soyDesmontaje, miRol, soyAdmin, getVehiculo, iniciarInvitado, soyLector, puedeVer } from "./data.js";
+import { marcarNav, pintarLateral, esAncho } from "./shell.js";
+import { vistaVehiculos, vistaDetalle, vistaFormulario, reiniciarVista3D, elegirVehiculoDesmontaje } from "./views-vehiculos.js";
+import {
+  vistaPlanilla, vistaCalendario, calendarioAlEntrar, reiniciarCalendario, vistaEmpresa, vistaAjustes, vistaPapelera, elegirEmpresaSheet, panelCreador
+} from "./views-otros.js";
+import { vistaGastos, formGasto } from "./views-gastos.js";
+import { vistaPlanillas, vistaTecnicos } from "./views-tecnicos.js";
+import { vistaFijos } from "./views-fijos.js";
+
+const view = $("#view");
+let ruta = { nombre: "", arg: null };
+let ctrl = null;
+
+// ── Rutas ─────────────────────────────────────────────────────
+// Link directo desde el bot: #/o/<operativo>/v/<vehículo>
+function irAVehiculo(arg) {
+  const [cid, vid] = arg.split("|");
+  if (!S.companies.length) { view.innerHTML = `<div class="skeleton tall"></div>`; return; }
+  if (!S.companies.some(c => c.id === cid)) {
+    view.innerHTML = `<div class="empty"><h2>No tenés acceso a ese operativo</h2><p>Pedile a un administrador que te sume.</p>
+      <a class="btn btn-primary" href="#/">Ver vehículos</a></div>`;
+    return;
+  }
+  if (S.company?.id !== cid) elegirEmpresa(cid);
+  location.replace(`#/v/${vid}`);
+}
+
+const RUTAS = [
+  [/^#?\/?$/,               "vehiculos",  () => vistaVehiculos(view)],
+  [/^#\/v\/([\w-]+)$/,      "vehiculos",  id => esAncho() && !S.volverA && !S.invitado?.uno ? vistaVehiculos(view, id) : vistaDetalle(view, id)],
+  [/^#\/o\/([\w-]+\/v\/[\w-]+)$/, "link", a => irAVehiculo(a.replace("/v/", "|"))],
+  [/^#\/nuevo$/,            "nuevo",      () => vistaFormulario(view)],
+  [/^#\/editar\/([\w-]+)$/, "editar",     id => vistaFormulario(view, id)],
+  [/^#\/planillas$/,        "planillas",  () => vistaPlanillas(view)],
+  [/^#\/planilla$/,         "planilla",   () => vistaPlanilla(view)],
+  [/^#\/tecnicos$/,         "tecnicos",   () => vistaTecnicos(view)],
+  [/^#\/fijos$/,            "fijos",      () => vistaFijos(view)],
+  [/^#\/calendario$/,       "calendario", () => vistaCalendario(view)],
+  [/^#\/(operativo|empresa)$/, "operativo", () => vistaEmpresa(view)],
+  [/^#\/gastos$/,           "gastos",     () => vistaGastos(view)],
+  [/^#\/ajustes$/,          "ajustes",    () => vistaAjustes(view)],
+  [/^#\/papelera$/,         "papelera",   () => vistaPapelera(view)]
+];
+
+// ── Transiciones entre pantallas ──
+// Pestañas: se desliza hacia el lado de la pestaña nueva. Vehículo (celular): entra desde la derecha y vuelve desde la izquierda.
+// Nuevo/editar: sube desde abajo. En computadora, cambiar de vehículo funde el detalle.
+const ORDEN_TAB = { vehiculos: 0, calendario: 1, planillas: 2, planilla: 2, gastos: 2, tecnicos: 2, fijos: 2 };
+function animarCambio(antes, ahora) {
+  if (!antes.nombre || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const view = $("#view");
+  let clase = "";
+  if (["nuevo", "editar"].includes(ahora.nombre)) clase = "anim-sube";
+  else if (["nuevo", "editar"].includes(antes.nombre)) clase = "anim-fade";
+  else if (ahora.nombre === "vehiculos" && ahora.arg && antes.nombre !== "vehiculos") clase = "anim-push";   // desde el calendario, notificaciones, etc.
+  else if (antes.nombre === "vehiculos" && antes.arg && ahora.nombre !== "vehiculos") clase = "anim-pop";
+  else if (ahora.nombre === "planillas" && ORDEN_TAB[antes.nombre] === 2) clase = "anim-pop";   // de una planilla al menú
+  else if (antes.nombre === "planillas" && ORDEN_TAB[ahora.nombre] === 2) clase = "anim-push";
+  else if (ahora.nombre === "vehiculos" && antes.nombre === "vehiculos") {
+    if (esAncho()) { const p = $(".pane-detail"); if (p && ahora.arg) { p.classList.remove("anim-fade"); void p.offsetWidth; p.classList.add("anim-fade"); } return; }
+    clase = ahora.arg ? "anim-push" : "anim-pop";
+  } else if (ahora.nombre in ORDEN_TAB && antes.nombre in ORDEN_TAB) {
+    const d = ORDEN_TAB[ahora.nombre] - ORDEN_TAB[antes.nombre];
+    clase = d > 0 ? "anim-der" : d < 0 ? "anim-izq" : "anim-push";
+  } else clase = ahora.arg || !(ahora.nombre in ORDEN_TAB) ? "anim-push" : "anim-pop";
+  view.classList.remove("anim-sube", "anim-fade", "anim-push", "anim-pop", "anim-der", "anim-izq");
+  void view.offsetWidth;
+  view.classList.add(clase);
+  view.addEventListener("animationend", () => view.classList.remove(clase), { once: true });
+}
+// Cambio de operativo: la pantalla entra con un zoom suave
+document.addEventListener("click", e => {
+  if (!e.target.closest(".company-opt[data-id]")) return;
+  setTimeout(() => { const v = $("#view"); v.classList.remove("anim-op"); void v.offsetWidth; v.classList.add("anim-op");
+    v.addEventListener("animationend", () => v.classList.remove("anim-op"), { once: true }); }, 30);
+});
+// Botones de estado: el círculo late al tocarlo y el nuevo estado "aparece" al redibujarse
+document.addEventListener("pointerdown", e => {
+  const st = e.target.closest(".step[data-estado]"); if (!st) return;
+  st.classList.remove("toca"); void st.offsetWidth; st.classList.add("toca");
+  S.pasoTocado = { k: st.dataset.estado, t: Date.now() };
+});
+// Botón +: gira y late al tocarlo
+document.addEventListener("pointerdown", e => {
+  const f = e.target.closest(".fab, .side-new"); if (!f) return;
+  f.classList.remove("pulsa"); void f.offsetWidth; f.classList.add("pulsa");
+  f.addEventListener("animationend", () => f.classList.remove("pulsa"), { once: true });
+});
+
+function render({ conservarScroll = false, reabrir = false } = {}) {
+  if (!S.user || !S.profile || S.sinOperativo) return;
+  const h = location.hash || "#/";
+  let hit = RUTAS.find(([re]) => re.test(h)) || RUTAS[0];
+  // Link de perito: solo Vehículos y Calendario
+  if (soyLector() && !["vehiculos", "calendario", "planilla"].includes(hit[1])) { history.replaceState(null, "", "#/"); hit = RUTAS[0]; }
+  // Link de un solo vehículo: siempre ese vehículo
+  if (S.invitado?.uno && h !== `#/v/${S.invitado.uno}`) { history.replaceState(null, "", `#/v/${S.invitado.uno}`); return render(); }
+  // Rol Desmontaje: no carga ni edita vehículos; "nuevo" abre la elección de vehículo para el desmontaje
+  document.body.dataset.rol = miRol();
+  if (soyDesmontaje() && ["nuevo", "editar"].includes(hit[1])) {
+    const nuevo = hit[1] === "nuevo";
+    history.replaceState(null, "", "#/"); hit = RUTAS[0];
+    if (nuevo) setTimeout(elegirVehiculoDesmontaje, 50);
+  }
+  const arg = hit[1] === "operativo" ? null : (h.match(hit[0])?.[1] || null);
+  const mismaRuta = ruta.nombre === hit[1] && ruta.arg === arg;
+  // La lista y el calendario recuerdan su scroll y el último vehículo abierto (al volver de cualquier lado)
+  const claveScroll = (n, a) => n === "vehiculos" && !a ? "lista" : n;
+  const previa = ruta;
+  const plAntes = $(".split-on .pane-list");
+  if (plAntes) memScroll.pane = plAntes.scrollTop;
+  if (!mismaRuta && ["lista", "calendario"].includes(claveScroll(previa.nombre, previa.arg))) memScroll[claveScroll(previa.nombre, previa.arg)] = scrollY;
+  const nuevaClave = claveScroll(hit[1], arg);
+  // Computadora: al volver a Vehículos desde otra sección, se reabre el último vehículo
+  if (nuevaClave === "lista" && esAncho() && S.ultimoVid && previa.nombre && previa.nombre !== "vehiculos" && previa.nombre !== "editar" && getVehiculo(S.ultimoVid)) {
+    history.replaceState(null, "", `#/v/${S.ultimoVid}`);
+    return render({ reabrir: true });
+  }
+  // Vehículo abierto desde el calendario: al salir vuelve al calendario (no a la lista)
+  if (hit[1] === "vehiculos" && arg) { if (reabrir) S.volverA = null; else if (ruta.nombre === "calendario") S.volverA = "#/calendario"; else if (ruta.nombre === "vehiculos" && !ruta.arg) S.volverA = null; }
+  else if (hit[1] !== "editar") S.volverA = null;
+  const y = conservarScroll && mismaRuta ? scrollY : 0;
+  ruta = { nombre: hit[1], arg };
+  document.body.dataset.ruta = hit[1];
+  document.body.dataset.detalle = hit[1] === "vehiculos" && arg ? "1" : "";
+  marcarNav(["nuevo", "editar", "operativo"].includes(hit[1]) ? "" : hit[1] === "papelera" ? "ajustes" : ["planilla", "gastos", "tecnicos", "fijos"].includes(hit[1]) ? "planillas" : hit[1]);
+  pintarTabPlanilla(hit[1]);
+  // Menú lateral (computadora): Planillas se despliega con sus 3 planillas
+  const enPlan = ["planillas", "planilla", "gastos", "tecnicos", "fijos"].includes(hit[1]);
+  $(".side-grupo")?.classList.toggle("abierto", enPlan);
+  $$(".side-sub a").forEach(a => a.classList.toggle("on", a.dataset.sub === hit[1]));
+  $$(".side-sub [data-sub=tecnicos], .side-sub [data-sub=fijos], .side-sub [data-sub=gastos]").forEach(a => { a.hidden = !puedeVer(a.dataset.sub); });
+  if (hit[1] === "calendario" && !mismaRuta) calendarioAlEntrar();
+  if (!mismaRuta) reiniciarVista3D(); // cada vez que se abre un vehículo, arranca en 2D
+  ultimoRender = Date.now();
+  ctrl = hit[2](arg) || null;
+  if (!mismaRuta && !reabrir) animarCambio(previa, ruta);
+  if (hit[1] === "vehiculos" && arg) S.ultimoVid = arg;
+  // Último vehículo abierto: marcado en la lista y el calendario
+  const marcar = () => { if (!S.ultimoVid) return null;
+    const el = $(`a[href="#/v/${S.ultimoVid}"]`, view); el?.classList.add("sel"); return el; };
+  const aLaVista = (el, caja) => { if (!el) return;
+    const r = el.getBoundingClientRect(), c = caja ? caja.getBoundingClientRect() : { top: 60, bottom: innerHeight - 70 };
+    if (r.top < c.top || r.bottom > c.bottom) el.scrollIntoView({ block: "center" }); };
+  // Computadora: la lista de la izquierda queda donde estaba
+  const pl = $(".split-on .pane-list");
+  if (pl) {
+    if (memScroll.pane != null) pl.scrollTop = memScroll.pane;
+    if (!mismaRuta) aLaVista(marcar() || $(".vcard.sel", pl), pl);
+    if (!mismaRuta) view.focus({ preventScroll: true });
+    if (previa.nombre === "vehiculos" || conservarScroll) return;
+  }
+  if (!mismaRuta && memScroll[nuevaClave] != null) {
+    const yy = memScroll[nuevaClave];
+    scrollTo(0, yy); view.focus({ preventScroll: true });
+    requestAnimationFrame(() => { scrollTo(0, yy); aLaVista(marcar()); });
+    return;
+  }
+  if (!mismaRuta && ["lista", "calendario"].includes(nuevaClave)) requestAnimationFrame(() => marcar());
+  if (conservarScroll && mismaRuta && ["lista", "calendario"].includes(nuevaClave)) marcar();
+  if (!conservarScroll || !mismaRuta) { scrollTo(0, 0); view.focus({ preventScroll: true }); }
+  else scrollTo(0, y);
+}
+// El scroll lo maneja la app (si no, el navegador lo pisa al volver atrás)
+if ("scrollRestoration" in history) history.scrollRestoration = "manual";
+const memScroll = {};
+let ultimoRender = 0;
+// Volver "de cero": sin vehículo marcado y arriba de todo (y en el calendario, el día automático)
+function reiniciarSeccion(cual) {
+  S.ultimoVid = null;
+  delete memScroll.lista; delete memScroll.pane; delete memScroll.calendario;
+  if (cual === "calendario") reiniciarCalendario();
+  $$(".vcard.sel", view).forEach(el => el.classList.remove("sel"));
+}
+// Tocar de nuevo la pestaña en la que ya estás
+document.addEventListener("click", e => {
+  const a = e.target.closest("a[data-nav]");
+  if (!a || !["vehiculos", "calendario"].includes(a.dataset.nav) || ruta.nombre !== a.dataset.nav) return;
+  e.preventDefault();
+  reiniciarSeccion(a.dataset.nav);
+  if (location.hash !== a.getAttribute("href") && !(a.getAttribute("href") === "#/" && !location.hash)) history.replaceState(null, "", a.getAttribute("href"));
+  ruta = { nombre: null, arg: null };
+  render();
+  scrollTo({ top: 0 });
+  const pl = $(".split-on .pane-list"); if (pl) pl.scrollTop = 0;
+});
+// Subir hasta arriba de todo a mano: se olvida el vehículo marcado
+let yAnterior = 0;
+addEventListener("scroll", () => {
+  const y = scrollY;
+  if (y <= 0 && yAnterior > 150 && Date.now() - ultimoRender > 800 && ["vehiculos", "calendario"].includes(ruta.nombre) && !(ruta.nombre === "vehiculos" && ruta.arg && !esAncho()))
+    reiniciarSeccion("scroll");
+  yAnterior = y;
+}, { passive: true });
+document.addEventListener("scroll", e => {
+  const pl = e.target?.classList?.contains("pane-list") && e.target.closest(".split-on") ? e.target : null;
+  if (!pl) return;
+  if (pl.scrollTop <= 0 && (pl._yAnt || 0) > 150 && Date.now() - ultimoRender > 800) { reiniciarSeccion("scroll"); }
+  pl._yAnt = pl.scrollTop;
+}, { passive: true, capture: true });
+
+addEventListener("hashchange", () => render());
+
+// Celular: la pestaña Planilla alterna con Gastos al tocarla de nuevo
+// La pestaña "Planillas" abre el menú de planillas (vehículos, técnicos y gastos)
+function pintarTabPlanilla(r) {
+  $("#tab-planilla").classList.toggle("on", ["planillas", "planilla", "gastos", "tecnicos", "fijos"].includes(r));
+}
+
+// Botón flotante: en Gastos carga un gasto, en el resto un vehículo
+$(".fab").addEventListener("click", e => {
+  if (ruta.nombre === "gastos") { e.preventDefault(); formGasto(); }
+});
+// Rol Desmontaje: cualquier "Nuevo vehículo" abre la elección de un vehículo ya cargado
+document.addEventListener("click", e => {
+  if (!soyDesmontaje() || ruta.nombre === "gastos") return;
+  if (e.target.closest('a[href="#/nuevo"]')) { e.preventDefault(); elegirVehiculoDesmontaje(); }
+}, true);
+matchMedia("(min-width: 1100px)").addEventListener("change", () => render({ conservarScroll: true }));
+
+// Cambios de datos en vivo (otro técnico cargó algo, llegó la sincronización, etc.)
+onChange(what => {
+  if (what?.tipo === "agregado") { avisarAgregado(what.operativos); return; }
+  if (what?.tipo === "pedidos-union") { mostrarPedidosUnion(); return; }
+  if (what === "sin-operativo") { mostrarSinOperativo(); if (!S.sinOperativo) { pintarLateral(); render(); } return; }
+  if (what === "perfil") { mostrarSegunAprobacion(); if (!cuentaPendiente()) render({ conservarScroll: true }); return; }
+  if (what === "companies" || what === "profile") pintarLateral();
+  if (!S.profile) return;
+  // Nunca repintar un formulario a mitad de carga: se perdería lo escrito
+  if (["nuevo", "editar"].includes(ruta.nombre) && $("#vform")) return; // sí se pinta si todavía estaba cargando
+  if (document.activeElement?.classList?.contains("post-rep") && what === "vehicles") return;   // escribiendo post-reparación
+  if (what === "gastos") { if (ruta.nombre === "gastos") ctrl?.soloLista?.(); return; }
+  if (what === "solicitudes") { if (["papelera", "ajustes"].includes(ruta.nombre)) render({ conservarScroll: true }); return; }
+  if (what === "vehicles" && ruta.nombre === "gastos") return;
+  if (what === "vehicles" && ctrl?.soloLista && !ruta.arg) { ctrl.soloLista(); return; }
+  if (what === "error") { toast("Problema de conexión con la base de datos", "error"); return; }
+  render({ conservarScroll: true });
+});
+
+document.addEventListener("elegir-empresa", () => { if (!soyLector()) elegirEmpresaSheet(); });
+$("#company-switch").addEventListener("click", () => { if (!soyLector()) elegirEmpresaSheet(); });
+
+// ── Login ─────────────────────────────────────────────────────
+let modo = "ingresar";
+$$(".seg-btn[data-modo]").forEach(b => b.addEventListener("click", () => {
+  modo = b.dataset.modo;
+  $$(".seg-btn[data-modo]").forEach(x => { x.classList.toggle("on", x === b); x.setAttribute("aria-selected", x === b); });
+  $$(".only-crear").forEach(el => el.hidden = modo !== "crear");
+  $("#login-submit").textContent = modo === "crear" ? "Crear cuenta" : "Ingresar";
+  $("#login-form").pass.autocomplete = modo === "crear" ? "new-password" : "current-password";
+}));
+
+$("#login-form").addEventListener("submit", async e => {
+  e.preventDefault();
+  const f = e.target, btn = $("#login-submit");
+  const usuario = f.usuario.value.trim(), pass = f.pass.value;
+  if (!usuario) return toast("Escribí tu usuario", "warning");
+  if (!/^[a-zA-Z0-9._-]+$/.test(usuario)) return toast("El usuario solo lleva letras, números, punto o guion", "warning");
+  if (pass.length < 6) return toast("La contraseña tiene al menos 6 caracteres", "warning");
+  busy(btn, true, modo === "crear" ? "Creando cuenta…" : "Ingresando…");
+  try {
+    if (modo === "crear") await crearCuenta(usuario, pass, f.nombre.value.trim());
+    else await ingresar(usuario, pass);
+  } catch (err) {
+    toast(mensajeError(err), "error");
+    busy(btn, false);
+  }
+});
+
+
+
+$("#login-tema").addEventListener("click", () => {
+  const t = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
+  document.documentElement.setAttribute("data-theme", t);
+  try { localStorage.setItem("temaLogin", t); } catch { /* sin almacenamiento */ }
+});
+
+// Olvidé mi contraseña: el bot manda un código por WhatsApp y con él se elige una nueva
+$("#olvide").addEventListener("click", () => {
+  const api = (ruta, datos) => fetch(`${BOT_API}/${ruta}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(datos) })
+    .then(r => r.json()).catch(() => ({ ok: false, error: "Sin conexión. Probá de nuevo." }));
+  const s = openSheet({ title: "Restablecer contraseña", body: `<form class="stack" id="rc-1">
+      <p class="muted small">Te mandamos un código por WhatsApp al número vinculado a tu cuenta.</p>
+      <label class="field"><span>Usuario</span><input name="u" autocomplete="username" autocapitalize="none" spellcheck="false" required value="${esc($("#login-form").usuario.value.trim())}"></label>
+      <button class="btn btn-primary btn-block" type="submit">Enviarme el código</button></form>` });
+  $("#rc-1", s.el).onsubmit = async e => {
+    e.preventDefault();
+    const usuario = e.target.u.value.trim(), b = $("button", e.target);
+    busy(b, true, "Enviando…");
+    const j = await api("recuperar", { usuario });
+    busy(b, false);
+    if (!j.ok) return toast(j.error || "No se pudo", j.sinWhatsapp ? "warning" : "error");
+    e.target.outerHTML = `<form class="stack" id="rc-2">
+      <p class="muted small">Te mandamos un código por WhatsApp${j.wa ? ` (${esc(j.wa)})` : ""}. Vence en 15 minutos.</p>
+      <label class="field"><span>Código</span><input name="c" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required></label>
+      <label class="field"><span>Nueva contraseña</span><input name="p" type="password" autocomplete="new-password" minlength="6" placeholder="Mínimo 6 caracteres" required></label>
+      <button class="btn btn-primary btn-block" type="submit">Cambiar contraseña</button></form>`;
+    $("#rc-2", s.el).onsubmit = async ev => {
+      ev.preventDefault();
+      const f = ev.target, b2 = $("button", f);
+      if (f.p.value.length < 6) return toast("La contraseña tiene al menos 6 caracteres", "warning");
+      busy(b2, true, "Cambiando…");
+      const r = await api("restablecer", { usuario, codigo: f.c.value, pass: f.p.value });
+      if (!r.ok) { busy(b2, false); return toast(r.error || "No se pudo", "error"); }
+      s.close(); toast("Contraseña cambiada. Ingresando…", "success");
+      try { await ingresar(usuario, f.p.value); } catch (err) { toast(mensajeError(err), "error"); }
+    };
+  };
+});
+
+// ── Arranque ──────────────────────────────────────────────────
+if (FIREBASE.apiKey.startsWith("TU_")) {
+  $("#splash").innerHTML = `<div class="setup-msg"><h1>Falta configurar Firebase</h1>
+    <p>Completá las claves del proyecto nuevo en <code>js/config.js</code> y volvé a publicar.</p></div>`;
+  throw new Error("Firebase sin configurar (js/config.js)");
+}
+const tokenVer = new URLSearchParams(location.search).get("ver");
+const alEntrar = (logueado, error) => {
+  $("#splash").hidden = true;
+  $("#login").hidden = logueado;
+  // Login: tema propio (claro por defecto); con sesión, el tema elegido en Ajustes (oscuro por defecto)
+  try {
+    localStorage.setItem("sesion", logueado ? "1" : "0");
+    const t = localStorage.getItem(logueado ? "tema" : "temaLogin");
+    document.documentElement.setAttribute("data-theme", logueado ? (t === "light" ? "light" : "dark") : (t === "dark" ? "dark" : "light"));
+  } catch { /* sin almacenamiento */ }
+  $("#shell").hidden = !logueado;
+  if (!logueado) {
+    busy($("#login-submit"), false);
+    $("#login-form").reset();
+    view.innerHTML = "";
+    return;
+  }
+  if (error) toast("No se pudo cargar tu perfil: " + mensajeError(error), "error");
+  if (mostrarSegunAprobacion()) return;
+  mostrarSinOperativo();
+  pintarLateral();
+  render();
+};
+if (tokenVer) {
+  // Link de solo lectura para un perito: sin login, solo ve los vehículos de su compañía
+  document.body.dataset.lector = "1";
+  iniciarInvitado(tokenVer, (ok, err) => {
+    $("#splash").hidden = true;
+    if (!ok) { $("#login").hidden = true; document.body.insertAdjacentHTML("beforeend", `<section class="espera"><div class="espera-caja"><img src="img/logo-oscuro.png" alt="" class="espera-logo"><h1>Link no disponible</h1><p>${esc(err?.message || "")}</p></div></section>`); return; }
+    $("#login").hidden = true; $("#shell").hidden = false;
+    if (S.invitado?.uno) document.body.dataset.lectorUno = "1";
+    else {   // El perito también ve la planilla (solo con sus vehículos): la pestaña va directo a la planilla
+      $("#tab-planilla").href = "#/planilla"; $(".tab-label", $("#tab-planilla")).textContent = "Planilla";
+      const side = $('.side-grupo [data-nav="planillas"]'); if (side) side.href = "#/planilla";
+    }
+    const v1 = S.invitado?.uno ? S.vehicles[0] : null;
+    document.title = v1 ? `${[v1.modelo, v1.patente].filter(Boolean).join(" ")} · Desabollito` : `${S.invitado?.compania || "Vehículos"} · Desabollito`;
+    pintarLateral(); render();
+  });
+} else iniciarSesion(alEntrar);
+
+// Cuenta nueva sin aprobar: pantalla de espera (se desbloquea sola al aprobarla)
+function mostrarSegunAprobacion() {
+  let el = $("#espera");
+  if (!cuentaPendiente()) {
+    if (el && !el.hidden) { el.hidden = true; $("#shell").hidden = false; pintarLateral(); render(); toast("¡Tu cuenta fue aprobada! 🎉", "success"); }
+    return false;
+  }
+  if (!el) {
+    el = document.createElement("section");
+    el.id = "espera"; el.className = "espera";
+    document.body.appendChild(el);
+    el.addEventListener("click", async e => {
+      if (e.target.closest("[data-salir]")) salir();
+
+    });
+  }
+  const rechazada = S.profile?.rechazado;
+  el.innerHTML = `<div class="espera-caja">
+      <img src="img/logo-oscuro.png" alt="" class="espera-logo">
+      <h1>${rechazada ? "Tu solicitud no fue aprobada" : "Solicitud enviada"}</h1>
+      ${rechazada ? `<p>Si creés que es un error, comunicate con nosotros a <a href="mailto:desabollito@gmail.com">desabollito@gmail.com</a></p>`
+        : `<p>Recibimos tu registro como <strong>${S.profile?.username || ""}</strong>.</p>
+           <p>Una vez aprobado, esta pantalla se abre sola.</p>`}
+      <div class="espera-btns">
+        <button class="btn btn-ghost" data-salir>Cerrar sesión</button>
+      </div></div>`;
+  el.hidden = false; $("#shell").hidden = true;
+  return true;
+}
+
+// ── Actualizaciones ───────────────────────────────────────────
+// Al actualizar: un auto que acelera y cruza la pantalla, con ruido de motor (hecho con Web Audio, sin archivos)
+const AUTO_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5.6 16H4a1 1 0 0 1-1-1v-2.4c0-.6.4-1.1 1-1.3l2.4-.7 2.5-3A2 2 0 0 1 10.4 7h4.4a2 2 0 0 1 1.6.8l2.4 3.2 1.4.4c.8.2 1.3.9 1.3 1.7V15a1 1 0 0 1-1 1h-1.1M9.4 16h5.2"/><circle cx="7.5" cy="16" r="1.9"/><circle cx="16.5" cy="16" r="1.9"/></svg>`;
+// El botón se convierte en el auto: viaja hasta la izquierda, acelera en el lugar y cruza toda la pantalla
+function animacionActualizar(boton = null) {
+  ruidoMotor(S.config?.sonidoAuto);
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return Promise.resolve();
+  const capa = document.createElement("div");
+  capa.className = "arranque";
+  capa.innerHTML = `<div class="arranque-auto"><i class="arranque-estela"></i><i class="arranque-lineas"></i><i class="arranque-humo"></i>${AUTO_SVG}</div>`;
+  document.body.appendChild(capa);
+  const auto = capa.firstElementChild, T = 84;   // tamaño del auto
+  const y = innerHeight * 0.45 - T / 2, x0 = 24;
+  // Arranca donde está el botón (del mismo tamaño) y crece hasta el auto
+  const r = boton?.getBoundingClientRect();
+  const ini = r ? `translate(${r.left + r.width / 2 - T / 2}px, ${r.top + r.height / 2 - T / 2}px) scale(${r.width / T})` : `translate(${-T - 20}px, ${y}px)`;
+  if (boton) boton.classList.add("se-va");
+  const fin = `translate(${innerWidth + T + 60}px, ${y}px)`;
+  const a = auto.animate([
+    { transform: ini, offset: 0 },
+    { transform: `translate(${x0}px, ${y}px) scale(1)`, offset: 0.24, easing: "ease-in-out" },
+    { transform: `translate(${x0 - 3}px, ${y + 1}px) rotate(-3deg)`, offset: 0.3 },
+    { transform: `translate(${x0 + 2}px, ${y - 1}px) rotate(2deg)`, offset: 0.36 },
+    { transform: `translate(${x0 - 3}px, ${y + 1}px) rotate(-3deg)`, offset: 0.42 },
+    { transform: `translate(${x0 - 8}px, ${y}px) rotate(-6deg)`, offset: 0.5, easing: "cubic-bezier(.6,0,.85,.4)" },
+    { transform: fin, offset: 1 }
+  ], { duration: 1700, fill: "forwards" });
+  capa.classList.add("en-marcha");
+  return a.finished.catch(() => {}).then(() => capa.remove());
+}
+if (/[?&]act=\d+/.test(location.search)) history.replaceState(null, "", location.pathname + location.hash);
+addEventListener("forzar-actualizacion", async () => {
+  toast("Actualizando a la última versión…");
+  await animacionActualizar();
+  try {
+    const keys = await caches.keys();
+    await Promise.all(keys.filter(k => !k.endsWith("-ext")).map(k => caches.delete(k)));   // el lector de patentes se conserva
+    const regs = await navigator.serviceWorker?.getRegistrations() || [];
+    await Promise.all(regs.map(r => r.unregister()));
+  } catch (e) { console.warn("actualizar", e); }
+  location.replace(location.pathname + "?act=" + Date.now() + location.hash);
+});
+
+// Si se publica una versión nueva mientras la app está abierta, aparece un aviso.
+if ("serviceWorker" in navigator) {
+  // Solo se recarga cuando el usuario tocó "Actualizar" (ni en la primera visita
+  // ni cuando la versión nueva se activa sola al abrir la app).
+  let recargarAlCambiar = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (!recargarAlCambiar) return;
+    recargarAlCambiar = false;
+    location.reload();
+  });
+
+  // Versión nueva: un botón redondo arriba a la derecha que se mueve; al tocarlo se actualiza y se muestran las novedades
+  const avisar = sw => {
+    if ($("#update-bar")) return;
+    const bar = document.createElement("button");
+    bar.type = "button"; bar.id = "update-bar"; bar.className = "update-pop";
+    bar.setAttribute("aria-label", "Hay una versión nueva: tocá para actualizar"); bar.title = "Versión nueva";
+    bar.innerHTML = `<span class="pop-auto"><i class="pop-lineas"></i><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5.6 16H4a1 1 0 0 1-1-1v-2.4c0-.6.4-1.1 1-1.3l2.4-.7 2.5-3A2 2 0 0 1 10.4 7h4.4a2 2 0 0 1 1.6.8l2.4 3.2 1.4.4c.8.2 1.3.9 1.3 1.7V15a1 1 0 0 1-1 1h-1.1M9.4 16h5.2"/><circle cx="7.5" cy="16" r="1.9"/><circle cx="16.5" cy="16" r="1.9"/></svg></span>`;
+    let tocado = false;
+    bar.onclick = async () => {
+      // Segundo toque (si no se actualizó solo): recarga directo
+      if (tocado) return location.reload();
+      tocado = true;
+      bar.classList.add("cargando");
+      await animacionActualizar(bar);
+      recargarAlCambiar = true; sw.postMessage("activar");
+      // 3 segundos después de la animación (si el navegador no recargó solo): vuelve el botón y el cartel
+      setTimeout(() => {
+        bar.classList.remove("se-va");
+        if ($(".update-hint")) return;
+        const hint = document.createElement("button");
+        hint.type = "button"; hint.className = "update-hint update-hint-pop";
+        hint.textContent = "Si no se actualiza, tocá de nuevo";
+        hint.onclick = () => location.reload();
+        document.body.appendChild(hint);
+        requestAnimationFrame(() => hint.classList.add("in"));
+      }, 3000);
+      setTimeout(() => location.reload(), 9000);   // por si el navegador no recarga solo
+    };
+    document.body.appendChild(bar);
+    requestAnimationFrame(() => bar.classList.add("in"));
+  };
+
+  addEventListener("load", async () => {
+    try {
+      const reg = await navigator.serviceWorker.register("sw.js", { updateViaCache: "none" });
+      // Al abrir, los archivos ya se bajaron frescos: si quedó una versión en espera, se activa sola.
+      if (reg.waiting && navigator.serviceWorker.controller) reg.waiting.postMessage("activar");
+
+      reg.addEventListener("updatefound", () => {
+        const nuevo = reg.installing;
+        nuevo?.addEventListener("statechange", () => {
+          if (nuevo.state === "installed" && navigator.serviceWorker.controller) avisar(nuevo);
+        });
+      });
+
+      // Buscar versiones nuevas al volver a la app y cada 30 minutos
+      const revisar = () => reg.update().catch(() => {});
+      document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") revisar(); });
+      setInterval(revisar, 30 * 60 * 1000);
+    } catch (e) { console.warn("SW", e); }
+  });
+}
+
+// Selector de fecha propio en toda la app
+iniciarFechas();
+
+// Cartel al abrir la app cuando alguien te sumó a un operativo
+function avisarAgregado(ops) {
+  const esc = t => String(t || "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const quien = o => o.por?.user ? "@" + o.por.user : o.por?.por || "Alguien";
+  const s = openSheet({
+    title: ops.length === 1 ? "¡Te sumaron a un operativo!" : "¡Te sumaron a operativos nuevos!",
+    body: `<div class="stack">${ops.map(o => `<p><strong>${esc(quien(o))}</strong> te agregó a <strong>${esc(o.name)}</strong>.</p>`).join("")}
+      <div class="row-btns">
+        <button class="btn btn-ghost" data-ok>Entendido</button>
+        ${ops.length === 1 && S.company?.id !== ops[0].id ? `<button class="btn btn-primary" data-ir>Ir al operativo</button>` : ""}
+      </div></div>`,
+    onClose: () => marcarOperativosVistos(ops.map(o => o.id))
+  });
+  $("[data-ok]", s.el).onclick = () => s.close();
+  const ir = $("[data-ir]", s.el);
+  if (ir) ir.onclick = () => { elegirEmpresa(ops[0].id); s.close(); location.hash = "#/"; };
+}
+
+// Dos toques seguidos en el botón de Ajustes (solo el creador de la app): panel con todos los operativos y usuarios
+{
+  // Un toque va a Ajustes (con una espera cortita); dos toques abren el panel
+  let reloj = null;
+  document.addEventListener("click", e => {
+    if (!e.target.closest('a[href="#/ajustes"]') || !soyCreador()) return;
+    e.preventDefault();
+    if (reloj) { clearTimeout(reloj); reloj = null; panelCreador(); return; }
+    reloj = setTimeout(() => { reloj = null; location.hash = "#/ajustes"; }, 320);
+  }, true);
+}
+
+// ── Sin operativo: pedir unirse a uno o crear uno propio ─────────
+let unsubMiPedido = null, pedidoActual = null, pintarSinOp = () => {};
+function mostrarSinOperativo() {
+  let el = $("#sin-op");
+  if (!S.sinOperativo || cuentaPendiente()) {
+    if (el && !el.hidden) { el.hidden = true; el.dataset.listo = ""; $("#shell").hidden = false; }
+    unsubMiPedido?.(); unsubMiPedido = null; pedidoActual = null;
+    return;
+  }
+  if (!el) {
+    el = document.createElement("section");
+    el.id = "sin-op"; el.className = "espera";
+    document.body.appendChild(el);
+    el.addEventListener("submit", async e => {
+      e.preventDefault();
+      const f = e.target, b = $("button[type=submit]", f);
+      busy(b, true, "Enviando…");
+      try {
+        if (f.id === "so-unir") { await pedirUnion(f.admin.value); toast("Pedido enviado", "success"); }
+        else { await crearEmpresa(f.nombre.value.trim()); toast("Operativo creado", "success"); }
+      } catch (err) { toast(err.message || mensajeError(err), "error"); }
+      busy(b, false);
+    });
+    el.addEventListener("click", e => {
+      if (e.target.closest("[data-salir]")) salir();
+      if (e.target.closest("[data-cancelar]")) cancelarPedidoUnion().catch(() => {});
+      const op = e.target.closest("button[data-op]");
+      if (op) { el.dataset.modo = op.dataset.op; pintarSinOp(pedidoActual); }
+    });
+  }
+  if (!el.hidden && el.dataset.listo) return; // ya se está mostrando: no se repinta (se perdería lo escrito)
+  el.dataset.listo = "1";
+  const pintar = p => {
+    pedidoActual = p;
+    const op = el.dataset.modo || "";
+    el.innerHTML = `<div class="espera-caja">
+      <img src="img/logo-oscuro.png" alt="" class="espera-logo">
+      <h1>Todavía no tenés ningún operativo</h1>
+      ${p ? `<p>Le pediste a <strong>@${esc(p.paraUser)}</strong> que te sume a su operativo.</p>
+             <p>Cuando lo haga, esta pantalla se abre sola.</p>
+             <div class="espera-btns"><button class="btn btn-ghost" data-cancelar>Cancelar pedido</button></div>`
+      : `<p>¿Querés pedir unirte a uno o crear el tuyo?</p>
+      <div class="so-ops">
+        <button type="button" class="btn ${op === "unir" ? "btn-primary" : "btn-ghost"}" data-op="unir">Unirme a uno</button>
+        <button type="button" class="btn ${op === "crear" ? "btn-primary" : "btn-ghost"}" data-op="crear">Crear uno</button>
+      </div>
+      ${op === "unir" ? `<form id="so-unir" class="so-form">
+          <label class="field"><span>Usuario de quien administra el operativo</span>
+            <input name="admin" required autocomplete="off" autocapitalize="none" placeholder="Ej: juanperez"></label>
+          <button class="btn btn-primary btn-block" type="submit">Pedir unirme</button></form>` : ""}
+      ${op === "crear" ? `<form id="so-crear" class="so-form">
+          <label class="field"><span>Nombre del operativo</span>
+            <input name="nombre" required autocomplete="off" placeholder="Ej: Granizo Córdoba 2026"></label>
+          <button class="btn btn-primary btn-block" type="submit">Crear operativo</button></form>` : ""}`}
+</div>`;
+  };
+  pintarSinOp = pintar;
+  pintar(null);
+  el.hidden = false; $("#shell").hidden = true;
+  if (!unsubMiPedido) unsubMiPedido = escucharMiPedido(p => { if (JSON.stringify(p) !== JSON.stringify(pedidoActual)) pintar(p); });
+}
+
+// Administradores: alguien sin operativo pidió que lo sumen
+const pedidosVistos = new Set();
+function mostrarPedidosUnion() {
+  const p = (S.pedidosUnion || []).find(x => !pedidosVistos.has(x.id));
+  if (!p) return;
+  pedidosVistos.add(p.id);
+  const mios = S.companies.filter(c => ["owner", "admin"].includes(c.roles?.[S.user.uid]));
+  if (!mios.length) return;
+  const s = openSheet({ title: "Pedido para unirse", body: `<form class="stack">
+      <p><strong>${esc(p.name || "")}</strong> (@${esc(p.username || "")}) quiere unirse a tu operativo.</p>
+      <label class="field"><span>Sumarlo a</span><select name="cid">${mios.map(c => `<option value="${esc(c.id)}" ${c.id === S.company?.id ? "selected" : ""}>${esc(c.name)}</option>`).join("")}</select></label>
+      <label class="field"><span>Rol</span><select name="rol">${[["desmontaje", "Desmontador"], ["tecnico", "Sacabollos"], ["admin", "Administrador"]].map(([k, l]) =>
+        `<option value="${k}" ${(p.rol || "admin") === k ? "selected" : ""}>${l}</option>`).join("")}</select></label>
+      <div class="row-btns"><button type="button" class="btn btn-ghost" data-no>Rechazar</button>
+        <button class="btn btn-primary" type="submit">Sumar</button></div></form>` });
+  $("form", s.el).onsubmit = async e => {
+    e.preventDefault();
+    try { await responderPedidoUnion(p, e.target.cid.value, e.target.rol.value); toast(`${p.name || "@" + p.username} ahora es parte del operativo`, "success"); s.close(); }
+    catch (err) { toast(err.message || mensajeError(err), "error"); }
+  };
+  $("[data-no]", s.el).onclick = async () => { await responderPedidoUnion(p, null).catch(() => {}); s.close(); };
+}
+addEventListener("hashchange", () => document.querySelector(".menu-velo")?.remove());
