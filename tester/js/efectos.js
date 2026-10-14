@@ -140,13 +140,3 @@ document.addEventListener("pointerdown", e => {
   b.animate([{ transform: "scale(1)" }, { transform: "scale(.93)", offset: .3 }, { transform: "scale(1.04)", offset: .65 }, { transform: "scale(1)" }],
     { duration: 380, easing: "cubic-bezier(.3,.7,.3,1)", composite: "add" });
 }, { passive: true });
-
-// Dock en computadora: los íconos cerca del mouse se agrandan (lupa)
-if (matchMedia("(hover: hover) and (pointer: fine)").matches && !quieto()) {
-  const dock = document.querySelector(".tabbar");
-  dock?.addEventListener("pointermove", e => dock.querySelectorAll("a").forEach(a => {
-    const r = a.getBoundingClientRect(), d = Math.abs(e.clientX - (r.left + r.width / 2));
-    a.style.setProperty("--dock", 1 + .4 * Math.max(0, 1 - d / 140));
-  }));
-  dock?.addEventListener("pointerleave", () => dock.querySelectorAll("a").forEach(a => a.style.removeProperty("--dock")));
-}

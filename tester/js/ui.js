@@ -224,7 +224,7 @@ function colorBlob(u) {
   let i = lista.indexOf(u), n = lista.length;
   if (i < 0) { n = 12; i = [...u].reduce((a, c) => a * 31 + c.charCodeAt(0) >>> 0, 7) % n; }
   // tonos de la librería con color (los de .2–.36 y .93+ salen casi blancos o grises)
-  return { hue: 195 + 70 * i / Math.max(n, 1), tone: [.5, .7, .85][i % 3], background: false };
+  return { hue: 195 + 70 * i / Math.max(n, 1), tone: [.5, .7, .85][i % 3] };
 }
 import("https://cdn.jsdelivr.net/npm/blobatar@2.7.0/+esm").then(({ blobatar }) => {
   const pintar = raiz => raiz.querySelectorAll("[data-blob]:not(.con-blob)").forEach(el => {
