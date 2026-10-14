@@ -213,7 +213,7 @@ export function vistaVehiculos(view, selId = null) {
       <section class="fo-sec"><h3>Repuestos</h3><div class="fo-seg" id="fo-repuestos"></div></section>
       <section class="fo-sec fo-compacto"><h3>Turnos</h3><div class="fo-seg" id="fo-turno"></div></section>
       ${lector ? "" : `<label class="fo-switch"><span>Solo los que cargué yo</span><input type="checkbox" id="fo-mios" ${F.mios ? "checked" : ""}></label>`}
-      <div class="fo-pie"><button type="button" class="btn btn-ghost" id="fo-reset">Limpiar</button><button type="button" class="btn btn-primary" data-close id="fo-ver"></button></div>
+      <div class="fo-pie"><button type="button" class="btn btn-ghost" data-close id="fo-reset">Limpiar</button><button type="button" class="btn btn-primary" data-close id="fo-ver"></button></div>
     </div>` });
     const el = id => $(id, hoja.el);
     const n = f => activos().filter(f).length;
