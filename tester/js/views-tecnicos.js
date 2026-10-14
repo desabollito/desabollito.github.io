@@ -419,7 +419,7 @@ export function vistaTecnicos(view) {
     filas.push(total("TOTAL", rows));
     descargarTabla({ archivo: `Tecnicos_${hoyISO()}`, titulo: "Planilla de técnicos", filas,
       cols: [{ titulo: "FECHA", ancho: 14, tipo: "fecha" }, { titulo: "VEHÍCULO", ancho: 26 }, { titulo: "PATENTE", ancho: 16.3 },
-        { titulo: "IMPORTE", ancho: 16, tipo: "moneda" }, { titulo: "", ancho: 8 }, ...tecs.map(t => ({ titulo: t.nombre, ancho: 14, tipo: "moneda" }))] });
+        { titulo: "IMPORTE", ancho: 16, tipo: "moneda" }, { titulo: "", ancho: 8 }, ...tecs.map(t => ({ titulo: t.nombre, ancho: 17.5, tipo: "moneda" }))] });
   });
   $("#t-edit")?.addEventListener("click", () => {
     T.editando = !T.editando;
