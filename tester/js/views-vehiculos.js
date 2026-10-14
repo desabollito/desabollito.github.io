@@ -375,7 +375,6 @@ export function renderDetalle(root, v, embebido) {
   const todos = marcadas.length === ORDEN_PIEZAS.length;
   const esMio = esMioV(v);
   const soloVer = soyDesmontaje() || soyLector();   // Desmontaje: solo ve y carga desmontajes; link de perito: solo ve
-  const nDesm = (v.desFotos?.length || 0) + (v.desNotas?.length || 0);
 
   // Estado recién tocado: al redibujar, su círculo aparece con un "pop"
   if (S.pasoTocado && Date.now() - S.pasoTocado.t < 4000) { const k = S.pasoTocado.k; queueMicrotask(() => { const b = root.querySelector(`.step[data-estado="${k}"]`);
@@ -406,7 +405,7 @@ export function renderDetalle(root, v, embebido) {
         </div></div>` : ""}
       ${embebido && !soloVer ? `<a class="btn btn-ghost btn-icon" href="#/editar/${v.id}" aria-label="Editar" title="Editar">${icon("edit")}</a>` : ""}
     </div>
-${[...PASO_REP, "facturado"].includes(est) && !soyLector() && (soyAdmin() || soyDesmontaje()) ? `<button class="btn btn-ghost btn-block d-desm" data-act="desmontaje">${icon("table")}Check in / out${v.checkIn || v.checkOut || nDesm ? ` <small>${[v.checkIn ? "IN ✓" : "", nDesm ? "desmontaje" : "", v.checkOut ? "OUT ✓" : ""].filter(Boolean).join(" · ")}</small>` : ""}</button>` : ""}
+${[...PASO_REP, "facturado"].includes(est) && !soyLector() && (soyAdmin() || soyDesmontaje()) ? `<button class="btn btn-ghost btn-block d-desm" data-act="desmontaje">${icon("table")}Check in / out</button>` : ""}
 
     <section class="d-sec">
       <div class="seg-head"><h3>Seguimiento</h3>
@@ -711,19 +710,20 @@ function lotesDesm(v) {
 const fechaHora = t => { const d = new Date(t); return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`; };
 
 // ═════════════════ Check in / out ═════════════════
-// Basado en las planillas del taller, adaptado a sacabollos/PDR. Cada ítem es un interruptor (por defecto, el primer estado).
+// Basado en las planillas del taller, adaptado a sacabollos/PDR. Cada ítem es un interruptor; Elementos arranca sin marcar.
 const CHECK = {
   in: [
     ["exterior", "Exterior", ["Bien", "Dañado"], ["Ópticas delanteras", "Ópticas traseras", "Tercer stop", "Espejos", "Parabrisas", "Luneta",
       "Vidrios laterales", "Colizas", "Antena", "Logos e insignias"]],
-    ["interior", "Interior", ["Bien", "Dañado"], ["Pantalla", "Levantavidrios", "Cerraduras y manijas", "Tapizado de techo", "Tablero sin testigos"]],
-    ["elementos", "Elementos", ["Está", "Falta"], ["Auxilio", "Criquet y llave", "Matafuego", "Objetos de valor", "Pertenencias personales"]]
+    ["interior", "Interior", ["Bien", "Dañado"], ["Pantalla", "Levantavidrios", "Cerraduras y manijas", "Tapizado de techo", "Luces de tablero"]],
+    ["elementos", "Elementos", ["Está", "Falta"], ["Auxilio", "Criquet y llave", "Matafuego", "Objetos de valor", "Pertenencias personales"], true]
   ],
   out: [
-    ["control", "Control de calidad", ["OK", "Revisar"], ["Sin bollos crudos", "Sin golpes relevantes", "Sin restos de pegamento", "Colizas sin marcas",
-      "Ópticas desmontadas", "Pintura sana", "Tapizado de techo", "Parantes del interior", "Luz del interior", "Manijas del interior", "Vidrios limpios"]]
+    ["control", "Control de calidad", ["OK", "Revisar"], ["Bollos", "Golpes", "Cold Glue", "Colizas", "Ópticas", "Pintura",
+      "Tapizado interior", "Parantes interior", "Luz interior", "Manijas interior", "Vidrios limpios"]]
   ]
 };
+const ANOTAR = ["Objetos de valor", "Pertenencias personales"];   // se escribe qué hay tanto si está como si falta
 const CALIDAD = ["Calidad general de la reparación", "Limpieza interior", "Limpieza exterior"], NOTAS = ["Mala", "Regular", "Buena", "Excelente"];
 const COMBUSTIBLE = ["Reserva", "¼", "½", "¾", "Lleno"];
 const campoCheck = t => t === "in" ? "checkIn" : "checkOut";
@@ -737,15 +737,15 @@ export function vistaCheckForm(view, id, t) {
   let files = [];
   const seg = (name, ops, sel) => `<div class="seg seg-sm">${ops.map((o, i) => `<button type="button" class="seg-btn ${sel === i ? "on" : ""}" data-n="${name}" data-v="${i}">${o}</button>`).join("")}</div>`;
   view.innerHTML = `<form class="vform chk-form" novalidate><div class="page narrow stack">
-    <div class="seg chk-tabs">${["in", "out"].map(k => `<a class="seg-btn ${k === t ? "on" : ""}" href="#/check/${id}/${k}">Check ${k.toUpperCase()}${v[campoCheck(k)] ? " ✓" : ""}</a>`).join("")}</div>
+    <div class="seg chk-tabs">${["in", "out"].map(k => `<a class="seg-btn ${k === t ? "on" : ""}" href="#/check/${id}/${k}">Check ${k.toUpperCase()}</a>`).join("")}</div>
     ${t === "in" ? `<fieldset class="card"><legend>Ingreso</legend>
         <label class="field"><span>Kilometraje</span><input name="km" inputmode="numeric" value="${esc(c.km || "")}" placeholder="Ej: 85000"></label>
         <div class="field"><span>Combustible</span>${seg("nafta", COMBUSTIBLE, c.nafta)}</div></fieldset>`
       : `<fieldset class="card"><legend>Calidad</legend>${CALIDAD.map((x, i) => `<div class="field"><span>${x}</span>${seg("calidad." + i, NOTAS, c.calidad?.[i])}</div>`).join("")}</fieldset>`}
-    ${CHECK[t].map(([k, titulo, ops, items]) => `<fieldset class="card chk-grupo"><legend>${titulo}</legend>
-      ${items.map(it => { const x = c[k]?.[it]; return `<div class="chk-fila" data-sel="${x?.v || 0}"><span>${esc(it)}</span>
-        <button type="button" class="chk-tog" data-k="${k}" data-it="${esc(it)}" data-ops="${esc(ops.join("|"))}">${ops[x?.v || 0]}</button>
-        <label class="field chk-obs"><input data-obs="${k}|${esc(it)}" value="${esc(x?.obs || "")}" placeholder="¿Qué tiene?"></label></div>`; }).join("")}</fieldset>`).join("")}
+    ${CHECK[t].map(([k, titulo, ops, items, nulo]) => `<fieldset class="card chk-grupo"><legend>${titulo}</legend>
+      ${items.map(it => { const x = c[k]?.[it], sel = x?.v ?? (nulo ? "" : 0); return `<div class="chk-fila ${ANOTAR.includes(it) ? "anota" : ""}" data-sel="${sel}"><span>${esc(it)}</span>
+        <button type="button" class="chk-tog" data-k="${k}" data-it="${esc(it)}" data-ops="${esc(ops.join("|"))}" ${nulo ? "data-nulo" : ""}>${sel === "" ? "—" : ops[sel]}</button>
+        <label class="field chk-obs"><input data-obs="${k}|${esc(it)}" value="${esc(x?.obs || "")}" placeholder="${ANOTAR.includes(it) ? "¿Qué hay?" : "¿Qué tiene?"}"></label></div>`; }).join("")}</fieldset>`).join("")}
     <fieldset class="card"><legend>Observaciones y fotos</legend>
       <label class="field"><textarea name="obs" rows="3" placeholder="Algo más para anotar">${esc(c.obs || "")}</textarea></label>
       ${botonesFotos({ id: "chk-op" })}<p class="muted small" id="chk-n">${c.fotos?.length ? `${c.fotos.length} fotos cargadas` : "Sin fotos"}</p>
@@ -759,10 +759,11 @@ export function vistaCheckForm(view, id, t) {
     const f = e.target.closest("[data-cfoto]");
     if (f) return visor(c.fotos, Math.max(0, c.fotos.findIndex(x => x.url === f.dataset.cfoto)));
     const tg = e.target.closest(".chk-tog");
-    if (tg) {   // interruptor: Bien ⇄ Dañado (Dañado abre la observación)
-      const fila = tg.closest(".chk-fila"), nv = fila.dataset.sel === "1" ? 0 : 1;
-      fila.dataset.sel = nv; tg.textContent = tg.dataset.ops.split("|")[nv];
-      if (nv) $("input", fila).focus();
+    if (tg) {   // interruptor: Bien ⇄ Dañado (Dañado abre la observación); sin marcar → Está → Falta → sin marcar
+      const fila = tg.closest(".chk-fila"), s0 = fila.dataset.sel;
+      const nv = "nulo" in tg.dataset ? (s0 === "" ? "0" : s0 === "0" ? "1" : "") : (s0 === "1" ? "0" : "1");
+      fila.dataset.sel = nv; tg.textContent = nv === "" ? "—" : tg.dataset.ops.split("|")[nv];
+      if (getComputedStyle($(".chk-obs", fila)).display !== "none") $("input", fila).focus();
       return;
     }
     const b = e.target.closest("[data-n]"); if (!b) return;
@@ -777,7 +778,8 @@ export function vistaCheckForm(view, id, t) {
     CHECK[t].forEach(([k]) => { datos[k] = {}; });
     $$(".chk-tog", form).forEach(tg => {
       const fila = tg.closest(".chk-fila");
-      datos[tg.dataset.k][tg.dataset.it] = { v: +fila.dataset.sel, obs: fila.dataset.sel === "1" ? $("input", fila).value.trim() : "" };
+      const s1 = fila.dataset.sel, conObs = getComputedStyle($(".chk-obs", fila)).display !== "none";
+      datos[tg.dataset.k][tg.dataset.it] = { v: s1 === "" ? null : +s1, obs: conObs ? $("input", fila).value.trim() : "" };
     });
     if (t === "in") Object.assign(datos, { km: form.km.value.trim(), nafta: elegido("nafta", c.nafta) });
     else datos.calidad = CALIDAD.map((_, i) => elegido("calidad." + i, c.calidad?.[i]));
