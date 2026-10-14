@@ -1939,6 +1939,7 @@ html:has(body.no-scroll) { overflow: hidden; }
 /* Dock (prueba): la barra de abajo flota como pastilla de vidrio; solo celular */
 :root { --tab: 76px; }
 .tabbar { left: 50%; right: auto; bottom: calc(var(--safe-b) + 10px); transform: translateX(-50%); width: calc(100% - 32px); max-width: 420px;
-  height: 62px; padding: 0; overflow: hidden; border: 1px solid var(--edge); border-radius: 22px; box-shadow: 0 14px 34px -12px rgb(0 0 0 / .55); }
-.tabbar a { border-radius: 0; -webkit-tap-highlight-color: transparent; outline: none; }
+  height: 62px; padding: 4px; border: 1px solid var(--edge); border-radius: 22px; box-shadow: 0 14px 34px -12px rgb(0 0 0 / .55); }
+/* radio interno = 22 − 4 de margen: las pestañas de las puntas siguen la curva del dock */
+.tabbar a { border-radius: 18px; -webkit-tap-highlight-color: transparent; outline: none; }
 .tabbar a.on { background: color-mix(in srgb, var(--primary) 14%, transparent); }
