@@ -913,6 +913,8 @@ async function alRecibirTexto(env, m, quien, texto) {
     const r = await abrirModoDesm(env, numero, quien, sinMencion, datos, hora);
     if (r?.msg) return responder(env, dest(m), r.msg);
     if (r?.ok) return tilde(env, m);
+    const rp = await abrirModoPintura(env, numero, quien, sinMencion, datos, hora);
+    if (rp) return responder(env, dest(m), rp.msg);
   }
   // Ventana de desmontaje abierta: todo el texto va a la nota de desmontaje (salvo "ok", que cierra)
   if (!datos.patente && s?.desm && abierta(s)) {
@@ -1201,6 +1203,25 @@ async function abrirModoDesm(env, numero, quien, texto, datos, hora) {
   await notaDesm(env, e.cid, e.vid, quien, notaDe(texto.replace(RE_DESM_G, " "), datos.patente), loteWa(numero, { desde: hora }));
   return { ok: true };
 }
+// Fotos de pintura: "Saltó pintura AB123CD" (salto, saltada, despegó, despegada, dañada, rota…) → las fotos de los
+// próximos 5 minutos quedan marcadas como de pintura en ese vehículo (la app las muestra con la etiqueta "Pintura")
+const RE_PINT = /(^|\s)(salt(?:[oóa]|ad[ao])|despeg(?:[oóa]|ad[ao])|da[ñn]ad[ao]|rot[ao])(?=\s|$|[:,.!])/i;
+const adjPint = p => /despeg/i.test(p) ? "despegada" : /salt/i.test(p) ? "saltada" : /rot/i.test(p) ? "rota" : "dañada";
+async function abrirModoPintura(env, numero, quien, texto, datos, hora) {
+  const pal = /(^|\s)pintura\b/i.test(texto) && (texto.match(RE_PINT) || [])[2];
+  if (!pal) return null;
+  const enc = await buscarPatente(env, datos.patente, quien.uid);
+  const fijo = await operativoFijo(env, numero, quien.uid, quien);
+  const e = enc.find(x => x.cid === fijo?.cid) || enc[0];
+  if (!e) return { msg: `🔎 No encontré la patente *${datos.patente}*.` };
+  const s = await leerSesion(env, numero);
+  if (abierta(s)) await cerrarEnSilencio(env, numero, hora - 1);   // otra patente corta la anterior
+  await abrir(env, numero, e, hora, await leerSesion(env, numero), false);
+  await fsMerge(env, `bot_sesiones/${numero}`, { pint: { vid: e.vid, hasta: hora + VENTANA_DESM } });
+  return { ok: true, msg: `🎨 Espero las fotos de la pintura ${adjPint(pal)} de *${e.patente || datos.patente}*.` };
+}
+const enModoPintura = (s, vid, hora) => s?.pint?.vid === vid && hora <= Number(s.pint.hasta);
+
 // ¿Sigue abierta la ventana de desmontaje? Si ya pasaron los 5 minutos, se cierra el vehículo.
 async function ventanaDesm(env, numero, s, hora) {
   if (!s?.desm || !abierta(s) || s.vid !== s.desm.vid) return false;
@@ -1488,7 +1509,11 @@ async function alRecibirArchivo(env, m, quien) {
   const rDesm = datos?.patente && !(abierta(sesion) && sesion.patente === datos.patente && sesion.desm)
     ? await abrirModoDesm(env, numero, quien, quitarMencion(caption), datos, hora) : null;
   if (rDesm?.msg) return avisarUnaVez(env, m, numero, "desm", rDesm.msg);
-  if (rDesm?.ok) sesion = await leerSesion(env, numero);
+  const rPint = datos?.patente && !rDesm?.ok && !(abierta(sesion) && sesion.patente === datos.patente && sesion.pint)
+    ? await abrirModoPintura(env, numero, quien, quitarMencion(caption), datos, hora) : null;
+  if (rPint) await avisarUnaVez(env, m, numero, "pint", rPint.msg);
+  if (rPint && !rPint.ok) return;
+  if (rDesm?.ok || rPint?.ok) sesion = await leerSesion(env, numero);
   else if (datos?.patente && !(abierta(sesion) && sesion.patente === datos.patente)) {
     if (abierta(sesion)) await cerrarEnSilencio(env, numero, hora - 1);
     const pregunta = await prepararVehiculo(env, numero, datos, hora, await leerSesion(env, numero), quien);
@@ -1555,7 +1580,8 @@ async function alRecibirArchivo(env, m, quien) {
       t: Date.now(), uid: quien.uid || "", por: quien.nombre || numero, via: "whatsapp", ...extraVid });
   } else if (esFoto) {
     await fsAppend(env, ruta, "fotos",
-      { url: subido.secure_url, publicId: subido.public_id, w: subido.width || null, h: subido.height || null, at: Date.now(), ...origen, ...extraVid });
+      { url: subido.secure_url, publicId: subido.public_id, w: subido.width || null, h: subido.height || null, at: Date.now(), ...origen, ...extraVid,
+        ...(enModoPintura(sesion, destino.vid, hora) ? { pintura: true } : {}) });
   } else {
     await fsAppend(env, ruta, "archivos",
       { url: subido.secure_url, publicId: subido.public_id, name: nombre, bytes: subido.bytes || null, format: subido.format || null, at: Date.now(), ...origen });

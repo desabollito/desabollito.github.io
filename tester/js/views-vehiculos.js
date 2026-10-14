@@ -1103,6 +1103,8 @@ function zoomFoto(url, previa) {
   el.addEventListener("wheel", e => { e.preventDefault(); esc_ = Math.max(1, Math.min(6, esc_ * (e.deltaY < 0 ? 1.15 : 0.87))); limitar(); pintar(); }, { passive: false });
 }
 
+// Ícono de gota (foto de pintura)
+const GOTA = `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3c3.5 4.2 6 7.6 6 10.5a6 6 0 0 1-12 0C6 10.6 8.5 7.2 12 3z"/></svg>`;
 function visor(fotos = [], inicio = 0, v = null) {
   if (!fotos.length) return;
   // Mantener para borrar: solo en las fotos del vehículo y si el usuario puede editarlo
@@ -1113,18 +1115,20 @@ function visor(fotos = [], inicio = 0, v = null) {
     wide: true,
     body: `<div class="viewer">
       <div class="viewer-foto ${fotos.length > 1 ? "depth" : ""}"><img class="vw-lado vw-ant" alt="" aria-hidden="true"><img class="vw-lado vw-sig" alt="" aria-hidden="true"><img id="vw-img" alt=""><video id="vw-vid" controls playsinline preload="metadata" hidden></video><span class="viewer-carga" hidden><span class="spin"></span></span>
-        ${v && puedoEditar(v) ? `<button class="icon-btn viewer-ov viewer-rot" id="vw-rot" aria-label="Girar foto" title="Girar">${icon("rotate")}</button>` : ""}
+        ${v && puedoEditar(v) ? `<button class="icon-btn viewer-ov viewer-rot" id="vw-rot" aria-label="Girar foto" title="Girar">${icon("rotate")}</button>
+          <button class="icon-btn viewer-ov viewer-pint" id="vw-pint" aria-label="Marcar como foto de pintura" title="Va a pintura">${GOTA}</button>` : ""}
+        <span class="viewer-tag-pint" id="vw-tag-pint" hidden>Pintura</span>
         <button class="icon-btn viewer-ov viewer-x" data-close aria-label="Cerrar">${icon("x")}</button>
         <button class="icon-btn viewer-ov viewer-dl" id="vw-dl" aria-label="Descargar" title="Descargar">${icon("download")}</button>
 </div>
       <div class="viewer-bar">
         <button class="icon-btn" data-p aria-label="Anterior" ${fotos.length > 1 ? "" : "disabled"}>${icon("back")}</button>
-        <div class="vw-centro"><span id="vw-n"></span>
-          ${borrable ? `<button type="button" class="hold-del" id="vw-del" aria-label="Mantené apretado para borrar esta foto" title="Mantené apretado para borrar">
-            <svg class="anillo" viewBox="0 0 36 36" aria-hidden="true"><circle class="base" cx="18" cy="18" r="16" pathLength="100"/><circle cx="18" cy="18" r="16" pathLength="100"/></svg>${icon("trash")}</button>` : ""}</div>
+        <div class="vw-centro"><span id="vw-n"></span></div>
         <button class="icon-btn" data-n aria-label="Siguiente" ${fotos.length > 1 ? "" : "disabled"}>${icon("next")}</button>
       </div>
-      ${v ? `<div class="viewer-add"><button type="button" class="btn btn-ghost btn-block" id="vw-mas">${icon("plus")}Añadir más fotos</button>
+      ${v ? `<div class="viewer-add"><div class="viewer-add-fila"><button type="button" class="btn btn-ghost btn-block" id="vw-mas">${icon("plus")}Añadir más fotos</button>
+        ${borrable ? `<button type="button" class="hold-del" id="vw-del" aria-label="Mantené apretado para borrar esta foto" title="Mantené apretado para borrar">
+          <svg class="anillo" viewBox="0 0 36 36" aria-hidden="true"><circle class="base" cx="18" cy="18" r="16" pathLength="100"/><circle cx="18" cy="18" r="16" pathLength="100"/></svg>${icon("trash")}</button>` : ""}</div>
         <div class="viewer-mas" id="vw-mas-op" hidden>${botonesFotos({ id: "vw-add" })}</div></div>` : ""}
       </div>`
   });
@@ -1153,6 +1157,8 @@ function visor(fotos = [], inicio = 0, v = null) {
     const video = esVideo(fotos[i]);
     vid.hidden = !video; img0.hidden = video;
     $("#vw-rot", s.el)?.toggleAttribute("hidden", video);
+    $("#vw-pint", s.el)?.classList.toggle("on", !!fotos[i].pintura);
+    $("#vw-tag-pint", s.el).hidden = !fotos[i].pintura;
     if (video) {
       const src = videoURL(fotos[i].url);
       if (vid.getAttribute("src") !== src) { vid.poster = url; vid.src = src; }
@@ -1316,6 +1322,16 @@ function visor(fotos = [], inicio = 0, v = null) {
     lista[idx] = { ...lista[idx], rot };
     show();
     actualizarVehiculo(v.id, { fotos: lista }).catch(e => toast(mensajeError(e), "error"));
+  });
+  // Foto de pintura (saltó / despegó): queda marcada; lo mismo que mandarla al bot con "Saltó pintura PATENTE"
+  $("#vw-pint", s.el)?.addEventListener("click", () => {
+    const f = fotos[i], lista = [...(getVehiculo(v.id)?.fotos || [])], idx = lista.findIndex(x => x.url === f.url);
+    if (idx < 0) return;
+    const pintura = !f.pintura;
+    fotos[i] = { ...f, pintura }; lista[idx] = { ...lista[idx], pintura };
+    show();
+    actualizarVehiculo(v.id, { fotos: lista }, pintura ? "Marcó una foto de pintura" : "Desmarcó una foto de pintura")
+      .then(() => toast(pintura ? "Foto marcada para pintura" : "Foto desmarcada", "success")).catch(e => toast(mensajeError(e), "error"));
   });
 
   s.el.addEventListener("keydown", e => {
@@ -1540,7 +1556,7 @@ export function vistaFormulario(view, id = null) {
             <textarea name="repuestos" rows="2" placeholder="Ej: moldura, espejo">${esc(v?.repuestos)}</textarea></label>
           <label class="field"><span>Pintura</span>
             <input name="pintura" autocomplete="off" placeholder="Ej: capot, techo" value="${esc(v?.pintura)}"></label>
-          <div class="grid-2 ff-ultima">
+          <div class="stack ff-ultima">
             ${v ? "" : `<label class="field"><span>Fecha de peritaje</span>
               <input name="fecha" type="date" value="${hoyISO()}"></label>`}
             <div class="field" ${docsOn() ? "" : "hidden"}><span>Documentos</span>

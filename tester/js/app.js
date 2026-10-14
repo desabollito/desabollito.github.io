@@ -63,6 +63,12 @@ function animarCambio(antes, ahora) {
   else if (["nuevo", "editar"].includes(antes.nombre)) clase = "anim-fade";
   else if (ahora.nombre === "vehiculos" && ahora.arg && antes.nombre !== "vehiculos") clase = "anim-push";   // desde el calendario, notificaciones, etc.
   else if (antes.nombre === "vehiculos" && antes.arg && ahora.nombre !== "vehiculos") clase = "anim-pop";
+  // Del vehículo a la lista (celular): solo un fundido, sin desplazamiento ni velo (con el scroll restaurado se veía a los saltos)
+  else if (ahora.nombre === "vehiculos" && antes.nombre === "vehiculos" && !ahora.arg && !esAncho()) {
+    view.classList.remove("anim-sube", "anim-fade", "anim-push", "anim-pop", "anim-der", "anim-izq"); void view.offsetWidth;
+    view.classList.add("anim-fade"); view.addEventListener("animationend", () => view.classList.remove("anim-fade"), { once: true });
+    return;
+  }
   else if (ahora.nombre === "planillas" && ORDEN_TAB[antes.nombre] === 2) clase = "anim-pop";   // de una planilla al menú
   else if (antes.nombre === "planillas" && ORDEN_TAB[ahora.nombre] === 2) clase = "anim-push";
   else if (ahora.nombre === "vehiculos" && antes.nombre === "vehiculos") {
@@ -144,7 +150,10 @@ function render({ conservarScroll = false, reabrir = false } = {}) {
   if (hit[1] === "calendario" && !mismaRuta) calendarioAlEntrar();
   ultimoRender = Date.now();
   const eraCal = !!$(".cal-page", view);
+  // Repintado del mismo vehículo (cambió una etapa, una foto…): el detalle queda donde estaba
+  const detAntes = conservarScroll && mismaRuta ? $(".pane-detail", view)?.scrollTop : 0;
   ctrl = hit[2](arg) || null;
+  if (conservarScroll && mismaRuta) { scrollTo(0, y); const p = detAntes && $(".pane-detail", view); if (p) p.scrollTop = detAntes; }
   // Computadora, calendario ↔ vehículo dentro del calendario: la lista del día queda quieta y solo se funde el panel de la derecha
   const panel = eraCal && esAncho() && $(".cal-page > :first-child", view);
   if (panel && !mismaRuta) panel.classList.add("anim-fade");
