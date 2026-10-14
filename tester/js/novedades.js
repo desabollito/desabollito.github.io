@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "2.49.1", items: ["Vehículo en App: copia solo un link corto (sin la patente), también en computadora.", "Cámara con fondo y botones de vidrio.", "El botón + del dock ya no deja un recuadro al volver."] },
   { v: "2.49.0", items: ["Celular: barra de abajo flotante de vidrio con Vehículos, + y Calendario (tocalo otra vez para ir a Planillas).", "Al buscar, los vehículos aparecen animados; los botones rebotan al tocarlos.", "Avatares únicos en tonos azules para cada usuario.", "Paños afectados: si un lado no tiene paños no se muestra (también en el PDF).", "Filtros: Limpiar cierra la hoja y el fondo ya no se mueve.", "Ícono nuevo de la app."] },
   { v: "2.48.0", items: ["Nueva intro: el logo se dibuja por líneas al abrir la app; al actualizar, pantalla de «Actualizando» y recarga completa sola.", "Login y botones de vidrio, botón + con glow, avatares únicos para cada usuario.", "Computadora: en Calendario la lista del día va a la izquierda y el vehículo se abre en lugar del calendario.", "Contactar con animaciones; Ajustes con versión y novedades en su propia tarjeta."] },
   { v: "2.47.0", items: ["Transiciones al cambiar de pestaña y al abrir vehículos, y animación del botón +."] },

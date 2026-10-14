@@ -2601,12 +2601,12 @@ async function compartirApi(env, { idToken, cid, compania, accion, token, vid })
     if (!m || m.c.roles?.[m.uid] === "desmontaje" || !idValido(vid)) return json({ ok: false, error: "No autorizado" }, 403);
     const v = await fsGet(env, `companies/${cid}/vehicles/${vid}`);
     if (!v || v.deleted) return json({ ok: false, error: "No encontré el vehículo" }, 404);
-    const ya = (await fsQuery(env, "", "compartidos", { field: "vid", op: "EQUAL", value: vid }, 5).catch(() => [])).find(x => x.cid === cid);
-    if (ya) return json({ ok: true, token: ya.__id });
-    const base = (String(v.patente || "auto").toLowerCase().replace(/[^a-z0-9]/g, "") || "auto").slice(0, 10);
+    const ya = (await fsQuery(env, "", "compartidos", { field: "vid", op: "EQUAL", value: vid }, 10).catch(() => [])).find(x => x.cid === cid && !x.__id.includes("-"));
+    if (ya) return json({ ok: true, token: ya.__id });   // los viejos (con la patente, tienen "-") no se reusan
+    // Link corto sin datos del auto: 7 caracteres al azar (desabollito.com/k7p2xmq)
     let tk = "";
     for (let i = 0; i < 5 && !tk; i++) {
-      const cand = base + "-" + [...crypto.getRandomValues(new Uint8Array(4))].map(b => "abcdefghjkmnpqrstuvwxyz23456789"[b % 31]).join("");
+      const cand = [...crypto.getRandomValues(new Uint8Array(7))].map(b => "abcdefghjkmnpqrstuvwxyz23456789"[b % 31]).join("");
       if (!(await fsGet(env, `compartidos/${cand}`).catch(() => null))) tk = cand;
     }
     await fsSet(env, `compartidos/${tk}`, { cid, vid, compania: "", por: m.uid, t: Date.now() });

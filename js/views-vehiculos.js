@@ -1324,13 +1324,18 @@ function compartir(v) {
     const lk = e.target.closest("[data-link]");
     if (lk) {
       busy(lk, true, "Creando link…");
+      const pedido = linkVehiculo(v.id);
+      // Solo se copia el link corto. El portapapeles se pide en este mismo toque (si no, el celular lo bloquea) y se llena cuando llega el link.
+      const copia = window.ClipboardItem && navigator.clipboard?.write
+        ? navigator.clipboard.write([new ClipboardItem({ "text/plain": pedido.then(u => new Blob([u], { type: "text/plain" })) })])
+        : pedido.then(u => navigator.clipboard.writeText(u));
       try {
-        const url = await linkVehiculo(v.id);
+        const url = await pedido, ok = await copia.then(() => true, () => false);
         busy(lk, false);
-        const txt = `${v.modelo || "Vehículo"} ${v.patente || ""}`.trim();
-        if (navigator.share) { try { await navigator.share({ title: txt, text: txt, url }); s.close(); return; } catch (err) { if (err.name === "AbortError") return; } }
-        await navigator.clipboard?.writeText(url).catch(() => {});
-        toast("Link copiado", "success"); s.close();
+        if (ok) { toast(`Link copiado: ${url.replace(/^https?:\/\//, "")}`, "success"); s.close(); return; }
+        // Sin permiso de portapapeles: el link queda a la vista para copiarlo a mano
+        lk.insertAdjacentHTML("afterend", `<input readonly value="${esc(url)}" style="width:100%">`);
+        lk.nextElementSibling.select();
       } catch (err) { busy(lk, false); toast(err.message, "error"); }
       return;
     }
