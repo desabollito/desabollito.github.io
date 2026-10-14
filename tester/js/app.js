@@ -386,51 +386,48 @@ function mostrarSegunAprobacion() {
 }
 
 // ── Actualizaciones ───────────────────────────────────────────
-// Al actualizar (Hyperspeed): estelas de luz que salen del centro y aceleran, un destello y aparece la intro.
-// Si el navegador no recarga a los 3,5 s, la intro se abre y la app sigue como estaba.
+// Al actualizar: sobre una aurora azul, estelas de luz con los colores de la app avanzan suave desde el centro;
+// después se disipan y aparece la intro. Si el navegador no recarga a los 3,5 s, la intro se abre y la app sigue.
 function animacionActualizar() {
   if (matchMedia("(prefers-reduced-motion: reduce)").matches) return Promise.resolve();
   const capa = document.createElement("div");
   capa.className = "hiper";
-  capa.innerHTML = `<canvas></canvas><div class="hiper-txt">Actualizando</div>`;
+  capa.innerHTML = `<div class="aurora" aria-hidden="true"><i></i><i></i><i></i><i></i></div><canvas></canvas><div class="hiper-txt">Actualizando</div>`;
   document.body.appendChild(capa);
-  const cv = capa.firstElementChild, ctx = cv.getContext("2d"), dpr = Math.min(2, devicePixelRatio || 1);
-  const W = innerWidth, H = innerHeight, cx = W / 2, cy = H / 2, lejos = Math.hypot(W, H);
-  cv.width = W * dpr; cv.height = H * dpr; ctx.scale(dpr, dpr);
-  const COLORES = ["#5c86ff", "#2b5ce6", "#86a5ff", "#cfe0ff", "#ffffff", "#ff5c7a"];
-  const luces = Array.from({ length: 260 }, () => ({
-    a: Math.random() * Math.PI * 2, d: 0.05 + Math.random() * 1.2,
-    c: COLORES[Math.random() < 0.08 ? 5 : Math.random() * 5 | 0], w: 0.5 + Math.random() * 1.5
+  const cv = capa.querySelector("canvas"), ctx = cv.getContext("2d"), dpr = Math.min(2, devicePixelRatio || 1);
+  const W = innerWidth, H = innerHeight, cx = W / 2, cy = H / 2, lejos = Math.hypot(W, H) / 2;
+  cv.width = W * dpr; cv.height = H * dpr; ctx.scale(dpr, dpr); ctx.lineCap = "round";
+  // Azules de la marca + los colores de los estados (peritado, turnado, reparando, revisión, contactado, facturado)
+  const COLORES = ["#5c86ff", "#86a5ff", "#2b5ce6", "#4f8ff7", "#e0a526", "#7cc9a8", "#22b07d", "#14b8a6", "#9b7bf2"];
+  const luces = Array.from({ length: 90 }, () => ({
+    a: Math.random() * Math.PI * 2, d: 0.15 + Math.random() * 1.1,
+    c: COLORES[Math.random() * COLORES.length | 0], w: 1 + Math.random() * 1.6
   }));
-  const DUR = 1800, t0 = performance.now();
+  const DUR = 2200, t0 = performance.now();
+  const suave = p => p < 0.5 ? 2 * p * p : 1 - (-2 * p + 2) ** 2 / 2;
   return new Promise(listo => {
     const cuadro = t => {
-      const p = Math.min(1, (t - t0) / DUR), vel = 0.003 + p * p * p * 0.07;   // arranca lento y acelera fuerte
-      ctx.globalCompositeOperation = "source-over";
-      ctx.fillStyle = `rgba(4, 7, 15, ${0.28 + p * 0.3})`;   // oscurece y deja estela
-      ctx.fillRect(0, 0, W, H);
+      const p = Math.min(1, (t - t0) / DUR), vel = 0.002 + suave(p) * 0.016;
+      const brillo = p < 0.15 ? p / 0.15 : p > 0.8 ? 1 - (p - 0.8) / 0.2 : 1;   // entra y se disipa
+      ctx.clearRect(0, 0, W, H);
       ctx.globalCompositeOperation = "lighter";
       for (const l of luces) {
         l.d -= vel;
-        if (l.d < 0.02) { l.d = 0.9 + Math.random() * 0.4; l.a = Math.random() * Math.PI * 2; continue; }
-        const r1 = 36 / l.d, r0 = 36 / (l.d + 0.01 + vel * 7);   // la estela se alarga con la velocidad
-        if (r0 > lejos) continue;
+        if (l.d < 0.06) { l.d = 1 + Math.random() * 0.3; l.a = Math.random() * Math.PI * 2; continue; }
+        const r1 = 40 / l.d, r0 = 40 / (l.d + 0.02 + vel * 10);
+        if (r0 > lejos * 1.2) continue;
         const x = Math.cos(l.a), y = Math.sin(l.a);
-        ctx.globalAlpha = Math.min(1, (1.2 - l.d) * 1.1);
-        ctx.strokeStyle = l.c; ctx.lineWidth = Math.min(4, l.w * (0.25 + 0.25 / l.d));
+        const g = ctx.createLinearGradient(cx + x * r0, cy + y * r0, cx + x * r1, cy + y * r1);
+        g.addColorStop(0, l.c + "00"); g.addColorStop(1, l.c);
+        ctx.globalAlpha = brillo * Math.min(0.85, (1.25 - l.d) * 0.9);
+        ctx.strokeStyle = g; ctx.lineWidth = Math.min(3.2, l.w * (0.4 + 0.2 / l.d));
         ctx.beginPath(); ctx.moveTo(cx + x * r0, cy + y * r0); ctx.lineTo(cx + x * r1, cy + y * r1); ctx.stroke();
       }
       ctx.globalAlpha = 1;
-      // Destello final desde el centro
-      if (p > 0.82) {
-        const f = (p - 0.82) / 0.18, g = ctx.createRadialGradient(cx, cy, 0, cx, cy, lejos * (0.2 + f));
-        g.addColorStop(0, `rgba(207, 224, 255, ${f})`); g.addColorStop(1, "rgba(92, 134, 255, 0)");
-        ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
-      }
       if (p < 1) return requestAnimationFrame(cuadro);
       const sp = $("#splash"); sp.classList.remove("abre"); sp.hidden = false;
       capa.classList.add("sale");
-      setTimeout(() => capa.remove(), 600);
+      setTimeout(() => capa.remove(), 700);
       setTimeout(cerrarSplash, 3500);
       listo();
     };
