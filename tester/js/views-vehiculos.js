@@ -597,7 +597,12 @@ ${[...PASO_REP, "facturado"].includes(est) && !soyLector() && (soyAdmin() || soy
     if (act === "contactar") {
       const m = $(".d-menu", root), abrir = m.hidden;
       const btn = t.closest("[data-act]");
-      const cerrar = () => { m.hidden = true; btn.setAttribute("aria-expanded", "false"); $(".menu-velo")?.remove(); };
+      // Al cerrar: el menú y el velo salen animados (.sale) y recién después se ocultan
+      const cerrar = () => {
+        btn.setAttribute("aria-expanded", "false");
+        const velo = $(".menu-velo"); velo?.classList.add("sale"); m.classList.add("sale");
+        setTimeout(() => { m.hidden = true; m.classList.remove("sale"); velo?.remove(); }, 180);
+      };
       if (!abrir) return cerrar();
       m.hidden = false; btn.setAttribute("aria-expanded", "true");
       // Fondo desenfocado detrás del menú; tocarlo lo cierra

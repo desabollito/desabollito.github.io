@@ -1907,3 +1907,20 @@ html.lenis, html.lenis body { height: auto; }
   body[data-lector="1"] .tabbar a.fab { display: grid !important; visibility: hidden; }   /* el perito no carga: queda el lugar vacío para no correr Calendario al centro */
   body[data-ruta] .main { padding-bottom: calc(var(--tab) + var(--safe-b) + 24px); }
 }
+/* Contactar: el teléfono suena al abrir, el menú se despliega con resorte desde el botón y las opciones entran escalonadas; al cerrar sale al revés */
+.d-contacto > .btn[aria-expanded="true"] { background: var(--primary-soft); color: var(--primary); }
+.d-contacto > .btn[aria-expanded="true"] .ic { animation: tel-suena .5s ease-in-out; }
+@keyframes tel-suena { 0%, 100% { transform: none; } 20%, 60% { transform: rotate(-14deg); } 40%, 80% { transform: rotate(14deg); } }
+.d-menu:not([hidden]) { transform-origin: top center; animation: menu-abre .32s cubic-bezier(.34, 1.4, .64, 1) both; }
+.d-menu:not([hidden]) a { animation: menu-item .3s var(--ease) both; }
+.d-menu:not([hidden]) a:nth-child(2) { animation-delay: .06s; }
+.d-menu.sale { animation: menu-cierra .18s ease-in both; }
+.d-menu a .ic { transition: transform .2s var(--ease); }
+.d-menu a:hover .ic { transform: scale(1.15); }
+.menu-velo { animation: velo-in .25s ease-out both; transition: opacity .18s; }
+.menu-velo.sale { opacity: 0; }
+@keyframes menu-abre { from { opacity: 0; transform: translateY(-8px) scale(.92); filter: blur(4px); } }
+@keyframes menu-cierra { to { opacity: 0; transform: translateY(-6px) scale(.95); filter: blur(3px); } }
+@keyframes menu-item { from { opacity: 0; transform: translateY(-6px); } }
+@keyframes velo-in { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .d-menu, .d-menu a, .menu-velo, .d-contacto .ic { animation: none !important; } }
