@@ -397,11 +397,13 @@ function animacionActualizar() {
     <div class="ex-tit"><span>Nueva</span><span>versión</span></div>`;
   document.body.appendChild(capa);
   const W = innerWidth, H = innerHeight, w = Math.min(320, W * .7), h = Math.min(200, H * .3);
-  const x = (W - w) / 2, y = (H - h) / 2, DUR = 1700, curva = "cubic-bezier(.76,0,.24,1)";
-  const crece = $(".ex-media", capa).animate([
-    { clipPath: `inset(${y + 30}px ${x + 30}px round 28px)`, opacity: 0, offset: 0 },
-    { clipPath: `inset(${y}px ${x}px round 28px)`, opacity: 1, offset: .25, easing: curva },   // aparece la ventana
-    { clipPath: "inset(0px 0px round 0px)", opacity: 1, offset: 1 }                             // y se expande a pantalla completa
+  const S = Math.max(W / w, H / h) * 1.4, DUR = 1700, curva = "cubic-bezier(.76,0,.24,1)";   // de más, así el borde difuminado queda fuera de pantalla
+  const media = $(".ex-media", capa);
+  media.style.cssText = `width:${w}px;height:${h}px;margin:${-h / 2}px 0 0 ${-w / 2}px`;
+  const crece = media.animate([
+    { transform: "scale(.8)", opacity: 0, offset: 0 },
+    { transform: "scale(1)", opacity: 1, offset: .25, easing: curva },   // aparece la ventana
+    { transform: `scale(${S})`, opacity: 1, offset: 1 }                  // y se expande a pantalla completa
   ], { duration: DUR, easing: "ease-out", fill: "forwards" });
   $$(".ex-tit span", capa).forEach((s, n) => s.animate([
     { transform: "none", opacity: 0, filter: "blur(10px)" },
