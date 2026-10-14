@@ -1954,3 +1954,6 @@ html:has(body.no-scroll) { overflow: hidden; }
 .tabbar .fab, body[data-detalle="1"] .tabbar .fab { position: relative; inset: auto; z-index: auto; display: grid !important; width: auto; height: auto;
   border: 0; border-radius: 0; background: none; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; overflow: visible; }
 body[data-lector="1"] .tabbar .fab, body[data-lector="1"][data-detalle="1"] .tabbar .fab { display: none !important; }
+/* Dock solo con íconos (el dibujo se entiende; el nombre queda en aria-label) */
+.tabbar a > span:not(.tab-dots) { display: none; }
+.tabbar .ic { width: 26px; height: 26px; }
