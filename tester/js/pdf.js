@@ -330,9 +330,9 @@ export function planillaPDF(lista, empresa, filtroTexto = "", sinTotal = false) 
 }
 
 // Tabla genérica (planilla de técnicos, gastos fijos). cols: [{ titulo, ancho, tipo }]; filas: arrays (fila.negrita = total)
-export function tablaPDF(empresa, subtitulo, cols, filas) {
+export function tablaPDF(empresa, subtitulo, cols, filas, { doc0 = null, pieTxt = subtitulo } = {}) {   // doc0: sumar como página nueva; pieTxt null: sin pie (se pone al final)
   acento(empresa);
-  const doc = nuevoDoc("landscape");
+  const doc = doc0 || nuevoDoc("landscape"); if (doc0) doc.addPage("a4", "landscape");
   const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), M = 12;
   const k = Math.min(1, (W - M * 2) / cols.reduce((s, c) => s + (c.ancho || 16), 0));   // se achica para entrar en la hoja
   const ws = cols.map(c => (c.ancho || 16) * k), tw = ws.reduce((a, b) => a + b, 0), x0 = (W - tw) / 2, rh = 7;
@@ -359,9 +359,9 @@ export function tablaPDF(empresa, subtitulo, cols, filas) {
       doc.setFillColor(...LINEA); doc.rect(x0, y, tw, rh, "F"); }
     else if (n % 2 === 0) { doc.setFillColor(...SUAVE); doc.rect(x0, y, tw, rh, "F"); }
     doc.setFont("helvetica", f.negrita ? "bold" : "normal"); doc.setFontSize(f.negrita ? 6.5 : 7.5); doc.setTextColor(...INK);   // totales más chicos: entran montos grandes
-    fila(f); if (f.negrita) y += 3;   // espacio en blanco abajo de cada total
+    fila(f); if (f.negrita) y += rh;   // una línea en blanco abajo de cada total
   });
-  pie(doc, `${empresa?.name || "Desabollito"} · ${subtitulo}`);
+  if (pieTxt) pie(doc, `${empresa?.name || "Desabollito"} · ${pieTxt}`);
   return doc;
 }
 

@@ -35,10 +35,13 @@ const FUENTE = { name: "Nunito", size: 11 };
 const IZQ = { horizontal: "left", vertical: "middle" };
 
 // columnas: [{ titulo, ancho, tipo: "texto" | "fecha" | "moneda" | "usd", valor: fila => ... }]
-export async function exportarExcel({ archivo, hoja, titulo, columnas, filas, total }) {
+export async function exportarExcel({ archivo, hoja, titulo, columnas, filas, total, mas = [] }) {   // mas: otras hojas, mismo formato
   const ExcelJS = await cargarExcelJS();
   const wb = new ExcelJS.Workbook();
   wb.creator = "Desabollito";
+  const hojas = [{ hoja, titulo, columnas, filas, total }, ...mas];
+  for (const h of hojas) {
+  const { hoja, titulo, columnas, filas, total } = h;
   const ws = wb.addWorksheet(hoja, { views: [{ state: "frozen", ySplit: titulo ? 2 : 1 }] });
 
   let filaInicio = 1;
@@ -95,6 +98,7 @@ export async function exportarExcel({ archivo, hoja, titulo, columnas, filas, to
   });
 
   ws.autoFilter = { from: { row: filaInicio, column: 1 }, to: { row: filaInicio, column: columnas.length } };
+  }
 
   const buf = await wb.xlsx.writeBuffer();
   const blob = new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
@@ -104,10 +108,12 @@ export async function exportarExcel({ archivo, hoja, titulo, columnas, filas, to
 }
 
 // Botón Descargar de una tabla simple: Excel o PDF con las mismas columnas y filas (fila.negrita = total)
-export function descargarTabla({ archivo, titulo, cols, filas }) {
+// mas: otras tablas [{ titulo, cols, filas }] que van en otra hoja del Excel y otra página del PDF
+export function descargarTabla({ archivo, titulo, cols, filas, mas = [] }) {
+  const xl = (t, c) => ({ hoja: t.slice(0, 31), titulo: `${S.company?.name || "Desabollito"} · ${t}`, columnas: c.map((x, i) => ({ ...x, valor: f => f[i] })) });
   elegirDescarga(titulo, {
-    excel: () => exportarExcel({ archivo: archivo + ".xlsx", hoja: titulo.slice(0, 31), titulo: `${S.company?.name || "Desabollito"} · ${titulo}`,
-      columnas: cols.map((c, i) => ({ ...c, valor: f => f[i] })), filas }),
-    pdf: async () => tablaPDF(S.company, titulo, cols, filas).save(archivo + ".pdf")
+    excel: () => exportarExcel({ archivo: archivo + ".xlsx", ...xl(titulo, cols), filas, mas: mas.map(m => ({ ...xl(m.titulo, m.cols), filas: m.filas })) }),
+    pdf: async () => { const l = [{ titulo, cols, filas }, ...mas];   // el pie (con "Página x de n") va una sola vez, al final
+      l.reduce((doc, m, i) => tablaPDF(S.company, m.titulo, m.cols, m.filas, { doc0: doc, pieTxt: i === l.length - 1 ? titulo : null }), null).save(archivo + ".pdf"); }
   });
 }

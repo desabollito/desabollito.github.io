@@ -230,21 +230,29 @@ export function vistaTecnicos(view) {
       <button type="button" class="btn btn-ghost btn-block tec-add-persona" data-act="persona">${icon("plus")}Agregar técnico</button>`;
   };
 
-  const pintarCierre = rows => {
-    const s = sumaPorTec(rows), total = rows.reduce((a, r) => a + r.valor, 0);
-    const { de, sueltos } = asignarFijos(), ftecs = fijos.tecnicos || [];
+  // Números del cierre (los usan las tarjetas y la descarga)
+  const datosCierre = rows => {
+    const s = sumaPorTec(rows), { de, sueltos } = asignarFijos(), ftecs = fijos.tecnicos || [];
     const vi = viandasPorTec(fijos, ftecs, T.desde, T.hasta), al = repartoAlquiler(fijos, ftecs, T.desde, T.hasta).porTec;
-    const hayFijos = !!(fijos.viandas?.cambios?.length || fijos.alquiler?.pagos?.length || fijos.alquiler?.casas?.length);
-    const tarjeta = (t, ids, sueldo) => {
+    const item = (t, ids, sueldo) => {
       const v = ids.reduce((a, id) => a + (vi[id] || 0), 0), a = ids.reduce((x, id) => x + (al[id] || 0), 0);
       const ganado = sueldo ? totalSueldo(t.id) : s[t.id] || 0;
       const ad = movsDe(t.id, "adelanto"), ga = movsDe(t.id, "gasto");
       // Adelantos y gastos se descuentan siempre; viandas y alquiler, a los de sueldo solo con "Descontar gastos" activado
-      const desc = !sueldo || !!cfg.descontar?.[t.id], gastos = suma(ga) + v + a;
-      const fin = ganado - suma(ad) - suma(ga) - (desc ? v + a : 0);
+      const desc = !sueldo || !!cfg.descontar?.[t.id];
+      return { t, sueldo, autos: rows.filter(r => r.tecs.includes(t.id)).length, ganado, ad, ga, v, a, desc,
+        gastos: suma(ga) + v + a, fin: ganado - suma(ad) - suma(ga) - (desc ? v + a : 0) };
+    };
+    return [...cfg.tecnicos.map(t => item(t, de[t.id] || [], false)),
+      ...personasSueldo(sueltos).map(p => item(p, sueltos.filter(f => norm(f.nombre) === norm(p.nombre)).map(f => f.id), true))];
+  };
+  const pintarCierre = rows => {
+    const total = rows.reduce((a, r) => a + r.valor, 0);
+    const hayFijos = !!(fijos.viandas?.cambios?.length || fijos.alquiler?.pagos?.length || fijos.alquiler?.casas?.length);
+    const tarjeta = ({ t, sueldo, autos, ganado, ad, ga, v, a, desc, gastos, fin }) => {
       const sw = sueldo ? `<div class="tec-linea tec-desc"><span>Descontar gastos</span><button type="button" class="switch ${desc ? "on" : ""}" data-descontar role="switch" aria-checked="${desc}" aria-label="Descontar gastos"><span class="sw-txt sw-si">Sí</span><span class="sw-txt sw-no">No</span><i class="sw-bola"></i></button></div>` : "";
       return `<section class="tec-cierre" data-tecid="${esc(t.id)}">
-        <h3 class="tec-cierre-nombre">${esc(t.nombre)}${sueldo ? "" : ` <small>${rows.filter(r => r.tecs.includes(t.id)).length} autos</small>`}</h3>
+        <h3 class="tec-cierre-nombre">${esc(t.nombre)}${sueldo ? "" : ` <small>${autos} autos</small>`}</h3>
         <div class="tec-linea"><span>${sueldo ? "Sueldo" : "Total ganado"}</span><b>${pesos(ganado)}</b></div>
         <div class="tec-linea"><span>Adelantos</span><b>-${pesos(suma(ad))}</b>${T.editando ? `<button type="button" class="link-btn small" data-add-mov="adelanto">+ Adelanto</button>` : ""}</div>
         <ul class="tec-movs">${listaMovs(ad, "Sin adelantos")}</ul>
@@ -256,15 +264,15 @@ export function vistaTecnicos(view) {
         <div class="tec-linea tec-final"><span>Final a pagar</span><b>${pesos(fin)}</b></div>
       </section>`;
     };
-    const ps = personasSueldo(sueltos);
+    const l = datosCierre(rows), ps = l.filter(x => x.sueldo);
     return `<div class="tec-cierre-top">
         <div class="tec-stat"><small>Autos</small><strong>${rows.length}</strong></div>
         <div class="tec-stat"><small>Valor de todos los autos</small><strong>${pesos(total)}</strong></div>
       </div>
       <h3 class="tec-cierre-tit">Sacabollos</h3>
-      <div class="tec-cierre-grid">${cfg.tecnicos.map(t => tarjeta(t, de[t.id] || [], false)).join("")}</div>
+      <div class="tec-cierre-grid">${l.filter(x => !x.sueldo).map(tarjeta).join("")}</div>
       ${ps.length ? `<h3 class="tec-cierre-tit">Sueldos</h3>
-      <div class="tec-cierre-grid">${ps.map(p => tarjeta(p, sueltos.filter(f => norm(f.nombre) === norm(p.nombre)).map(f => f.id), true)).join("")}</div>` : ""}`;
+      <div class="tec-cierre-grid">${ps.map(tarjeta).join("")}</div>` : ""}`;
   };
 
   // ── Acciones ──
@@ -419,8 +427,19 @@ export function vistaTecnicos(view) {
     filas.push(total("TOTAL", rows));
     descargarTabla({ archivo: `Tecnicos_${hoyISO()}`, titulo: "Planilla de técnicos", filas,
       cols: [{ titulo: "FECHA", ancho: 14, tipo: "fecha" }, { titulo: "VEHÍCULO", ancho: 26 }, { titulo: "PATENTE", ancho: 16.3 },
-        { titulo: "IMPORTE", ancho: 16, tipo: "moneda" }, { titulo: "", ancho: 8 }, ...tecs.map(t => ({ titulo: t.nombre, ancho: 17.5, tipo: "moneda" }))] });
+        { titulo: "IMPORTE", ancho: 16, tipo: "moneda" }, { titulo: "", ancho: 8 }, ...tecs.map(t => ({ titulo: t.nombre, ancho: 17.5, tipo: "moneda" }))],
+      mas: [cierreDescarga(rows)] });
   });
+  // Hoja del cierre: una fila por técnico (sacabollos y sueldos); viandas y alquiler solo si se descuentan
+  const cierreDescarga = rows => {
+    const l = datosCierre(rows), m = l.map(x => [x.t.nombre, x.sueldo ? "Sueldo" : "Sacabollo", x.sueldo ? "" : x.autos, x.ganado,
+      suma(x.ad), suma(x.ga), x.desc ? x.v : "", x.desc ? x.a : "", x.fin]);
+    const sum = i => m.reduce((a, f) => a + (Number(f[i]) || 0), 0);
+    return { titulo: "Cierre", filas: [...m, Object.assign(["TOTAL", "", "", sum(3), sum(4), sum(5), sum(6), sum(7), sum(8)], { negrita: true })],
+      cols: [{ titulo: "TÉCNICO", ancho: 26 }, { titulo: "TIPO", ancho: 16 }, { titulo: "AUTOS", ancho: 12 }, { titulo: "GANADO / SUELDO", ancho: 26, tipo: "moneda" },
+        { titulo: "ADELANTOS", ancho: 24, tipo: "moneda" }, { titulo: "GASTOS", ancho: 24, tipo: "moneda" }, { titulo: "VIANDAS", ancho: 24, tipo: "moneda" },
+        { titulo: "ALQUILER", ancho: 24, tipo: "moneda" }, { titulo: "FINAL A PAGAR", ancho: 28, tipo: "moneda" }] };
+  };
   $("#t-edit")?.addEventListener("click", () => {
     T.editando = !T.editando;
     const b = $("#t-edit"); b.className = `btn btn-sm ${T.editando ? "btn-primary" : "btn-ghost"}`;
