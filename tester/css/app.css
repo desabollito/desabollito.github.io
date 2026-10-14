@@ -1899,14 +1899,6 @@ html.lenis, html.lenis body { height: auto; }
 .splash.solo-aurora .aurora i { opacity: .22; }
 /* Computadora: el vehículo abierto en el calendario se desplaza solo en su panel */
 @media (min-width: 1100px) { body[data-ruta="calendario"] .cal-page .pane-detail { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding-right: 4px; } }
-/* Celular: barra de abajo con Vehículos · + · Calendario (que se vuelve Planillas al tocarlo estando en el calendario) */
-@media (max-width: 899px) {
-  body .tabbar a.fab { display: grid !important; position: relative; right: auto; bottom: auto; justify-self: center; align-self: center;
-    width: 54px; height: 54px; border-radius: 17px; margin-top: -20px; }
-  .tabbar a[hidden] { display: none; }
-  body[data-lector="1"] .tabbar a.fab { display: grid !important; visibility: hidden; }   /* el perito no carga: queda el lugar vacío para no correr Calendario al centro */
-  body[data-ruta] .main { padding-bottom: calc(var(--tab) + var(--safe-b) + 24px); }
-}
 /* Contactar: el teléfono suena al abrir, el menú se despliega con resorte desde el botón y las opciones entran escalonadas; al cerrar sale al revés */
 .d-contacto > .btn[aria-expanded="true"] { background: var(--primary-soft); color: var(--primary); }
 .d-contacto > .btn[aria-expanded="true"] .ic { animation: tel-suena .5s ease-in-out; }
@@ -1924,3 +1916,8 @@ html.lenis, html.lenis body { height: auto; }
 @keyframes menu-item { from { opacity: 0; transform: translateY(-6px); } }
 @keyframes velo-in { from { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .d-menu, .d-menu a, .menu-velo, .d-contacto .ic { animation: none !important; } }
+/* Botón + flotante de vidrio: azul translúcido con desenfoque y borde claro, como el resto de la app */
+.fab { background: color-mix(in srgb, var(--primary) 62%, transparent); color: #fff;
+  -webkit-backdrop-filter: blur(16px) saturate(160%); backdrop-filter: blur(16px) saturate(160%);
+  border: 1px solid rgb(255 255 255 / .22);
+  box-shadow: 0 10px 28px -8px color-mix(in srgb, var(--primary) 55%, transparent), inset 0 1px 0 rgb(255 255 255 / .25); }

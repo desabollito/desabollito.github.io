@@ -216,20 +216,9 @@ addEventListener("hashchange", () => render());
 
 // Celular: la pestaña Planilla alterna con Gastos al tocarla de nuevo
 // La pestaña "Planillas" abre el menú de planillas (vehículos, técnicos y gastos)
-// Celular: Calendario y Planillas comparten el lugar de la derecha; en las planillas se ve Planillas, en el resto Calendario
 function pintarTabPlanilla(r) {
-  const enPlan = ["planillas", "planilla", "gastos", "tecnicos", "fijos"].includes(r);
-  $("#tab-planilla").classList.toggle("on", enPlan);
-  $("#tab-planilla").hidden = !enPlan;
-  $('.tabbar [data-nav="calendario"]').hidden = enPlan;
+  $("#tab-planilla").classList.toggle("on", ["planillas", "planilla", "gastos", "tecnicos", "fijos"].includes(r));
 }
-// Tocar Calendario estando en el calendario lleva a Planillas, y tocar Planillas estando ahí vuelve al calendario
-document.addEventListener("click", e => {
-  const cal = e.target.closest('.tabbar [data-nav="calendario"]'), plan = e.target.closest(".tabbar #tab-planilla.on");
-  if (!(cal && ruta.nombre === "calendario") && !plan) return;
-  e.preventDefault(); e.stopImmediatePropagation();   // antes que "tocar de nuevo la pestaña" (que reinicia el calendario)
-  location.hash = cal ? $("#tab-planilla").getAttribute("href") : "#/calendario";
-}, true);
 
 // Botón flotante: en Gastos carga un gasto, en el resto un vehículo
 $(".fab").addEventListener("click", e => {
