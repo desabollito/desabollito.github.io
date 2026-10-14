@@ -1923,6 +1923,29 @@ html.lenis, html.lenis body { height: auto; }
   border: 0;
   box-shadow: 0 0 22px 2px color-mix(in srgb, var(--primary) 55%, transparent), 0 10px 24px -6px color-mix(in srgb, var(--primary) 65%, transparent); }
 /* Blobatar */
-.avatar.con-blob { background: none; }
+.avatar.con-blob { background: color-mix(in srgb, var(--primary) 16%, transparent); }
 .avatar.con-blob svg { width: 100%; height: 100%; display: block; }
 .piezas-lados > div:only-child { grid-column: 1 / -1; }
+/* Con una hoja abierta (filtros, etc.) el fondo no se desliza: el gesto queda dentro de la hoja */
+html:has(body.no-scroll) { overflow: hidden; }
+.sheet-backdrop { touch-action: none; overscroll-behavior: contain; }
+.sheet { overscroll-behavior: contain; touch-action: pan-y; }
+/* Computadora: la pestaña elegida del menú salta como en el celular */
+.side-nav a .ic { transition: transform .2s; }
+.side-nav a.on .ic { animation: tab-salto .35s ease-out; }
+/* Animated List: al buscar, los vehículos entran uno tras otro con resorte */
+#vlist.lista-anim > .vcard { animation: lista-entra .45s cubic-bezier(.35,1.45,.55,1) both; animation-delay: calc(min(var(--i), 12) * 45ms); }
+@keyframes lista-entra { from { opacity: 0; transform: scale(.86) translateY(12px); } }
+@media (prefers-reduced-motion: reduce) { #vlist.lista-anim > .vcard, .side-nav a.on .ic { animation: none; } }
+/* Dock (prueba): la barra de abajo flota como pastilla de vidrio; en computadora también, con lupa al pasar el mouse */
+:root { --tab: 76px; }
+.tabbar { left: 50%; right: auto; bottom: calc(var(--safe-b) + 10px); transform: translateX(-50%); width: calc(100% - 32px); max-width: 420px;
+  height: 62px; padding: 0 6px; border: 1px solid var(--edge); border-radius: 22px; box-shadow: 0 14px 34px -12px rgb(0 0 0 / .55); }
+.tabbar a { border-radius: 16px; }
+.tabbar a.on { background: color-mix(in srgb, var(--primary) 14%, transparent); }
+@media (min-width: 900px) {
+  .tabbar { display: flex; width: auto; height: auto; bottom: 16px; padding: 8px; gap: 8px; align-items: flex-end; margin-left: calc(var(--side) / 2); }
+  .tabbar a { width: 58px; height: 58px; font-size: 10px; transform-origin: 50% 100%; transform: scale(var(--dock, 1)); transition: transform .14s ease-out, background .2s; }
+  .tabbar a:hover { background: color-mix(in srgb, var(--ink) 8%, transparent); }
+  .main, body[data-ruta] .main { padding-bottom: 110px; }
+}

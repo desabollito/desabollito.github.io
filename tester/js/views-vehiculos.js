@@ -160,7 +160,7 @@ export function vistaVehiculos(view, selId = null) {
       ${ancho ? `<section class="pane-detail" id="pane-detail"></section>` : ""}
     </div>`;
 
-  const pintar = () => {
+  const pintar = (animar = false) => {
     const todos = activos();
     const cuenta = Object.fromEntries(ESTADOS.map(e => [e.key, 0]));
     todos.forEach(v => cuenta[estadoActual(v)]++);
@@ -187,6 +187,8 @@ export function vistaVehiculos(view, selId = null) {
       ? lista.map(v => tarjeta(v, v.id === selId)).join("")
       : `<div class="empty small"><p>Ningún vehículo coincide con la búsqueda.</p>
          <button class="btn btn-ghost" id="limpiar">Limpiar filtros</button></div>`;
+    box.classList.toggle("lista-anim", animar);
+    if (animar) [...box.children].forEach((c, i) => c.style.setProperty("--i", i));
     $("#limpiar", box)?.addEventListener("click", () => { F.q = ""; F.estado = "todos"; F.mios = false; F.cias.clear(); F.grado = null; F.repuestos = null; F.pintura = null; F.turno = null; marcarBoton(); $("#q", view).value = ""; pintar(); });
   };
 
@@ -195,7 +197,7 @@ export function vistaVehiculos(view, selId = null) {
     const a = e.target.closest("a.vcard.sel"); if (!a || !ancho || e.metaKey || e.ctrlKey) return;
     e.preventDefault(); S.ultimoVid = null; a.classList.remove("sel"); go("#/");
   });
-  $("#q", view).addEventListener("input", debounce(e => { F.q = e.target.value; pintar(); }, 120));
+  $("#q", view).addEventListener("input", debounce(e => { F.q = e.target.value; pintar(true); }, 120));
   // Doble clic selecciona toda la búsqueda (en Mac no lo hacía solo)
   $("#q", view).addEventListener("dblclick", e => { e.target.select(); });
   $("#estado-strip", view).addEventListener("click", e => {

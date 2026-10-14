@@ -183,10 +183,12 @@ export async function presupuestoPDF(v, empresa, { conFotos = false, onProgreso 
     if (centro.length) { let cx = lx; centro.forEach(k => { cx += punto(PIEZA[k].label, cx, py); }); py += 10; }
     if (izq.length || der.length) {
       doc.setFont("helvetica", "bold"); doc.setFontSize(7.5); doc.setTextColor(...GRIS);
-      doc.text("LADO IZQUIERDO", lx, py); doc.text("LADO DERECHO", lx + 62, py);
+      const dx = izq.length ? lx + 62 : lx;   // un lado vacío no se muestra
+      if (izq.length) doc.text("LADO IZQUIERDO", lx, py);
+      if (der.length) doc.text("LADO DERECHO", dx, py);
       doc.setFont("helvetica", "normal"); doc.setFontSize(9.5);
       izq.forEach((k, i) => punto(PIEZA[k].label, lx, py + 6 + i * 6.5));
-      der.forEach((k, i) => punto(PIEZA[k].label, lx + 62, py + 6 + i * 6.5));
+      der.forEach((k, i) => punto(PIEZA[k].label, dx, py + 6 + i * 6.5));
     }
     y += altoMapa + 8;
   }
