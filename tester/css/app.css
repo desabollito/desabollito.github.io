@@ -1791,7 +1791,7 @@ body::before {
 @keyframes abre { to { --hole: 150%; } }
 
 /* Blur Text: palabras que entran desenfocadas */
-.bw { animation: blur-txt .8s calc(var(--i) * 70ms) var(--ease) both; }
+.bw { animation: blur-txt .8s calc(var(--i) * 40ms) var(--ease) both; }
 @keyframes blur-txt { from { opacity: 0; filter: blur(10px); } to { opacity: 1; filter: none; } }
 
 /* Fade Content: velo desenfocado que se disipa al cambiar de pantalla (no se toca .view: tiene botones fijos adentro) */

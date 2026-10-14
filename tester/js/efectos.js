@@ -9,21 +9,28 @@ export function cerrarSplash() {
   if (quieto() || sp.classList.contains("abre")) { sp.hidden = true; return; }
   sp.classList.add("abre");
   setTimeout(() => { sp.hidden = true; sp.classList.remove("abre"); }, 1000);
-  setTimeout(() => document.querySelectorAll(".tb-title h1, .view h1, .view h2, .login-card h1").forEach(blurTexto), 250);
+  // Todos los textos visibles de la pantalla (login o app) entran con Blur Text
+  setTimeout(() => document.querySelectorAll("#login:not([hidden]), #shell:not([hidden])").forEach(blurTexto), 250);
 }
 
-// Blur Text: cada palabra entra desenfocada, con 70 ms de diferencia
-export function blurTexto(el) {
-  if (quieto() || el.dataset.bw) return;
-  el.dataset.bw = "1";
+// Blur Text: cada palabra entra desenfocada, en orden de lectura (máx. 30 escalones de 40 ms para no demorar)
+export function blurTexto(raiz) {
+  if (quieto()) return;
+  const alto = innerHeight, textos = [];
+  const w = document.createTreeWalker(raiz, NodeFilter.SHOW_TEXT, { acceptNode: n =>
+    !n.textContent.trim() || n.parentElement.closest(".bw, script, style, textarea, select, option, svg, [hidden]")
+      ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT });
+  while (w.nextNode() && textos.length < 400) {
+    const r = w.currentNode.parentElement.getBoundingClientRect();
+    if (r.bottom > 0 && r.top < alto && r.width) textos.push(w.currentNode);   // solo lo que se ve
+  }
   let i = 0;
-  [...el.childNodes].forEach(n => {
-    if (n.nodeType !== 3 || !n.textContent.trim()) return;
+  textos.forEach(n => {
     const f = document.createDocumentFragment();
     n.textContent.split(/(\s+)/).forEach(p => {
       if (!p.trim()) return f.append(p);
       const s = document.createElement("span");
-      s.className = "bw"; s.style.setProperty("--i", i++); s.textContent = p;
+      s.className = "bw"; s.style.setProperty("--i", Math.min(30, i++)); s.textContent = p;
       f.append(s);
     });
     n.replaceWith(f);
