@@ -2,7 +2,7 @@
 // scroll suave, spotlight en tarjetas, texto que entra desenfocado y números que cuentan.
 const quieto = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-// Logo dibujado por líneas: el logo se arma trazo por trazo; después una ventana con la aurora crece detrás
+// Logo dibujado por líneas: el logo se arma trazo por trazo; después una mancha negra difuminada crece detrás
 // hasta llenar la pantalla (zoom in) y el logo se disuelve. Se usa al abrir la app.
 // shortcut: trazos calcados a mano de img/logo-*.png (sin el grosor variable); si cambia el logo, recalcarlos.
 const LOGO_TRAZOS = [
@@ -15,7 +15,7 @@ function animacionLogo() {
   if (quieto()) return Promise.resolve();
   const capa = document.createElement("div");
   capa.className = "expande";
-  capa.innerHTML = `<div class="ex-media"><div class="aurora" aria-hidden="true"><i></i><i></i><i></i><i></i></div></div>
+  capa.innerHTML = `<div class="ex-media"></div>
     <svg class="ex-logo" viewBox="30 50 470 380" aria-hidden="true">${LOGO_TRAZOS.map(d => `<path d="${d}" pathLength="1"/>`).join("")}</svg>`;
   document.body.appendChild(capa);
   const W = innerWidth, H = innerHeight, w = Math.min(320, W * .7), h = Math.min(220, H * .3);

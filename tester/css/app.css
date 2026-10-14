@@ -1873,8 +1873,8 @@ html.lenis, html.lenis body { height: auto; }
   animation: hiper-in .45s var(--ease) both; transition: opacity .5s var(--ease); }
 .expande.sale { opacity: 0; }
 @keyframes hiper-in { from { opacity: 0; } }
-.ex-media { position: absolute; left: 50%; top: 50%; overflow: hidden; border-radius: 32px; background: var(--bg); opacity: 0;
-  filter: blur(16px); box-shadow: 0 0 60px 20px color-mix(in srgb, var(--primary) 35%, transparent); }  /* borde difuminado con halo azul */
+.ex-media { position: absolute; left: 50%; top: 50%; border-radius: 50%; background: #000; opacity: 0;
+  filter: blur(40px); box-shadow: 0 0 80px 50px #000; }  /* negro, con el borde tan difuminado que no se nota */
 .ex-logo { position: absolute; left: 50%; top: 50%; width: min(220px, 56vw); aspect-ratio: 470 / 380; translate: -50% -50%; overflow: visible;
   fill: none; stroke: var(--ink); stroke-width: 15; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 1; stroke-dashoffset: 1;
   filter: drop-shadow(0 0 12px color-mix(in srgb, var(--primary) 70%, transparent)); }
