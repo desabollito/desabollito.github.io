@@ -7,7 +7,7 @@ import { cargarExcelJS } from "./excel.js";
 import { ESTADOS, ESTADO, ROLES, estadoActual } from "./domain.js";
 import {
   $, $$, esc, money, fechaCorta, fechaLarga, hoyISO, plate, estadoPill, icon, toast, openSheet, confirmar,
-  pedirTexto, busy, debounce, initials, tsToISO, elegirDescarga, horaDe
+  pedirTexto, busy, debounce, avatarUsuario, tsToISO, elegirDescarga, horaDe
 } from "./ui.js";
 import { sonidosOn, setSonidos, sonidoNotif, ruidoMotor, SONIDOS_AUTO } from "./sonidos.js";
 import { imagenChica, avatar } from "./media.js";
@@ -285,7 +285,7 @@ export function vistaEmpresa(view) {
       <h3>Equipo <small class="muted">${miembros.length}</small></h3>
       <ul class="members">${miembros.map(m => `
         <li>
-          <span class="avatar">${esc(initials(m.name))}</span>
+          ${avatarUsuario(m.user, m.name)}
           <span class="m-meta">
             <strong>${esc(m.name)}${m.uid === S.user.uid ? " (vos)" : ""}</strong>
             <small>${m.user ? `@${esc(m.user)} · ` : ""}${ROLES[m.rol]?.label || m.rol}</small>
@@ -364,7 +364,7 @@ export function vistaEmpresa(view) {
       const q = inp.value.trim().toLowerCase().replace(/^@/, "");
       const l = todos.filter(u => !q || u.username.toLowerCase().includes(q) || u.name.toLowerCase().includes(q)).slice(0, 30);
       tira.innerHTML = l.length ? l.map(u => `<button type="button" class="usr-chip ${u.username.toLowerCase() === q ? "on" : ""}" data-u="${esc(u.username)}">
-          <span class="avatar sm">${esc(initials(u.name || u.username))}</span><span><strong>${esc(u.name || u.username)}</strong><small>@${esc(u.username)}</small></span></button>`).join("")
+          ${avatarUsuario(u.username, u.name, "sm")}<span><strong>${esc(u.name || u.username)}</strong><small>@${esc(u.username)}</small></span></button>`).join("")
         : `<span class="muted small">${todos.length ? "No hay coincidencias" : "No hay usuarios para sumar"}</span>`;
     };
     S.user.getIdToken().then(idToken => fetch(`${BOT_API}/usuarios-app`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ idToken, cid: c.id }) }))
@@ -532,7 +532,7 @@ export function vistaAjustes(view) {
     <section class="card profile">
       <button type="button" class="icon-btn aj-son" id="aj-sonidos"></button>
       <div class="profile-row">
-        <span class="avatar lg">${esc(initials(p.name))}</span>
+        ${avatarUsuario(p.username, p.name, "lg")}
         <div class="profile-meta"><h2>${esc(p.name)}</h2><p class="muted">@${esc(p.username)}</p>
           ${p.whatsapp ? `<p class="perfil-wa" title="WhatsApp vinculado al bot">${icon("chat")}+${esc(String(p.whatsapp).replace(/^(\d{2})(9)(\d{2})(\d{4})(\d{4})$/, "$1 $2 $3 $4-$5"))}</p>` : ""}</div>
       </div>

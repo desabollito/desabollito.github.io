@@ -1922,3 +1922,6 @@ html.lenis, html.lenis body { height: auto; }
   -webkit-backdrop-filter: blur(16px) saturate(160%); backdrop-filter: blur(16px) saturate(160%);
   border: 0;
   box-shadow: 0 0 22px 2px color-mix(in srgb, var(--primary) 55%, transparent), 0 10px 24px -6px color-mix(in srgb, var(--primary) 65%, transparent); }
+/* Blobatar */
+.avatar.con-blob { background: none; }
+.avatar.con-blob svg { width: 100%; height: 100%; display: block; }
