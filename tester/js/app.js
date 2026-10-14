@@ -386,43 +386,32 @@ function mostrarSegunAprobacion() {
 }
 
 // ── Actualizaciones ───────────────────────────────────────────
-// Al actualizar: sobre la aurora, un auto entra frenando hasta el centro, se agazapa y sale acelerando
-// con una estela de luz; después aparece la intro. Si el navegador no recarga a los 3,5 s, la intro se abre y la app sigue.
-const AUTO_LADO = `<svg viewBox="0 0 120 44" aria-hidden="true">
-  <defs><linearGradient id="au-c" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#86a5ff"/><stop offset="1" stop-color="#2b5ce6"/></linearGradient>
-    <linearGradient id="au-l" x1="0" x2="1"><stop offset="0" stop-color="#cfe0ff" stop-opacity=".9"/><stop offset="1" stop-color="#cfe0ff" stop-opacity="0"/></linearGradient></defs>
-  <path class="au-haz" d="M112 26 L160 18 L160 36 Z" fill="url(#au-l)"/>
-  <path d="M6 31 C6 25 10 23 18 22 L34 20 C40 13 50 10 62 10 C74 10 82 13 90 19 L104 21 C110 22 114 25 114 30 L114 32 C114 33 113 34 112 34 L101 34 A10 10 0 0 0 81 34 L39 34 A10 10 0 0 0 19 34 L8 34 C7 34 6 33 6 32 Z" fill="url(#au-c)"/>
-  <path d="M41 20 C46 15 52 13 60 13 L60 20 Z M64 13 C72 13 78 15 84 20 L64 20 Z" fill="#0e1b2c" opacity=".55"/>
-  <ellipse cx="111" cy="26" rx="2.4" ry="1.6" fill="#fff"/><rect x="5" y="25" width="3" height="3" rx="1" fill="#ff5c7a"/>
-  <g class="au-rueda"><circle cx="29" cy="34" r="7.5" fill="#0e1b2c"/><circle cx="29" cy="34" r="3.2" fill="#cfe0ff"/><path d="M29 27v14M22 34h14" stroke="#0e1b2c" stroke-width="1.6"/></g>
-  <g class="au-rueda"><circle cx="91" cy="34" r="7.5" fill="#0e1b2c"/><circle cx="91" cy="34" r="3.2" fill="#cfe0ff"/><path d="M91 27v14M84 34h14" stroke="#0e1b2c" stroke-width="1.6"/></g>
-</svg>`;
+// Al actualizar (Scroll Expand): una ventana con la aurora se abre en el centro y crece sola hasta llenar
+// la pantalla (zoom in) mientras el título se separa a los costados; al llenarse queda la intro y recarga.
+// Si el navegador no recarga a los 3,5 s, la intro se abre y la app sigue.
 function animacionActualizar() {
   if (matchMedia("(prefers-reduced-motion: reduce)").matches) return Promise.resolve();
   const capa = document.createElement("div");
-  capa.className = "hiper";
-  capa.innerHTML = `<div class="aurora" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
-    <div class="au-piso"></div>
-    <div class="au-auto"><i class="au-estela"></i><i class="au-vel"></i><i class="au-vel"></i><i class="au-vel"></i>${AUTO_LADO}</div>
-    <div class="hiper-txt">Actualizando</div>`;
+  capa.className = "expande";
+  capa.innerHTML = `<div class="ex-media"><div class="aurora" aria-hidden="true"><i></i><i></i><i></i><i></i></div></div>
+    <div class="ex-tit"><span>Nueva</span><span>versión</span></div>`;
   document.body.appendChild(capa);
-  const auto = $(".au-auto", capa), lejos = innerWidth / 2 + 260, DUR = 2600;
-  const anda = auto.animate([
-    { transform: `translateX(${-lejos}px)`, offset: 0, easing: "cubic-bezier(.15,.75,.3,1)" },       // entra frenando
-    { transform: "translateX(0)", offset: 0.38 },
-    { transform: "translateX(-10px) rotate(-1.2deg)", offset: 0.56, easing: "ease-in-out" },         // se agazapa
-    { transform: "translateX(-4px) rotate(-.6deg)", offset: 0.62, easing: "cubic-bezier(.55,0,.9,.35)" },
-    { transform: `translateX(${lejos + 200}px) rotate(0deg)`, offset: 1 }                              // sale acelerando
-  ], { duration: DUR, fill: "forwards" });
-  // La estela y las líneas de velocidad aparecen al acelerar
-  $$(".au-estela, .au-vel", auto).forEach((el, n) => el.animate(
-    [{ opacity: 0, transform: "scaleX(.2)" }, { opacity: 0, transform: "scaleX(.2)", offset: 0.6 }, { opacity: n ? 0.7 : 1, transform: "scaleX(1)" }],
-    { duration: DUR, easing: "ease-in", fill: "forwards" }));
-  return anda.finished.catch(() => {}).then(() => {
+  const W = innerWidth, H = innerHeight, w = Math.min(320, W * .7), h = Math.min(200, H * .3);
+  const x = (W - w) / 2, y = (H - h) / 2, DUR = 1700, curva = "cubic-bezier(.76,0,.24,1)";
+  const crece = $(".ex-media", capa).animate([
+    { clipPath: `inset(${y + 30}px ${x + 30}px round 28px)`, opacity: 0, offset: 0 },
+    { clipPath: `inset(${y}px ${x}px round 28px)`, opacity: 1, offset: .25, easing: curva },   // aparece la ventana
+    { clipPath: "inset(0px 0px round 0px)", opacity: 1, offset: 1 }                             // y se expande a pantalla completa
+  ], { duration: DUR, easing: "ease-out", fill: "forwards" });
+  $$(".ex-tit span", capa).forEach((s, n) => s.animate([
+    { transform: "none", opacity: 0, filter: "blur(10px)" },
+    { transform: "none", opacity: 1, filter: "none", offset: .25, easing: curva },
+    { transform: `translateX(${(n ? 1 : -1) * W * .6}px)`, opacity: 0, filter: "blur(6px)" }    // el título se abre hacia los costados
+  ], { duration: DUR, easing: "ease-out", fill: "forwards" }));
+  return crece.finished.catch(() => {}).then(() => {
     const sp = $("#splash"); sp.classList.remove("abre"); sp.hidden = false;
     capa.classList.add("sale");
-    setTimeout(() => capa.remove(), 700);
+    setTimeout(() => capa.remove(), 500);
     setTimeout(cerrarSplash, 3500);
   });
 }
