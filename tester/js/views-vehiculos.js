@@ -579,7 +579,7 @@ ${[...PASO_REP, "facturado"].includes(est) && !soyLector() && (soyAdmin() || soy
     if (t.closest("[data-act]")?.dataset.act === "desmontaje") return chkLargo ? undefined : go(`#/check/${v.id}/in`);
     if (t.closest("[data-act]")?.dataset.act === "pintura-fotos") return abrirPintura(v);
     const pf = t.closest("[data-pfoto]");
-    if (pf) { const l = v.fotosPintura || []; return visor(l, Math.max(0, l.findIndex(x => x.url === pf.dataset.pfoto))); }
+    if (pf) { const l = v.fotosPintura || []; return visor(l, Math.max(0, l.findIndex(x => x.url === pf.dataset.pfoto)), v, "fotosPintura"); }
     const step = t.closest("[data-estado]");
     if (step) {
       if (pasoLargo) { pasoLargo = false; return; }
@@ -816,7 +816,7 @@ export function abrirPintura(v0) {
   caja.onclick = e => {
     const f = e.target.closest("[data-pfoto]"); if (!f) return;
     const fotos = (getVehiculo(v0.id) || v0).fotosPintura || [];
-    visor(fotos, Math.max(0, fotos.findIndex(x => x.url === f.dataset.pfoto)));
+    visor(fotos, Math.max(0, fotos.findIndex(x => x.url === f.dataset.pfoto)), getVehiculo(v0.id) || v0, "fotosPintura");
   };
   conectarFotos($("#pint-op", s.el), async nuevas => {
     if (!cloudinaryListo()) return toast("Falta configurar Cloudinary", "error");
@@ -1068,19 +1068,19 @@ async function quitarAdjunto(v, campo, idx, confirmado = false) {
   const item = v[campo]?.[idx]; if (!item) return;
   if (soyLector()) return;
   if (!puedoEditar(v)) {
-    const tipo = campo === "fotos" ? "foto" : "documento";
+    const tipo = campo === "archivos" ? "documento" : "foto";
     if (!(await confirmar({ title: "Este vehículo no es tuyo",
       message: `Lo cargó ${cargadoPor(v)}. ¿Pedir a los administradores que quiten ${tipo === "foto" ? "esta foto" : `“${item.name}”`}?`, ok: "Pedir que la quiten", danger: true }))) return;
     crearSolicitud(v, tipo, item).then(() => toast("Pedido enviado a los administradores", "success")).catch(e => toast(mensajeError(e), "error"));
     return;
   }
   const ok = confirmado || await confirmar({
-    title: campo === "fotos" ? "¿Quitar esta foto?" : `¿Quitar “${item.name}”?`,
+    title: campo === "archivos" ? `¿Quitar “${item.name}”?` : "¿Quitar esta foto?",
     message: "Se quita del vehículo y del PDF.", ok: "Quitar", danger: true
   });
   if (!ok) return;
   const lista = (getVehiculo(v.id)?.[campo] || []).filter(x => x.publicId !== item.publicId || x.url !== item.url);
-  actualizarVehiculo(v.id, { [campo]: lista }, campo === "fotos" ? "Quitó una foto" : `Quitó el documento “${item.name}”`)
+  actualizarVehiculo(v.id, { [campo]: lista }, campo === "archivos" ? `Quitó el documento “${item.name}”` : campo === "fotosPintura" ? "Quitó una foto de pintura" : "Quitó una foto")
     .then(() => borrarMedia(v.id, [item])).catch(e => toast(mensajeError(e), "error"));
   if (tokensBorrado.has(item.publicId)) borrarConToken(tokensBorrado.get(item.publicId));
 }
@@ -1141,17 +1141,17 @@ function zoomFoto(url, previa) {
 
 // Ícono de gota (foto de pintura)
 const GOTA = `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3c3.5 4.2 6 7.6 6 10.5a6 6 0 0 1-12 0C6 10.6 8.5 7.2 12 3z"/></svg>`;
-function visor(fotos = [], inicio = 0, v = null) {
+function visor(fotos = [], inicio = 0, v = null, campo = "fotos") {   // campo: "fotos" o "fotosPintura"
   if (!fotos.length) return;
   // Mantener para borrar: solo en las fotos del vehículo y si el usuario puede editarlo
-  const borrable = !!v && fotos === v.fotos && puedoEditar(v) && !soyLector();
+  const borrable = !!v && fotos === v[campo] && puedoEditar(v) && !soyLector();
   fotos = fotos.slice();   // copia: borrar/girar acá no toca la lista del estado
   let i = inicio;
   const s = openSheet({
     wide: true,
     body: `<div class="viewer">
       <div class="viewer-foto ${fotos.length > 1 ? "depth" : ""}"><img class="vw-lado vw-ant" alt="" aria-hidden="true"><img class="vw-lado vw-sig" alt="" aria-hidden="true"><img id="vw-img" alt=""><video id="vw-vid" controls playsinline preload="metadata" hidden></video><span class="viewer-carga" hidden><span class="spin"></span></span>
-        ${v && puedoEditar(v) ? `<button class="icon-btn viewer-ov viewer-rot" id="vw-rot" aria-label="Girar foto" title="Girar">${icon("rotate")}</button>
+        ${v && campo === "fotos" && puedoEditar(v) ? `<button class="icon-btn viewer-ov viewer-rot" id="vw-rot" aria-label="Girar foto" title="Girar">${icon("rotate")}</button>
           <button class="icon-btn viewer-ov viewer-pint" id="vw-pint" aria-label="Fotos de pintura" title="Fotos de pintura">${GOTA}</button>` : ""}
         <button class="icon-btn viewer-ov viewer-x" data-close aria-label="Cerrar">${icon("x")}</button>
         <button class="icon-btn viewer-ov viewer-dl" id="vw-dl" aria-label="Descargar" title="Descargar">${icon("download")}</button>
@@ -1161,7 +1161,7 @@ function visor(fotos = [], inicio = 0, v = null) {
         <div class="vw-centro"><span id="vw-n"></span></div>
         <button class="icon-btn" data-n aria-label="Siguiente" ${fotos.length > 1 ? "" : "disabled"}>${icon("next")}</button>
       </div>
-      ${v ? `<div class="viewer-add"><div class="viewer-add-fila"><button type="button" class="btn btn-ghost btn-block" id="vw-mas">${icon("plus")}Añadir más fotos</button>
+      ${v ? `<div class="viewer-add"><div class="viewer-add-fila">${campo === "fotos" ? `<button type="button" class="btn btn-ghost btn-block" id="vw-mas">${icon("plus")}Añadir más fotos</button>` : ""}
         ${borrable ? `<button type="button" class="hold-del" id="vw-del" aria-label="Mantené apretado para borrar esta foto" title="Mantené apretado para borrar">
           <svg class="anillo" viewBox="0 0 36 36" aria-hidden="true"><circle class="base" cx="18" cy="18" r="16" pathLength="100"/><circle cx="18" cy="18" r="16" pathLength="100"/></svg>${icon("trash")}</button>` : ""}</div>
         <div class="viewer-mas" id="vw-mas-op" hidden>${botonesFotos({ id: "vw-add" })}</div></div>` : ""}
@@ -1317,10 +1317,10 @@ function visor(fotos = [], inicio = 0, v = null) {
     let reloj = null;
     const soltar = () => { clearTimeout(reloj); del.classList.remove("cargando"); };
     const borrarActual = async conf => {
-      const f = fotos[i], idx = (getVehiculo(v.id)?.fotos || []).findIndex(x => x.url === f.url);
+      const f = fotos[i], idx = (getVehiculo(v.id)?.[campo] || []).findIndex(x => x.url === f.url);
       if (idx < 0) return;
       if (!conf && !(await confirmar({ title: "¿Quitar esta foto?", message: "Se quita del vehículo y del PDF.", ok: "Quitar", danger: true }))) return;
-      quitarAdjunto(getVehiculo(v.id), "fotos", idx, true);
+      quitarAdjunto(getVehiculo(v.id), campo, idx, true);
       navigator.vibrate?.([15, 40, 15]);
       fotos.splice(i, 1);
       if (!fotos.length) return s.close();
