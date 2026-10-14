@@ -1979,11 +1979,11 @@ body[data-ruta="checkform"] .main { padding-bottom: calc(90px + var(--safe-b)); 
 /* Elementos sin marcar; objetos de valor y pertenencias: se anota qué hay (esté o falte) */
 .chk-fila[data-sel=""] .chk-tog { background: var(--surface-2); color: var(--muted); border-color: var(--line); }
 .chk-fila.anota:is([data-sel="0"], [data-sel="1"]) .chk-obs { display: block; }
-/* Calidad del check out: Mala rojo, Regular amarillo, Buena verde, Excelente púrpura */
+/* Calidad del check out: Mala rojo, Regular amarillo, Buena verde claro, Excelente verde oscuro */
 .chk-form [data-n^="calidad"].on { --c: #e5484d; background: color-mix(in srgb, var(--c) 22%, var(--surface)); color: var(--c); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c) 45%, transparent); }
 .chk-form [data-n^="calidad"][data-v="1"].on { --c: #e0a526; }
-.chk-form [data-n^="calidad"][data-v="2"].on { --c: #22b07d; }
-.chk-form [data-n^="calidad"][data-v="3"].on { --c: #a06cf0; }
+.chk-form [data-n^="calidad"][data-v="2"].on { --c: #5fd08a; }
+.chk-form [data-n^="calidad"][data-v="3"].on { --c: #16935f; }
 /* Visor: botón de fotos de pintura al lado de girar; tacho al lado de "Añadir más fotos" */
 .viewer-pint { top: 10px; left: 64px; }
 .viewer-add-fila { display: flex; align-items: center; gap: 8px; }
@@ -1992,7 +1992,7 @@ body[data-ruta="checkform"] .main { padding-bottom: calc(90px + var(--safe-b)); 
 /* Foto a pantalla completa: fondo de vidrio (como la barra de volver) en vez de negro */
 .zoom-foto { background: rgb(10 14 22 / .55); -webkit-backdrop-filter: blur(24px) saturate(140%); backdrop-filter: blur(24px) saturate(140%); }
 .zoom-foto .zoom-x { background: rgb(20 30 45 / .5); -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px); }
-/* Calidad del check out: degradé de fondo rojo → amarillo → verde → púrpura (como pintura y repuestos en los filtros) */
+/* Calidad del check out: degradé de fondo rojo → amarillo → verde claro → verde oscuro (como pintura y repuestos en los filtros) */
 .chk-form .seg:has([data-n^="calidad"]) { background: linear-gradient(90deg, color-mix(in srgb, #e5484d 16%, transparent) 12.5%, color-mix(in srgb, #e0a526 16%, transparent) 37.5%,
-  color-mix(in srgb, #22b07d 16%, transparent) 62.5%, color-mix(in srgb, #a06cf0 16%, transparent) 87.5%), var(--surface-2); }
+  color-mix(in srgb, #5fd08a 16%, transparent) 62.5%, color-mix(in srgb, #16935f 22%, transparent) 87.5%), var(--surface-2); }
 .chk-form [data-n^="calidad"]:not(.on) { background: transparent; }
