@@ -347,10 +347,10 @@ const tokenVer = new URLSearchParams(location.search).get("ver");
 const alEntrar = (logueado, error) => {
   cerrarSplash();
   $("#login").hidden = logueado;
-  // Login y app: oscuro por defecto hasta que el usuario elija otro en Ajustes
+  // Login: siempre oscuro; la app, oscuro hasta que el usuario elija otro en Ajustes
   try {
     localStorage.setItem("sesion", logueado ? "1" : "0");
-    document.documentElement.setAttribute("data-theme", localStorage.getItem("tema") === "light" ? "light" : "dark");
+    document.documentElement.setAttribute("data-theme", logueado && localStorage.getItem("tema") === "light" ? "light" : "dark");   // sin sesión: siempre oscuro
   } catch { /* sin almacenamiento */ }
   $("#shell").hidden = !logueado;
   if (!logueado) {
