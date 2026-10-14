@@ -2001,3 +2001,4 @@ body[data-ruta="checkform"] .main { padding-bottom: calc(90px + var(--safe-b)); 
 [data-theme="light"] .ex-logo { filter: drop-shadow(0 0 10px color-mix(in srgb, var(--primary) 35%, transparent)); }
 .chk-nafta { padding-top: 12px; }
 .tec-chk { accent-color: var(--primary); margin: 0; width: 16px; height: 16px; flex: none; }
+.tec-excel .tec-sub .tec-no { color: inherit; }
