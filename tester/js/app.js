@@ -1,7 +1,7 @@
 import {
   S, onChange, iniciarSesion, ingresar, crearCuenta, mensajeError, elegirEmpresa
 } from "./data.js";
-import { cerrarSplash, veloCambio, animacionLogo } from "./efectos.js";
+import { cerrarSplash, veloCambio } from "./efectos.js";
 import { $, $$, esc, toast, busy, openSheet } from "./ui.js";
 import { FIREBASE, BOT_API } from "./config.js";
 import { iniciarFechas } from "./fecha.js";
@@ -386,11 +386,13 @@ function mostrarSegunAprobacion() {
 }
 
 // ── Actualizaciones ───────────────────────────────────────────
-// Al actualizar: el logo se dibuja y la aurora se expande (efectos.js); al llenarse queda la intro y recarga.
-// Si el navegador no recarga a los 3,5 s, la intro se abre y la app sigue.
+// Al actualizar: aparece la intro (aurora, logo y nombre que entran desenfocados) y la app recarga;
+// al volver a abrir se dibuja el logo. Si el navegador no recarga a los 3,5 s, la intro se abre y la app sigue.
 function animacionActualizar() {
-  return animacionLogo(() => { const sp = $("#splash"); sp.classList.remove("abre", "solo-aurora"); sp.hidden = false; })
-    .then(() => setTimeout(cerrarSplash, 3500));
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return Promise.resolve();
+  const sp = $("#splash"); sp.classList.remove("abre", "solo-aurora"); sp.hidden = false;   // al mostrarse, sus animaciones arrancan de nuevo
+  setTimeout(cerrarSplash, 3500);
+  return new Promise(r => setTimeout(r, 1300));   // que se alcance a ver la intro antes de recargar
 }
 if (/[?&]act=\d+/.test(location.search)) history.replaceState(null, "", location.pathname + location.hash);
 addEventListener("forzar-actualizacion", async () => {

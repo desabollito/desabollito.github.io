@@ -3,8 +3,7 @@
 const quieto = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 // Logo dibujado por líneas: el logo se arma trazo por trazo; después una ventana con la aurora crece detrás
-// hasta llenar la pantalla (zoom in) y el logo se disuelve. Se usa al actualizar y al abrir la app instalada.
-// antes(): se llama al llenarse la pantalla, antes de que se desvanezca la capa.
+// hasta llenar la pantalla (zoom in) y el logo se disuelve. Se usa al abrir la app.
 // shortcut: trazos calcados a mano de img/logo-*.png (sin el grosor variable); si cambia el logo, recalcarlos.
 const LOGO_TRAZOS = [
   "M68 402 C68 360 68 320 74 300 C84 272 96 250 100 232 C104 220 120 214 140 208 C162 200 176 178 196 146 C212 120 226 104 252 98 C320 86 400 82 473 80",
@@ -12,7 +11,7 @@ const LOGO_TRAZOS = [
   "M146 186 C120 178 86 180 64 190 C46 200 48 218 66 228",
   "M256 306 C214 288 168 266 136 274 C114 282 112 308 126 326"
 ];
-export function animacionLogo(antes = () => {}) {
+function animacionLogo() {
   if (quieto()) return Promise.resolve();
   const capa = document.createElement("div");
   capa.className = "expande";
@@ -38,17 +37,15 @@ export function animacionLogo(antes = () => {}) {
     { transform: "scale(2.2)", opacity: 0, filter: "blur(8px)", offset: 1 }
   ], { duration: DUR, fill: "forwards" });
   return crece.finished.catch(() => {}).then(() => {
-    antes();
     capa.classList.add("sale");
     setTimeout(() => capa.remove(), 500);
   });
 }
 
-// App instalada: cada vez que se abre, el logo se dibuja sobre la intro (solo con la aurora);
+// Al abrir la app (navegador o instalada), el logo se dibuja sobre la intro (solo con la aurora);
 // la intro no se abre hasta que la animación termina.
-const instalada = matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
 let introLista = Promise.resolve();
-if (instalada && !quieto()) {
+if (!quieto()) {
   document.getElementById("splash")?.classList.add("solo-aurora");
   introLista = animacionLogo();
 }
