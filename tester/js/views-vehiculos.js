@@ -406,7 +406,7 @@ export function renderDetalle(root, v, embebido) {
         </div></div>` : ""}
       ${embebido && !soloVer ? `<a class="btn btn-ghost btn-icon" href="#/editar/${v.id}" aria-label="Editar" title="Editar">${icon("edit")}</a>` : ""}
     </div>
-${[...PASO_REP, "facturado"].includes(est) && !soyLector() && (soyAdmin() || soyDesmontaje()) ? `<button class="btn btn-ghost btn-block d-desm" data-act="desmontaje">${icon("check")}Check in / out${v.checkIn || v.checkOut || nDesm ? ` <small>${[v.checkIn ? "IN ✓" : "", nDesm ? "desmontaje" : "", v.checkOut ? "OUT ✓" : ""].filter(Boolean).join(" · ")}</small>` : ""}</button>` : ""}
+${[...PASO_REP, "facturado"].includes(est) && !soyLector() && (soyAdmin() || soyDesmontaje()) ? `<button class="btn btn-ghost btn-block d-desm" data-act="desmontaje">${icon("table")}Check in / out${v.checkIn || v.checkOut || nDesm ? ` <small>${[v.checkIn ? "IN ✓" : "", nDesm ? "desmontaje" : "", v.checkOut ? "OUT ✓" : ""].filter(Boolean).join(" · ")}</small>` : ""}</button>` : ""}
 
     <section class="d-sec">
       <div class="seg-head"><h3>Seguimiento</h3>
@@ -561,13 +561,20 @@ ${[...PASO_REP, "facturado"].includes(est) && !soyLector() && (soyAdmin() || soy
   ["pointerup", "pointerleave", "pointercancel"].forEach(ev => tacho?.addEventListener(ev, () => clearTimeout(relojTacho)));
   tacho?.addEventListener("contextmenu", e => e.preventDefault());
 
+  // Check in / out: tocar abre la pantalla del check; mantener apretado abre el desmontaje
+  const chk = $(".d-desm", root);
+  let relojChk = null, chkLargo = false;
+  chk?.addEventListener("pointerdown", () => { chkLargo = false; relojChk = setTimeout(() => { chkLargo = true; navigator.vibrate?.(15); abrirDesmontaje(v); }, 550); });
+  ["pointerup", "pointerleave", "pointercancel"].forEach(ev => chk?.addEventListener(ev, () => clearTimeout(relojChk)));
+  chk?.addEventListener("contextmenu", e => e.preventDefault());
+
   // Acciones
   root.addEventListener("click", async e => {
     const t = e.target;
     // Rol Desmontaje: no modifica nada del vehículo
     if (soloVer && (t.closest("[data-estado], .etapa-item, [data-del-foto], [data-del-doc]") || ["anular", "borrar", "firma", "mover"].includes(t.closest("[data-act]")?.dataset.act))) return;
     if (soyLector() && ["desmontaje", "fotos", "subir", "docs"].includes(t.closest("[data-act]")?.dataset.act)) return;
-    if (t.closest("[data-act]")?.dataset.act === "desmontaje") return abrirDesmontaje(v);
+    if (t.closest("[data-act]")?.dataset.act === "desmontaje") return chkLargo ? undefined : go(`#/check/${v.id}`);
     const step = t.closest("[data-estado]");
     if (step) {
       if (pasoLargo) { pasoLargo = false; return; }
@@ -704,103 +711,106 @@ function lotesDesm(v) {
 const fechaHora = t => { const d = new Date(t); return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`; };
 
 // ═════════════════ Check in / out ═════════════════
-// Basado en las planillas del taller, sin lo que no aplica a sacabollos/PDR (pintura, encendedor, cenicero…)
-const CHECK_IN = [
-  ["exterior", "Exterior", ["Bien", "Con daño"], ["Luces delanteras", "Luces traseras", "Ópticas", "Espejos", "Parabrisas", "Luneta",
-    "Vidrios de puertas", "Escobillas", "Antena", "Logos e insignias", "Tazas / tapas de rueda", "Patentes"]],
-  ["interior", "Interior", ["Bien", "Con daño"], ["Aire / calefacción", "Radio / pantalla", "Levantavidrios", "Cerraduras y manijas",
-    "Tapizado de techo", "Tapizados y alfombras", "Tablero sin testigos encendidos"]],
-  ["elementos", "Elementos", ["Está", "No está"], ["Auxilio", "Criquet y llave", "Matafuego", "Objetos de valor", "Pertenencias personales"]]
-];
-const CHECK_OUT = [
-  ["control", "Control de calidad", ["OK", "Revisar"], ["Sin bollos ni marcas a contraluz", "Sin restos de pegamento", "Sin marcas de herramientas en molduras",
-    "Pintura sana (sin saltaduras ni filos pelados)", "Tapizado de techo y molduras bien armados", "Luces y partes desarmadas funcionando", "Vidrios limpios"]]
-];
-const CALIDAD = ["Calidad general de la reparación", "Limpieza interior", "Limpieza exterior"], NOTAS = ["Mala", "Regular", "Buena"];
+// Basado en las planillas del taller, adaptado a sacabollos/PDR. Cada ítem es un interruptor (por defecto, el primer estado).
+const CHECK = {
+  in: [
+    ["exterior", "Exterior", ["Bien", "Dañado"], ["Ópticas delanteras", "Ópticas traseras", "Tercer stop", "Espejos", "Parabrisas", "Luneta",
+      "Vidrios laterales", "Colizas", "Antena", "Logos e insignias"]],
+    ["interior", "Interior", ["Bien", "Dañado"], ["Pantalla", "Levantavidrios", "Cerraduras y manijas", "Tapizado de techo", "Tablero sin testigos"]],
+    ["elementos", "Elementos", ["Está", "Falta"], ["Auxilio", "Criquet y llave", "Matafuego", "Objetos de valor", "Pertenencias personales"]]
+  ],
+  out: [
+    ["control", "Control de calidad", ["OK", "Revisar"], ["Sin bollos crudos", "Sin golpes relevantes", "Sin restos de pegamento", "Colizas sin marcas",
+      "Ópticas desmontadas", "Pintura sana", "Tapizado de techo", "Parantes del interior", "Luz del interior", "Manijas del interior", "Vidrios limpios"]]
+  ]
+};
+const CALIDAD = ["Calidad general de la reparación", "Limpieza interior", "Limpieza exterior"], NOTAS = ["Mala", "Regular", "Buena", "Excelente"];
 const COMBUSTIBLE = ["Reserva", "¼", "½", "¾", "Lleno"];
+const campoCheck = t => t === "in" ? "checkIn" : "checkOut";
+const malosCheck = (c, t) => CHECK[t].reduce((n, [k, , , items]) => n + items.filter(it => c[k]?.[it]?.v === 1).length, 0);
 
-export function abrirDesmontaje(v0, tab = "in") {
-  const s = openSheet({ title: `Check in / out · ${v0.patente || v0.modelo || ""}`, wide: true, body: `
-    <div class="seg seg-sm chk-tabs">${[["in", "IN"], ["desm", "Desmontaje"], ["out", "OUT"]].map(([k, t]) => `<button type="button" class="seg-btn" data-tab="${k}">${t}</button>`).join("")}</div>
-    <div class="chk-caja"></div>` });
-  const caja = $(".chk-caja", s.el);
-  const mostrar = t => {
-    tab = t;
-    $$(".chk-tabs .seg-btn", s.el).forEach(b => b.classList.toggle("on", b.dataset.tab === t));
-    if (t === "desm") return pintarDesmontaje(caja, v0);
-    const v = getVehiculo(v0.id) || v0, c = v[t === "in" ? "checkIn" : "checkOut"];
-    caja.innerHTML = c ? resumenCheck(c, t) + `<button type="button" class="btn btn-ghost btn-block" data-chk>${icon("edit")}Editar check ${t}</button>`
-      : `<p class="muted center">Todavía no se completó el check ${t}.</p><button type="button" class="btn btn-primary btn-block btn-lg" data-chk>${icon("check")}Completar check ${t}</button>`;
+// Pantalla del check (como Planillas): un botón grande para IN y otro para OUT
+export function vistaCheck(view, id) {
+  const v = getVehiculo(id);
+  setTopbar({ title: "Check in / out", sub: v ? [v.modelo, v.patente].filter(Boolean).join(" · ") : "", back: `#/v/${id}` });
+  if (!v) { view.innerHTML = S.loadingVehicles ? `<div class="skeleton tall"></div>` : `<div class="empty"><h2>No encontramos este vehículo</h2></div>`; return; }
+  const boton = (t, titulo) => {
+    const c = v[campoCheck(t)], n = c ? malosCheck(c, t) : 0;
+    return `<a class="hub-btn" href="#/check/${v.id}/${t}">${icon(c ? "check" : "table")}<span><strong>${titulo}</strong>
+      <small>${c ? `${esc(c.por || "")} · ${fechaHora(c.t)}${n ? ` · ${n} ${t === "in" ? (n === 1 ? "detalle" : "detalles") : "a revisar"}` : " · todo en orden"}` : "Sin completar"}</small></span></a>`;
   };
-  s.el.addEventListener("click", e => {
-    const tb = e.target.closest("[data-tab]"); if (tb) return mostrar(tb.dataset.tab);
-    const f = e.target.closest("[data-cfoto]");
-    if (f) { const v = getVehiculo(v0.id) || v0, fotos = v[tab === "in" ? "checkIn" : "checkOut"]?.fotos || []; return visor(fotos, Math.max(0, fotos.findIndex(x => x.url === f.dataset.cfoto))); }
-    if (e.target.closest("[data-chk]")) formCheck(getVehiculo(v0.id) || v0, tab, () => setTimeout(() => mostrar(tab), 400));
-  });
-  mostrar(tab);
+  view.innerHTML = `<div class="planillas-hub">${boton("in", "Check IN")}${boton("out", "Check OUT")}</div>`;
 }
 
-// Lo que quedó cargado: solo lo que llama la atención (daños, faltantes, a revisar) y los datos generales
-function resumenCheck(c, t) {
-  const grupos = t === "in" ? CHECK_IN : CHECK_OUT;
-  const malos = grupos.flatMap(([k, , ops, items]) => items.map((it, i) => [it, c[k]?.[i], ops]).filter(([, x]) => x?.v === 1)
-    .map(([it, x, ops]) => `<li><strong>${esc(it)}</strong> · ${ops[1]}${x.obs ? ` — ${esc(x.obs)}` : ""}</li>`));
-  const datos = t === "in"
-    ? [c.km ? `${esc(c.km)} km` : "", c.nafta != null ? `Combustible: ${COMBUSTIBLE[c.nafta]}` : "", c.quien ? `Lo trajo: ${esc(c.quien)}` : ""]
-    : [...CALIDAD.map((x, i) => c.calidad?.[i] != null ? `${x}: ${NOTAS[c.calidad[i]]}` : ""), c.quien ? `Lo retiró: ${esc(c.quien)}` : ""];
-  return `<div class="chk-res">
-    <p class="muted small">${esc(c.por || "")}${c.t ? " · " + fechaHora(c.t) : ""}</p>
-    ${datos.filter(Boolean).map(d => `<p>${d}</p>`).join("")}
-    ${malos.length ? `<ul class="chk-malos">${malos.join("")}</ul>` : `<p class="chk-ok">${icon("check")}Todo en orden</p>`}
-    ${c.obs ? `<p class="prose">${esc(c.obs)}</p>` : ""}
-    ${c.fotos?.length ? `<div class="desm-fotos">${c.fotos.map(f => `<button type="button" data-cfoto="${esc(f.url)}"><img src="${esc(thumb(f.url, 200))}" alt="" loading="lazy"></button>`).join("")}</div>` : ""}</div>`;
-}
-
-// Formulario del check: cada ítem con dos opciones (la segunda abre una observación), más datos generales y fotos
-function formCheck(v, t, listo) {
-  const c = v[t === "in" ? "checkIn" : "checkOut"] || {}, grupos = t === "in" ? CHECK_IN : CHECK_OUT;
+// Formulario del check a pantalla completa (como cargar un vehículo)
+export function vistaCheckForm(view, id, t) {
+  const v = getVehiculo(id);
+  setTopbar({ title: `Check ${t.toUpperCase()}`, sub: v ? [v.modelo, v.patente].filter(Boolean).join(" · ") : "", back: `#/check/${id}` });
+  if (!v) { view.innerHTML = S.loadingVehicles ? `<div class="skeleton tall"></div>` : `<div class="empty"><h2>No encontramos este vehículo</h2></div>`; return; }
+  const c = v[campoCheck(t)] || {}, val = {};
   let files = [];
   const seg = (name, ops, sel) => `<div class="seg seg-sm">${ops.map((o, i) => `<button type="button" class="seg-btn ${sel === i ? "on" : ""}" data-n="${name}" data-v="${i}">${o}</button>`).join("")}</div>`;
-  const s = openSheet({ title: `Check ${t} · ${v.patente || v.modelo || ""}`, wide: true, body: `<form class="stack chk-form">
-    ${t === "in" ? `<div class="grid-2"><label class="field"><span>Kilometraje</span><input name="km" inputmode="numeric" value="${esc(c.km || "")}" placeholder="Ej: 85000"></label>
-      <label class="field"><span>Lo trajo</span><input name="quien" value="${esc(c.quien ?? v.asegurado ?? "")}" placeholder="Nombre"></label></div>
-      <div class="field"><span>Combustible</span>${seg("nafta", COMBUSTIBLE, c.nafta)}</div>`
-    : `${CALIDAD.map((x, i) => `<div class="field"><span>${x}</span>${seg("calidad." + i, NOTAS, c.calidad?.[i])}</div>`).join("")}`}
-    ${grupos.map(([k, titulo, ops, items]) => `<fieldset class="chk-grupo"><legend>${titulo}</legend>
-      ${items.map((it, i) => `<div class="chk-fila" data-sel="${c[k]?.[i]?.v ?? ""}"><span>${esc(it)}</span>${seg(`${k}.${i}`, ops, c[k]?.[i]?.v)}
-        <label class="field chk-obs"><input name="obs.${k}.${i}" value="${esc(c[k]?.[i]?.obs || "")}" placeholder="¿Qué tiene?"></label></div>`).join("")}</fieldset>`).join("")}
-    ${t === "out" ? `<label class="field"><span>Lo retiró</span><input name="quien" value="${esc(c.quien ?? v.asegurado ?? "")}" placeholder="Nombre"></label>` : ""}
-    <label class="field"><span>Observaciones</span><textarea name="obs" rows="2">${esc(c.obs || "")}</textarea></label>
-    ${botonesFotos({ id: "chk-op" })}<p class="muted small" id="chk-n">${c.fotos?.length ? `${c.fotos.length} fotos cargadas` : "Sin fotos"}</p>
-    <button class="btn btn-primary btn-block btn-lg">Guardar check ${t}</button></form>` });
-  const form = $(".chk-form", s.el), val = {};
-  conectarFotos($("#chk-op", s.el), nuevas => { files.push(...nuevas); $("#chk-n", s.el).textContent = `${(c.fotos?.length || 0) + files.length} fotos`; });
+  view.innerHTML = `<form class="vform chk-form" novalidate><div class="page narrow stack">
+    ${t === "in" ? `<fieldset class="card"><legend>Ingreso</legend>
+        <label class="field"><span>Kilometraje</span><input name="km" inputmode="numeric" value="${esc(c.km || "")}" placeholder="Ej: 85000"></label>
+        <div class="field"><span>Combustible</span>${seg("nafta", COMBUSTIBLE, c.nafta)}</div></fieldset>`
+      : `<fieldset class="card"><legend>Calidad</legend>${CALIDAD.map((x, i) => `<div class="field"><span>${x}</span>${seg("calidad." + i, NOTAS, c.calidad?.[i])}</div>`).join("")}</fieldset>`}
+    ${CHECK[t].map(([k, titulo, ops, items]) => `<fieldset class="card chk-grupo"><legend>${titulo}</legend>
+      ${items.map(it => { const x = c[k]?.[it]; return `<div class="chk-fila" data-sel="${x?.v || 0}"><span>${esc(it)}</span>
+        <button type="button" class="chk-tog" data-k="${k}" data-it="${esc(it)}" data-ops="${esc(ops.join("|"))}">${ops[x?.v || 0]}</button>
+        <label class="field chk-obs"><input data-obs="${k}|${esc(it)}" value="${esc(x?.obs || "")}" placeholder="¿Qué tiene?"></label></div>`; }).join("")}</fieldset>`).join("")}
+    <fieldset class="card"><legend>Observaciones y fotos</legend>
+      <label class="field"><textarea name="obs" rows="3" placeholder="Algo más para anotar">${esc(c.obs || "")}</textarea></label>
+      ${botonesFotos({ id: "chk-op" })}<p class="muted small" id="chk-n">${c.fotos?.length ? `${c.fotos.length} fotos cargadas` : "Sin fotos"}</p>
+      ${c.fotos?.length ? `<div class="desm-fotos">${c.fotos.map(f => `<button type="button" data-cfoto="${esc(f.url)}"><img src="${esc(thumb(f.url, 200))}" alt="" loading="lazy"></button>`).join("")}</div>` : ""}
+    </fieldset></div>
+    <div class="vform-bar"><a class="btn btn-ghost" href="#/check/${v.id}">Cancelar</a>
+      <button class="btn btn-primary btn-lg" type="submit">${icon("check")}Guardar check ${t}</button></div></form>`;
+  const form = $(".chk-form", view);
+  conectarFotos($("#chk-op", view), nuevas => { files.push(...nuevas); $("#chk-n", view).textContent = `${(c.fotos?.length || 0) + files.length} fotos`; });
   form.addEventListener("click", e => {
+    const f = e.target.closest("[data-cfoto]");
+    if (f) return visor(c.fotos, Math.max(0, c.fotos.findIndex(x => x.url === f.dataset.cfoto)));
+    const tg = e.target.closest(".chk-tog");
+    if (tg) {   // interruptor: Bien ⇄ Dañado (Dañado abre la observación)
+      const fila = tg.closest(".chk-fila"), nv = fila.dataset.sel === "1" ? 0 : 1;
+      fila.dataset.sel = nv; tg.textContent = tg.dataset.ops.split("|")[nv];
+      if (nv) $("input", fila).focus();
+      return;
+    }
     const b = e.target.closest("[data-n]"); if (!b) return;
     const on = b.classList.contains("on");   // tocar la elegida la desmarca
     $$(`[data-n="${b.dataset.n}"]`, form).forEach(x => x.classList.toggle("on", x === b && !on));
     val[b.dataset.n] = on ? null : +b.dataset.v;
-    const fila = b.closest(".chk-fila"); if (fila) fila.dataset.sel = on ? "" : b.dataset.v;
   });
   form.onsubmit = async e => {
     e.preventDefault();
     const elegido = (n, antes) => n in val ? val[n] : antes ?? null;
-    const datos = { por: S.profile?.name || "", t: Date.now(), obs: form.obs.value.trim(), quien: form.quien.value.trim() };
-    grupos.forEach(([k, , , items]) => { datos[k] = items.map((_, i) => ({ v: elegido(`${k}.${i}`, c[k]?.[i]?.v), obs: form[`obs.${k}.${i}`].value.trim() })); });
+    const datos = { por: S.profile?.name || "", t: Date.now(), obs: form.obs.value.trim() };
+    CHECK[t].forEach(([k]) => { datos[k] = {}; });
+    $$(".chk-tog", form).forEach(tg => {
+      const fila = tg.closest(".chk-fila");
+      datos[tg.dataset.k][tg.dataset.it] = { v: +fila.dataset.sel, obs: fila.dataset.sel === "1" ? $("input", fila).value.trim() : "" };
+    });
     if (t === "in") Object.assign(datos, { km: form.km.value.trim(), nafta: elegido("nafta", c.nafta) });
     else datos.calidad = CALIDAD.map((_, i) => elegido("calidad." + i, c.calidad?.[i]));
     if (files.length && !cloudinaryListo()) return toast("Falta configurar Cloudinary", "error");
-    const b = $("button.btn-primary:last-child", form); busy(b, true, files.length ? "Subiendo fotos…" : "Guardando…");
+    const b = $(".vform-bar .btn-primary", form); busy(b, true, files.length ? "Subiendo fotos…" : "Guardando…");
     try {
       const subidas = [];
       for (const f of files) { const r = await subirMedia(f, `${S.company.id}/${v.id}/check-${t}`); subidas.push({ url: r.url, publicId: r.publicId }); }
       datos.fotos = [...(c.fotos || []), ...subidas];
-      await actualizarVehiculo(v.id, { [t === "in" ? "checkIn" : "checkOut"]: datos }, `${c.t ? "Editó" : "Completó"} el check ${t}`);
+      await actualizarVehiculo(v.id, { [campoCheck(t)]: datos }, `${c.t ? "Editó" : "Completó"} el check ${t}`);
       toast(`Check ${t} guardado`, "success");
-      s.close(); listo?.();
+      go(`#/check/${v.id}`);
     } catch (err) { toast(mensajeError(err), "error"); busy(b, false); }
   };
+}
+
+// Desmontaje (se abre manteniendo apretado "Check in / out"): técnico, fotos y notas
+export function abrirDesmontaje(v0) {
+  const s = openSheet({ title: `Desmontaje · ${v0.patente || v0.modelo || ""}`, wide: true, body: `<div class="desm"></div>` });
+  pintarDesmontaje($(".desm", s.el), v0);
 }
 
 function pintarDesmontaje(caja, v0) {

@@ -7,7 +7,7 @@ import { FIREBASE, BOT_API } from "./config.js";
 import { iniciarFechas } from "./fecha.js";
 import { cuentaPendiente, salir, marcarOperativosVistos, soyCreador, crearEmpresa, pedirUnion, cancelarPedidoUnion, escucharMiPedido, responderPedidoUnion, soyDesmontaje, miRol, soyAdmin, getVehiculo, iniciarInvitado, soyLector, puedeVer } from "./data.js";
 import { marcarNav, pintarLateral, esAncho } from "./shell.js";
-import { vistaVehiculos, vistaDetalle, vistaFormulario, elegirVehiculoDesmontaje } from "./views-vehiculos.js";
+import { vistaVehiculos, vistaDetalle, vistaFormulario, elegirVehiculoDesmontaje, vistaCheck, vistaCheckForm } from "./views-vehiculos.js";
 import {
   vistaPlanilla, vistaCalendario, calendarioAlEntrar, reiniciarCalendario, vistaEmpresa, vistaAjustes, vistaPapelera, elegirEmpresaSheet, panelCreador
 } from "./views-otros.js";
@@ -39,6 +39,8 @@ const RUTAS = [
   [/^#\/o\/([\w-]+\/v\/[\w-]+)$/, "link", a => irAVehiculo(a.replace("/v/", "|"))],
   [/^#\/nuevo$/,            "nuevo",      () => vistaFormulario(view)],
   [/^#\/editar\/([\w-]+)$/, "editar",     id => vistaFormulario(view, id)],
+  [/^#\/check\/([\w-]+)$/,  "check",      id => vistaCheck(view, id)],
+  [/^#\/check\/([\w-]+\/(?:in|out))$/, "checkform", a => vistaCheckForm(view, ...a.split("/"))],
   [/^#\/planillas$/,        "planillas",  () => vistaPlanillas(view)],
   [/^#\/planilla$/,         "planilla",   () => vistaPlanilla(view)],
   [/^#\/tecnicos$/,         "tecnicos",   () => vistaTecnicos(view)],
@@ -252,6 +254,7 @@ onChange(what => {
   if (!S.profile) return;
   // Nunca repintar un formulario a mitad de carga: se perdería lo escrito
   if (["nuevo", "editar"].includes(ruta.nombre) && $("#vform")) return; // sí se pinta si todavía estaba cargando
+  if (ruta.nombre === "checkform" && $(".chk-form")) return;
   if (document.activeElement?.classList?.contains("post-rep") && what === "vehicles") return;   // escribiendo post-reparación
   if (what === "gastos") { if (ruta.nombre === "gastos") ctrl?.soloLista?.(); return; }
   if (what === "solicitudes") { if (["papelera", "ajustes"].includes(ruta.nombre)) render({ conservarScroll: true }); return; }
