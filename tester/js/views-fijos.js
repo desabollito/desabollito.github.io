@@ -101,6 +101,7 @@ export function vistaFijos(view) {
     actions: `<button class="btn btn-ghost btn-sm" id="f-tec">${icon("team")}<span class="hide-sm">Técnicos</span></button><button class="btn btn-sm ${F.editando ? "btn-primary" : "btn-ghost"}" id="f-edit">${icon(F.editando ? "check" : "edit")}<span>${F.editando ? "Listo" : "Editar"}</span></button>` });
   if (!puedeVer("fijos")) { view.innerHTML = `<div class="empty"><p>No tenés acceso a esta planilla.</p></div>`; return; }
   view.innerHTML = `<div class="skeleton tall"></div>`;
+  if (!S.company) return;   // F5: el operativo todavía no llegó; se repinta solo cuando llega
   const col = collection(db, "companies", S.company.id, "planTec");
   // Los técnicos de gastos fijos son propios (no los de la planilla de técnicos)
   let fijos = {};

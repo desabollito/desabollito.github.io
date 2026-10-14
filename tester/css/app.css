@@ -1364,10 +1364,10 @@ body[data-rol="desmontaje"] a[href^="#/editar"] { display: none !important; }
 .tec-excel input, .tec-excel .tec-celda { width: 100%; min-width: 0; max-width: 100%; box-sizing: border-box; }
 .tec-excel th { position: relative; overflow: hidden; text-overflow: ellipsis; }
 .tec-excel td { overflow: hidden; text-overflow: ellipsis; }
-.tec-excel .col-imp { border-right: 2px solid var(--line-2); }
 .col-res { position: absolute; top: 0; right: 0; width: 8px; height: 100%; cursor: col-resize; touch-action: none; }
 .col-res:hover, .col-res:active { background: color-mix(in srgb, var(--primary) 30%, transparent); }
-.tec-excel .tec-sub td { background: color-mix(in srgb, var(--primary) 10%, transparent); }
+.tec-excel .tec-sub td { background: color-mix(in srgb, var(--primary) 10%, var(--surface)); }   /* opaco: la celda fija no deja ver lo que pasa por abajo */
+.tec-excel th:first-child { background: var(--surface-2); z-index: 2; }
 .tec-excel .tec-sub small { color: var(--muted); font-weight: 600; margin-left: 6px; }
 .tec-excel .tec-sep td { height: 14px; padding: 0; border: 0; background: none; }
 .tec-cierre-top { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -2000,3 +2000,4 @@ body[data-ruta="checkform"] .main { padding-bottom: calc(90px + var(--safe-b)); 
 [data-theme="light"] .ex-media { background: radial-gradient(closest-side, #cfe1fb, #e2ecfa 45%, rgb(238 241 245 / .85) 72%, transparent); }
 [data-theme="light"] .ex-logo { filter: drop-shadow(0 0 10px color-mix(in srgb, var(--primary) 35%, transparent)); }
 .chk-nafta { padding-top: 12px; }
+.tec-chk { accent-color: var(--primary); margin: 0; width: 16px; height: 16px; flex: none; }

@@ -43,6 +43,7 @@ export function vistaTecnicos(view) {
       <button class="btn btn-sm ${T.editando ? "btn-primary" : "btn-ghost"}" id="t-edit">${icon(T.editando ? "check" : "edit")}<span>${T.editando ? "Listo" : "Editar"}</span></button>` });
   if (!puedeVer("tecnicos")) { view.innerHTML = `<div class="empty"><p>No tenés acceso a esta planilla.</p></div>`; return; }
   view.innerHTML = `<div class="skeleton tall"></div>`;
+  if (!S.company) return;   // F5: el operativo todavía no llegó; se repinta solo cuando llega
   const cid = S.company.id, col = collection(db, "companies", cid, "planTec");
   let cfg = null, filas = {}, fijos = {}, creando = false, gestionando = false;
   unsub?.();
@@ -142,7 +143,7 @@ export function vistaTecnicos(view) {
         const rsS = rows.filter(r => lunesDe(r.fecha) === l), s = sumaPorTec(rsS);
         const dias = [...new Set(rsS.map(r => r.fecha))];
         return dias.map(d => `<tr class="tec-dia-fila"><td colspan="${nc}">${diaLabel(d).toUpperCase()}</td></tr>${rsS.filter(r => r.fecha === d).map(fila).join("")}`).join("") +
-          `<tr class="tec-sub"><td colspan="2">TOTAL SEMANA <small>${fechaCorta(l).slice(0, 5)} al ${fechaCorta(masDias(l, 6)).slice(0, 5)} · ${rsS.length} ${rsS.length === 1 ? "auto" : "autos"}</small></td>
+          `<tr class="tec-sub"><td colspan="2">SEMANA ${+l.slice(8)} AL ${+masDias(l, 6).slice(8)}</td>
             <td class="num col-imp">${pesos(rsS.reduce((a, r) => a + r.valor, 0))}</td><td class="tec-sepcol"></td>
             ${tecs.map(t => `<td class="num">${s[t.id] ? pesos(s[t.id]) : "—"}</td>`).join("")}${ed ? "<td></td>" : ""}</tr>
           <tr class="tec-sep"><td colspan="${nc}"></td></tr>`;
@@ -210,7 +211,7 @@ export function vistaTecnicos(view) {
       : `${fechaCorta(d)}${m.hasta && m.hasta !== d ? ` al ${fechaCorta(m.hasta)}` : ""}`}${m.nota ? " · " + esc(m.nota) : ""}</span><b>${pesos(m.monto)}</b>
       ${T.editando ? `<button type="button" class="icon-btn sm" data-del-mov="${esc(m.id)}" aria-label="Quitar">${icon("x")}</button>` : ""}</li>`; }).join("") ||
     `<li class="muted small">Sin sueldos cargados</li>`;
-  const listaMovs = (l, vacio) => l.map(m => `<li><span>${fechaCorta(m.fecha)}${m.nota ? " · " + esc(m.nota) : ""}</span><b>${m.tipo === "sueldo" ? "" : "-"}${pesos(m.monto)}</b>
+  const listaMovs = (l, vacio, marca) => l.map(m => `<li>${marca ? marca(m.id) : ""}<span>${fechaCorta(m.fecha)}${m.nota ? " · " + esc(m.nota) : ""}</span><b>${m.tipo === "sueldo" ? "" : "-"}${pesos(m.monto)}</b>
       ${T.editando ? `<button type="button" class="icon-btn sm" data-del-mov="${esc(m.id)}" aria-label="Quitar">${icon("x")}</button>` : ""}</li>`).join("") ||
       `<li class="muted small">${vacio}</li>`;
 
@@ -236,8 +237,11 @@ export function vistaTecnicos(view) {
       const ganado = sueldo ? totalSueldo(t.id) : s[t.id] || 0;
       const ad = movsDe(t.id, "adelanto"), ga = movsDe(t.id, "gasto");
       // A los de sueldo por defecto no se les descuentan los gastos (quedan aparte, a la vista); los adelantos sí
-      const desc = !sueldo || !!cfg.descontar?.[t.id], gastos = suma(ga) + v + a;
-      const fin = ganado - suma(ad) - (desc ? gastos : 0);
+      // Con "Descontar gastos" activado, a los de sueldo se elige cuáles gastos se descuentan (por defecto, todos)
+      const desc = !sueldo || !!cfg.descontar?.[t.id], gastos = suma(ga) + v + a, nd = sueldo ? cfg.noDesc?.[t.id] || {} : {};
+      const marca = sueldo && desc ? k => `<input type="checkbox" class="tec-chk" data-nodesc="${esc(k)}" ${nd[k] ? "" : "checked"} aria-label="Descontar">` : null;
+      const descontado = desc ? suma(ga.filter(m => !nd[m.id])) + (nd.viandas ? 0 : v) + (nd.alquiler ? 0 : a) : 0;
+      const fin = ganado - suma(ad) - descontado;
       const sw = sueldo ? `<div class="tec-linea tec-desc"><span>Descontar gastos</span><button type="button" class="switch ${desc ? "on" : ""}" data-descontar role="switch" aria-checked="${desc}" aria-label="Descontar gastos"><span class="sw-txt sw-si">Sí</span><span class="sw-txt sw-no">No</span><i class="sw-bola"></i></button></div>` : "";
       return `<section class="tec-cierre" data-tecid="${esc(t.id)}">
         <h3 class="tec-cierre-nombre">${esc(t.nombre)}${sueldo ? "" : ` <small>${rows.filter(r => r.tecs.includes(t.id)).length} autos</small>`}</h3>
@@ -245,11 +249,11 @@ export function vistaTecnicos(view) {
         <div class="tec-linea"><span>Adelantos</span><b>-${pesos(suma(ad))}</b>${T.editando ? `<button type="button" class="link-btn small" data-add-mov="adelanto">+ Adelanto</button>` : ""}</div>
         <ul class="tec-movs">${listaMovs(ad, "Sin adelantos")}</ul>
         ${sw}<div class="${desc ? "" : "tec-aparte"}">
-        ${desc ? "" : `<div class="tec-linea"><span>Gastos aparte (no se descuentan)</span><b>${pesos(gastos)}</b></div>`}
         <div class="tec-linea"><span>Gastos</span><b>-${pesos(suma(ga))}</b>${T.editando ? `<button type="button" class="link-btn small" data-add-mov="gasto">+ Gasto</button>` : ""}</div>
-        <ul class="tec-movs">${listaMovs(ga, "Sin gastos")}</ul>
-        ${hayFijos ? `<div class="tec-linea"><span>Viandas</span><b>-${pesos(v)}</b></div>
-        <div class="tec-linea"><span>Alquiler</span><b>-${pesos(a)}</b></div>` : ""}</div>
+        <ul class="tec-movs">${listaMovs(ga, "Sin gastos", marca)}</ul>
+        ${hayFijos ? `<div class="tec-linea">${marca ? marca("viandas") : ""}<span>Viandas</span><b>-${pesos(v)}</b></div>
+        <div class="tec-linea">${marca ? marca("alquiler") : ""}<span>Alquiler</span><b>-${pesos(a)}</b></div>` : ""}</div>
+        <div class="tec-linea"><span>Gastos totales</span><b>${pesos(gastos)}</b></div>
         <div class="tec-linea tec-final"><span>Final a pagar</span><b>${pesos(fin)}</b></div>
       </section>`;
     };
@@ -270,6 +274,9 @@ export function vistaTecnicos(view) {
     if (t.closest("[data-act=tecnicos]")) return gestionarTecnicos();
     const dsw = t.closest("[data-descontar]");
     if (dsw) { const id = dsw.closest("[data-tecid]").dataset.tecid; return guardarCfg({ descontar: { ...(cfg.descontar || {}), [id]: !cfg.descontar?.[id] } }); }
+    const chk = t.closest("[data-nodesc]");
+    if (chk) { const id = chk.closest("[data-tecid]").dataset.tecid, k = chk.dataset.nodesc;
+      return guardarCfg({ noDesc: { [id]: { [k]: !cfg.noDesc?.[id]?.[k] } } }); }   // merge:true junta los mapas anidados
     if (t.closest("[data-act=persona]")) {
       const nombre = (await pedirTexto({ title: "Técnico a sueldo", label: "Nombre", ok: "Agregar" }))?.trim();
       if (nombre) guardarCfg({ personas: [...(cfg.personas || []), { id: nuevoId(), nombre: nombre.toUpperCase() }] });
