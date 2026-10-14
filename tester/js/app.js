@@ -1,14 +1,13 @@
 import {
   S, onChange, iniciarSesion, ingresar, crearCuenta, mensajeError, elegirEmpresa
 } from "./data.js";
-import { ruidoMotor } from "./sonidos.js";
 import { cerrarSplash, veloCambio } from "./efectos.js";
 import { $, $$, esc, toast, busy, openSheet } from "./ui.js";
 import { FIREBASE, BOT_API } from "./config.js";
 import { iniciarFechas } from "./fecha.js";
 import { cuentaPendiente, salir, marcarOperativosVistos, soyCreador, crearEmpresa, pedirUnion, cancelarPedidoUnion, escucharMiPedido, responderPedidoUnion, soyDesmontaje, miRol, soyAdmin, getVehiculo, iniciarInvitado, soyLector, puedeVer } from "./data.js";
 import { marcarNav, pintarLateral, esAncho } from "./shell.js";
-import { vistaVehiculos, vistaDetalle, vistaFormulario, reiniciarVista3D, elegirVehiculoDesmontaje } from "./views-vehiculos.js";
+import { vistaVehiculos, vistaDetalle, vistaFormulario, elegirVehiculoDesmontaje } from "./views-vehiculos.js";
 import {
   vistaPlanilla, vistaCalendario, calendarioAlEntrar, reiniciarCalendario, vistaEmpresa, vistaAjustes, vistaPapelera, elegirEmpresaSheet, panelCreador
 } from "./views-otros.js";
@@ -140,7 +139,6 @@ function render({ conservarScroll = false, reabrir = false } = {}) {
   $$(".side-sub a").forEach(a => a.classList.toggle("on", a.dataset.sub === hit[1]));
   $$(".side-sub [data-sub=tecnicos], .side-sub [data-sub=fijos], .side-sub [data-sub=gastos]").forEach(a => { a.hidden = !puedeVer(a.dataset.sub); });
   if (hit[1] === "calendario" && !mismaRuta) calendarioAlEntrar();
-  if (!mismaRuta) reiniciarVista3D(); // cada vez que se abre un vehículo, arranca en 2D
   ultimoRender = Date.now();
   ctrl = hit[2](arg) || null;
   if (!mismaRuta && !reabrir) animarCambio(previa, ruta);
@@ -395,34 +393,32 @@ function mostrarSegunAprobacion() {
 }
 
 // ── Actualizaciones ───────────────────────────────────────────
-// Al actualizar: un auto que acelera y cruza la pantalla, con ruido de motor (hecho con Web Audio, sin archivos)
-const AUTO_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5.6 16H4a1 1 0 0 1-1-1v-2.4c0-.6.4-1.1 1-1.3l2.4-.7 2.5-3A2 2 0 0 1 10.4 7h4.4a2 2 0 0 1 1.6.8l2.4 3.2 1.4.4c.8.2 1.3.9 1.3 1.7V15a1 1 0 0 1-1 1h-1.1M9.4 16h5.2"/><circle cx="7.5" cy="16" r="1.9"/><circle cx="16.5" cy="16" r="1.9"/></svg>`;
-// El botón se convierte en el auto: viaja hasta la izquierda, acelera en el lugar y cruza toda la pantalla
-function animacionActualizar(boton = null) {
-  ruidoMotor(S.config?.sonidoAuto);
+// Al actualizar (Falling Text): las piezas de la pantalla caen con gravedad y aparece la intro.
+// Si el navegador no recarga a los 3,5 s, todo vuelve a su lugar.
+const QUE_CAE = ".topbar > *, .tabbar a, .side > *, .fab, .update-pop, .view .estado-strip, .view .search, .view .vcard, .view .card, .view .d-sec, .view .d-head, .view .stepper, .view .cal-head, .view .cd, .view .cw, .view h2, .view h3, .view .empty";
+function animacionActualizar() {
   if (matchMedia("(prefers-reduced-motion: reduce)").matches) return Promise.resolve();
-  const capa = document.createElement("div");
-  capa.className = "arranque";
-  capa.innerHTML = `<div class="arranque-auto"><i class="arranque-estela"></i><i class="arranque-lineas"></i><i class="arranque-humo"></i>${AUTO_SVG}</div>`;
-  document.body.appendChild(capa);
-  const auto = capa.firstElementChild, T = 84;   // tamaño del auto
-  const y = innerHeight * 0.45 - T / 2, x0 = 24;
-  // Arranca donde está el botón (del mismo tamaño) y crece hasta el auto
-  const r = boton?.getBoundingClientRect();
-  const ini = r ? `translate(${r.left + r.width / 2 - T / 2}px, ${r.top + r.height / 2 - T / 2}px) scale(${r.width / T})` : `translate(${-T - 20}px, ${y}px)`;
-  if (boton) boton.classList.add("se-va");
-  const fin = `translate(${innerWidth + T + 60}px, ${y}px)`;
-  const a = auto.animate([
-    { transform: ini, offset: 0 },
-    { transform: `translate(${x0}px, ${y}px) scale(1)`, offset: 0.24, easing: "ease-in-out" },
-    { transform: `translate(${x0 - 3}px, ${y + 1}px) rotate(-3deg)`, offset: 0.3 },
-    { transform: `translate(${x0 + 2}px, ${y - 1}px) rotate(2deg)`, offset: 0.36 },
-    { transform: `translate(${x0 - 3}px, ${y + 1}px) rotate(-3deg)`, offset: 0.42 },
-    { transform: `translate(${x0 - 8}px, ${y}px) rotate(-6deg)`, offset: 0.5, easing: "cubic-bezier(.6,0,.85,.4)" },
-    { transform: fin, offset: 1 }
-  ], { duration: 1700, fill: "forwards" });
-  capa.classList.add("en-marcha");
-  return a.finished.catch(() => {}).then(() => capa.remove());
+  const alto = innerHeight;
+  const piezas = [...document.querySelectorAll(QUE_CAE)]
+    .filter(el => { const r = el.getBoundingClientRect(); return r.width && r.bottom > 0 && r.top < alto; })
+    .filter((el, _, todas) => !todas.some(o => o !== el && o.contains(el)))   // si cae el contenedor, sus hijos van con él
+    .slice(0, 90);
+  const caidas = piezas.map(el => {
+    const r = el.getBoundingClientRect();
+    const fin = `translate(${(Math.random() - .5) * 80}px, ${alto - r.top + 60}px) rotate(${(Math.random() - .5) * 50}deg)`;
+    const a = el.animate([{ transform: "none" }, { transform: fin }], {
+      duration: 850 + Math.random() * 350, delay: (1 - r.top / alto) * 160 + Math.random() * 260,
+      easing: "cubic-bezier(.5,0,.9,.4)", fill: "forwards"   // arranca lento y acelera, como la gravedad
+    });
+    return { el, a, fin };
+  });
+  return Promise.all(caidas.map(c => c.a.finished.catch(() => {}))).then(() => {
+    const sp = $("#splash"); sp.classList.remove("abre"); sp.hidden = false;
+    setTimeout(() => {
+      cerrarSplash();
+      caidas.forEach(({ el, a, fin }) => { a.cancel(); el.animate([{ transform: fin, opacity: 0 }, { transform: "none", opacity: 1 }], { duration: 700, easing: "cubic-bezier(.2,.7,.2,1)" }); });
+    }, 3500);
+  });
 }
 if (/[?&]act=\d+/.test(location.search)) history.replaceState(null, "", location.pathname + location.hash);
 addEventListener("forzar-actualizacion", async () => {
@@ -461,7 +457,7 @@ if ("serviceWorker" in navigator) {
       if (tocado) return location.reload();
       tocado = true;
       bar.classList.add("cargando");
-      await animacionActualizar(bar);
+      await animacionActualizar();
       recargarAlCambiar = true; sw.postMessage("activar");
       // 3 segundos después de la animación (si el navegador no recargó solo): vuelve el botón y el cartel
       setTimeout(() => {

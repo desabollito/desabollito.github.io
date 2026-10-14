@@ -12,7 +12,6 @@ import {
   confirmar, busy, debounce, marcarError, horaDe } from "./ui.js";
 import { carMapSVG, montarMapa, pulsar } from "./carmap.js";
 import { contar } from "./efectos.js";
-import { montar3D } from "./car3d.js";
 import { subir, comprimir, borrarConToken, thumb, grande, cloudinaryListo, esVideo, videoURL } from "./media.js";
 import { presupuestoPDF, nombreArchivo } from "./pdf.js";
 import { armarZip } from "./zip.js";
@@ -289,15 +288,7 @@ export function vistaDetalle(view, id) {
   renderDetalle($(".detail-page", view), v, false);
 }
 
-// Vista 3D: siempre arranca en 2D al abrir un vehículo
-let modo3D = false, vid3D = null, adicAbierto = false, pzTocada = null;   // pzTocada: paño elegido en el detalle (sobrevive al redibujo)
-export const reiniciarVista3D = () => { modo3D = false; };
-function iniciar3D(root, v) {
-  const caja = $(".vista-3d", root), cap = $(".caption-3d", root);
-  caja.innerHTML = `<div class="skeleton" style="height:280px"></div>`;
-  montar3D(caja, v.piezas || {}, (k, nombre) => { if (cap) cap.innerHTML = `<strong>${esc(nombre || k)}</strong>`; })
-    .catch(err => { caja.innerHTML = `<p class="muted small center">${esc(err.message)}</p>`; });
-}
+let adicAbierto = false, pzTocada = null;   // pzTocada: paño elegido en el detalle (sobrevive al redibujo)
 
 // Mensaje configurable desde el panel del dueño: {Vehiculo}, {Patente}, {Asegurado}… se completan con el vehículo
 const VARS_WA = {
@@ -376,7 +367,6 @@ function renderDetalle(root, v, embebido) {
     const f = S.abrirFoto; S.abrirFoto = null;
     setTimeout(() => { const lista = (f.desm ? v.desFotos : v.fotos) || [], i = lista.findIndex(x => x.url === f.url); if (i >= 0) visor(lista, i, f.desm ? null : v); }, 250);
   }
-  if (vid3D !== v.id) { vid3D = v.id; modo3D = false; } // al abrir otro vehículo, arranca en 2D
   const est = estadoActual(v);
   const anulado = est === "anulado";
   const marcadas = piezasMarcadas(v);
@@ -453,18 +443,15 @@ ${[...PASO_REP, "facturado"].includes(est) && !soyLector() && (soyAdmin() || soy
     </section>
 
     ${!marcadas.length ? (v.grado ? `<section class="d-sec d-piezas"><div class="sec-head"><h3>Paños afectados</h3>${gradoTag(v)}</div></section>` : "") : `<section class="d-sec d-piezas">
-      <div class="sec-head"><h3>Paños afectados ${todos ? "<small>todos</small>" : marcadas.length ? `<small>${marcadas.length}</small>` : ""}</h3>${gradoTag(v)}
-        ${marcadas.length ? `<button class="btn btn-ghost btn-sm vista-btn" data-act="vista3d">${modo3D ? "2D" : "3D"}</button>` : ""}</div>
+      <div class="sec-head"><h3>Paños afectados ${todos ? "<small>todos</small>" : marcadas.length ? `<small>${marcadas.length}</small>` : ""}</h3>${gradoTag(v)}</div>
       ${!marcadas.length ? `<p class="muted sin-panos">Sin paños marcados</p>` : `
-      <div class="vista-3d" ${modo3D ? "" : "hidden"}></div>
-      <div class="piezas-view" ${modo3D ? "hidden" : ""}>
+      <div class="piezas-view">
         <div class="map-col">${carMapSVG(v.piezas || {}, { size: "carmap-sm" })}</div>
         <p class="piezas-caption" aria-live="polite">${todos ? "<strong>Todos</strong>" : marcadas.length ? "Tocá un paño para ver su nombre" : "Sin paños marcados"}</p>
         <div class="piezas-grupos">${todos ? `<ul class="piezas-list"><li>Todos</li></ul>`
           : !marcadas.length ? `<ul class="piezas-list"><li class="muted">Sin paños marcados</li></ul>`
           : piezasAgrupadas(v)}</div>
       </div>
-      <p class="piezas-caption caption-3d" ${modo3D ? "" : "hidden"}>Arrastrá para girar · tocá un paño</p>
 `}
     </section>`}
 
@@ -517,9 +504,8 @@ ${[...PASO_REP, "facturado"].includes(est) && !soyLector() && (soyAdmin() || soy
     post.addEventListener("input", () => { crecer(); clearTimeout(reloj); reloj = setTimeout(guardar, 1500); });
     post.addEventListener("blur", guardar);
   }
-  if (modo3D && marcadas.length) iniciar3D(root, v);
   // Al redibujar (cambios en vivo) el paño elegido sigue marcado y con su nombre
-  if (pzTocada?.vid === v.id && !modo3D) {
+  if (pzTocada?.vid === v.id) {
     const g = $(`.d-piezas [data-pieza="${pzTocada.k}"]`, root), cap = $(".piezas-view .piezas-caption", root);
     if (g) { g.classList.add("tocado"); if (cap) cap.innerHTML = `<strong>${esc(PIEZA[pzTocada.k].label)}</strong>`; }
   }
@@ -607,15 +593,6 @@ ${[...PASO_REP, "facturado"].includes(est) && !soyLector() && (soyAdmin() || soy
     const act = t.closest("[data-act]")?.dataset.act;
     if (act === "pdf") return compartir(v);
     if (act === "galeria") return visor(v.fotos, 0, v);
-    if (act === "vista3d") {
-      modo3D = !modo3D;
-      t.closest("[data-act]").textContent = modo3D ? "2D" : "3D";
-      $(".vista-3d", root).hidden = !modo3D;
-      $(".d-piezas .piezas-view", root).hidden = modo3D;
-      $(".caption-3d", root).hidden = !modo3D;
-      if (modo3D) iniciar3D(root, v);
-      return;
-    }
     if (act === "firma") return firmar(v);
     if (act === "contactar") {
       const m = $(".d-menu", root), abrir = m.hidden;
@@ -1428,9 +1405,7 @@ export function vistaFormulario(view, id = null) {
         </fieldset>
         <div class="vform-der">
         <fieldset class="card vform-map">
-          <legend class="leg-flex"><span>Paños afectados</span>
-            <button type="button" class="btn btn-ghost btn-sm vista-btn" id="f-vista">3D</button></legend>
-          <div class="vista-3d" id="f-3d" hidden></div>
+          <legend class="leg-flex"><span>Paños afectados</span></legend>
           <div class="map-wrap">
             ${carMapSVG(piezas, { editable: true })}
             <div class="pieza-chips"></div>
@@ -1475,22 +1450,6 @@ export function vistaFormulario(view, id = null) {
 
   const form = $("#vform", view);
   const mapa = montarMapa($(".vform-map", view), piezas);
-  let vista3d = null;
-  $("#f-vista", view).addEventListener("click", async e => {
-    const b = e.currentTarget, caja = $("#f-3d", view), en3d = caja.hidden;
-    caja.hidden = !en3d;
-    $(".vform-map .carmap", view).style.display = en3d ? "none" : "";
-    b.textContent = en3d ? "2D" : "3D";
-    if (en3d) {
-      caja.innerHTML = `<div class="skeleton" style="height:280px"></div>`;
-      try {
-        vista3d = await montar3D(caja, piezas, {
-          editable: true,
-          alTocar: k => { piezas[k] = !piezas[k]; vista3d?.pintar(piezas); mapa.refrescar(); }
-        });
-      } catch (err) { caja.innerHTML = `<p class="muted small center">${esc(err.message)}</p>`; }
-    }
-  });
   let grado = v?.grado || null;
   $("#grado", view).addEventListener("click", e => {
     const b = e.target.closest("[data-g]"); if (!b) return;

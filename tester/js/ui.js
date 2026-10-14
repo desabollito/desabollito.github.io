@@ -64,7 +64,11 @@ export function initials(name = "") {
 // Patente con estética de chapa Mercosur
 export function plate(p, size = "") {
   if (!p) return `<span class="plate plate-empty ${size}">Sin patente</span>`;
-  return `<span class="plate ${size}"><span class="plate-band"></span><span class="plate-num">${esc(p)}</span></span>`;
+  // Formato argentino: Mercosur AA 000 AA (blanca, franja azul) o 1995 AAA 000 (negra, letras blancas)
+  const n = String(p).toUpperCase().replace(/[^A-Z0-9]/g, "");
+  if (/^[A-Z]{3}\d{3}$/.test(n)) return `<span class="plate vieja ${size}"><span class="plate-num">${n.slice(0, 3)} ${n.slice(3)}</span></span>`;
+  const txt = /^[A-Z]{2}\d{3}[A-Z]{2}$/.test(n) ? `${n.slice(0, 2)} ${n.slice(2, 5)} ${n.slice(5)}` : p;
+  return `<span class="plate ${size}"><span class="plate-band">REPÚBLICA ARGENTINA</span><span class="plate-num">${esc(txt)}</span></span>`;
 }
 
 export function estadoPill(v) {
