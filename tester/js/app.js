@@ -393,31 +393,55 @@ function mostrarSegunAprobacion() {
 }
 
 // ── Actualizaciones ───────────────────────────────────────────
-// Al actualizar (Falling Text): las piezas de la pantalla caen con gravedad y aparece la intro.
-// Si el navegador no recarga a los 3,5 s, todo vuelve a su lugar.
-const QUE_CAE = ".topbar > *, .tabbar a, .side > *, .fab, .update-pop, .view .estado-strip, .view .search, .view .vcard, .view .card, .view .d-sec, .view .d-head, .view .stepper, .view .cal-head, .view .cd, .view .cw, .view h2, .view h3, .view .empty";
+// Al actualizar (Hyperspeed): estelas de luz que salen del centro y aceleran, un destello y aparece la intro.
+// Si el navegador no recarga a los 3,5 s, la intro se abre y la app sigue como estaba.
 function animacionActualizar() {
   if (matchMedia("(prefers-reduced-motion: reduce)").matches) return Promise.resolve();
-  const alto = innerHeight;
-  const piezas = [...document.querySelectorAll(QUE_CAE)]
-    .filter(el => { const r = el.getBoundingClientRect(); return r.width && r.bottom > 0 && r.top < alto; })
-    .filter((el, _, todas) => !todas.some(o => o !== el && o.contains(el)))   // si cae el contenedor, sus hijos van con él
-    .slice(0, 90);
-  const caidas = piezas.map(el => {
-    const r = el.getBoundingClientRect();
-    const fin = `translate(${(Math.random() - .5) * 80}px, ${alto - r.top + 60}px) rotate(${(Math.random() - .5) * 50}deg)`;
-    const a = el.animate([{ transform: "none" }, { transform: fin }], {
-      duration: 850 + Math.random() * 350, delay: (1 - r.top / alto) * 160 + Math.random() * 260,
-      easing: "cubic-bezier(.5,0,.9,.4)", fill: "forwards"   // arranca lento y acelera, como la gravedad
-    });
-    return { el, a, fin };
-  });
-  return Promise.all(caidas.map(c => c.a.finished.catch(() => {}))).then(() => {
-    const sp = $("#splash"); sp.classList.remove("abre"); sp.hidden = false;
-    setTimeout(() => {
-      cerrarSplash();
-      caidas.forEach(({ el, a, fin }) => { a.cancel(); el.animate([{ transform: fin, opacity: 0 }, { transform: "none", opacity: 1 }], { duration: 700, easing: "cubic-bezier(.2,.7,.2,1)" }); });
-    }, 3500);
+  const capa = document.createElement("div");
+  capa.className = "hiper";
+  capa.innerHTML = `<canvas></canvas><div class="hiper-txt">Actualizando</div>`;
+  document.body.appendChild(capa);
+  const cv = capa.firstElementChild, ctx = cv.getContext("2d"), dpr = Math.min(2, devicePixelRatio || 1);
+  const W = innerWidth, H = innerHeight, cx = W / 2, cy = H / 2, lejos = Math.hypot(W, H);
+  cv.width = W * dpr; cv.height = H * dpr; ctx.scale(dpr, dpr);
+  const COLORES = ["#5c86ff", "#2b5ce6", "#86a5ff", "#cfe0ff", "#ffffff", "#ff5c7a"];
+  const luces = Array.from({ length: 260 }, () => ({
+    a: Math.random() * Math.PI * 2, d: 0.05 + Math.random() * 1.2,
+    c: COLORES[Math.random() < 0.08 ? 5 : Math.random() * 5 | 0], w: 0.5 + Math.random() * 1.5
+  }));
+  const DUR = 1800, t0 = performance.now();
+  return new Promise(listo => {
+    const cuadro = t => {
+      const p = Math.min(1, (t - t0) / DUR), vel = 0.003 + p * p * p * 0.07;   // arranca lento y acelera fuerte
+      ctx.globalCompositeOperation = "source-over";
+      ctx.fillStyle = `rgba(4, 7, 15, ${0.28 + p * 0.3})`;   // oscurece y deja estela
+      ctx.fillRect(0, 0, W, H);
+      ctx.globalCompositeOperation = "lighter";
+      for (const l of luces) {
+        l.d -= vel;
+        if (l.d < 0.02) { l.d = 0.9 + Math.random() * 0.4; l.a = Math.random() * Math.PI * 2; continue; }
+        const r1 = 36 / l.d, r0 = 36 / (l.d + 0.01 + vel * 7);   // la estela se alarga con la velocidad
+        if (r0 > lejos) continue;
+        const x = Math.cos(l.a), y = Math.sin(l.a);
+        ctx.globalAlpha = Math.min(1, (1.2 - l.d) * 1.1);
+        ctx.strokeStyle = l.c; ctx.lineWidth = Math.min(4, l.w * (0.25 + 0.25 / l.d));
+        ctx.beginPath(); ctx.moveTo(cx + x * r0, cy + y * r0); ctx.lineTo(cx + x * r1, cy + y * r1); ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+      // Destello final desde el centro
+      if (p > 0.82) {
+        const f = (p - 0.82) / 0.18, g = ctx.createRadialGradient(cx, cy, 0, cx, cy, lejos * (0.2 + f));
+        g.addColorStop(0, `rgba(207, 224, 255, ${f})`); g.addColorStop(1, "rgba(92, 134, 255, 0)");
+        ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+      }
+      if (p < 1) return requestAnimationFrame(cuadro);
+      const sp = $("#splash"); sp.classList.remove("abre"); sp.hidden = false;
+      capa.classList.add("sale");
+      setTimeout(() => capa.remove(), 600);
+      setTimeout(cerrarSplash, 3500);
+      listo();
+    };
+    requestAnimationFrame(cuadro);
   });
 }
 if (/[?&]act=\d+/.test(location.search)) history.replaceState(null, "", location.pathname + location.hash);
