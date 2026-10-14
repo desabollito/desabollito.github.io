@@ -1895,8 +1895,6 @@ html.lenis, html.lenis body { height: auto; }
 }
 /* App instalada: mientras se dibuja el logo, la intro muestra solo la aurora */
 .splash.solo-aurora > :not(.aurora) { visibility: hidden; }
-/* Vehículo abierto suelto (desde el calendario): en computadora ocupa el ancho, como en la pantalla de vehículos */
-@media (min-width: 900px) { .detail-page { max-width: none; } }
 /* Al abrir: la aurora de la intro más tenue, así no hay salto fuerte de azul al modo oscuro */
 .splash.solo-aurora .aurora i { opacity: .22; }
 /* Computadora: el vehículo abierto en el calendario se desplaza solo en su panel */
