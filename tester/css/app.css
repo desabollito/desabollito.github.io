@@ -2007,3 +2007,4 @@ body[data-ruta="checkform"] .main { padding-bottom: calc(90px + var(--safe-b)); 
 .tec-lista .tl-nombre { cursor: grab; touch-action: none; user-select: none; }
 .tec-lista li.arrastrando { opacity: .6; }
 .tec-excel tbody tr.tec-sep { cursor: default; }
+.side-grupo .side-chev { padding: 2px; margin-right: -2px; cursor: pointer; }

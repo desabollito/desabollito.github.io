@@ -142,9 +142,8 @@ function render({ conservarScroll = false, reabrir = false } = {}) {
   document.body.dataset.detalle = hit[1] === "vehiculos" && arg ? "1" : "";
   marcarNav(enCal ? "calendario" : ["nuevo", "editar", "operativo"].includes(hit[1]) ? "" : hit[1] === "papelera" ? "ajustes" : ["planilla", "gastos", "tecnicos", "fijos"].includes(hit[1]) ? "planillas" : hit[1]);
   pintarTabPlanilla(hit[1]);
-  // Menú lateral (computadora): Planillas se despliega con sus 3 planillas
-  const enPlan = ["planillas", "planilla", "gastos", "tecnicos", "fijos"].includes(hit[1]);
-  $(".side-grupo")?.classList.toggle("abierto", enPlan);
+  // Menú lateral (computadora): Planillas queda desplegado solo si el usuario lo desplegó (flechita)
+  $(".side-grupo")?.classList.toggle("abierto", planAbiertas());
   $$(".side-sub a").forEach(a => a.classList.toggle("on", a.dataset.sub === hit[1]));
   $$(".side-sub [data-sub=tecnicos], .side-sub [data-sub=fijos], .side-sub [data-sub=gastos]").forEach(a => { a.hidden = !puedeVer(a.dataset.sub); });
   if (hit[1] === "calendario" && !mismaRuta) calendarioAlEntrar();
@@ -249,6 +248,16 @@ $(".fab").addEventListener("click", e => {
 document.addEventListener("click", e => {
   if (!soyDesmontaje() || ruta.nombre === "gastos") return;
   if (e.target.closest('a[href="#/nuevo"]')) { e.preventDefault(); elegirVehiculoDesmontaje(); }
+}, true);
+// Planillas desplegadas o no en el menú lateral: se recuerda por usuario (por defecto, plegadas)
+const clavePlan = () => "planAbiertas:" + (S.user?.uid || "");
+function planAbiertas() { try { return localStorage.getItem(clavePlan()) === "1"; } catch { return false; } }
+document.addEventListener("click", e => {
+  if (!e.target.closest(".side-chev")) return;
+  e.preventDefault(); e.stopPropagation();
+  const g = $(".side-grupo"), on = !g.classList.contains("abierto");
+  g.classList.toggle("abierto", on);
+  try { localStorage.setItem(clavePlan(), on ? "1" : "0"); } catch { /* sin almacenamiento */ }
 }, true);
 matchMedia("(min-width: 1100px)").addEventListener("change", () => render({ conservarScroll: true }));
 
