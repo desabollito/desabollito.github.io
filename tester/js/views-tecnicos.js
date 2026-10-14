@@ -116,7 +116,7 @@ export function vistaTecnicos(view) {
       body.innerHTML = pintarAutos(rows); conectarAnchos(body);
       const nw = $(".table-wrap", body); if (nw && tw) { nw.scrollLeft = sx; nw.scrollTop = sy; }
       // Volviendo de un vehículo: la planilla queda donde estaba
-      if (nw && T.volver) { nw.scrollLeft = T.volver.x; scrollTo(0, T.volver.y); T.volver = null; }
+      if (nw && T.volver) { nw.scrollLeft = T.volver.x; nw.scrollTop = T.volver.t; scrollTo(0, T.volver.y); T.volver = null; }
     }
     else if (T.tab === "sueldos") body.innerHTML = pintarSueldos();
     else body.innerHTML = pintarCierre(rows);
@@ -145,12 +145,11 @@ export function vistaTecnicos(view) {
       <tbody>${semanas.map(l => {
         const rsS = rows.filter(r => lunesDe(r.fecha) === l), s = sumaPorTec(rsS);
         const dias = [...new Set(rsS.map(r => r.fecha))];
-        const sep = `<tr class="tec-sep"><td colspan="${nc}"></td></tr>`;
-        return dias.map(d => `<tr class="tec-dia-fila"><td colspan="${nc}">${diaLabel(d).toUpperCase()}</td></tr>${rsS.filter(r => r.fecha === d).map(fila).join("")}${sep}`).join("") +
+        return dias.map(d => `<tr class="tec-dia-fila"><td colspan="${nc}"><span>${diaLabel(d).toUpperCase()}</span></td></tr>${rsS.filter(r => r.fecha === d).map(fila).join("")}`).join("") +
           `<tr class="tec-sub"><td colspan="2">SEMANA ${semanas.indexOf(l) + 1}</td>
             <td class="num col-imp">${pesos(rsS.reduce((a, r) => a + r.valor, 0))}</td><td class="tec-sepcol"></td>
             ${tecs.map(t => s[t.id] ? `<td class="num">${pesos(s[t.id])}</td>` : `<td class="tec-no">⨯</td>`).join("")}${ed ? "<td></td>" : ""}</tr>
-          ${sep}${sep}`;
+          `;
       }).join("")}</tbody></table></div>
       ${ed ? `<p class="muted small">Tocá la celda de un técnico para sumarlo o sacarlo de ese auto. El importe se reparte solo.</p>` : ""}`;
   };
@@ -294,7 +293,7 @@ export function vistaTecnicos(view) {
       return guardarFila(fila.dataset.vid, { tecs });
     }
     if (t.closest("[data-act=fila]") && fila && T.editando) return opcionesFila(fila.dataset.vid);
-    if (fila && !T.editando) { T.volver = { y: scrollY, x: $(".table-wrap", view)?.scrollLeft || 0 }; location.hash = `#/v/${fila.dataset.vid}`; return; }
+    if (fila && !T.editando) { T.volver = { y: scrollY, x: $(".table-wrap", view)?.scrollLeft || 0, t: $(".table-wrap", view)?.scrollTop || 0 }; location.hash = `#/v/${fila.dataset.vid}`; return; }
     const add = t.closest("[data-add-mov]");
     if (add && T.editando) {
       const tecid = t.closest("[data-tecid]").dataset.tecid, tipo = add.dataset.addMov;

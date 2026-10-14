@@ -2008,3 +2008,11 @@ body[data-ruta="checkform"] .main { padding-bottom: calc(90px + var(--safe-b)); 
 .tec-excel tbody tr.tec-sep { cursor: default; }
 .side-grupo .side-chev { padding: 2px; margin-right: -2px; cursor: pointer; }
 .tbl.tec-excel tbody .tec-dia-fila td { background: color-mix(in srgb, var(--ink) 9%, var(--surface)); }   /* fila de cada día: gris suave, opaco para la celda fija */
+/* Planilla de técnicos: la tabla scrollea adentro, así los títulos quedan fijos arriba al bajar */
+.tec-page .table-wrap { overflow: auto; max-height: calc(100dvh - var(--top) - var(--safe-t, 0px) - 150px); min-height: 280px; }
+@media (max-width: 899px) { .tec-page .table-wrap { max-height: calc(100dvh - var(--top) - var(--safe-t, 0px) - var(--tab, 76px) - 170px); } }
+.tbl.tec-excel thead th { position: sticky; top: 0; z-index: 2; }
+.tbl.tec-excel thead th:first-child { left: 0; z-index: 3; }
+/* El nombre del día queda a la vista al deslizar a la derecha */
+.tbl.tec-excel tbody .tec-dia-fila td { position: static; overflow: visible; }
+.tec-excel .tec-dia-fila td > span { position: sticky; left: 10px; display: inline-block; }
