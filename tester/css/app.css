@@ -1983,3 +1983,5 @@ body[data-ruta="checkform"] .main { padding-bottom: calc(90px + var(--safe-b)); 
 .chk-fila[data-sel="1"] .chk-obs { display: block; }
 .chk-form .field > .seg { margin-top: 6px; }
 .chk-form .seg-btn { white-space: nowrap; }
+.chk-tabs { position: sticky; top: calc(var(--top) + var(--safe-t, 0px) + 8px); z-index: 5; }
+.chk-tabs .seg-btn { display: grid; place-items: center; text-decoration: none; min-height: 42px; }

@@ -141,7 +141,7 @@ export async function linkVehiculo(vid) {
     body: JSON.stringify({ idToken, cid: S.company.id, accion: "vehiculo", vid }) });
   const j = await r.json().catch(() => ({}));
   if (!j.ok) throw new Error(j.error || "No se pudo crear el link");
-  return `${location.origin}/${j.token}`;   // link corto: desabollito.com/TOKEN (404.html redirige al instante; la página con vista previa se crea en ~10 min)
+  return `${location.origin}/v/?${j.token}`;   // /v/ siempre existe y tiene vista previa (desabollito.com/TOKEN da 404 hasta que corre links-cortos)
 }
 export async function linksCompartidos(accion = "listar", extra = {}) {
   const idToken = await S.user.getIdToken();

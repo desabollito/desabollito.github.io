@@ -7,7 +7,7 @@ import { FIREBASE, BOT_API } from "./config.js";
 import { iniciarFechas } from "./fecha.js";
 import { cuentaPendiente, salir, marcarOperativosVistos, soyCreador, crearEmpresa, pedirUnion, cancelarPedidoUnion, escucharMiPedido, responderPedidoUnion, soyDesmontaje, miRol, soyAdmin, getVehiculo, iniciarInvitado, soyLector, puedeVer } from "./data.js";
 import { marcarNav, pintarLateral, esAncho } from "./shell.js";
-import { vistaVehiculos, vistaDetalle, vistaFormulario, elegirVehiculoDesmontaje, vistaCheck, vistaCheckForm } from "./views-vehiculos.js";
+import { vistaVehiculos, vistaDetalle, vistaFormulario, elegirVehiculoDesmontaje, vistaCheckForm } from "./views-vehiculos.js";
 import {
   vistaPlanilla, vistaCalendario, calendarioAlEntrar, reiniciarCalendario, vistaEmpresa, vistaAjustes, vistaPapelera, elegirEmpresaSheet, panelCreador
 } from "./views-otros.js";
@@ -39,8 +39,7 @@ const RUTAS = [
   [/^#\/o\/([\w-]+\/v\/[\w-]+)$/, "link", a => irAVehiculo(a.replace("/v/", "|"))],
   [/^#\/nuevo$/,            "nuevo",      () => vistaFormulario(view)],
   [/^#\/editar\/([\w-]+)$/, "editar",     id => vistaFormulario(view, id)],
-  [/^#\/check\/([\w-]+)$/,  "check",      id => vistaCheck(view, id)],
-  [/^#\/check\/([\w-]+\/(?:in|out))$/, "checkform", a => vistaCheckForm(view, ...a.split("/"))],
+  [/^#\/check\/([\w-]+(?:\/(?:in|out))?)$/, "checkform", a => vistaCheckForm(view, ...(a + "/in").split("/"))],   // sin pestaña: entra en IN
   [/^#\/planillas$/,        "planillas",  () => vistaPlanillas(view)],
   [/^#\/planilla$/,         "planilla",   () => vistaPlanilla(view)],
   [/^#\/tecnicos$/,         "tecnicos",   () => vistaTecnicos(view)],

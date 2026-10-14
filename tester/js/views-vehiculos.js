@@ -574,7 +574,7 @@ ${[...PASO_REP, "facturado"].includes(est) && !soyLector() && (soyAdmin() || soy
     // Rol Desmontaje: no modifica nada del vehículo
     if (soloVer && (t.closest("[data-estado], .etapa-item, [data-del-foto], [data-del-doc]") || ["anular", "borrar", "firma", "mover"].includes(t.closest("[data-act]")?.dataset.act))) return;
     if (soyLector() && ["desmontaje", "fotos", "subir", "docs"].includes(t.closest("[data-act]")?.dataset.act)) return;
-    if (t.closest("[data-act]")?.dataset.act === "desmontaje") return chkLargo ? undefined : go(`#/check/${v.id}`);
+    if (t.closest("[data-act]")?.dataset.act === "desmontaje") return chkLargo ? undefined : go(`#/check/${v.id}/in`);
     const step = t.closest("[data-estado]");
     if (step) {
       if (pasoLargo) { pasoLargo = false; return; }
@@ -727,30 +727,17 @@ const CHECK = {
 const CALIDAD = ["Calidad general de la reparación", "Limpieza interior", "Limpieza exterior"], NOTAS = ["Mala", "Regular", "Buena", "Excelente"];
 const COMBUSTIBLE = ["Reserva", "¼", "½", "¾", "Lleno"];
 const campoCheck = t => t === "in" ? "checkIn" : "checkOut";
-const malosCheck = (c, t) => CHECK[t].reduce((n, [k, , , items]) => n + items.filter(it => c[k]?.[it]?.v === 1).length, 0);
 
-// Pantalla del check (como Planillas): un botón grande para IN y otro para OUT
-export function vistaCheck(view, id) {
-  const v = getVehiculo(id);
-  setTopbar({ title: "Check in / out", sub: v ? [v.modelo, v.patente].filter(Boolean).join(" · ") : "", back: `#/v/${id}` });
-  if (!v) { view.innerHTML = S.loadingVehicles ? `<div class="skeleton tall"></div>` : `<div class="empty"><h2>No encontramos este vehículo</h2></div>`; return; }
-  const boton = (t, titulo) => {
-    const c = v[campoCheck(t)], n = c ? malosCheck(c, t) : 0;
-    return `<a class="hub-btn" href="#/check/${v.id}/${t}">${icon(c ? "check" : "table")}<span><strong>${titulo}</strong>
-      <small>${c ? `${esc(c.por || "")} · ${fechaHora(c.t)}${n ? ` · ${n} ${t === "in" ? (n === 1 ? "detalle" : "detalles") : "a revisar"}` : " · todo en orden"}` : "Sin completar"}</small></span></a>`;
-  };
-  view.innerHTML = `<div class="planillas-hub">${boton("in", "Check IN")}${boton("out", "Check OUT")}</div>`;
-}
-
-// Formulario del check a pantalla completa (como cargar un vehículo)
+// Check a pantalla completa (como cargar un vehículo), con pestañas IN / OUT arriba; entra en IN
 export function vistaCheckForm(view, id, t) {
   const v = getVehiculo(id);
-  setTopbar({ title: `Check ${t.toUpperCase()}`, sub: v ? [v.modelo, v.patente].filter(Boolean).join(" · ") : "", back: `#/check/${id}` });
+  setTopbar({ title: "Check in / out", sub: v ? [v.modelo, v.patente].filter(Boolean).join(" · ") : "", back: `#/v/${id}` });
   if (!v) { view.innerHTML = S.loadingVehicles ? `<div class="skeleton tall"></div>` : `<div class="empty"><h2>No encontramos este vehículo</h2></div>`; return; }
   const c = v[campoCheck(t)] || {}, val = {};
   let files = [];
   const seg = (name, ops, sel) => `<div class="seg seg-sm">${ops.map((o, i) => `<button type="button" class="seg-btn ${sel === i ? "on" : ""}" data-n="${name}" data-v="${i}">${o}</button>`).join("")}</div>`;
   view.innerHTML = `<form class="vform chk-form" novalidate><div class="page narrow stack">
+    <div class="seg chk-tabs">${["in", "out"].map(k => `<a class="seg-btn ${k === t ? "on" : ""}" href="#/check/${id}/${k}">Check ${k.toUpperCase()}${v[campoCheck(k)] ? " ✓" : ""}</a>`).join("")}</div>
     ${t === "in" ? `<fieldset class="card"><legend>Ingreso</legend>
         <label class="field"><span>Kilometraje</span><input name="km" inputmode="numeric" value="${esc(c.km || "")}" placeholder="Ej: 85000"></label>
         <div class="field"><span>Combustible</span>${seg("nafta", COMBUSTIBLE, c.nafta)}</div></fieldset>`
@@ -764,7 +751,7 @@ export function vistaCheckForm(view, id, t) {
       ${botonesFotos({ id: "chk-op" })}<p class="muted small" id="chk-n">${c.fotos?.length ? `${c.fotos.length} fotos cargadas` : "Sin fotos"}</p>
       ${c.fotos?.length ? `<div class="desm-fotos">${c.fotos.map(f => `<button type="button" data-cfoto="${esc(f.url)}"><img src="${esc(thumb(f.url, 200))}" alt="" loading="lazy"></button>`).join("")}</div>` : ""}
     </fieldset></div>
-    <div class="vform-bar"><a class="btn btn-ghost" href="#/check/${v.id}">Cancelar</a>
+    <div class="vform-bar"><a class="btn btn-ghost" href="#/v/${v.id}">Cancelar</a>
       <button class="btn btn-primary btn-lg" type="submit">${icon("check")}Guardar check ${t}</button></div></form>`;
   const form = $(".chk-form", view);
   conectarFotos($("#chk-op", view), nuevas => { files.push(...nuevas); $("#chk-n", view).textContent = `${(c.fotos?.length || 0) + files.length} fotos`; });
@@ -802,7 +789,7 @@ export function vistaCheckForm(view, id, t) {
       datos.fotos = [...(c.fotos || []), ...subidas];
       await actualizarVehiculo(v.id, { [campoCheck(t)]: datos }, `${c.t ? "Editó" : "Completó"} el check ${t}`);
       toast(`Check ${t} guardado`, "success");
-      go(`#/check/${v.id}`);
+      go(`#/v/${v.id}`);
     } catch (err) { toast(mensajeError(err), "error"); busy(b, false); }
   };
 }
