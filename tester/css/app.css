@@ -1873,8 +1873,9 @@ html.lenis, html.lenis body { height: auto; }
   animation: hiper-in .45s var(--ease) both; transition: opacity .5s var(--ease); }
 .expande.sale { opacity: 0; }
 @keyframes hiper-in { from { opacity: 0; } }
-.ex-media { position: absolute; left: 50%; top: 50%; border-radius: 50%; background: #000; opacity: 0;
-  filter: blur(40px); box-shadow: 0 0 80px 50px #000; }  /* negro, con el borde tan difuminado que no se nota */
+.ex-media { position: absolute; left: 50%; top: 50%; border-radius: 50%; opacity: 0;
+  background: radial-gradient(closest-side, #1d3a6e, #12223a 55%, #0e0e10);
+  filter: blur(40px); box-shadow: 0 0 80px 50px #0e0e10; }  /* azul oscuro que se apaga hacia el fondo del modo oscuro; borde que no se nota */
 .ex-logo { position: absolute; left: 50%; top: 50%; width: min(220px, 56vw); aspect-ratio: 470 / 380; translate: -50% -50%; overflow: visible;
   fill: none; stroke: var(--ink); stroke-width: 15; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 1; stroke-dashoffset: 1;
   filter: drop-shadow(0 0 12px color-mix(in srgb, var(--primary) 70%, transparent)); }
@@ -1896,3 +1897,5 @@ html.lenis, html.lenis body { height: auto; }
 .splash.solo-aurora > :not(.aurora) { visibility: hidden; }
 /* Vehículo abierto suelto (desde el calendario): en computadora ocupa el ancho, como en la pantalla de vehículos */
 @media (min-width: 900px) { .detail-page { max-width: none; } }
+/* Al abrir: la aurora de la intro más tenue, así no hay salto fuerte de azul al modo oscuro */
+.splash.solo-aurora .aurora i { opacity: .22; }

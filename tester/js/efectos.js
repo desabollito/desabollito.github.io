@@ -2,7 +2,7 @@
 // scroll suave, spotlight en tarjetas, texto que entra desenfocado y números que cuentan.
 const quieto = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-// Logo dibujado por líneas: el logo se arma trazo por trazo; después una mancha negra difuminada crece detrás
+// Logo dibujado por líneas: el logo se arma trazo por trazo; después una mancha azul oscura difuminada crece detrás
 // hasta llenar la pantalla (zoom in) y el logo se disuelve. Se usa al abrir la app.
 // shortcut: trazos calcados a mano de img/logo-*.png (sin el grosor variable); si cambia el logo, recalcarlos.
 const LOGO_TRAZOS = [
