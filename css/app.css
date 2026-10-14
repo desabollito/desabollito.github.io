@@ -1886,7 +1886,6 @@ html.lenis, html.lenis body { height: auto; }
 .login-card { background: color-mix(in srgb, var(--surface) 42%, transparent); border: 1px solid var(--edge);
   -webkit-backdrop-filter: blur(24px) saturate(150%); backdrop-filter: blur(24px) saturate(150%); }
 /* Botón de filtros: fondo propio de vidrio para que no se mezcle con el texto que pasa por detrás */
-.filtro-btn { background: color-mix(in srgb, var(--surface) 88%, transparent); -webkit-backdrop-filter: blur(24px); backdrop-filter: blur(24px); border: 1px solid var(--edge); }
 /* En el celular no hay glow del mouse: luz suave fija en el fondo */
 @media (hover: none) {
   body::before { content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
@@ -1916,12 +1915,45 @@ html.lenis, html.lenis body { height: auto; }
 @keyframes menu-item { from { opacity: 0; transform: translateY(-6px); } }
 @keyframes velo-in { from { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .d-menu, .d-menu a, .menu-velo, .d-contacto .ic { animation: none !important; } }
-/* Botón + flotante de vidrio: azul translúcido con desenfoque y borde claro, como el resto de la app */
-.fab { color: #fff;
-  background: color-mix(in srgb, var(--primary) 90%, transparent);
-  -webkit-backdrop-filter: blur(16px) saturate(160%); backdrop-filter: blur(16px) saturate(160%);
-  border: 0;
-  box-shadow: 0 0 22px 2px color-mix(in srgb, var(--primary) 55%, transparent), 0 10px 24px -6px color-mix(in srgb, var(--primary) 65%, transparent); }
+/* Botón +: mismo vidrio que el dock (fondo, desenfoque, borde, radio, sombra y alto), con el brillo azul difuminado adentro */
+.fab { width: 62px; height: 62px; border-radius: 22px; overflow: hidden; color: var(--primary); border: 1px solid var(--edge);
+  background: color-mix(in srgb, var(--surface) 64%, transparent); -webkit-backdrop-filter: blur(18px) saturate(140%); backdrop-filter: blur(18px) saturate(140%);
+  box-shadow: 0 14px 34px -12px rgb(0 0 0 / .55); -webkit-tap-highlight-color: transparent; }
+.fab::before { content: ""; position: absolute; inset: -10px; z-index: -1; pointer-events: none;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--primary) 30%, transparent), transparent); }
+.fab .ic { filter: drop-shadow(0 0 8px color-mix(in srgb, var(--primary) 60%, transparent)); }
 /* Blobatar */
 .avatar.con-blob { background: none; }
 .avatar.con-blob svg { width: 100%; height: 100%; display: block; }
+.piezas-lados > div:only-child { grid-column: 1 / -1; }
+/* Con una hoja abierta (filtros, etc.) el fondo no se desliza: el gesto queda dentro de la hoja */
+html:has(body.no-scroll) { overflow: hidden; }
+.sheet-backdrop { touch-action: none; overscroll-behavior: contain; }
+.sheet { overscroll-behavior: contain; touch-action: pan-y; }
+/* Computadora: la pestaña elegida del menú salta como en el celular */
+.side-nav a .ic { transition: transform .2s; }
+.side-nav a.on .ic { animation: tab-salto .35s ease-out; }
+/* Animated List: al buscar, los vehículos entran uno tras otro con resorte */
+#vlist.lista-anim > .vcard { animation: lista-entra .45s cubic-bezier(.35,1.45,.55,1) both; animation-delay: calc(min(var(--i), 12) * 45ms); }
+@keyframes lista-entra { from { opacity: 0; transform: scale(.86) translateY(12px); } }
+@media (prefers-reduced-motion: reduce) { #vlist.lista-anim > .vcard, .side-nav a.on .ic { animation: none; } }
+/* Dock (prueba): la barra de abajo flota como pastilla de vidrio; solo celular */
+:root { --tab: 76px; }
+.tabbar { left: 50%; right: auto; bottom: calc(var(--safe-b) + 10px); transform: translateX(-50%); width: calc(100% - 32px); max-width: 420px;
+  height: 62px; padding: 0; overflow: hidden; border: 1px solid var(--edge); border-radius: 22px; box-shadow: 0 14px 34px -12px rgb(0 0 0 / .55); }
+.tabbar a { -webkit-tap-highlight-color: transparent; outline: none; }
+/* La pestaña elegida: un brillo azul difuminado que se estira hacia los costados (sin cortes entre pestañas) */
+.tabbar a::before { content: ""; position: absolute; inset: -10px -45%; z-index: -1; pointer-events: none; opacity: 0; transition: opacity .25s;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--primary) 30%, transparent), transparent); }
+.tabbar a.on::before { opacity: 1; }
+/* Más desenfoque en la hoja de filtros */
+.sheet:has(.fo) { -webkit-backdrop-filter: blur(40px) saturate(150%); backdrop-filter: blur(40px) saturate(150%); }
+.sheet-backdrop:has(.fo) { -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
+/* El + va en el medio del dock: un ícono más, con su brillo azul fijo (Calendario/Planillas comparten el lugar de la derecha) */
+.tabbar { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: 1fr; }
+.tabbar .fab, body[data-detalle="1"] .tabbar .fab { position: relative; inset: auto; z-index: auto; display: grid !important; width: auto; height: auto;
+  border: 0; border-radius: 0; background: none; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; overflow: visible; }
+body[data-lector="1"] .tabbar .fab, body[data-lector="1"][data-detalle="1"] .tabbar .fab { display: none !important; }
+/* Dock solo con íconos (el dibujo se entiende; el nombre queda en aria-label) */
+.tabbar a > span:not(.tab-dots) { display: none; }
+.tabbar .ic { width: 26px; height: 26px; }

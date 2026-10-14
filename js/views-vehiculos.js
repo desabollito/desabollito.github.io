@@ -107,8 +107,8 @@ function piezasAgrupadas(v) {
   const [centro, izq, der] = GRUPOS_PIEZAS.map(g => g.filter(k => v.piezas?.[k]));
   return (centro.length ? listaPiezas(centro).replace('class="piezas-list"', 'class="piezas-list piezas-centro"') : "") +
     (izq.length || der.length ? `<div class="piezas-lados">
-      <div><small class="muted">Lado izquierdo</small>${izq.length ? listaPiezas(izq) : `<p class="muted small">—</p>`}</div>
-      <div><small class="muted">Lado derecho</small>${der.length ? listaPiezas(der) : `<p class="muted small">—</p>`}</div></div>` : "");
+      ${izq.length ? `<div><small class="muted">Lado izquierdo</small>${listaPiezas(izq)}</div>` : ""}
+      ${der.length ? `<div><small class="muted">Lado derecho</small>${listaPiezas(der)}</div>` : ""}</div>` : "");
 }
 
 // Fecha de las tarjetas: la del peritaje o la del último estado (se elige en Ordenar y se recuerda en este equipo)
@@ -160,7 +160,7 @@ export function vistaVehiculos(view, selId = null) {
       ${ancho ? `<section class="pane-detail" id="pane-detail"></section>` : ""}
     </div>`;
 
-  const pintar = () => {
+  const pintar = (animar = false) => {
     const todos = activos();
     const cuenta = Object.fromEntries(ESTADOS.map(e => [e.key, 0]));
     todos.forEach(v => cuenta[estadoActual(v)]++);
@@ -187,6 +187,8 @@ export function vistaVehiculos(view, selId = null) {
       ? lista.map(v => tarjeta(v, v.id === selId)).join("")
       : `<div class="empty small"><p>Ningún vehículo coincide con la búsqueda.</p>
          <button class="btn btn-ghost" id="limpiar">Limpiar filtros</button></div>`;
+    box.classList.toggle("lista-anim", animar);
+    if (animar) [...box.children].forEach((c, i) => c.style.setProperty("--i", i));
     $("#limpiar", box)?.addEventListener("click", () => { F.q = ""; F.estado = "todos"; F.mios = false; F.cias.clear(); F.grado = null; F.repuestos = null; F.pintura = null; F.turno = null; marcarBoton(); $("#q", view).value = ""; pintar(); });
   };
 
@@ -195,7 +197,7 @@ export function vistaVehiculos(view, selId = null) {
     const a = e.target.closest("a.vcard.sel"); if (!a || !ancho || e.metaKey || e.ctrlKey) return;
     e.preventDefault(); S.ultimoVid = null; a.classList.remove("sel"); go("#/");
   });
-  $("#q", view).addEventListener("input", debounce(e => { F.q = e.target.value; pintar(); }, 120));
+  $("#q", view).addEventListener("input", debounce(e => { F.q = e.target.value; pintar(true); }, 120));
   // Doble clic selecciona toda la búsqueda (en Mac no lo hacía solo)
   $("#q", view).addEventListener("dblclick", e => { e.target.select(); });
   $("#estado-strip", view).addEventListener("click", e => {
@@ -213,7 +215,7 @@ export function vistaVehiculos(view, selId = null) {
       <section class="fo-sec"><h3>Repuestos</h3><div class="fo-seg" id="fo-repuestos"></div></section>
       <section class="fo-sec fo-compacto"><h3>Turnos</h3><div class="fo-seg" id="fo-turno"></div></section>
       ${lector ? "" : `<label class="fo-switch"><span>Solo los que cargué yo</span><input type="checkbox" id="fo-mios" ${F.mios ? "checked" : ""}></label>`}
-      <div class="fo-pie"><button type="button" class="btn btn-ghost" id="fo-reset">Limpiar</button><button type="button" class="btn btn-primary" data-close id="fo-ver"></button></div>
+      <div class="fo-pie"><button type="button" class="btn btn-ghost" data-close id="fo-reset">Limpiar</button><button type="button" class="btn btn-primary" data-close id="fo-ver"></button></div>
     </div>` });
     const el = id => $(id, hoja.el);
     const n = f => activos().filter(f).length;
