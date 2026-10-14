@@ -2000,7 +2000,6 @@ body[data-ruta="checkform"] .main { padding-bottom: calc(90px + var(--safe-b)); 
 [data-theme="light"] .ex-media { background: radial-gradient(closest-side, #cfe1fb, #e2ecfa 45%, rgb(238 241 245 / .85) 72%, transparent); }
 [data-theme="light"] .ex-logo { filter: drop-shadow(0 0 10px color-mix(in srgb, var(--primary) 35%, transparent)); }
 .chk-nafta { padding-top: 12px; }
-.tec-chk { accent-color: var(--primary); margin: 0; width: 16px; height: 16px; flex: none; }
 .tec-excel .tec-sub .tec-no { color: inherit; }
 .tec-add-persona { margin-top: 16px; }
 .tbl.tec-excel tbody .tec-sub td { background: color-mix(in srgb, var(--primary) 10%, var(--surface)); }   /* también la celda fija de "SEMANA" */
