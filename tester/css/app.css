@@ -1874,8 +1874,8 @@ html.lenis, html.lenis body { height: auto; }
 .expande.sale { opacity: 0; }
 @keyframes hiper-in { from { opacity: 0; } }
 .ex-media { position: absolute; left: 50%; top: 50%; border-radius: 50%; opacity: 0;
-  background: radial-gradient(closest-side, #1d3a6e, #12223a 55%, #0e0e10);
-  filter: blur(40px); box-shadow: 0 0 80px 50px #0e0e10; }  /* azul oscuro que se apaga hacia el fondo del modo oscuro; borde que no se nota */
+  background: radial-gradient(closest-side, #1d3a6e, #12223a 45%, rgb(14 14 16 / .85) 72%, transparent); }
+/* sin filter: blur, que al escalar en pantallas grandes deja ver el borde rectangular de la capa; el degradé ya difumina */
 .ex-logo { position: absolute; left: 50%; top: 50%; width: min(220px, 56vw); aspect-ratio: 470 / 380; translate: -50% -50%; overflow: visible;
   fill: none; stroke: var(--ink); stroke-width: 15; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 1; stroke-dashoffset: 1;
   filter: drop-shadow(0 0 12px color-mix(in srgb, var(--primary) 70%, transparent)); }
@@ -1899,3 +1899,11 @@ html.lenis, html.lenis body { height: auto; }
 .splash.solo-aurora .aurora i { opacity: .22; }
 /* Computadora: el vehículo abierto en el calendario se desplaza solo en su panel */
 @media (min-width: 1100px) { body[data-ruta="calendario"] .cal-page .pane-detail { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding-right: 4px; } }
+/* Celular: barra de abajo con Vehículos · + · Calendario (que se vuelve Planillas al tocarlo estando en el calendario) */
+@media (max-width: 899px) {
+  body .tabbar a.fab { display: grid !important; position: relative; right: auto; bottom: auto; justify-self: center; align-self: center;
+    width: 54px; height: 54px; border-radius: 17px; margin-top: -20px; }
+  .tabbar a[hidden] { display: none; }
+  body[data-lector="1"] .tabbar a.fab { display: grid !important; visibility: hidden; }   /* el perito no carga: queda el lugar vacío para no correr Calendario al centro */
+  body[data-ruta] .main { padding-bottom: calc(var(--tab) + var(--safe-b) + 24px); }
+}

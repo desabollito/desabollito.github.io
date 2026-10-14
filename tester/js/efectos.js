@@ -19,7 +19,7 @@ function animacionLogo() {
     <svg class="ex-logo" viewBox="30 50 470 380" aria-hidden="true">${LOGO_TRAZOS.map(d => `<path d="${d}" pathLength="1"/>`).join("")}</svg>`;
   document.body.appendChild(capa);
   const W = innerWidth, H = innerHeight, w = Math.min(320, W * .7), h = Math.min(220, H * .3);
-  const S = Math.max(W / w, H / h) * 1.4, DUR = 2700, curva = "cubic-bezier(.76,0,.24,1)";   // de más, así el borde difuminado queda fuera de pantalla
+  const S = Math.max(W / w, H / h) * 2, DUR = 2700, curva = "cubic-bezier(.76,0,.24,1)";   // de más, así el borde difuminado queda fuera de pantalla
   // 1) el logo se arma por líneas, una tras otra
   capa.querySelectorAll(".ex-logo path").forEach((p, n) => p.animate([{ strokeDashoffset: 1 }, { strokeDashoffset: 0 }],
     { duration: 850, delay: 150 + n * 230, easing: "cubic-bezier(.65,0,.35,1)", fill: "both" }));
