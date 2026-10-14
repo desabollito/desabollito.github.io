@@ -358,7 +358,7 @@ export function tablaPDF(empresa, subtitulo, cols, filas) {
     if (f.negrita) {
       doc.setFillColor(...LINEA); doc.rect(x0, y, tw, rh, "F"); }
     else if (n % 2 === 0) { doc.setFillColor(...SUAVE); doc.rect(x0, y, tw, rh, "F"); }
-    doc.setFont("helvetica", f.negrita ? "bold" : "normal"); doc.setFontSize(f.negrita ? 5.6 : 7.5); doc.setTextColor(...INK);   // totales más chicos: entran montos grandes
+    doc.setFont("helvetica", f.negrita ? "bold" : "normal"); doc.setFontSize(f.negrita ? 6.5 : 7.5); doc.setTextColor(...INK);   // totales más chicos: entran montos grandes
     fila(f); if (f.negrita) y += 3;   // espacio en blanco abajo de cada total
   });
   pie(doc, `${empresa?.name || "Desabollito"} · ${subtitulo}`);
