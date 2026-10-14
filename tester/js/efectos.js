@@ -42,13 +42,12 @@ function animacionLogo() {
   });
 }
 
-// Al abrir la app (navegador o instalada), el logo se dibuja sobre la intro (solo con la aurora);
+// Al abrir la app (navegador o instalada), el logo se dibuja sobre la intro, que ya arranca solo con la aurora (index.html);
 // la intro no se abre hasta que la animación termina.
 let introLista = Promise.resolve();
 if (!quieto()) {
-  document.getElementById("splash")?.classList.add("solo-aurora");
   introLista = animacionLogo();
-}
+} else document.getElementById("splash")?.classList.remove("solo-aurora");
 
 // Intro: al terminar la carga se abre un agujero desde el centro y el texto de la pantalla entra con blur
 export function cerrarSplash() { introLista.then(abrirIntro); }
