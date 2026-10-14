@@ -1949,3 +1949,8 @@ html:has(body.no-scroll) { overflow: hidden; }
 /* Más desenfoque en la hoja de filtros */
 .sheet:has(.fo) { -webkit-backdrop-filter: blur(40px) saturate(150%); backdrop-filter: blur(40px) saturate(150%); }
 .sheet-backdrop:has(.fo) { -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
+/* El + va en el medio del dock: un ícono más, con su brillo azul fijo (Calendario/Planillas comparten el lugar de la derecha) */
+.tabbar { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: 1fr; }
+.tabbar .fab, body[data-detalle="1"] .tabbar .fab { position: relative; inset: auto; z-index: auto; display: grid !important; width: auto; height: auto;
+  border: 0; border-radius: 0; background: none; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; overflow: visible; }
+body[data-lector="1"] .tabbar .fab, body[data-lector="1"][data-detalle="1"] .tabbar .fab { display: none !important; }
