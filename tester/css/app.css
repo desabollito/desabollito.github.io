@@ -1918,7 +1918,7 @@ html.lenis, html.lenis body { height: auto; }
 @media (prefers-reduced-motion: reduce) { .d-menu, .d-menu a, .menu-velo, .d-contacto .ic { animation: none !important; } }
 /* Botón + flotante de vidrio: azul translúcido con desenfoque y borde claro, como el resto de la app */
 .fab { color: #fff;
-  background: linear-gradient(160deg, rgb(255 255 255 / .28), rgb(255 255 255 / 0) 55%), color-mix(in srgb, var(--primary) 90%, transparent);
+  background: color-mix(in srgb, var(--primary) 90%, transparent);
   -webkit-backdrop-filter: blur(16px) saturate(160%); backdrop-filter: blur(16px) saturate(160%);
   border: 0;
-  box-shadow: 0 0 22px 2px color-mix(in srgb, var(--primary) 55%, transparent), 0 10px 24px -6px color-mix(in srgb, var(--primary) 65%, transparent), inset 0 1px 0 rgb(255 255 255 / .4); }
+  box-shadow: 0 0 22px 2px color-mix(in srgb, var(--primary) 55%, transparent), 0 10px 24px -6px color-mix(in srgb, var(--primary) 65%, transparent); }
