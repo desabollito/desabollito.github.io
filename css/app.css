@@ -1999,3 +1999,4 @@ body[data-ruta="checkform"] .main { padding-bottom: calc(90px + var(--safe-b)); 
 /* Intro en modo claro: celeste suave en vez de azul oscuro, así el logo (oscuro) se lee bien */
 [data-theme="light"] .ex-media { background: radial-gradient(closest-side, #cfe1fb, #e2ecfa 45%, rgb(238 241 245 / .85) 72%, transparent); }
 [data-theme="light"] .ex-logo { filter: drop-shadow(0 0 10px color-mix(in srgb, var(--primary) 35%, transparent)); }
+.chk-nafta { padding-top: 12px; }

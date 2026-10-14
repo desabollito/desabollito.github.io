@@ -725,8 +725,8 @@ const CHECK = {
     ["elementos", "Elementos", ["Está", "Falta"], ["Auxilio", "Criquet y llave", "Matafuego", "Objetos de valor", "Pertenencias personales"]]
   ],
   out: [
-    ["control", "Control de calidad", ["OK", "Revisar"], ["Bollos", "Golpes", "Cold Glue", "Colizas", "Ópticas", "Pintura",
-      "Tapizado interior", "Parantes interior", "Luz interior", "Manijas interior", "Vidrios limpios"]]
+    ["control", "Control de calidad", ["OK", "Revisar"], ["Bollos", "Golpes", "Rayas", "Cold Glue", "Colizas", "Ópticas", "Pintura",
+      "Tapizado interior", "Parantes interior", "Luz interior", "Manijas interior"]]
   ]
 };
 const ANOTAR = ["Objetos de valor", "Pertenencias personales"];   // se escribe qué hay tanto si está como si falta
@@ -743,15 +743,12 @@ export function vistaCheckForm(view, id, t) {
   let files = [];
   const seg = (name, ops, sel) => `<div class="seg seg-sm">${ops.map((o, i) => `<button type="button" class="seg-btn ${sel === i ? "on" : ""}" data-n="${name}" data-v="${i}">${o}</button>`).join("")}</div>`;
   view.innerHTML = `<form class="vform chk-form" novalidate><div class="page narrow stack">
-    <div class="seg chk-tabs">${["in", "out"].map(k => `<a class="seg-btn ${k === t ? "on" : ""}" href="#/check/${id}/${k}">Check ${k.toUpperCase()}</a>`).join("")}</div>
-    ${t === "in" ? `<fieldset class="card"><legend>Ingreso</legend>
-        <label class="field"><span>Kilometraje</span><input name="km" inputmode="numeric" value="${esc(c.km || "")}" placeholder="Ej: 85000"></label>
-        <div class="field"><span>Combustible</span>${seg("nafta", COMBUSTIBLE, c.nafta)}</div></fieldset>`
-      : `<fieldset class="card"><legend>Calidad</legend>${CALIDAD.map((x, i) => `<div class="field"><span>${x}</span>${seg("calidad." + i, NOTAS, c.calidad?.[i])}</div>`).join("")}</fieldset>`}
+    <div class="seg chk-tabs">${["in", "out"].map(k => `<a class="seg-btn ${k === t ? "on" : ""}" href="#/check/${id}/${k}">${k.toUpperCase()}</a>`).join("")}</div>
+    ${t === "in" ? "" : `<fieldset class="card"><legend>Calidad</legend>${CALIDAD.map((x, i) => `<div class="field"><span>${x}</span>${seg("calidad." + i, NOTAS, c.calidad?.[i])}</div>`).join("")}</fieldset>`}
     ${CHECK[t].map(([k, titulo, ops, items]) => `<fieldset class="card chk-grupo"><legend>${titulo}</legend>
       ${items.map(it => { const x = c[k]?.[it], sel = x?.v ?? ""; return `<div class="chk-fila ${ANOTAR.includes(it) ? "anota" : ""}" data-sel="${sel}"><span>${esc(it)}</span>
         <button type="button" class="chk-tog" data-k="${k}" data-it="${esc(it)}" data-ops="${esc(ops.join("|"))}">${sel === "" ? "—" : ops[sel]}</button>
-        <label class="field chk-obs"><input data-obs="${k}|${esc(it)}" value="${esc(x?.obs || "")}" placeholder="${ANOTAR.includes(it) ? "¿Qué hay?" : "¿Qué tiene?"}"></label></div>`; }).join("")}</fieldset>`).join("")}
+        <label class="field chk-obs"><input data-obs="${k}|${esc(it)}" value="${esc(x?.obs || "")}" placeholder="${ANOTAR.includes(it) ? "¿Qué hay?" : "¿Qué tiene?"}"></label></div>`; }).join("")}${k === "interior" ? `<div class="field chk-nafta"><span>Combustible</span>${seg("nafta", COMBUSTIBLE, c.nafta)}</div>` : ""}</fieldset>`).join("")}
     <fieldset class="card"><legend>Observaciones y fotos</legend>
       <label class="field"><textarea name="obs" rows="3" placeholder="Algo más para anotar">${esc(c.obs || "")}</textarea></label>
       ${botonesFotos({ id: "chk-op" })}<p class="muted small" id="chk-n">${c.fotos?.length ? `${c.fotos.length} fotos cargadas` : "Sin fotos"}</p>
@@ -787,7 +784,7 @@ export function vistaCheckForm(view, id, t) {
       const s1 = fila.dataset.sel, conObs = getComputedStyle($(".chk-obs", fila)).display !== "none";
       datos[tg.dataset.k][tg.dataset.it] = { v: s1 === "" ? null : +s1, obs: conObs ? $("input", fila).value.trim() : "" };
     });
-    if (t === "in") Object.assign(datos, { km: form.km.value.trim(), nafta: elegido("nafta", c.nafta) });
+    if (t === "in") datos.nafta = elegido("nafta", c.nafta);
     else datos.calidad = CALIDAD.map((_, i) => elegido("calidad." + i, c.calidad?.[i]));
     if (files.length && !cloudinaryListo()) return toast("Falta configurar Cloudinary", "error");
     const b = $(".vform-bar .btn-primary", form); busy(b, true, files.length ? "Subiendo fotos…" : "Guardando…");
@@ -1174,7 +1171,19 @@ function visor(fotos = [], inicio = 0, v = null, campo = "fotos") {   // campo: 
     const f = fotos[(i + d + fotos.length) % fotos.length];
     if (fotos.length > 1 && !esVideo(f)) new Image().src = grande(f.url, 1600, f.rot);
   });
-  img0.addEventListener("load", () => { carga.hidden = true; img0.classList.remove("cargando"); precargar(); });
+  // Después, todas las siguientes en orden (de a una); al cerrar el visor se corta la descarga
+  let pre = null, arranco = false;
+  const precargarTodas = async () => {
+    for (let k = 1; k < fotos.length; k++) {
+      const f = fotos[(inicio + k) % fotos.length];
+      if (!s.el.classList.contains("in")) return;
+      if (esVideo(f)) continue;
+      pre = new Image();
+      await new Promise(r => { pre.onload = pre.onerror = r; pre.src = grande(f.url, 1600, f.rot); });
+    }
+  };
+  new MutationObserver(() => { if (!s.el.classList.contains("in") && pre) pre.src = ""; }).observe(s.el, { attributes: true, attributeFilter: ["class"] });
+  img0.addEventListener("load", () => { carga.hidden = true; img0.classList.remove("cargando"); precargar(); if (!arranco) { arranco = true; precargarTodas(); } });
   img0.addEventListener("error", () => { carga.hidden = true; img0.classList.remove("cargando"); });
   const vid = $("#vw-vid", s.el);
   const show = (dir = 0) => {
