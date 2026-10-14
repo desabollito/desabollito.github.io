@@ -17,7 +17,7 @@ export function vistaPlanillas(view) {
     <a class="hub-btn" href="#/planilla">${icon("table")}<span><strong>Planilla de vehículos</strong><small>Todos los vehículos del operativo</small></span></a>
     ${puedeVer("tecnicos") ? `<a class="hub-btn" href="#/tecnicos">${icon("team")}<span><strong>Planilla de técnicos</strong><small>Sacabollos, sueldos y cierre</small></span></a>` : ""}
     ${puedeVer("gastos") ? `<a class="hub-btn" href="#/gastos">${icon("money")}<span><strong>Planilla de gastos</strong><small>Gastos del operativo</small></span></a>` : ""}
-    ${puedeVer("fijos") ? `<a class="hub-btn" href="#/fijos">${icon("wallet")}<span><strong>Gastos fijos</strong><small>Viandas y alquiler, repartidos entre los técnicos</small></span></a>` : ""}
+    ${puedeVer("fijos") ? `<a class="hub-btn" href="#/fijos">${icon("wallet")}<span><strong>Fijos</strong><small>Viandas y alquiler, repartidos entre los técnicos</small></span></a>` : ""}
   </div>`;
 }
 
@@ -241,10 +241,10 @@ export function vistaTecnicos(view) {
       const ganado = sueldo ? totalSueldo(t.id) : s[t.id] || 0;
       const ad = movsDe(t.id, "adelanto"), ga = movsDe(t.id, "gasto");
       // A los de sueldo por defecto no se les descuentan los gastos (quedan aparte, a la vista); los adelantos sí
-      // Con "Descontar gastos" activado, a los de sueldo se elige cuáles gastos se descuentan (por defecto, todos)
+      // Con "Descontar gastos" activado se descuentan viandas y alquiler, y los gastos que queden marcados (por defecto, todos)
       const desc = !sueldo || !!cfg.descontar?.[t.id], gastos = suma(ga) + v + a, nd = sueldo ? cfg.noDesc?.[t.id] || {} : {};
       const marca = sueldo && desc ? k => `<input type="checkbox" class="tec-chk" data-nodesc="${esc(k)}" ${nd[k] ? "" : "checked"} aria-label="Descontar">` : null;
-      const descontado = desc ? suma(ga.filter(m => !nd[m.id])) + (nd.viandas ? 0 : v) + (nd.alquiler ? 0 : a) : 0;
+      const descontado = desc ? suma(ga.filter(m => !nd[m.id])) + v + a : 0;
       const fin = ganado - suma(ad) - descontado;
       const sw = sueldo ? `<div class="tec-linea tec-desc"><span>Descontar gastos</span><button type="button" class="switch ${desc ? "on" : ""}" data-descontar role="switch" aria-checked="${desc}" aria-label="Descontar gastos"><span class="sw-txt sw-si">Sí</span><span class="sw-txt sw-no">No</span><i class="sw-bola"></i></button></div>` : "";
       return `<section class="tec-cierre" data-tecid="${esc(t.id)}">
@@ -252,12 +252,12 @@ export function vistaTecnicos(view) {
         <div class="tec-linea"><span>${sueldo ? "Sueldo" : "Total ganado"}</span><b>${pesos(ganado)}</b></div>
         <div class="tec-linea"><span>Adelantos</span><b>-${pesos(suma(ad))}</b>${T.editando ? `<button type="button" class="link-btn small" data-add-mov="adelanto">+ Adelanto</button>` : ""}</div>
         <ul class="tec-movs">${listaMovs(ad, "Sin adelantos")}</ul>
-        ${sw}<div class="${desc ? "" : "tec-aparte"}">
+        <div class="${desc ? "" : "tec-aparte"}">
         <div class="tec-linea"><span>Gastos</span><b>-${pesos(suma(ga))}</b>${T.editando ? `<button type="button" class="link-btn small" data-add-mov="gasto">+ Gasto</button>` : ""}</div>
         <ul class="tec-movs">${listaMovs(ga, "Sin gastos", marca)}</ul>
-        ${hayFijos ? `<div class="tec-linea">${marca ? marca("viandas") : ""}<span>Viandas</span><b>-${pesos(v)}</b></div>
-        <div class="tec-linea">${marca ? marca("alquiler") : ""}<span>Alquiler</span><b>-${pesos(a)}</b></div>` : ""}</div>
-        <div class="tec-linea"><span>Gastos totales</span><b>${pesos(gastos)}</b></div>
+        ${hayFijos ? `<div class="tec-linea"><span>Viandas</span><b>-${pesos(v)}</b></div>
+        <div class="tec-linea"><span>Alquiler</span><b>-${pesos(a)}</b></div>` : ""}</div>
+        ${sw}<div class="tec-linea"><span>Gastos totales</span><b>${pesos(gastos)}</b></div>
         <div class="tec-linea tec-final"><span>Final a pagar</span><b>${pesos(fin)}</b></div>
       </section>`;
     };

@@ -754,12 +754,12 @@ export async function panelCreador() {
         </span>
       </div>
       <details class="adm-toggles adm-accesos" ${accAbierto ? "open" : ""}>
-        <summary><b>Quién ve las planillas</b> <small class="muted">Técnicos · Gastos · Gastos fijos</small></summary>
+        <summary><b>Quién ve las planillas</b> <small class="muted">Técnicos · Gastos · Fijos</small></summary>
         <div class="adm-acc-head"><span></span><small>Técnicos</small><small>Gastos</small><small>Fijos</small></div>
         ${usuarios.filter(u => u.username !== "gzmatte" && u.aprobado !== false && !u.rechazado).map(u => { const a = accesoDe(u.uid);
           return `<div class="adm-acc-fila" data-acc="${esc(u.uid)}"><span><b>${esc(u.name || "Sin nombre")}</b> <small class="muted">@${esc(u.username)}</small></span>
             ${["tecnicos", "gastos", "fijos"].map(k => `<input type="checkbox" data-acc-sec="${k}" ${a[k] ? "checked" : ""} aria-label="${k}">`).join("")}</div>`; }).join("")}
-        <small class="muted">Sin tocar: Técnicos y Gastos fijos los ven los administradores y Gastos todos. Vos siempre ves todo.</small>
+        <small class="muted">Sin tocar: Técnicos y Fijos los ven los administradores y Gastos todos. Vos siempre ves todo.</small>
       </details>
       <div class="seg seg-sm adm-tabs">
         <button type="button" class="seg-btn ${tab === "operativos" ? "on" : ""}" data-tab="operativos">Operativos <small>${operativos.length}</small></button>

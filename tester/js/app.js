@@ -35,7 +35,7 @@ function irAVehiculo(arg) {
 
 const RUTAS = [
   [/^#?\/?$/,               "vehiculos",  () => vistaVehiculos(view)],
-  [/^#\/v\/([\w-]+)$/,      "vehiculos",  id => !esAncho() || S.invitado?.uno || S.volverA === "#/tecnicos" ? vistaDetalle(view, id) : S.volverA ? vistaCalendario(view, id) : vistaVehiculos(view, id)],
+  [/^#\/v\/([\w-]+)$/,      "vehiculos",  id => !esAncho() || S.invitado?.uno ? vistaDetalle(view, id) : S.volverA === "#/calendario" ? vistaCalendario(view, id) : vistaVehiculos(view, id)],
   [/^#\/o\/([\w-]+\/v\/[\w-]+)$/, "link", a => irAVehiculo(a.replace("/v/", "|"))],
   [/^#\/nuevo$/,            "nuevo",      () => vistaFormulario(view)],
   [/^#\/editar\/([\w-]+)$/, "editar",     id => vistaFormulario(view, id)],

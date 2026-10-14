@@ -98,7 +98,7 @@ const F = { tab: "viandas", editando: false, abiertas: new Set() };
 let unsub = null;
 
 export function vistaFijos(view) {
-  setTopbar({ title: "Gastos fijos", sub: S.company?.name, back: "#/planillas",
+  setTopbar({ title: "Fijos", sub: S.company?.name, back: "#/planillas",
     actions: `<button class="btn btn-ghost btn-sm" id="f-dl" aria-label="Descargar">${icon("download")}<span class="hide-sm">Descargar</span></button><button class="btn btn-ghost btn-sm" id="f-tec">${icon("team")}<span class="hide-sm">Técnicos</span></button><button class="btn btn-sm ${F.editando ? "btn-primary" : "btn-ghost"}" id="f-edit">${icon(F.editando ? "check" : "edit")}<span>${F.editando ? "Listo" : "Editar"}</span></button>` });
   if (!puedeVer("fijos")) { view.innerHTML = `<div class="empty"><p>No tenés acceso a esta planilla.</p></div>`; return; }
   view.innerHTML = `<div class="skeleton tall"></div>`;
@@ -368,7 +368,7 @@ export function vistaFijos(view) {
     const suma = o => tecs.reduce((a, t) => a + (o[t.id] || 0), 0);
     const total = (etq, o) => Object.assign([etq, suma(o), ...tecs.map(t => o[t.id] || "")], { negrita: true });
     filas.push(total("Total viandas", vi), total("Alquiler", al), total("TOTAL", Object.fromEntries(tecs.map(t => [t.id, (vi[t.id] || 0) + (al[t.id] || 0)]))));
-    descargarTabla({ archivo: `Gastos_fijos_${hoyISO()}`, titulo: "Gastos fijos", filas,
+    descargarTabla({ archivo: `Fijos_${hoyISO()}`, titulo: "Fijos", filas,
       cols: [{ titulo: "Día", ancho: 14 }, { titulo: "Total del día", ancho: 15, tipo: "moneda" }, ...tecs.map(t => ({ titulo: t.nombre, ancho: 14, tipo: "moneda" }))] });
   });
 
