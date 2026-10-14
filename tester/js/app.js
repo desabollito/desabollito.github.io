@@ -386,52 +386,44 @@ function mostrarSegunAprobacion() {
 }
 
 // ── Actualizaciones ───────────────────────────────────────────
-// Al actualizar: sobre una aurora azul, estelas de luz con los colores de la app avanzan suave desde el centro;
-// después se disipan y aparece la intro. Si el navegador no recarga a los 3,5 s, la intro se abre y la app sigue.
+// Al actualizar: sobre la aurora, un auto entra frenando hasta el centro, se agazapa y sale acelerando
+// con una estela de luz; después aparece la intro. Si el navegador no recarga a los 3,5 s, la intro se abre y la app sigue.
+const AUTO_LADO = `<svg viewBox="0 0 120 44" aria-hidden="true">
+  <defs><linearGradient id="au-c" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#86a5ff"/><stop offset="1" stop-color="#2b5ce6"/></linearGradient>
+    <linearGradient id="au-l" x1="0" x2="1"><stop offset="0" stop-color="#cfe0ff" stop-opacity=".9"/><stop offset="1" stop-color="#cfe0ff" stop-opacity="0"/></linearGradient></defs>
+  <path class="au-haz" d="M112 26 L160 18 L160 36 Z" fill="url(#au-l)"/>
+  <path d="M6 31 C6 25 10 23 18 22 L34 20 C40 13 50 10 62 10 C74 10 82 13 90 19 L104 21 C110 22 114 25 114 30 L114 32 C114 33 113 34 112 34 L101 34 A10 10 0 0 0 81 34 L39 34 A10 10 0 0 0 19 34 L8 34 C7 34 6 33 6 32 Z" fill="url(#au-c)"/>
+  <path d="M41 20 C46 15 52 13 60 13 L60 20 Z M64 13 C72 13 78 15 84 20 L64 20 Z" fill="#0e1b2c" opacity=".55"/>
+  <ellipse cx="111" cy="26" rx="2.4" ry="1.6" fill="#fff"/><rect x="5" y="25" width="3" height="3" rx="1" fill="#ff5c7a"/>
+  <g class="au-rueda"><circle cx="29" cy="34" r="7.5" fill="#0e1b2c"/><circle cx="29" cy="34" r="3.2" fill="#cfe0ff"/><path d="M29 27v14M22 34h14" stroke="#0e1b2c" stroke-width="1.6"/></g>
+  <g class="au-rueda"><circle cx="91" cy="34" r="7.5" fill="#0e1b2c"/><circle cx="91" cy="34" r="3.2" fill="#cfe0ff"/><path d="M91 27v14M84 34h14" stroke="#0e1b2c" stroke-width="1.6"/></g>
+</svg>`;
 function animacionActualizar() {
   if (matchMedia("(prefers-reduced-motion: reduce)").matches) return Promise.resolve();
   const capa = document.createElement("div");
   capa.className = "hiper";
-  capa.innerHTML = `<div class="aurora" aria-hidden="true"><i></i><i></i><i></i><i></i></div><canvas></canvas><div class="hiper-txt">Actualizando</div>`;
+  capa.innerHTML = `<div class="aurora" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+    <div class="au-piso"></div>
+    <div class="au-auto"><i class="au-estela"></i><i class="au-vel"></i><i class="au-vel"></i><i class="au-vel"></i>${AUTO_LADO}</div>
+    <div class="hiper-txt">Actualizando</div>`;
   document.body.appendChild(capa);
-  const cv = capa.querySelector("canvas"), ctx = cv.getContext("2d"), dpr = Math.min(2, devicePixelRatio || 1);
-  const W = innerWidth, H = innerHeight, cx = W / 2, cy = H / 2, lejos = Math.hypot(W, H) / 2;
-  cv.width = W * dpr; cv.height = H * dpr; ctx.scale(dpr, dpr); ctx.lineCap = "round";
-  // Azules de la marca + los colores de los estados (peritado, turnado, reparando, revisión, contactado, facturado)
-  const COLORES = ["#5c86ff", "#86a5ff", "#2b5ce6", "#4f8ff7", "#e0a526", "#7cc9a8", "#22b07d", "#14b8a6", "#9b7bf2"];
-  const luces = Array.from({ length: 90 }, () => ({
-    a: Math.random() * Math.PI * 2, d: 0.15 + Math.random() * 1.1,
-    c: COLORES[Math.random() * COLORES.length | 0], w: 1 + Math.random() * 1.6
-  }));
-  const DUR = 2200, t0 = performance.now();
-  const suave = p => p < 0.5 ? 2 * p * p : 1 - (-2 * p + 2) ** 2 / 2;
-  return new Promise(listo => {
-    const cuadro = t => {
-      const p = Math.min(1, (t - t0) / DUR), vel = 0.002 + suave(p) * 0.016;
-      const brillo = p < 0.15 ? p / 0.15 : p > 0.8 ? 1 - (p - 0.8) / 0.2 : 1;   // entra y se disipa
-      ctx.clearRect(0, 0, W, H);
-      ctx.globalCompositeOperation = "lighter";
-      for (const l of luces) {
-        l.d -= vel;
-        if (l.d < 0.06) { l.d = 1 + Math.random() * 0.3; l.a = Math.random() * Math.PI * 2; continue; }
-        const r1 = 40 / l.d, r0 = 40 / (l.d + 0.02 + vel * 10);
-        if (r0 > lejos * 1.2) continue;
-        const x = Math.cos(l.a), y = Math.sin(l.a);
-        const g = ctx.createLinearGradient(cx + x * r0, cy + y * r0, cx + x * r1, cy + y * r1);
-        g.addColorStop(0, l.c + "00"); g.addColorStop(1, l.c);
-        ctx.globalAlpha = brillo * Math.min(0.85, (1.25 - l.d) * 0.9);
-        ctx.strokeStyle = g; ctx.lineWidth = Math.min(3.2, l.w * (0.4 + 0.2 / l.d));
-        ctx.beginPath(); ctx.moveTo(cx + x * r0, cy + y * r0); ctx.lineTo(cx + x * r1, cy + y * r1); ctx.stroke();
-      }
-      ctx.globalAlpha = 1;
-      if (p < 1) return requestAnimationFrame(cuadro);
-      const sp = $("#splash"); sp.classList.remove("abre"); sp.hidden = false;
-      capa.classList.add("sale");
-      setTimeout(() => capa.remove(), 700);
-      setTimeout(cerrarSplash, 3500);
-      listo();
-    };
-    requestAnimationFrame(cuadro);
+  const auto = $(".au-auto", capa), lejos = innerWidth / 2 + 260, DUR = 2600;
+  const anda = auto.animate([
+    { transform: `translateX(${-lejos}px)`, offset: 0, easing: "cubic-bezier(.15,.75,.3,1)" },       // entra frenando
+    { transform: "translateX(0)", offset: 0.38 },
+    { transform: "translateX(-10px) rotate(-1.2deg)", offset: 0.56, easing: "ease-in-out" },         // se agazapa
+    { transform: "translateX(-4px) rotate(-.6deg)", offset: 0.62, easing: "cubic-bezier(.55,0,.9,.35)" },
+    { transform: `translateX(${lejos + 200}px) rotate(0deg)`, offset: 1 }                              // sale acelerando
+  ], { duration: DUR, fill: "forwards" });
+  // La estela y las líneas de velocidad aparecen al acelerar
+  $$(".au-estela, .au-vel", auto).forEach((el, n) => el.animate(
+    [{ opacity: 0, transform: "scaleX(.2)" }, { opacity: 0, transform: "scaleX(.2)", offset: 0.6 }, { opacity: n ? 0.7 : 1, transform: "scaleX(1)" }],
+    { duration: DUR, easing: "ease-in", fill: "forwards" }));
+  return anda.finished.catch(() => {}).then(() => {
+    const sp = $("#splash"); sp.classList.remove("abre"); sp.hidden = false;
+    capa.classList.add("sale");
+    setTimeout(() => capa.remove(), 700);
+    setTimeout(cerrarSplash, 3500);
   });
 }
 if (/[?&]act=\d+/.test(location.search)) history.replaceState(null, "", location.pathname + location.hash);

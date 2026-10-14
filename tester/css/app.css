@@ -1879,8 +1879,20 @@ html.lenis, html.lenis body { height: auto; }
 .hiper { position: fixed; inset: 0; z-index: 400; pointer-events: none; background: var(--bg); overflow: hidden;
   animation: hiper-in .6s var(--ease) both; transition: opacity .6s var(--ease); }
 .hiper .aurora i { opacity: .35; }
-.hiper canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
-.hiper-txt { position: absolute; left: 0; right: 0; top: 50%; margin-top: -8px; text-align: center; color: var(--ink);
+.hiper-txt { position: absolute; left: 0; right: 0; top: 50%; margin-top: 58px; text-align: center; color: var(--ink);
   font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .32em; animation: blur-in 1s .3s var(--ease) both; }
 .hiper.sale { opacity: 0; }
 @keyframes hiper-in { from { opacity: 0; } }
+/* Auto de la actualización */
+.au-piso { position: absolute; left: 0; right: 0; top: calc(50% + 2px); height: 1px; background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--ink) 18%, transparent) 30% 70%, transparent); }
+.au-auto { position: absolute; left: 50%; top: 50%; width: 240px; height: 88px; margin: -86px 0 0 -120px; }
+.au-auto svg { position: relative; width: 100%; height: 100%; overflow: visible; filter: drop-shadow(0 10px 18px rgba(43, 92, 230, .35)); }
+.au-haz { opacity: .5; }
+.au-rueda { transform-box: fill-box; transform-origin: center; animation: au-gira .45s linear infinite; }
+@keyframes au-gira { to { transform: rotate(360deg); } }
+.au-estela, .au-vel { position: absolute; right: 92%; transform-origin: right center; opacity: 0; border-radius: 99px; }
+.au-estela { top: 38%; width: 70vw; height: 14px; background: linear-gradient(to left, rgba(134, 165, 255, .75), transparent); filter: blur(7px); }
+.au-vel { height: 2px; background: linear-gradient(to left, #cfe0ff, transparent); }
+.au-vel:nth-of-type(2) { top: 28%; width: 140px; }
+.au-vel:nth-of-type(3) { top: 58%; width: 200px; }
+.au-vel:nth-of-type(4) { top: 74%; width: 110px; }
