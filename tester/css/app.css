@@ -1732,14 +1732,6 @@ html, body, .main { overflow-x: clip; }
 h1, h2 { letter-spacing: -.03em; }
 h3 { letter-spacing: -.015em; }
 
-/* Manchas de luz azul detrás del vidrio */
-body::before {
-  content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
-  background:
-    radial-gradient(60vmax 50vmax at 0% 0%, color-mix(in srgb, var(--primary) 18%, transparent), transparent 60%),
-    radial-gradient(55vmax 45vmax at 100% 100%, color-mix(in srgb, var(--primary) 11%, transparent), transparent 60%),
-    radial-gradient(40vmax 30vmax at 50% 0%, rgb(255 255 255 / .04), transparent 70%);
-}
 
 /* Vidrio: barras y paneles con desenfoque; tarjetas translúcidas */
 .topbar, .tabbar, .side, .sheet {
@@ -1885,3 +1877,9 @@ html.lenis, html.lenis body { height: auto; }
 .ex-tit { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: .3em;
   color: var(--ink); font-size: clamp(30px, 6vw, 56px); font-weight: 700; letter-spacing: -.04em; }
 .ex-tit span { opacity: 0; }
+/* Login de vidrio sobre la aurora de la intro (así la intro pasa al login sin corte) */
+.login-art { z-index: 0; overflow: hidden; }
+.login-art .aurora { z-index: 0; }
+.login-art .aurora i { opacity: .38; }
+.login-card { background: color-mix(in srgb, var(--surface) 42%, transparent); border: 1px solid var(--edge);
+  -webkit-backdrop-filter: blur(24px) saturate(150%); backdrop-filter: blur(24px) saturate(150%); }
