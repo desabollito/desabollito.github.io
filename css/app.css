@@ -1756,7 +1756,7 @@ h3 { letter-spacing: -.015em; }
 /* Glow alrededor del mouse en toda la app (solo con mouse) */
 @media (hover: hover) and (pointer: fine) {
   .glow-mouse { position: fixed; left: -280px; top: -280px; width: 560px; height: 560px; z-index: 9000; pointer-events: none; opacity: 0;
-    border-radius: 50%; background: radial-gradient(closest-side, color-mix(in srgb, var(--primary) 12%, transparent), transparent); transition: opacity .3s; will-change: transform; }
+    border-radius: 50%; background: radial-gradient(closest-side, color-mix(in srgb, var(--primary) 5%, transparent), transparent); transition: opacity .3s; will-change: transform; }
 }
 
 /* Intro: aurora azul, logo y nombre que entran desenfocados; al terminar se abre un agujero desde el centro */
@@ -1959,12 +1959,43 @@ body[data-lector="1"] .tabbar .fab, body[data-lector="1"][data-detalle="1"] .tab
 .tabbar .ic { width: 26px; height: 26px; }
 /* En el dock el + no hace la onda (era un rectángulo que pisaba Vehículos y Calendario); queda el giro del ícono */
 .tabbar .fab.pulsa { animation: none; }
-/* Cámara: lo negro pasa a ser el fondo de la app (azul oscuro con aurora) y las barras y botones, vidrio con desenfoque */
-.cam { background: radial-gradient(ellipse at 15% 0%, rgb(42 111 219 / .35), transparent 55%), radial-gradient(ellipse at 90% 100%, rgb(26 166 214 / .22), transparent 55%), #0b0d13; }
-.cam-top { background: rgb(14 16 22 / .45); border-bottom: 1px solid rgb(255 255 255 / .08); }
-.cam-bot { background: rgb(14 16 22 / .5); border-top: 1px solid rgb(255 255 255 / .08); }
-.cam-top, .cam-bot { -webkit-backdrop-filter: blur(22px) saturate(150%); backdrop-filter: blur(22px) saturate(150%); }
-.cam-ic:not(.on), .cam-zoom:not(.on), .cam-saltar, .cam-lentes button:not(.on), .cam-leida { background: rgb(255 255 255 / .10); border: 1px solid rgb(255 255 255 / .14);
-  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); box-sizing: border-box; }
-.cam-ok { box-shadow: 0 0 22px color-mix(in srgb, var(--primary) 55%, transparent); }
-.cam-disparo { box-shadow: 0 0 0 4px rgb(255 255 255 / .12), 0 0 0 7px #fff, 0 0 26px rgb(92 200 255 / .45); }
+/* Check in / out (pantalla completa, como cargar un vehículo) */
+body[data-ruta="checkform"] .tabbar { display: none; }
+body[data-ruta="checkform"] .main { padding-bottom: calc(90px + var(--safe-b)); }
+.chk-form .page { padding-bottom: 20px; }
+.chk-grupo { display: flex; flex-direction: column; }
+.chk-fila { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 6px 10px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.chk-fila:last-child { border-bottom: 0; }
+.chk-fila > span { font-weight: 600; font-size: 15px; }
+.chk-tog { min-width: 92px; min-height: 36px; padding: 0 14px; border-radius: 999px; border: 1px solid transparent; font-weight: 700; font-size: 13.5px;
+  background: color-mix(in srgb, #22b07d 18%, transparent); color: #22b07d; border-color: color-mix(in srgb, #22b07d 35%, transparent); transition: background .2s, color .2s; }
+.chk-fila[data-sel="1"] .chk-tog { background: color-mix(in srgb, #e5484d 18%, transparent); color: #e5484d; border-color: color-mix(in srgb, #e5484d 40%, transparent); }
+.chk-obs { grid-column: 1 / -1; display: none; }
+.chk-fila[data-sel="1"] .chk-obs { display: block; }
+.chk-form .field > .seg { margin-top: 6px; }
+.chk-form .seg-btn { white-space: nowrap; }
+.chk-tabs { position: sticky; top: calc(var(--top) + var(--safe-t, 0px) + 8px); z-index: 5; }
+.chk-tabs .seg-btn { display: grid; place-items: center; text-decoration: none; min-height: 42px; }
+/* Elementos sin marcar; objetos de valor y pertenencias: se anota qué hay (esté o falte) */
+.chk-fila[data-sel=""] .chk-tog { background: var(--surface-2); color: var(--muted); border-color: var(--line); }
+.chk-fila.anota:is([data-sel="0"], [data-sel="1"]) .chk-obs { display: block; }
+/* Calidad del check out: Mala rojo, Regular amarillo, Buena verde claro, Excelente verde oscuro */
+.chk-form [data-n^="calidad"].on { --c: #e5484d; background: color-mix(in srgb, var(--c) 22%, var(--surface)); color: var(--c); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c) 45%, transparent); }
+.chk-form [data-n^="calidad"][data-v="1"].on { --c: #e0a526; }
+.chk-form [data-n^="calidad"][data-v="2"].on { --c: #5fd08a; }
+.chk-form [data-n^="calidad"][data-v="3"].on { --c: #16935f; }
+/* Visor: botón de fotos de pintura al lado de girar; tacho al lado de "Añadir más fotos" */
+.viewer-pint { top: 10px; left: 64px; }
+.viewer-add-fila { display: flex; align-items: center; gap: 8px; }
+.viewer-add-fila .hold-del { flex: 0 0 auto; width: 44px; height: 44px; }
+.vw-centro { flex: 1; display: flex; justify-content: center; }
+/* Foto a pantalla completa: fondo de vidrio (como la barra de volver) en vez de negro */
+.zoom-foto { background: rgb(10 14 22 / .55); -webkit-backdrop-filter: blur(24px) saturate(140%); backdrop-filter: blur(24px) saturate(140%); }
+.zoom-foto .zoom-x { background: rgb(20 30 45 / .5); -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px); }
+/* Calidad del check out: degradé de fondo rojo → amarillo → verde claro → verde oscuro (como pintura y repuestos en los filtros) */
+.chk-form .seg:has([data-n^="calidad"]) { background: linear-gradient(90deg, color-mix(in srgb, #e5484d 16%, transparent) 12.5%, color-mix(in srgb, #e0a526 16%, transparent) 37.5%,
+  color-mix(in srgb, #5fd08a 16%, transparent) 62.5%, color-mix(in srgb, #16935f 22%, transparent) 87.5%), var(--surface-2); }
+.chk-form [data-n^="calidad"]:not(.on) { background: transparent; }
+/* Intro en modo claro: celeste suave en vez de azul oscuro, así el logo (oscuro) se lee bien */
+[data-theme="light"] .ex-media { background: radial-gradient(closest-side, #cfe1fb, #e2ecfa 45%, rgb(238 241 245 / .85) 72%, transparent); }
+[data-theme="light"] .ex-logo { filter: drop-shadow(0 0 10px color-mix(in srgb, var(--primary) 35%, transparent)); }

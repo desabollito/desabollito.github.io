@@ -7,7 +7,7 @@ import { FIREBASE, BOT_API } from "./config.js";
 import { iniciarFechas } from "./fecha.js";
 import { cuentaPendiente, salir, marcarOperativosVistos, soyCreador, crearEmpresa, pedirUnion, cancelarPedidoUnion, escucharMiPedido, responderPedidoUnion, soyDesmontaje, miRol, soyAdmin, getVehiculo, iniciarInvitado, soyLector, puedeVer } from "./data.js";
 import { marcarNav, pintarLateral, esAncho } from "./shell.js";
-import { vistaVehiculos, vistaDetalle, vistaFormulario, elegirVehiculoDesmontaje } from "./views-vehiculos.js";
+import { vistaVehiculos, vistaDetalle, vistaFormulario, elegirVehiculoDesmontaje, vistaCheckForm } from "./views-vehiculos.js";
 import {
   vistaPlanilla, vistaCalendario, calendarioAlEntrar, reiniciarCalendario, vistaEmpresa, vistaAjustes, vistaPapelera, elegirEmpresaSheet, panelCreador
 } from "./views-otros.js";
@@ -39,6 +39,7 @@ const RUTAS = [
   [/^#\/o\/([\w-]+\/v\/[\w-]+)$/, "link", a => irAVehiculo(a.replace("/v/", "|"))],
   [/^#\/nuevo$/,            "nuevo",      () => vistaFormulario(view)],
   [/^#\/editar\/([\w-]+)$/, "editar",     id => vistaFormulario(view, id)],
+  [/^#\/check\/([\w-]+(?:\/(?:in|out))?)$/, "checkform", a => vistaCheckForm(view, ...(a + "/in").split("/"))],   // sin pestaña: entra en IN
   [/^#\/planillas$/,        "planillas",  () => vistaPlanillas(view)],
   [/^#\/planilla$/,         "planilla",   () => vistaPlanilla(view)],
   [/^#\/tecnicos$/,         "tecnicos",   () => vistaTecnicos(view)],
@@ -62,6 +63,12 @@ function animarCambio(antes, ahora) {
   else if (["nuevo", "editar"].includes(antes.nombre)) clase = "anim-fade";
   else if (ahora.nombre === "vehiculos" && ahora.arg && antes.nombre !== "vehiculos") clase = "anim-push";   // desde el calendario, notificaciones, etc.
   else if (antes.nombre === "vehiculos" && antes.arg && ahora.nombre !== "vehiculos") clase = "anim-pop";
+  // Del vehículo a la lista (celular): solo un fundido, sin desplazamiento ni velo (con el scroll restaurado se veía a los saltos)
+  else if (ahora.nombre === "vehiculos" && antes.nombre === "vehiculos" && !ahora.arg && !esAncho()) {
+    view.classList.remove("anim-sube", "anim-fade", "anim-push", "anim-pop", "anim-der", "anim-izq"); void view.offsetWidth;
+    view.classList.add("anim-fade"); view.addEventListener("animationend", () => view.classList.remove("anim-fade"), { once: true });
+    return;
+  }
   else if (ahora.nombre === "planillas" && ORDEN_TAB[antes.nombre] === 2) clase = "anim-pop";   // de una planilla al menú
   else if (antes.nombre === "planillas" && ORDEN_TAB[ahora.nombre] === 2) clase = "anim-push";
   else if (ahora.nombre === "vehiculos" && antes.nombre === "vehiculos") {
@@ -143,7 +150,10 @@ function render({ conservarScroll = false, reabrir = false } = {}) {
   if (hit[1] === "calendario" && !mismaRuta) calendarioAlEntrar();
   ultimoRender = Date.now();
   const eraCal = !!$(".cal-page", view);
+  // Repintado del mismo vehículo (cambió una etapa, una foto…): el detalle queda donde estaba
+  const detAntes = conservarScroll && mismaRuta ? $(".pane-detail", view)?.scrollTop : 0;
   ctrl = hit[2](arg) || null;
+  if (conservarScroll && mismaRuta) { scrollTo(0, y); const p = detAntes && $(".pane-detail", view); if (p) p.scrollTop = detAntes; }
   // Computadora, calendario ↔ vehículo dentro del calendario: la lista del día queda quieta y solo se funde el panel de la derecha
   const panel = eraCal && esAncho() && $(".cal-page > :first-child", view);
   if (panel && !mismaRuta) panel.classList.add("anim-fade");
@@ -252,6 +262,7 @@ onChange(what => {
   if (!S.profile) return;
   // Nunca repintar un formulario a mitad de carga: se perdería lo escrito
   if (["nuevo", "editar"].includes(ruta.nombre) && $("#vform")) return; // sí se pinta si todavía estaba cargando
+  if (ruta.nombre === "checkform" && $(".chk-form")) return;
   if (document.activeElement?.classList?.contains("post-rep") && what === "vehicles") return;   // escribiendo post-reparación
   if (what === "gastos") { if (ruta.nombre === "gastos") ctrl?.soloLista?.(); return; }
   if (what === "solicitudes") { if (["papelera", "ajustes"].includes(ruta.nombre)) render({ conservarScroll: true }); return; }
@@ -336,10 +347,10 @@ const tokenVer = new URLSearchParams(location.search).get("ver");
 const alEntrar = (logueado, error) => {
   cerrarSplash();
   $("#login").hidden = logueado;
-  // Login y app: oscuro por defecto hasta que el usuario elija otro en Ajustes
+  // Login: siempre oscuro; la app, oscuro hasta que el usuario elija otro en Ajustes
   try {
     localStorage.setItem("sesion", logueado ? "1" : "0");
-    document.documentElement.setAttribute("data-theme", localStorage.getItem("tema") === "light" ? "light" : "dark");
+    document.documentElement.setAttribute("data-theme", logueado && localStorage.getItem("tema") === "light" ? "light" : "dark");   // sin sesión: siempre oscuro
   } catch { /* sin almacenamiento */ }
   $("#shell").hidden = !logueado;
   if (!logueado) {

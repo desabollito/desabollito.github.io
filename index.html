@@ -9,9 +9,9 @@
       try {
         // Oscuro por defecto; el usuario lo cambia en Ajustes
         // Link de perito (?ver=): claro por defecto, con su propio botón para cambiarlo
-        var lector = /[?&]ver=/.test(location.search);
+        var lector = /[?&]ver=/.test(location.search), sesion = localStorage.getItem("sesion") === "1";   // sin sesión (intro y login): siempre oscuro
         var t = localStorage.getItem(lector ? "temaLector" : "tema");
-        document.documentElement.setAttribute("data-theme", lector ? (t === "dark" ? "dark" : "light") : (t === "light" ? "light" : "dark"));
+        document.documentElement.setAttribute("data-theme", lector ? (t === "dark" ? "dark" : "light") : (sesion && t === "light" ? "light" : "dark"));
       } catch (e) {}
       // La barra del sistema (hora, batería, isla) toma el color de fondo del tema: sin contenido ni desenfoque debajo
       var pintarBarra = function () {

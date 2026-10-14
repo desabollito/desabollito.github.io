@@ -375,7 +375,6 @@ export function renderDetalle(root, v, embebido) {
   const todos = marcadas.length === ORDEN_PIEZAS.length;
   const esMio = esMioV(v);
   const soloVer = soyDesmontaje() || soyLector();   // Desmontaje: solo ve y carga desmontajes; link de perito: solo ve
-  const nDesm = (v.desFotos?.length || 0) + (v.desNotas?.length || 0);
 
   // Estado recién tocado: al redibujar, su círculo aparece con un "pop"
   if (S.pasoTocado && Date.now() - S.pasoTocado.t < 4000) { const k = S.pasoTocado.k; queueMicrotask(() => { const b = root.querySelector(`.step[data-estado="${k}"]`);
@@ -406,7 +405,7 @@ export function renderDetalle(root, v, embebido) {
         </div></div>` : ""}
       ${embebido && !soloVer ? `<a class="btn btn-ghost btn-icon" href="#/editar/${v.id}" aria-label="Editar" title="Editar">${icon("edit")}</a>` : ""}
     </div>
-${[...PASO_REP, "facturado"].includes(est) && !soyLector() && (soyAdmin() || soyDesmontaje()) ? `<button class="btn btn-ghost btn-block d-desm" data-act="desmontaje">${icon("tool")}Desmontaje${nDesm || v.desmontador ? ` <small>${[v.desmontador?.nombre, nDesm ? `${v.desFotos?.length || 0} fotos` : ""].filter(Boolean).map(esc).join(" · ")}</small>` : ""}</button>` : ""}
+${[...PASO_REP, "facturado"].includes(est) && !soyLector() && (soyAdmin() || soyDesmontaje()) ? `<button class="btn btn-ghost btn-block d-desm" data-act="desmontaje">${icon("table")}Check in / out</button>` : ""}
 
     <section class="d-sec">
       <div class="seg-head"><h3>Seguimiento</h3>
@@ -460,6 +459,9 @@ ${[...PASO_REP, "facturado"].includes(est) && !soyLector() && (soyAdmin() || soy
     ${v.observaciones ? `<section class="d-sec"><h3>Observaciones</h3><p class="prose">${esc(v.observaciones)}</p></section>` : ""}
     ${chipsSec("Repuestos", v, "repuestos")}
     ${chipsSec("Pintura", v, "pintura")}
+    ${v.fotosPintura?.length ? `<section class="d-sec"><div class="sec-head"><h3>Fotos de pintura <small>${v.fotosPintura.length}</small></h3>
+      ${soloVer ? "" : `<button type="button" class="btn btn-ghost btn-sm" data-act="pintura-fotos">${icon("plus")}Cargar</button>`}</div>
+      <div class="desm-fotos">${v.fotosPintura.map(f => `<button type="button" data-pfoto="${esc(f.url)}"><img src="${esc(thumb(f.url, 200))}" alt="" loading="lazy"></button>`).join("")}</div></section>` : ""}
 
     ${(() => {
       // Adicionales: con una sola cosa (ej. la firma) va directo, sin desplegable
@@ -561,13 +563,23 @@ ${[...PASO_REP, "facturado"].includes(est) && !soyLector() && (soyAdmin() || soy
   ["pointerup", "pointerleave", "pointercancel"].forEach(ev => tacho?.addEventListener(ev, () => clearTimeout(relojTacho)));
   tacho?.addEventListener("contextmenu", e => e.preventDefault());
 
+  // Check in / out: tocar abre la pantalla del check; mantener apretado abre el desmontaje
+  const chk = $(".d-desm", root);
+  let relojChk = null, chkLargo = false;
+  chk?.addEventListener("pointerdown", () => { chkLargo = false; relojChk = setTimeout(() => { chkLargo = true; navigator.vibrate?.(15); abrirDesmontaje(v); }, 550); });
+  ["pointerup", "pointerleave", "pointercancel"].forEach(ev => chk?.addEventListener(ev, () => clearTimeout(relojChk)));
+  chk?.addEventListener("contextmenu", e => e.preventDefault());
+
   // Acciones
   root.addEventListener("click", async e => {
     const t = e.target;
     // Rol Desmontaje: no modifica nada del vehículo
     if (soloVer && (t.closest("[data-estado], .etapa-item, [data-del-foto], [data-del-doc]") || ["anular", "borrar", "firma", "mover"].includes(t.closest("[data-act]")?.dataset.act))) return;
     if (soyLector() && ["desmontaje", "fotos", "subir", "docs"].includes(t.closest("[data-act]")?.dataset.act)) return;
-    if (t.closest("[data-act]")?.dataset.act === "desmontaje") return abrirDesmontaje(v);
+    if (t.closest("[data-act]")?.dataset.act === "desmontaje") return chkLargo ? undefined : go(`#/check/${v.id}/in`);
+    if (t.closest("[data-act]")?.dataset.act === "pintura-fotos") return abrirPintura(v);
+    const pf = t.closest("[data-pfoto]");
+    if (pf) { const l = v.fotosPintura || []; return visor(l, Math.max(0, l.findIndex(x => x.url === pf.dataset.pfoto)), v, "fotosPintura"); }
     const step = t.closest("[data-estado]");
     if (step) {
       if (pasoLargo) { pasoLargo = false; return; }
@@ -703,9 +715,130 @@ function lotesDesm(v) {
 }
 const fechaHora = t => { const d = new Date(t); return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`; };
 
+// ═════════════════ Check in / out ═════════════════
+// Basado en las planillas del taller, adaptado a sacabollos/PDR. Cada ítem arranca sin marcar: un toque = bien, otro = mal, otro = sin marcar.
+const CHECK = {
+  in: [
+    ["exterior", "Exterior", ["Bien", "Dañado"], ["Ópticas delanteras", "Ópticas traseras", "Tercer stop", "Espejos", "Parabrisas", "Luneta",
+      "Vidrios laterales", "Colizas", "Antena", "Logos e insignias"]],
+    ["interior", "Interior", ["Bien", "Dañado"], ["Pantalla", "Levantavidrios", "Cerraduras y manijas", "Tapizado de techo", "Luces de tablero"]],
+    ["elementos", "Elementos", ["Está", "Falta"], ["Auxilio", "Criquet y llave", "Matafuego", "Objetos de valor", "Pertenencias personales"]]
+  ],
+  out: [
+    ["control", "Control de calidad", ["OK", "Revisar"], ["Bollos", "Golpes", "Cold Glue", "Colizas", "Ópticas", "Pintura",
+      "Tapizado interior", "Parantes interior", "Luz interior", "Manijas interior", "Vidrios limpios"]]
+  ]
+};
+const ANOTAR = ["Objetos de valor", "Pertenencias personales"];   // se escribe qué hay tanto si está como si falta
+const CALIDAD = ["Calidad general de la reparación", "Limpieza interior", "Limpieza exterior"], NOTAS = ["Mala", "Regular", "Buena", "Excelente"];
+const COMBUSTIBLE = ["Reserva", "¼", "½", "¾", "Lleno"];
+const campoCheck = t => t === "in" ? "checkIn" : "checkOut";
+
+// Check a pantalla completa (como cargar un vehículo), con pestañas IN / OUT arriba; entra en IN
+export function vistaCheckForm(view, id, t) {
+  const v = getVehiculo(id);
+  setTopbar({ title: "Check in / out", sub: v ? [v.modelo, v.patente].filter(Boolean).join(" · ") : "", back: `#/v/${id}` });
+  if (!v) { view.innerHTML = S.loadingVehicles ? `<div class="skeleton tall"></div>` : `<div class="empty"><h2>No encontramos este vehículo</h2></div>`; return; }
+  const c = v[campoCheck(t)] || {}, val = {};
+  let files = [];
+  const seg = (name, ops, sel) => `<div class="seg seg-sm">${ops.map((o, i) => `<button type="button" class="seg-btn ${sel === i ? "on" : ""}" data-n="${name}" data-v="${i}">${o}</button>`).join("")}</div>`;
+  view.innerHTML = `<form class="vform chk-form" novalidate><div class="page narrow stack">
+    <div class="seg chk-tabs">${["in", "out"].map(k => `<a class="seg-btn ${k === t ? "on" : ""}" href="#/check/${id}/${k}">Check ${k.toUpperCase()}</a>`).join("")}</div>
+    ${t === "in" ? `<fieldset class="card"><legend>Ingreso</legend>
+        <label class="field"><span>Kilometraje</span><input name="km" inputmode="numeric" value="${esc(c.km || "")}" placeholder="Ej: 85000"></label>
+        <div class="field"><span>Combustible</span>${seg("nafta", COMBUSTIBLE, c.nafta)}</div></fieldset>`
+      : `<fieldset class="card"><legend>Calidad</legend>${CALIDAD.map((x, i) => `<div class="field"><span>${x}</span>${seg("calidad." + i, NOTAS, c.calidad?.[i])}</div>`).join("")}</fieldset>`}
+    ${CHECK[t].map(([k, titulo, ops, items]) => `<fieldset class="card chk-grupo"><legend>${titulo}</legend>
+      ${items.map(it => { const x = c[k]?.[it], sel = x?.v ?? ""; return `<div class="chk-fila ${ANOTAR.includes(it) ? "anota" : ""}" data-sel="${sel}"><span>${esc(it)}</span>
+        <button type="button" class="chk-tog" data-k="${k}" data-it="${esc(it)}" data-ops="${esc(ops.join("|"))}">${sel === "" ? "—" : ops[sel]}</button>
+        <label class="field chk-obs"><input data-obs="${k}|${esc(it)}" value="${esc(x?.obs || "")}" placeholder="${ANOTAR.includes(it) ? "¿Qué hay?" : "¿Qué tiene?"}"></label></div>`; }).join("")}</fieldset>`).join("")}
+    <fieldset class="card"><legend>Observaciones y fotos</legend>
+      <label class="field"><textarea name="obs" rows="3" placeholder="Algo más para anotar">${esc(c.obs || "")}</textarea></label>
+      ${botonesFotos({ id: "chk-op" })}<p class="muted small" id="chk-n">${c.fotos?.length ? `${c.fotos.length} fotos cargadas` : "Sin fotos"}</p>
+      ${c.fotos?.length ? `<div class="desm-fotos">${c.fotos.map(f => `<button type="button" data-cfoto="${esc(f.url)}"><img src="${esc(thumb(f.url, 200))}" alt="" loading="lazy"></button>`).join("")}</div>` : ""}
+    </fieldset></div>
+    <div class="vform-bar"><a class="btn btn-ghost" href="#/v/${v.id}">Cancelar</a>
+      <button class="btn btn-primary btn-lg" type="submit">${icon("check")}Guardar check ${t}</button></div></form>`;
+  const form = $(".chk-form", view);
+  conectarFotos($("#chk-op", view), nuevas => { files.push(...nuevas); $("#chk-n", view).textContent = `${(c.fotos?.length || 0) + files.length} fotos`; });
+  form.addEventListener("click", e => {
+    const f = e.target.closest("[data-cfoto]");
+    if (f) return visor(c.fotos, Math.max(0, c.fotos.findIndex(x => x.url === f.dataset.cfoto)));
+    const tg = e.target.closest(".chk-tog");
+    if (tg) {   // sin marcar → Bien/Está/OK → Dañado/Falta/Revisar (abre la observación) → sin marcar
+      const fila = tg.closest(".chk-fila"), s0 = fila.dataset.sel;
+      const nv = s0 === "" ? "0" : s0 === "0" ? "1" : "";
+      fila.dataset.sel = nv; tg.textContent = nv === "" ? "—" : tg.dataset.ops.split("|")[nv];
+      if (getComputedStyle($(".chk-obs", fila)).display !== "none") $("input", fila).focus();
+      return;
+    }
+    const b = e.target.closest("[data-n]"); if (!b) return;
+    const on = b.classList.contains("on");   // tocar la elegida la desmarca
+    $$(`[data-n="${b.dataset.n}"]`, form).forEach(x => x.classList.toggle("on", x === b && !on));
+    val[b.dataset.n] = on ? null : +b.dataset.v;
+  });
+  form.onsubmit = async e => {
+    e.preventDefault();
+    const elegido = (n, antes) => n in val ? val[n] : antes ?? null;
+    const datos = { por: S.profile?.name || "", t: Date.now(), obs: form.obs.value.trim() };
+    CHECK[t].forEach(([k]) => { datos[k] = {}; });
+    $$(".chk-tog", form).forEach(tg => {
+      const fila = tg.closest(".chk-fila");
+      const s1 = fila.dataset.sel, conObs = getComputedStyle($(".chk-obs", fila)).display !== "none";
+      datos[tg.dataset.k][tg.dataset.it] = { v: s1 === "" ? null : +s1, obs: conObs ? $("input", fila).value.trim() : "" };
+    });
+    if (t === "in") Object.assign(datos, { km: form.km.value.trim(), nafta: elegido("nafta", c.nafta) });
+    else datos.calidad = CALIDAD.map((_, i) => elegido("calidad." + i, c.calidad?.[i]));
+    if (files.length && !cloudinaryListo()) return toast("Falta configurar Cloudinary", "error");
+    const b = $(".vform-bar .btn-primary", form); busy(b, true, files.length ? "Subiendo fotos…" : "Guardando…");
+    try {
+      const subidas = [];
+      for (const f of files) { const r = await subirMedia(f, `${S.company.id}/${v.id}/check-${t}`); subidas.push({ url: r.url, publicId: r.publicId }); }
+      datos.fotos = [...(c.fotos || []), ...subidas];
+      await actualizarVehiculo(v.id, { [campoCheck(t)]: datos }, `${c.t ? "Editó" : "Completó"} el check ${t}`);
+      toast(`Check ${t} guardado`, "success");
+      go(`#/v/${v.id}`);
+    } catch (err) { toast(mensajeError(err), "error"); busy(b, false); }
+  };
+}
+
+// Fotos de pintura (saltó / despegó): sección aparte del vehículo; también llegan por el bot con "Saltó pintura PATENTE"
+export function abrirPintura(v0) {
+  const s = openSheet({ title: `Pintura · ${v0.patente || v0.modelo || ""}`, wide: true, body: `<div class="stack">
+    ${botonesFotos({ id: "pint-op" })}<div class="pint-caja"></div></div>` });
+  const caja = $(".pint-caja", s.el);
+  const pintar = () => {
+    const fotos = (getVehiculo(v0.id) || v0).fotosPintura || [];
+    caja.innerHTML = fotos.length ? `<div class="desm-fotos">${fotos.map(f => `<button type="button" data-pfoto="${esc(f.url)}"><img src="${esc(thumb(f.url, 200))}" alt="" loading="lazy"></button>`).join("")}</div>`
+      : `<p class="muted center">Todavía no hay fotos de pintura.</p>`;
+  };
+  pintar();
+  caja.onclick = e => {
+    const f = e.target.closest("[data-pfoto]"); if (!f) return;
+    const fotos = (getVehiculo(v0.id) || v0).fotosPintura || [];
+    visor(fotos, Math.max(0, fotos.findIndex(x => x.url === f.dataset.pfoto)), getVehiculo(v0.id) || v0, "fotosPintura");
+  };
+  conectarFotos($("#pint-op", s.el), async nuevas => {
+    if (!cloudinaryListo()) return toast("Falta configurar Cloudinary", "error");
+    caja.insertAdjacentHTML("afterbegin", `<p class="muted small" id="pint-sub">Subiendo ${nuevas.length} ${nuevas.length === 1 ? "foto" : "fotos"}…</p>`);
+    try {
+      const subidas = [];
+      for (const f of nuevas) { const r = await subirMedia(f, `${S.company.id}/${v0.id}/pintura`); subidas.push({ url: r.url, publicId: r.publicId, t: Date.now(), por: S.profile?.name || "" }); }
+      const v = getVehiculo(v0.id) || v0;
+      await actualizarVehiculo(v.id, { fotosPintura: [...(v.fotosPintura || []), ...subidas] }, `Cargó ${subidas.length} ${subidas.length === 1 ? "foto" : "fotos"} de pintura`);
+      toast("Fotos de pintura guardadas", "success");
+      setTimeout(pintar, 400);
+    } catch (err) { toast(mensajeError(err), "error"); $("#pint-sub", caja)?.remove(); }
+  });
+}
+
+// Desmontaje (se abre manteniendo apretado "Check in / out"): técnico, fotos y notas
 export function abrirDesmontaje(v0) {
   const s = openSheet({ title: `Desmontaje · ${v0.patente || v0.modelo || ""}`, wide: true, body: `<div class="desm"></div>` });
-  const caja = $(".desm", s.el);
+  pintarDesmontaje($(".desm", s.el), v0);
+}
+
+function pintarDesmontaje(caja, v0) {
   const pintar = () => {
     const v = getVehiculo(v0.id) || v0, lotes = lotesDesm(v);
     caja.innerHTML = `
@@ -719,13 +852,13 @@ export function abrirDesmontaje(v0) {
       </div>`).join("") : `<p class="muted center">Todavía no hay desmontaje cargado.</p>`}`;
   };
   pintar();
-  caja.addEventListener("click", e => {
+  caja.onclick = e => {   // onclick (no addEventListener): la pestaña se repinta cada vez que se entra
     const v = getVehiculo(v0.id) || v0;
     const f = e.target.closest("[data-dfoto]");
     if (f) { const todas = v.desFotos || []; return visor(todas, Math.max(0, todas.findIndex(x => x.url === f.dataset.dfoto))); }
     if (e.target.closest("#desm-add")) return formDesmontaje(v, () => setTimeout(pintar, 400));
     if (e.target.closest("#desm-tec")) return elegirTecnicoDesm(v, () => setTimeout(pintar, 400));
-  });
+  };
 }
 
 function elegirTecnicoDesm(v, listo) {
@@ -935,19 +1068,19 @@ async function quitarAdjunto(v, campo, idx, confirmado = false) {
   const item = v[campo]?.[idx]; if (!item) return;
   if (soyLector()) return;
   if (!puedoEditar(v)) {
-    const tipo = campo === "fotos" ? "foto" : "documento";
+    const tipo = campo === "archivos" ? "documento" : "foto";
     if (!(await confirmar({ title: "Este vehículo no es tuyo",
       message: `Lo cargó ${cargadoPor(v)}. ¿Pedir a los administradores que quiten ${tipo === "foto" ? "esta foto" : `“${item.name}”`}?`, ok: "Pedir que la quiten", danger: true }))) return;
     crearSolicitud(v, tipo, item).then(() => toast("Pedido enviado a los administradores", "success")).catch(e => toast(mensajeError(e), "error"));
     return;
   }
   const ok = confirmado || await confirmar({
-    title: campo === "fotos" ? "¿Quitar esta foto?" : `¿Quitar “${item.name}”?`,
+    title: campo === "archivos" ? `¿Quitar “${item.name}”?` : "¿Quitar esta foto?",
     message: "Se quita del vehículo y del PDF.", ok: "Quitar", danger: true
   });
   if (!ok) return;
   const lista = (getVehiculo(v.id)?.[campo] || []).filter(x => x.publicId !== item.publicId || x.url !== item.url);
-  actualizarVehiculo(v.id, { [campo]: lista }, campo === "fotos" ? "Quitó una foto" : `Quitó el documento “${item.name}”`)
+  actualizarVehiculo(v.id, { [campo]: lista }, campo === "archivos" ? `Quitó el documento “${item.name}”` : campo === "fotosPintura" ? "Quitó una foto de pintura" : "Quitó una foto")
     .then(() => borrarMedia(v.id, [item])).catch(e => toast(mensajeError(e), "error"));
   if (tokensBorrado.has(item.publicId)) borrarConToken(tokensBorrado.get(item.publicId));
 }
@@ -1006,28 +1139,31 @@ function zoomFoto(url, previa) {
   el.addEventListener("wheel", e => { e.preventDefault(); esc_ = Math.max(1, Math.min(6, esc_ * (e.deltaY < 0 ? 1.15 : 0.87))); limitar(); pintar(); }, { passive: false });
 }
 
-function visor(fotos = [], inicio = 0, v = null) {
+// Ícono de gota (foto de pintura)
+const GOTA = `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3c3.5 4.2 6 7.6 6 10.5a6 6 0 0 1-12 0C6 10.6 8.5 7.2 12 3z"/></svg>`;
+function visor(fotos = [], inicio = 0, v = null, campo = "fotos") {   // campo: "fotos" o "fotosPintura"
   if (!fotos.length) return;
   // Mantener para borrar: solo en las fotos del vehículo y si el usuario puede editarlo
-  const borrable = !!v && fotos === v.fotos && puedoEditar(v) && !soyLector();
+  const borrable = !!v && fotos === v[campo] && puedoEditar(v) && !soyLector();
   fotos = fotos.slice();   // copia: borrar/girar acá no toca la lista del estado
   let i = inicio;
   const s = openSheet({
     wide: true,
     body: `<div class="viewer">
       <div class="viewer-foto ${fotos.length > 1 ? "depth" : ""}"><img class="vw-lado vw-ant" alt="" aria-hidden="true"><img class="vw-lado vw-sig" alt="" aria-hidden="true"><img id="vw-img" alt=""><video id="vw-vid" controls playsinline preload="metadata" hidden></video><span class="viewer-carga" hidden><span class="spin"></span></span>
-        ${v && puedoEditar(v) ? `<button class="icon-btn viewer-ov viewer-rot" id="vw-rot" aria-label="Girar foto" title="Girar">${icon("rotate")}</button>` : ""}
+        ${v && campo === "fotos" && puedoEditar(v) ? `<button class="icon-btn viewer-ov viewer-rot" id="vw-rot" aria-label="Girar foto" title="Girar">${icon("rotate")}</button>
+          <button class="icon-btn viewer-ov viewer-pint" id="vw-pint" aria-label="Fotos de pintura" title="Fotos de pintura">${GOTA}</button>` : ""}
         <button class="icon-btn viewer-ov viewer-x" data-close aria-label="Cerrar">${icon("x")}</button>
         <button class="icon-btn viewer-ov viewer-dl" id="vw-dl" aria-label="Descargar" title="Descargar">${icon("download")}</button>
 </div>
       <div class="viewer-bar">
         <button class="icon-btn" data-p aria-label="Anterior" ${fotos.length > 1 ? "" : "disabled"}>${icon("back")}</button>
-        <div class="vw-centro"><span id="vw-n"></span>
-          ${borrable ? `<button type="button" class="hold-del" id="vw-del" aria-label="Mantené apretado para borrar esta foto" title="Mantené apretado para borrar">
-            <svg class="anillo" viewBox="0 0 36 36" aria-hidden="true"><circle class="base" cx="18" cy="18" r="16" pathLength="100"/><circle cx="18" cy="18" r="16" pathLength="100"/></svg>${icon("trash")}</button>` : ""}</div>
+        <div class="vw-centro"><span id="vw-n"></span></div>
         <button class="icon-btn" data-n aria-label="Siguiente" ${fotos.length > 1 ? "" : "disabled"}>${icon("next")}</button>
       </div>
-      ${v ? `<div class="viewer-add"><button type="button" class="btn btn-ghost btn-block" id="vw-mas">${icon("plus")}Añadir más fotos</button>
+      ${v ? `<div class="viewer-add"><div class="viewer-add-fila">${campo === "fotos" ? `<button type="button" class="btn btn-ghost btn-block" id="vw-mas">${icon("plus")}Añadir más fotos</button>` : ""}
+        ${borrable ? `<button type="button" class="hold-del" id="vw-del" aria-label="Mantené apretado para borrar esta foto" title="Mantené apretado para borrar">
+          <svg class="anillo" viewBox="0 0 36 36" aria-hidden="true"><circle class="base" cx="18" cy="18" r="16" pathLength="100"/><circle cx="18" cy="18" r="16" pathLength="100"/></svg>${icon("trash")}</button>` : ""}</div>
         <div class="viewer-mas" id="vw-mas-op" hidden>${botonesFotos({ id: "vw-add" })}</div></div>` : ""}
       </div>`
   });
@@ -1181,10 +1317,10 @@ function visor(fotos = [], inicio = 0, v = null) {
     let reloj = null;
     const soltar = () => { clearTimeout(reloj); del.classList.remove("cargando"); };
     const borrarActual = async conf => {
-      const f = fotos[i], idx = (getVehiculo(v.id)?.fotos || []).findIndex(x => x.url === f.url);
+      const f = fotos[i], idx = (getVehiculo(v.id)?.[campo] || []).findIndex(x => x.url === f.url);
       if (idx < 0) return;
       if (!conf && !(await confirmar({ title: "¿Quitar esta foto?", message: "Se quita del vehículo y del PDF.", ok: "Quitar", danger: true }))) return;
-      quitarAdjunto(getVehiculo(v.id), "fotos", idx, true);
+      quitarAdjunto(getVehiculo(v.id), campo, idx, true);
       navigator.vibrate?.([15, 40, 15]);
       fotos.splice(i, 1);
       if (!fotos.length) return s.close();
@@ -1220,6 +1356,8 @@ function visor(fotos = [], inicio = 0, v = null) {
     show();
     actualizarVehiculo(v.id, { fotos: lista }).catch(e => toast(mensajeError(e), "error"));
   });
+  // Gota: abre la sección de fotos de pintura del vehículo
+  $("#vw-pint", s.el)?.addEventListener("click", () => abrirPintura(getVehiculo(v.id) || v));
 
   s.el.addEventListener("keydown", e => {
     if (e.key === "ArrowRight") $("[data-n]", s.el)?.click();
@@ -1443,7 +1581,7 @@ export function vistaFormulario(view, id = null) {
             <textarea name="repuestos" rows="2" placeholder="Ej: moldura, espejo">${esc(v?.repuestos)}</textarea></label>
           <label class="field"><span>Pintura</span>
             <input name="pintura" autocomplete="off" placeholder="Ej: capot, techo" value="${esc(v?.pintura)}"></label>
-          <div class="grid-2 ff-ultima">
+          <div class="stack ff-ultima">
             ${v ? "" : `<label class="field"><span>Fecha de peritaje</span>
               <input name="fecha" type="date" value="${hoyISO()}"></label>`}
             <div class="field" ${docsOn() ? "" : "hidden"}><span>Documentos</span>
