@@ -1886,7 +1886,6 @@ html.lenis, html.lenis body { height: auto; }
 .login-card { background: color-mix(in srgb, var(--surface) 42%, transparent); border: 1px solid var(--edge);
   -webkit-backdrop-filter: blur(24px) saturate(150%); backdrop-filter: blur(24px) saturate(150%); }
 /* Botón de filtros: fondo propio de vidrio para que no se mezcle con el texto que pasa por detrás */
-.filtro-btn { background: color-mix(in srgb, var(--surface) 88%, transparent); -webkit-backdrop-filter: blur(24px); backdrop-filter: blur(24px); border: 1px solid var(--edge); }
 /* En el celular no hay glow del mouse: luz suave fija en el fondo */
 @media (hover: none) {
   body::before { content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
