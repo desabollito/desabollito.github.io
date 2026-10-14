@@ -186,7 +186,7 @@
   // Distintivo visible solo en /tester/ (en producción no hace nada)
   if (location.pathname.startsWith("/tester/")) {
     document.title = "TESTER · " + document.title;
-    document.body.insertAdjacentHTML("beforeend", '<div style="position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom) + 4px);transform:translateX(-50%);z-index:99999;pointer-events:none;background:#d93a40;color:#fff;font:700 11px/1 system-ui,sans-serif;letter-spacing:.08em;padding:4px 10px;border-radius:999px;opacity:.9">TESTER</div>');
+    document.body.insertAdjacentHTML("beforeend", '<div style="position:fixed;right:10px;bottom:calc(env(safe-area-inset-bottom) + 6px);z-index:99999;pointer-events:none;background:transparent;color:#d93a40;border:1px solid currentColor;font:700 10px/1 system-ui,sans-serif;letter-spacing:.08em;padding:3px 8px;border-radius:999px;opacity:.55">TESTER</div>');
   }
 </script>
 </body>

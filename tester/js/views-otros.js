@@ -556,9 +556,12 @@ export function vistaAjustes(view) {
 
     <section class="card">
       <button class="btn btn-danger-ghost btn-block" id="salir">${icon("logout")}Cerrar sesión</button>
+      <p class="center firma-autor">Made in Argentina<br>by @gzmatte</p>
+    </section>
+
+    <section class="card">
       <p class="center"><button type="button" class="version-btn" onclick="window.dispatchEvent(new Event('forzar-actualizacion'))"
         title="Tocá para forzar la actualización">Desabollito ${APP_VERSION} ${icon("rotate")}</button></p>
-      <p class="center firma-autor">by @gzmatte</p>
       <details class="novedades-log"><summary>Novedades</summary>
         ${NOVEDADES.map(n => `<section><small class="muted">Versión ${esc(n.v)}</small><ul>${n.items.map(i => `<li>${esc(i)}</li>`).join("")}</ul></section>`).join("")}
       </details>

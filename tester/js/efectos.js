@@ -7,10 +7,11 @@ export function cerrarSplash() {
   const sp = document.getElementById("splash");
   if (!sp || sp.hidden) return;
   if (quieto() || sp.classList.contains("abre")) { sp.hidden = true; return; }
+  // El login entra con Blur Text; se arma antes de abrir la intro para que el texto no aparezca y vuelva a desaparecer
+  const login = document.querySelector("#login:not([hidden])");
+  if (login) blurTexto(login);
   sp.classList.add("abre");
   setTimeout(() => { sp.hidden = true; sp.classList.remove("abre"); }, 1000);
-  // Todos los textos visibles de la pantalla (login o app) entran con Blur Text
-  setTimeout(() => document.querySelectorAll("#login:not([hidden]), #shell:not([hidden])").forEach(blurTexto), 250);
 }
 
 // Blur Text: cada palabra entra desenfocada, en orden de lectura (máx. 30 escalones de 40 ms para no demorar)

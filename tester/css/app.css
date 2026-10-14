@@ -1418,7 +1418,7 @@ body[data-lector-uno="1"] .tabbar, body[data-lector-uno="1"] .side-nav, body[dat
 .fijos-est-fila label { display: flex; flex-direction: column; gap: 2px; }
 .fijos-est-fila input { min-width: 0; max-width: 150px; }
 .fijos-est-fila input { max-width: none; width: 100%; }
-.firma-autor { margin: -6px 0 0; font-size: 11px; color: var(--muted); opacity: .8; }
+.firma-autor { margin: 4px 0 0; line-height: 1.5; font-size: 11px; color: var(--muted); opacity: .8; }
 .login-tema { position: fixed; right: max(16px, env(safe-area-inset-right)); bottom: max(16px, env(safe-area-inset-bottom)); z-index: 5; background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow); }
 /* Aviso de versión nueva: botón redondo que se mueve */
 .update-pop { position: fixed; z-index: 85; top: calc(var(--safe-t) + var(--top) + 10px); right: 14px; width: 44px; height: 44px; border-radius: 50%; border: 0; cursor: pointer;
@@ -1884,3 +1884,11 @@ html.lenis, html.lenis body { height: auto; }
 .login-art .aurora i { opacity: .38; }
 .login-card { background: color-mix(in srgb, var(--surface) 42%, transparent); border: 1px solid var(--edge);
   -webkit-backdrop-filter: blur(24px) saturate(150%); backdrop-filter: blur(24px) saturate(150%); }
+/* Botón de filtros: fondo propio de vidrio para que no se mezcle con el texto que pasa por detrás */
+.filtro-btn { background: color-mix(in srgb, var(--surface) 88%, transparent); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); border: 1px solid var(--edge); }
+/* En el celular no hay glow del mouse: luz suave fija en el fondo */
+@media (hover: none) {
+  body::before { content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+    background: radial-gradient(70vmax 50vmax at 0% 0%, color-mix(in srgb, var(--primary) 16%, transparent), transparent 60%),
+      radial-gradient(60vmax 45vmax at 100% 100%, color-mix(in srgb, var(--primary) 10%, transparent), transparent 60%); }
+}
