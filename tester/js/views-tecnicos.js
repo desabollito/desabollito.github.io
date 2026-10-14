@@ -130,7 +130,7 @@ export function vistaTecnicos(view) {
     if (!rows.length) return `<div class="empty small"><p>Todavía no hay autos en reparación ni entregados${T.desde || T.hasta ? " en ese período" : ""}.</p></div>`;
     const ed = T.editando, tecs = cfg.tecnicos, nc = 4 + tecs.length + (ed ? 1 : 0), w = anchos();
     // Entre Importe y los técnicos va una columna vacía de separación
-    const cols = [["veh", "Vehículo", 120], ["pat", "Patente", 90], ["imp", "Importe", 100], ["sep", "", 16], ...tecs.map(t => [t.id, t.nombre, 95])];
+    const cols = [["veh", "VEHÍCULO", 120], ["pat", "PATENTE", 90], ["imp", "IMPORTE", 100], ["sep", "", 16], ...tecs.map(t => [t.id, t.nombre, 95])];
     const th = ([k, txt], i) => k === "sep" ? `<th class="tec-sepcol" data-col="sep"><span class="col-res" aria-hidden="true"></span></th>` : `<th class="${i >= 2 ? "num" : ""} ${k === "imp" ? "col-imp" : ""}" data-col="${esc(k)}">${esc(txt)}<span class="col-res" aria-hidden="true"></span></th>`;
     const semanas = [...new Set(rows.map(r => lunesDe(r.fecha)))];
     const fila = r => `<tr data-vid="${esc(r.v.id)}">
@@ -426,8 +426,8 @@ export function vistaTecnicos(view) {
     });
     filas.push(total("TOTAL", rows));
     descargarTabla({ archivo: `Tecnicos_${hoyISO()}`, titulo: "Planilla de técnicos", filas,
-      cols: [{ titulo: "Fecha", ancho: 12, tipo: "fecha" }, { titulo: "Vehículo", ancho: 26 }, { titulo: "Patente", ancho: 11 },
-        { titulo: "Importe", ancho: 14, tipo: "moneda" }, ...tecs.map(t => ({ titulo: t.nombre, ancho: 14, tipo: "moneda" }))] });
+      cols: [{ titulo: "FECHA", ancho: 12, tipo: "fecha" }, { titulo: "VEHÍCULO", ancho: 26 }, { titulo: "PATENTE", ancho: 14.3 },
+        { titulo: "IMPORTE", ancho: 14, tipo: "moneda" }, ...tecs.map(t => ({ titulo: t.nombre, ancho: 14, tipo: "moneda" }))] });
   });
   $("#t-edit")?.addEventListener("click", () => {
     T.editando = !T.editando;

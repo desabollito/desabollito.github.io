@@ -336,7 +336,7 @@ export function tablaPDF(empresa, subtitulo, cols, filas) {
   const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), M = 12;
   const k = Math.min(1, (W - M * 2) / cols.reduce((s, c) => s + (c.ancho || 16), 0));   // se achica para entrar en la hoja
   const ws = cols.map(c => (c.ancho || 16) * k), tw = ws.reduce((a, b) => a + b, 0), x0 = (W - tw) / 2, rh = 7;
-  const txt = (c, v) => v == null || v === "" ? "" : c.tipo === "moneda" ? money(v) || "$0" : c.tipo === "fecha" ? fecha(v) : String(v);
+  const txt = (c, v) => v == null || v === "" ? "" : c.tipo === "moneda" ? money(v) || "$0" : c.tipo === "fecha" ? fecha(v).slice(0, 5) : String(v);
   const der = c => c.tipo === "moneda";
   let y = encabezado(doc, empresa, subtitulo) + 8;
   const fila = (vals, estilo) => {
@@ -355,9 +355,10 @@ export function tablaPDF(empresa, subtitulo, cols, filas) {
   cab();
   filas.forEach((f, n) => {
     if (y + rh > H - 21) { doc.addPage(); y = 16; cab(); }
-    if (f.negrita) { doc.setFillColor(...LINEA); doc.rect(x0, y, tw, rh, "F"); }
+    if (f.negrita) { y += 3;   // espacio en blanco arriba de cada total
+      doc.setFillColor(...LINEA); doc.rect(x0, y, tw, rh, "F"); }
     else if (n % 2 === 0) { doc.setFillColor(...SUAVE); doc.rect(x0, y, tw, rh, "F"); }
-    doc.setFont("helvetica", f.negrita ? "bold" : "normal"); doc.setFontSize(7.5); doc.setTextColor(...INK);
+    doc.setFont("helvetica", f.negrita ? "bold" : "normal"); doc.setFontSize(f.negrita ? 5.6 : 7.5); doc.setTextColor(...INK);   // totales más chicos: entran montos grandes
     fila(f);
   });
   pie(doc, `${empresa?.name || "Desabollito"} · ${subtitulo}`);
