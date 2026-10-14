@@ -1964,7 +1964,7 @@ body[data-lector="1"] .tabbar .fab, body[data-lector="1"][data-detalle="1"] .tab
 .cam-top { background: rgb(14 16 22 / .45); border-bottom: 1px solid rgb(255 255 255 / .08); }
 .cam-bot { background: rgb(14 16 22 / .5); border-top: 1px solid rgb(255 255 255 / .08); }
 .cam-top, .cam-bot { -webkit-backdrop-filter: blur(22px) saturate(150%); backdrop-filter: blur(22px) saturate(150%); }
-.cam-ic:not(.on), .cam-saltar, .cam-lentes button:not(.on), .cam-leida { background: rgb(255 255 255 / .10); border: 1px solid rgb(255 255 255 / .14);
+.cam-ic:not(.on), .cam-zoom:not(.on), .cam-saltar, .cam-lentes button:not(.on), .cam-leida { background: rgb(255 255 255 / .10); border: 1px solid rgb(255 255 255 / .14);
   -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); box-sizing: border-box; }
 .cam-ok { box-shadow: 0 0 22px color-mix(in srgb, var(--primary) 55%, transparent); }
 .cam-disparo { box-shadow: 0 0 0 4px rgb(255 255 255 / .12), 0 0 0 7px #fff, 0 0 26px rgb(92 200 255 / .45); }
