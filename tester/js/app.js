@@ -404,12 +404,11 @@ function mostrarSegunAprobacion() {
 
 // ── Actualizaciones ───────────────────────────────────────────
 // Al actualizar: aparece la intro (aurora, logo y nombre que entran desenfocados) y la app recarga;
-// al volver a abrir se dibuja el logo. Si el navegador no recarga a los 3,5 s, la intro se abre y la app sigue.
+// al volver a abrir se dibuja el logo. La intro queda puesta hasta que la página recarga (siempre recarga: forzar-actualizacion).
 function animacionActualizar() {
   if (matchMedia("(prefers-reduced-motion: reduce)").matches) return Promise.resolve();
   const sp = $("#splash"); sp.classList.remove("abre", "solo-aurora"); sp.hidden = false;   // al mostrarse, sus animaciones arrancan de nuevo
   $(".intro-sub", sp).textContent = "Actualizando";
-  setTimeout(cerrarSplash, 3500);
   return new Promise(r => setTimeout(r, 1300));   // que se alcance a ver la intro antes de recargar
 }
 if (/[?&]act=\d+/.test(location.search)) history.replaceState(null, "", location.pathname + location.hash);
@@ -426,43 +425,16 @@ addEventListener("forzar-actualizacion", async () => {
 
 // Si se publica una versión nueva mientras la app está abierta, aparece un aviso.
 if ("serviceWorker" in navigator) {
-  // Solo se recarga cuando el usuario tocó "Actualizar" (ni en la primera visita
-  // ni cuando la versión nueva se activa sola al abrir la app).
-  let recargarAlCambiar = false;
-  navigator.serviceWorker.addEventListener("controllerchange", () => {
-    if (!recargarAlCambiar) return;
-    recargarAlCambiar = false;
-    location.reload();
-  });
-
   // Versión nueva: un botón redondo arriba a la derecha que se mueve; al tocarlo se actualiza y se muestran las novedades
-  const avisar = sw => {
+  const avisar = () => {
     if ($("#update-bar")) return;
     const bar = document.createElement("button");
     bar.type = "button"; bar.id = "update-bar"; bar.className = "update-pop";
     bar.setAttribute("aria-label", "Hay una versión nueva: tocá para actualizar"); bar.title = "Versión nueva";
     bar.innerHTML = `<span class="pop-auto"><i class="pop-lineas"></i><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5.6 16H4a1 1 0 0 1-1-1v-2.4c0-.6.4-1.1 1-1.3l2.4-.7 2.5-3A2 2 0 0 1 10.4 7h4.4a2 2 0 0 1 1.6.8l2.4 3.2 1.4.4c.8.2 1.3.9 1.3 1.7V15a1 1 0 0 1-1 1h-1.1M9.4 16h5.2"/><circle cx="7.5" cy="16" r="1.9"/><circle cx="16.5" cy="16" r="1.9"/></svg></span>`;
-    let tocado = false;
-    bar.onclick = async () => {
-      // Segundo toque (si no se actualizó solo): recarga directo
-      if (tocado) return location.reload();
-      tocado = true;
-      bar.classList.add("cargando");
-      await animacionActualizar();
-      recargarAlCambiar = true; sw.postMessage("activar");
-      // 3 segundos después de la animación (si el navegador no recargó solo): vuelve el botón y el cartel
-      setTimeout(() => {
-        bar.classList.remove("se-va");
-        if ($(".update-hint")) return;
-        const hint = document.createElement("button");
-        hint.type = "button"; hint.className = "update-hint update-hint-pop";
-        hint.textContent = "Si no se actualiza, tocá de nuevo";
-        hint.onclick = () => location.reload();
-        document.body.appendChild(hint);
-        requestAnimationFrame(() => hint.classList.add("in"));
-      }, 3000);
-      setTimeout(() => location.reload(), 9000);   // por si el navegador no recarga solo
-    };
+    // Al tocarlo el botón se va (no queda encima de la intro) y se fuerza la actualización completa:
+    // se borran los cachés y el service worker y la página recarga sola, sin tener que tocar de nuevo.
+    bar.onclick = () => { bar.remove(); dispatchEvent(new Event("forzar-actualizacion")); };
     document.body.appendChild(bar);
     requestAnimationFrame(() => bar.classList.add("in"));
   };
@@ -476,7 +448,7 @@ if ("serviceWorker" in navigator) {
       reg.addEventListener("updatefound", () => {
         const nuevo = reg.installing;
         nuevo?.addEventListener("statechange", () => {
-          if (nuevo.state === "installed" && navigator.serviceWorker.controller) avisar(nuevo);
+          if (nuevo.state === "installed" && navigator.serviceWorker.controller) avisar();
         });
       });
 
