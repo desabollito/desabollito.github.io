@@ -224,7 +224,7 @@ export function vistaTecnicos(view) {
         <ul class="tec-movs">${listaSueldos(p.id)}</ul>
       </section>`; }).join("")}</div>`
       : `<div class="empty small"><p>No hay técnicos a sueldo. Aparecen solos los que están en viandas o alquiler y no son sacabollos, o agregalos acá.</p></div>`}
-      <button type="button" class="btn btn-ghost btn-block" data-act="persona">${icon("plus")}Agregar técnico</button>`;
+      <button type="button" class="btn btn-ghost btn-block tec-add-persona" data-act="persona">${icon("plus")}Agregar técnico</button>`;
   };
 
   const pintarCierre = rows => {

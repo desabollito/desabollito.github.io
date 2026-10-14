@@ -2002,3 +2002,4 @@ body[data-ruta="checkform"] .main { padding-bottom: calc(90px + var(--safe-b)); 
 .chk-nafta { padding-top: 12px; }
 .tec-chk { accent-color: var(--primary); margin: 0; width: 16px; height: 16px; flex: none; }
 .tec-excel .tec-sub .tec-no { color: inherit; }
+.tec-add-persona { margin-top: 16px; }
