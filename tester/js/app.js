@@ -391,6 +391,7 @@ function mostrarSegunAprobacion() {
 function animacionActualizar() {
   if (matchMedia("(prefers-reduced-motion: reduce)").matches) return Promise.resolve();
   const sp = $("#splash"); sp.classList.remove("abre", "solo-aurora"); sp.hidden = false;   // al mostrarse, sus animaciones arrancan de nuevo
+  $(".intro-sub", sp).textContent = "Actualizando";
   setTimeout(cerrarSplash, 3500);
   return new Promise(r => setTimeout(r, 1300));   // que se alcance a ver la intro antes de recargar
 }
