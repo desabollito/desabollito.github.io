@@ -1996,3 +1996,6 @@ body[data-ruta="checkform"] .main { padding-bottom: calc(90px + var(--safe-b)); 
 .chk-form .seg:has([data-n^="calidad"]) { background: linear-gradient(90deg, color-mix(in srgb, #e5484d 16%, transparent) 12.5%, color-mix(in srgb, #e0a526 16%, transparent) 37.5%,
   color-mix(in srgb, #5fd08a 16%, transparent) 62.5%, color-mix(in srgb, #16935f 22%, transparent) 87.5%), var(--surface-2); }
 .chk-form [data-n^="calidad"]:not(.on) { background: transparent; }
+/* Intro en modo claro: celeste suave en vez de azul oscuro, así el logo (oscuro) se lee bien */
+[data-theme="light"] .ex-media { background: radial-gradient(closest-side, #cfe1fb, #e2ecfa 45%, rgb(238 241 245 / .85) 72%, transparent); }
+[data-theme="light"] .ex-logo { filter: drop-shadow(0 0 10px color-mix(in srgb, var(--primary) 35%, transparent)); }
