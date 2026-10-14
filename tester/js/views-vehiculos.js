@@ -406,7 +406,7 @@ export function renderDetalle(root, v, embebido) {
         </div></div>` : ""}
       ${embebido && !soloVer ? `<a class="btn btn-ghost btn-icon" href="#/editar/${v.id}" aria-label="Editar" title="Editar">${icon("edit")}</a>` : ""}
     </div>
-${[...PASO_REP, "facturado"].includes(est) && !soyLector() && (soyAdmin() || soyDesmontaje()) ? `<button class="btn btn-ghost btn-block d-desm" data-act="desmontaje">${icon("tool")}Desmontaje${nDesm || v.desmontador ? ` <small>${[v.desmontador?.nombre, nDesm ? `${v.desFotos?.length || 0} fotos` : ""].filter(Boolean).map(esc).join(" · ")}</small>` : ""}</button>` : ""}
+${[...PASO_REP, "facturado"].includes(est) && !soyLector() && (soyAdmin() || soyDesmontaje()) ? `<button class="btn btn-ghost btn-block d-desm" data-act="desmontaje">${icon("check")}Check in / out${v.checkIn || v.checkOut || nDesm ? ` <small>${[v.checkIn ? "IN ✓" : "", nDesm ? "desmontaje" : "", v.checkOut ? "OUT ✓" : ""].filter(Boolean).join(" · ")}</small>` : ""}</button>` : ""}
 
     <section class="d-sec">
       <div class="seg-head"><h3>Seguimiento</h3>
@@ -703,9 +703,107 @@ function lotesDesm(v) {
 }
 const fechaHora = t => { const d = new Date(t); return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`; };
 
-export function abrirDesmontaje(v0) {
-  const s = openSheet({ title: `Desmontaje · ${v0.patente || v0.modelo || ""}`, wide: true, body: `<div class="desm"></div>` });
-  const caja = $(".desm", s.el);
+// ═════════════════ Check in / out ═════════════════
+// Basado en las planillas del taller, sin lo que no aplica a sacabollos/PDR (pintura, encendedor, cenicero…)
+const CHECK_IN = [
+  ["exterior", "Exterior", ["Bien", "Con daño"], ["Luces delanteras", "Luces traseras", "Ópticas", "Espejos", "Parabrisas", "Luneta",
+    "Vidrios de puertas", "Escobillas", "Antena", "Logos e insignias", "Tazas / tapas de rueda", "Patentes"]],
+  ["interior", "Interior", ["Bien", "Con daño"], ["Aire / calefacción", "Radio / pantalla", "Levantavidrios", "Cerraduras y manijas",
+    "Tapizado de techo", "Tapizados y alfombras", "Tablero sin testigos encendidos"]],
+  ["elementos", "Elementos", ["Está", "No está"], ["Auxilio", "Criquet y llave", "Matafuego", "Objetos de valor", "Pertenencias personales"]]
+];
+const CHECK_OUT = [
+  ["control", "Control de calidad", ["OK", "Revisar"], ["Sin bollos ni marcas a contraluz", "Sin restos de pegamento", "Sin marcas de herramientas en molduras",
+    "Pintura sana (sin saltaduras ni filos pelados)", "Tapizado de techo y molduras bien armados", "Luces y partes desarmadas funcionando", "Vidrios limpios"]]
+];
+const CALIDAD = ["Calidad general de la reparación", "Limpieza interior", "Limpieza exterior"], NOTAS = ["Mala", "Regular", "Buena"];
+const COMBUSTIBLE = ["Reserva", "¼", "½", "¾", "Lleno"];
+
+export function abrirDesmontaje(v0, tab = "in") {
+  const s = openSheet({ title: `Check in / out · ${v0.patente || v0.modelo || ""}`, wide: true, body: `
+    <div class="seg seg-sm chk-tabs">${[["in", "IN"], ["desm", "Desmontaje"], ["out", "OUT"]].map(([k, t]) => `<button type="button" class="seg-btn" data-tab="${k}">${t}</button>`).join("")}</div>
+    <div class="chk-caja"></div>` });
+  const caja = $(".chk-caja", s.el);
+  const mostrar = t => {
+    tab = t;
+    $$(".chk-tabs .seg-btn", s.el).forEach(b => b.classList.toggle("on", b.dataset.tab === t));
+    if (t === "desm") return pintarDesmontaje(caja, v0);
+    const v = getVehiculo(v0.id) || v0, c = v[t === "in" ? "checkIn" : "checkOut"];
+    caja.innerHTML = c ? resumenCheck(c, t) + `<button type="button" class="btn btn-ghost btn-block" data-chk>${icon("edit")}Editar check ${t}</button>`
+      : `<p class="muted center">Todavía no se completó el check ${t}.</p><button type="button" class="btn btn-primary btn-block btn-lg" data-chk>${icon("check")}Completar check ${t}</button>`;
+  };
+  s.el.addEventListener("click", e => {
+    const tb = e.target.closest("[data-tab]"); if (tb) return mostrar(tb.dataset.tab);
+    const f = e.target.closest("[data-cfoto]");
+    if (f) { const v = getVehiculo(v0.id) || v0, fotos = v[tab === "in" ? "checkIn" : "checkOut"]?.fotos || []; return visor(fotos, Math.max(0, fotos.findIndex(x => x.url === f.dataset.cfoto))); }
+    if (e.target.closest("[data-chk]")) formCheck(getVehiculo(v0.id) || v0, tab, () => setTimeout(() => mostrar(tab), 400));
+  });
+  mostrar(tab);
+}
+
+// Lo que quedó cargado: solo lo que llama la atención (daños, faltantes, a revisar) y los datos generales
+function resumenCheck(c, t) {
+  const grupos = t === "in" ? CHECK_IN : CHECK_OUT;
+  const malos = grupos.flatMap(([k, , ops, items]) => items.map((it, i) => [it, c[k]?.[i], ops]).filter(([, x]) => x?.v === 1)
+    .map(([it, x, ops]) => `<li><strong>${esc(it)}</strong> · ${ops[1]}${x.obs ? ` — ${esc(x.obs)}` : ""}</li>`));
+  const datos = t === "in"
+    ? [c.km ? `${esc(c.km)} km` : "", c.nafta != null ? `Combustible: ${COMBUSTIBLE[c.nafta]}` : "", c.quien ? `Lo trajo: ${esc(c.quien)}` : ""]
+    : [...CALIDAD.map((x, i) => c.calidad?.[i] != null ? `${x}: ${NOTAS[c.calidad[i]]}` : ""), c.quien ? `Lo retiró: ${esc(c.quien)}` : ""];
+  return `<div class="chk-res">
+    <p class="muted small">${esc(c.por || "")}${c.t ? " · " + fechaHora(c.t) : ""}</p>
+    ${datos.filter(Boolean).map(d => `<p>${d}</p>`).join("")}
+    ${malos.length ? `<ul class="chk-malos">${malos.join("")}</ul>` : `<p class="chk-ok">${icon("check")}Todo en orden</p>`}
+    ${c.obs ? `<p class="prose">${esc(c.obs)}</p>` : ""}
+    ${c.fotos?.length ? `<div class="desm-fotos">${c.fotos.map(f => `<button type="button" data-cfoto="${esc(f.url)}"><img src="${esc(thumb(f.url, 200))}" alt="" loading="lazy"></button>`).join("")}</div>` : ""}</div>`;
+}
+
+// Formulario del check: cada ítem con dos opciones (la segunda abre una observación), más datos generales y fotos
+function formCheck(v, t, listo) {
+  const c = v[t === "in" ? "checkIn" : "checkOut"] || {}, grupos = t === "in" ? CHECK_IN : CHECK_OUT;
+  let files = [];
+  const seg = (name, ops, sel) => `<div class="seg seg-sm">${ops.map((o, i) => `<button type="button" class="seg-btn ${sel === i ? "on" : ""}" data-n="${name}" data-v="${i}">${o}</button>`).join("")}</div>`;
+  const s = openSheet({ title: `Check ${t} · ${v.patente || v.modelo || ""}`, wide: true, body: `<form class="stack chk-form">
+    ${t === "in" ? `<div class="grid-2"><label class="field"><span>Kilometraje</span><input name="km" inputmode="numeric" value="${esc(c.km || "")}" placeholder="Ej: 85000"></label>
+      <label class="field"><span>Lo trajo</span><input name="quien" value="${esc(c.quien ?? v.asegurado ?? "")}" placeholder="Nombre"></label></div>
+      <div class="field"><span>Combustible</span>${seg("nafta", COMBUSTIBLE, c.nafta)}</div>`
+    : `${CALIDAD.map((x, i) => `<div class="field"><span>${x}</span>${seg("calidad." + i, NOTAS, c.calidad?.[i])}</div>`).join("")}`}
+    ${grupos.map(([k, titulo, ops, items]) => `<fieldset class="chk-grupo"><legend>${titulo}</legend>
+      ${items.map((it, i) => `<div class="chk-fila" data-sel="${c[k]?.[i]?.v ?? ""}"><span>${esc(it)}</span>${seg(`${k}.${i}`, ops, c[k]?.[i]?.v)}
+        <label class="field chk-obs"><input name="obs.${k}.${i}" value="${esc(c[k]?.[i]?.obs || "")}" placeholder="¿Qué tiene?"></label></div>`).join("")}</fieldset>`).join("")}
+    ${t === "out" ? `<label class="field"><span>Lo retiró</span><input name="quien" value="${esc(c.quien ?? v.asegurado ?? "")}" placeholder="Nombre"></label>` : ""}
+    <label class="field"><span>Observaciones</span><textarea name="obs" rows="2">${esc(c.obs || "")}</textarea></label>
+    ${botonesFotos({ id: "chk-op" })}<p class="muted small" id="chk-n">${c.fotos?.length ? `${c.fotos.length} fotos cargadas` : "Sin fotos"}</p>
+    <button class="btn btn-primary btn-block btn-lg">Guardar check ${t}</button></form>` });
+  const form = $(".chk-form", s.el), val = {};
+  conectarFotos($("#chk-op", s.el), nuevas => { files.push(...nuevas); $("#chk-n", s.el).textContent = `${(c.fotos?.length || 0) + files.length} fotos`; });
+  form.addEventListener("click", e => {
+    const b = e.target.closest("[data-n]"); if (!b) return;
+    const on = b.classList.contains("on");   // tocar la elegida la desmarca
+    $$(`[data-n="${b.dataset.n}"]`, form).forEach(x => x.classList.toggle("on", x === b && !on));
+    val[b.dataset.n] = on ? null : +b.dataset.v;
+    const fila = b.closest(".chk-fila"); if (fila) fila.dataset.sel = on ? "" : b.dataset.v;
+  });
+  form.onsubmit = async e => {
+    e.preventDefault();
+    const elegido = (n, antes) => n in val ? val[n] : antes ?? null;
+    const datos = { por: S.profile?.name || "", t: Date.now(), obs: form.obs.value.trim(), quien: form.quien.value.trim() };
+    grupos.forEach(([k, , , items]) => { datos[k] = items.map((_, i) => ({ v: elegido(`${k}.${i}`, c[k]?.[i]?.v), obs: form[`obs.${k}.${i}`].value.trim() })); });
+    if (t === "in") Object.assign(datos, { km: form.km.value.trim(), nafta: elegido("nafta", c.nafta) });
+    else datos.calidad = CALIDAD.map((_, i) => elegido("calidad." + i, c.calidad?.[i]));
+    if (files.length && !cloudinaryListo()) return toast("Falta configurar Cloudinary", "error");
+    const b = $("button.btn-primary:last-child", form); busy(b, true, files.length ? "Subiendo fotos…" : "Guardando…");
+    try {
+      const subidas = [];
+      for (const f of files) { const r = await subirMedia(f, `${S.company.id}/${v.id}/check-${t}`); subidas.push({ url: r.url, publicId: r.publicId }); }
+      datos.fotos = [...(c.fotos || []), ...subidas];
+      await actualizarVehiculo(v.id, { [t === "in" ? "checkIn" : "checkOut"]: datos }, `${c.t ? "Editó" : "Completó"} el check ${t}`);
+      toast(`Check ${t} guardado`, "success");
+      s.close(); listo?.();
+    } catch (err) { toast(mensajeError(err), "error"); busy(b, false); }
+  };
+}
+
+function pintarDesmontaje(caja, v0) {
   const pintar = () => {
     const v = getVehiculo(v0.id) || v0, lotes = lotesDesm(v);
     caja.innerHTML = `
@@ -719,13 +817,13 @@ export function abrirDesmontaje(v0) {
       </div>`).join("") : `<p class="muted center">Todavía no hay desmontaje cargado.</p>`}`;
   };
   pintar();
-  caja.addEventListener("click", e => {
+  caja.onclick = e => {   // onclick (no addEventListener): la pestaña se repinta cada vez que se entra
     const v = getVehiculo(v0.id) || v0;
     const f = e.target.closest("[data-dfoto]");
     if (f) { const todas = v.desFotos || []; return visor(todas, Math.max(0, todas.findIndex(x => x.url === f.dataset.dfoto))); }
     if (e.target.closest("#desm-add")) return formDesmontaje(v, () => setTimeout(pintar, 400));
     if (e.target.closest("#desm-tec")) return elegirTecnicoDesm(v, () => setTimeout(pintar, 400));
-  });
+  };
 }
 
 function elegirTecnicoDesm(v, listo) {

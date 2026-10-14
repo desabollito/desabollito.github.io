@@ -118,7 +118,7 @@ service cloud.firestore {
         // Quien lo cargó y los administradores pueden todo; quien recibió acceso de edición
         // puede editar los datos. El resto solo cambia el estado, agrega fotos/documentos y firma.
         allow update: if esDesmontaje(cid)
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['desFotos', 'desNotas', 'desmontador', 'historial', 'updatedAt', 'updatedBy'])
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['desFotos', 'desNotas', 'desmontador', 'checkIn', 'checkOut', 'historial', 'updatedAt', 'updatedBy'])
           && request.resource.data.get('desFotos', []).size() >= resource.data.get('desFotos', []).size()
           && request.resource.data.get('desNotas', []).size() >= resource.data.get('desNotas', []).size();
         allow update: if isMember(cid) && !esDesmontaje(cid)
@@ -128,7 +128,7 @@ service cloud.firestore {
           && (esDueno(cid) || request.resource.data.get('editores', []) == resource.data.get('editores', []))
           && (esDueno(cid) || uid() in resource.data.get('editores', [])
               || (request.resource.data.diff(resource.data).affectedKeys()
-                    .hasOnly(['estado', 'fechas', 'horas', 'etapasRepuestos', 'etapasPintura', 'postReparacion', 'razonAnulacion', 'turnoConfirmado', 'horaTurno', 'fotos', 'archivos', 'firma', 'historial', 'desFotos', 'desNotas', 'desmontador', 'updatedAt', 'updatedBy'])
+                    .hasOnly(['estado', 'fechas', 'horas', 'etapasRepuestos', 'etapasPintura', 'postReparacion', 'razonAnulacion', 'turnoConfirmado', 'horaTurno', 'fotos', 'archivos', 'firma', 'historial', 'desFotos', 'desNotas', 'desmontador', 'checkIn', 'checkOut', 'updatedAt', 'updatedBy'])
                   && request.resource.data.get('fotos', []).size() >= resource.data.get('fotos', []).size()
                   && request.resource.data.get('archivos', []).size() >= resource.data.get('archivos', []).size()));
         // Se borran de verdad solo desde el bot (papelera de 48 h, "eliminar para siempre" o mover de operativo)
