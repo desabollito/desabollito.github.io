@@ -1984,10 +1984,8 @@ body[data-ruta="checkform"] .main { padding-bottom: calc(90px + var(--safe-b)); 
 .chk-form [data-n^="calidad"][data-v="1"].on { --c: #e0a526; }
 .chk-form [data-n^="calidad"][data-v="2"].on { --c: #22b07d; }
 .chk-form [data-n^="calidad"][data-v="3"].on { --c: #a06cf0; }
-/* Visor: botón de pintura al lado de girar; etiqueta "Pintura"; tacho al lado de "Añadir más fotos" */
+/* Visor: botón de fotos de pintura al lado de girar; tacho al lado de "Añadir más fotos" */
 .viewer-pint { top: 10px; left: 64px; }
-.viewer-pint.on { background: #e5484d; color: #fff; }
-.viewer-tag-pint { position: absolute; left: 12px; bottom: 12px; z-index: 1; padding: 4px 10px; border-radius: 99px; background: #e5484d; color: #fff; font-size: 12px; font-weight: 800; letter-spacing: .03em; }
 .viewer-add-fila { display: flex; align-items: center; gap: 8px; }
 .viewer-add-fila .hold-del { flex: 0 0 auto; width: 44px; height: 44px; }
 .vw-centro { flex: 1; display: flex; justify-content: center; }

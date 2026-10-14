@@ -459,6 +459,9 @@ ${[...PASO_REP, "facturado"].includes(est) && !soyLector() && (soyAdmin() || soy
     ${v.observaciones ? `<section class="d-sec"><h3>Observaciones</h3><p class="prose">${esc(v.observaciones)}</p></section>` : ""}
     ${chipsSec("Repuestos", v, "repuestos")}
     ${chipsSec("Pintura", v, "pintura")}
+    ${v.fotosPintura?.length ? `<section class="d-sec"><div class="sec-head"><h3>Fotos de pintura <small>${v.fotosPintura.length}</small></h3>
+      ${soloVer ? "" : `<button type="button" class="btn btn-ghost btn-sm" data-act="pintura-fotos">${icon("plus")}Cargar</button>`}</div>
+      <div class="desm-fotos">${v.fotosPintura.map(f => `<button type="button" data-pfoto="${esc(f.url)}"><img src="${esc(thumb(f.url, 200))}" alt="" loading="lazy"></button>`).join("")}</div></section>` : ""}
 
     ${(() => {
       // Adicionales: con una sola cosa (ej. la firma) va directo, sin desplegable
@@ -574,6 +577,9 @@ ${[...PASO_REP, "facturado"].includes(est) && !soyLector() && (soyAdmin() || soy
     if (soloVer && (t.closest("[data-estado], .etapa-item, [data-del-foto], [data-del-doc]") || ["anular", "borrar", "firma", "mover"].includes(t.closest("[data-act]")?.dataset.act))) return;
     if (soyLector() && ["desmontaje", "fotos", "subir", "docs"].includes(t.closest("[data-act]")?.dataset.act)) return;
     if (t.closest("[data-act]")?.dataset.act === "desmontaje") return chkLargo ? undefined : go(`#/check/${v.id}/in`);
+    if (t.closest("[data-act]")?.dataset.act === "pintura-fotos") return abrirPintura(v);
+    const pf = t.closest("[data-pfoto]");
+    if (pf) { const l = v.fotosPintura || []; return visor(l, Math.max(0, l.findIndex(x => x.url === pf.dataset.pfoto))); }
     const step = t.closest("[data-estado]");
     if (step) {
       if (pasoLargo) { pasoLargo = false; return; }
@@ -794,6 +800,36 @@ export function vistaCheckForm(view, id, t) {
       go(`#/v/${v.id}`);
     } catch (err) { toast(mensajeError(err), "error"); busy(b, false); }
   };
+}
+
+// Fotos de pintura (saltó / despegó): sección aparte del vehículo; también llegan por el bot con "Saltó pintura PATENTE"
+export function abrirPintura(v0) {
+  const s = openSheet({ title: `Pintura · ${v0.patente || v0.modelo || ""}`, wide: true, body: `<div class="stack">
+    ${botonesFotos({ id: "pint-op" })}<div class="pint-caja"></div></div>` });
+  const caja = $(".pint-caja", s.el);
+  const pintar = () => {
+    const fotos = (getVehiculo(v0.id) || v0).fotosPintura || [];
+    caja.innerHTML = fotos.length ? `<div class="desm-fotos">${fotos.map(f => `<button type="button" data-pfoto="${esc(f.url)}"><img src="${esc(thumb(f.url, 200))}" alt="" loading="lazy"></button>`).join("")}</div>`
+      : `<p class="muted center">Todavía no hay fotos de pintura.</p>`;
+  };
+  pintar();
+  caja.onclick = e => {
+    const f = e.target.closest("[data-pfoto]"); if (!f) return;
+    const fotos = (getVehiculo(v0.id) || v0).fotosPintura || [];
+    visor(fotos, Math.max(0, fotos.findIndex(x => x.url === f.dataset.pfoto)));
+  };
+  conectarFotos($("#pint-op", s.el), async nuevas => {
+    if (!cloudinaryListo()) return toast("Falta configurar Cloudinary", "error");
+    caja.insertAdjacentHTML("afterbegin", `<p class="muted small" id="pint-sub">Subiendo ${nuevas.length} ${nuevas.length === 1 ? "foto" : "fotos"}…</p>`);
+    try {
+      const subidas = [];
+      for (const f of nuevas) { const r = await subirMedia(f, `${S.company.id}/${v0.id}/pintura`); subidas.push({ url: r.url, publicId: r.publicId, t: Date.now(), por: S.profile?.name || "" }); }
+      const v = getVehiculo(v0.id) || v0;
+      await actualizarVehiculo(v.id, { fotosPintura: [...(v.fotosPintura || []), ...subidas] }, `Cargó ${subidas.length} ${subidas.length === 1 ? "foto" : "fotos"} de pintura`);
+      toast("Fotos de pintura guardadas", "success");
+      setTimeout(pintar, 400);
+    } catch (err) { toast(mensajeError(err), "error"); $("#pint-sub", caja)?.remove(); }
+  });
 }
 
 // Desmontaje (se abre manteniendo apretado "Check in / out"): técnico, fotos y notas
@@ -1116,8 +1152,7 @@ function visor(fotos = [], inicio = 0, v = null) {
     body: `<div class="viewer">
       <div class="viewer-foto ${fotos.length > 1 ? "depth" : ""}"><img class="vw-lado vw-ant" alt="" aria-hidden="true"><img class="vw-lado vw-sig" alt="" aria-hidden="true"><img id="vw-img" alt=""><video id="vw-vid" controls playsinline preload="metadata" hidden></video><span class="viewer-carga" hidden><span class="spin"></span></span>
         ${v && puedoEditar(v) ? `<button class="icon-btn viewer-ov viewer-rot" id="vw-rot" aria-label="Girar foto" title="Girar">${icon("rotate")}</button>
-          <button class="icon-btn viewer-ov viewer-pint" id="vw-pint" aria-label="Marcar como foto de pintura" title="Va a pintura">${GOTA}</button>` : ""}
-        <span class="viewer-tag-pint" id="vw-tag-pint" hidden>Pintura</span>
+          <button class="icon-btn viewer-ov viewer-pint" id="vw-pint" aria-label="Fotos de pintura" title="Fotos de pintura">${GOTA}</button>` : ""}
         <button class="icon-btn viewer-ov viewer-x" data-close aria-label="Cerrar">${icon("x")}</button>
         <button class="icon-btn viewer-ov viewer-dl" id="vw-dl" aria-label="Descargar" title="Descargar">${icon("download")}</button>
 </div>
@@ -1157,8 +1192,6 @@ function visor(fotos = [], inicio = 0, v = null) {
     const video = esVideo(fotos[i]);
     vid.hidden = !video; img0.hidden = video;
     $("#vw-rot", s.el)?.toggleAttribute("hidden", video);
-    $("#vw-pint", s.el)?.classList.toggle("on", !!fotos[i].pintura);
-    $("#vw-tag-pint", s.el).hidden = !fotos[i].pintura;
     if (video) {
       const src = videoURL(fotos[i].url);
       if (vid.getAttribute("src") !== src) { vid.poster = url; vid.src = src; }
@@ -1323,16 +1356,8 @@ function visor(fotos = [], inicio = 0, v = null) {
     show();
     actualizarVehiculo(v.id, { fotos: lista }).catch(e => toast(mensajeError(e), "error"));
   });
-  // Foto de pintura (saltó / despegó): queda marcada; lo mismo que mandarla al bot con "Saltó pintura PATENTE"
-  $("#vw-pint", s.el)?.addEventListener("click", () => {
-    const f = fotos[i], lista = [...(getVehiculo(v.id)?.fotos || [])], idx = lista.findIndex(x => x.url === f.url);
-    if (idx < 0) return;
-    const pintura = !f.pintura;
-    fotos[i] = { ...f, pintura }; lista[idx] = { ...lista[idx], pintura };
-    show();
-    actualizarVehiculo(v.id, { fotos: lista }, pintura ? "Marcó una foto de pintura" : "Desmarcó una foto de pintura")
-      .then(() => toast(pintura ? "Foto marcada para pintura" : "Foto desmarcada", "success")).catch(e => toast(mensajeError(e), "error"));
-  });
+  // Gota: abre la sección de fotos de pintura del vehículo
+  $("#vw-pint", s.el)?.addEventListener("click", () => abrirPintura(getVehiculo(v.id) || v));
 
   s.el.addEventListener("keydown", e => {
     if (e.key === "ArrowRight") $("[data-n]", s.el)?.click();

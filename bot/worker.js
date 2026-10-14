@@ -1204,7 +1204,7 @@ async function abrirModoDesm(env, numero, quien, texto, datos, hora) {
   return { ok: true };
 }
 // Fotos de pintura: "Saltó pintura AB123CD" (salto, saltada, despegó, despegada, dañada, rota…) → las fotos de los
-// próximos 5 minutos quedan marcadas como de pintura en ese vehículo (la app las muestra con la etiqueta "Pintura")
+// próximos 5 minutos van a la sección "Fotos de pintura" de ese vehículo
 const RE_PINT = /(^|\s)(salt(?:[oóa]|ad[ao])|despeg(?:[oóa]|ad[ao])|da[ñn]ad[ao]|rot[ao])(?=\s|$|[:,.!])/i;
 const adjPint = p => /despeg/i.test(p) ? "despegada" : /salt/i.test(p) ? "saltada" : /rot/i.test(p) ? "rota" : "dañada";
 async function abrirModoPintura(env, numero, quien, texto, datos, hora) {
@@ -1578,10 +1578,12 @@ async function alRecibirArchivo(env, m, quien) {
     // Rol Desmontaje: las fotos van a la sección Desmontaje del vehículo
     if (esFoto) await fsAppend(env, ruta, "desFotos", { url: subido.secure_url, publicId: subido.public_id, lote: loteWa(numero, destino),
       t: Date.now(), uid: quien.uid || "", por: quien.nombre || numero, via: "whatsapp", ...extraVid });
+  } else if (esFoto && enModoPintura(sesion, destino.vid, hora)) {
+    // "Saltó pintura PATENTE": van a la sección Fotos de pintura del vehículo
+    await fsAppend(env, ruta, "fotosPintura", { url: subido.secure_url, publicId: subido.public_id, t: Date.now(), por: quien.nombre || numero, ...origen, ...extraVid });
   } else if (esFoto) {
     await fsAppend(env, ruta, "fotos",
-      { url: subido.secure_url, publicId: subido.public_id, w: subido.width || null, h: subido.height || null, at: Date.now(), ...origen, ...extraVid,
-        ...(enModoPintura(sesion, destino.vid, hora) ? { pintura: true } : {}) });
+      { url: subido.secure_url, publicId: subido.public_id, w: subido.width || null, h: subido.height || null, at: Date.now(), ...origen, ...extraVid });
   } else {
     await fsAppend(env, ruta, "archivos",
       { url: subido.secure_url, publicId: subido.public_id, name: nombre, bytes: subido.bytes || null, format: subido.format || null, at: Date.now(), ...origen });
