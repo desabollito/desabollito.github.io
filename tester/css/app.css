@@ -1892,3 +1892,5 @@ html.lenis, html.lenis body { height: auto; }
     background: radial-gradient(70vmax 50vmax at 0% 0%, color-mix(in srgb, var(--primary) 16%, transparent), transparent 60%),
       radial-gradient(60vmax 45vmax at 100% 100%, color-mix(in srgb, var(--primary) 10%, transparent), transparent 60%); }
 }
+/* App instalada: mientras se dibuja el logo, la intro muestra solo la aurora */
+.splash.solo-aurora > :not(.aurora) { visibility: hidden; }

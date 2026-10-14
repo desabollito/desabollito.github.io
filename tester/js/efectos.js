@@ -2,8 +2,60 @@
 // scroll suave, spotlight en tarjetas, texto que entra desenfocado y números que cuentan.
 const quieto = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+// Logo dibujado por líneas: el logo se arma trazo por trazo; después una ventana con la aurora crece detrás
+// hasta llenar la pantalla (zoom in) y el logo se disuelve. Se usa al actualizar y al abrir la app instalada.
+// antes(): se llama al llenarse la pantalla, antes de que se desvanezca la capa.
+// shortcut: trazos calcados a mano de img/logo-*.png (sin el grosor variable); si cambia el logo, recalcarlos.
+const LOGO_TRAZOS = [
+  "M68 402 C68 360 68 320 74 300 C84 272 96 250 100 232 C104 220 120 214 140 208 C162 200 176 178 196 146 C212 120 226 104 252 98 C320 86 400 82 473 80",
+  "M473 106 C390 110 300 114 262 126 C236 136 214 168 180 214 C270 206 380 199 473 197",
+  "M146 186 C120 178 86 180 64 190 C46 200 48 218 66 228",
+  "M256 306 C214 288 168 266 136 274 C114 282 112 308 126 326"
+];
+export function animacionLogo(antes = () => {}) {
+  if (quieto()) return Promise.resolve();
+  const capa = document.createElement("div");
+  capa.className = "expande";
+  capa.innerHTML = `<div class="ex-media"><div class="aurora" aria-hidden="true"><i></i><i></i><i></i><i></i></div></div>
+    <svg class="ex-logo" viewBox="30 50 470 380" aria-hidden="true">${LOGO_TRAZOS.map(d => `<path d="${d}" pathLength="1"/>`).join("")}</svg>`;
+  document.body.appendChild(capa);
+  const W = innerWidth, H = innerHeight, w = Math.min(320, W * .7), h = Math.min(220, H * .3);
+  const S = Math.max(W / w, H / h) * 1.4, DUR = 2700, curva = "cubic-bezier(.76,0,.24,1)";   // de más, así el borde difuminado queda fuera de pantalla
+  // 1) el logo se arma por líneas, una tras otra
+  capa.querySelectorAll(".ex-logo path").forEach((p, n) => p.animate([{ strokeDashoffset: 1 }, { strokeDashoffset: 0 }],
+    { duration: 850, delay: 150 + n * 230, easing: "cubic-bezier(.65,0,.35,1)", fill: "both" }));
+  // 2) la ventana aparece detrás y se expande; 3) el logo crece con ella y se disuelve
+  const media = capa.querySelector(".ex-media");
+  media.style.cssText = `width:${w}px;height:${h}px;margin:${-h / 2}px 0 0 ${-w / 2}px`;
+  const crece = media.animate([
+    { transform: "scale(.8)", opacity: 0, offset: 0 },
+    { transform: "scale(.8)", opacity: 0, offset: .5 },
+    { transform: "scale(1)", opacity: 1, offset: .64, easing: curva },
+    { transform: `scale(${S})`, opacity: 1, offset: 1 }
+  ], { duration: DUR, easing: "ease-out", fill: "forwards" });
+  capa.querySelector(".ex-logo").animate([
+    { transform: "none", opacity: 1, filter: "none", offset: .62, easing: curva },
+    { transform: "scale(2.2)", opacity: 0, filter: "blur(8px)", offset: 1 }
+  ], { duration: DUR, fill: "forwards" });
+  return crece.finished.catch(() => {}).then(() => {
+    antes();
+    capa.classList.add("sale");
+    setTimeout(() => capa.remove(), 500);
+  });
+}
+
+// App instalada: cada vez que se abre, el logo se dibuja sobre la intro (solo con la aurora);
+// la intro no se abre hasta que la animación termina.
+const instalada = matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+let introLista = Promise.resolve();
+if (instalada && !quieto()) {
+  document.getElementById("splash")?.classList.add("solo-aurora");
+  introLista = animacionLogo();
+}
+
 // Intro: al terminar la carga se abre un agujero desde el centro y el texto de la pantalla entra con blur
-export function cerrarSplash() {
+export function cerrarSplash() { introLista.then(abrirIntro); }
+function abrirIntro() {
   const sp = document.getElementById("splash");
   if (!sp || sp.hidden) return;
   if (quieto() || sp.classList.contains("abre")) { sp.hidden = true; return; }
