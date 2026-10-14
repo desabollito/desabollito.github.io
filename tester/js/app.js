@@ -35,7 +35,7 @@ function irAVehiculo(arg) {
 
 const RUTAS = [
   [/^#?\/?$/,               "vehiculos",  () => vistaVehiculos(view)],
-  [/^#\/v\/([\w-]+)$/,      "vehiculos",  id => esAncho() && !S.volverA && !S.invitado?.uno ? vistaVehiculos(view, id) : vistaDetalle(view, id)],
+  [/^#\/v\/([\w-]+)$/,      "vehiculos",  id => !esAncho() || S.invitado?.uno ? vistaDetalle(view, id) : S.volverA ? vistaCalendario(view, id) : vistaVehiculos(view, id)],
   [/^#\/o\/([\w-]+\/v\/[\w-]+)$/, "link", a => irAVehiculo(a.replace("/v/", "|"))],
   [/^#\/nuevo$/,            "nuevo",      () => vistaFormulario(view)],
   [/^#\/editar\/([\w-]+)$/, "editar",     id => vistaFormulario(view, id)],
@@ -129,9 +129,11 @@ function render({ conservarScroll = false, reabrir = false } = {}) {
   else if (hit[1] !== "editar") S.volverA = null;
   const y = conservarScroll && mismaRuta ? scrollY : 0;
   ruta = { nombre: hit[1], arg };
-  document.body.dataset.ruta = hit[1];
+  // Computadora: el vehículo abierto desde el calendario se ve dentro del calendario (vistaCalendario con selId)
+  const enCal = hit[1] === "vehiculos" && arg && S.volverA && esAncho() && !S.invitado?.uno;
+  document.body.dataset.ruta = enCal ? "calendario" : hit[1];
   document.body.dataset.detalle = hit[1] === "vehiculos" && arg ? "1" : "";
-  marcarNav(["nuevo", "editar", "operativo"].includes(hit[1]) ? "" : hit[1] === "papelera" ? "ajustes" : ["planilla", "gastos", "tecnicos", "fijos"].includes(hit[1]) ? "planillas" : hit[1]);
+  marcarNav(enCal ? "calendario" : ["nuevo", "editar", "operativo"].includes(hit[1]) ? "" : hit[1] === "papelera" ? "ajustes" : ["planilla", "gastos", "tecnicos", "fijos"].includes(hit[1]) ? "planillas" : hit[1]);
   pintarTabPlanilla(hit[1]);
   // Menú lateral (computadora): Planillas se despliega con sus 3 planillas
   const enPlan = ["planillas", "planilla", "gastos", "tecnicos", "fijos"].includes(hit[1]);
@@ -140,8 +142,12 @@ function render({ conservarScroll = false, reabrir = false } = {}) {
   $$(".side-sub [data-sub=tecnicos], .side-sub [data-sub=fijos], .side-sub [data-sub=gastos]").forEach(a => { a.hidden = !puedeVer(a.dataset.sub); });
   if (hit[1] === "calendario" && !mismaRuta) calendarioAlEntrar();
   ultimoRender = Date.now();
+  const eraCal = !!$(".cal-page", view);
   ctrl = hit[2](arg) || null;
-  if (!mismaRuta && !reabrir) animarCambio(previa, ruta);
+  // Computadora, calendario ↔ vehículo dentro del calendario: la lista del día queda quieta y solo se funde el panel de la derecha
+  const panel = eraCal && esAncho() && $(".cal-page > :first-child", view);
+  if (panel && !mismaRuta) panel.classList.add("anim-fade");
+  else if (!mismaRuta && !reabrir) animarCambio(previa, ruta);
   if (hit[1] === "vehiculos" && arg) S.ultimoVid = arg;
   // Último vehículo abierto: marcado en la lista y el calendario
   const marcar = () => { if (!S.ultimoVid) return null;

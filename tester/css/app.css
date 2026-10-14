@@ -535,7 +535,7 @@ body[data-ruta="vehiculos"] .toasts, body[data-ruta="planilla"] .toasts, body[da
 
 /* ── Calendario ───────────────────────────────────────────── */
 .cal-page { display: grid; gap: 16px; padding-bottom: 16px; }
-@media (min-width: 1100px) { .cal-page { grid-template-columns: 1fr 360px; align-items: start; } .cal-day { position: sticky; top: calc(var(--top) + 16px); } }
+@media (min-width: 1100px) { .cal-page { grid-template-columns: 360px 1fr; align-items: start; } .cal-day { order: -1; position: sticky; top: calc(var(--top) + 16px); } }   /* lista del día a la izquierda */
 .cal { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); padding: 14px; display: flex; flex-direction: column; gap: 12px; }
 .cal-head { display: flex; align-items: center; gap: 4px; }
 .cal-head h2 { flex: 1; text-align: center; text-transform: capitalize; font-size: 19px; }
@@ -1628,12 +1628,12 @@ a.g-bar-fijo { text-decoration: none; color: inherit; }
 @media (min-width: 1100px) { body[data-ruta="calendario"] .view { max-width: none; } }
 /* Computadora: detalle más compacto para que entre sin desplazar */
 @media (min-width: 1100px) {
-  .split-on .pane-detail .detail { gap: 9px; padding-bottom: 8px; }
-  .split-on .pane-detail .d-sec { padding: 12px 14px; gap: 9px; }
-  .split-on .pane-detail .d-cover { width: 112px; height: 112px; }
-  .split-on .pane-detail .d-head { padding: 2px 2px 0; }
-  .split-on .pane-detail .d-piezas .carmap-sm { max-width: 92px; }
-  .split-on .pane-detail .d-foot { padding: 0 2px; }
+  :is(.split-on, .cal-page) .pane-detail .detail { gap: 9px; padding-bottom: 8px; }
+  :is(.split-on, .cal-page) .pane-detail .d-sec { padding: 12px 14px; gap: 9px; }
+  :is(.split-on, .cal-page) .pane-detail .d-cover { width: 112px; height: 112px; }
+  :is(.split-on, .cal-page) .pane-detail .d-head { padding: 2px 2px 0; }
+  :is(.split-on, .cal-page) .pane-detail .d-piezas .carmap-sm { max-width: 92px; }
+  :is(.split-on, .cal-page) .pane-detail .d-foot { padding: 0 2px; }
 }
 /* Opciones con color: tinte suave en vez de la rayita, y transición suave al elegir */
 .fo-seg .fo-op[style]::after { display: none; }
@@ -1666,7 +1666,7 @@ a.g-bar-fijo { text-decoration: none; color: inherit; }
 .view.anim-push { animation: anim-push .3s cubic-bezier(.2,.8,.2,1); }
 .view.anim-pop { animation: anim-pop .28s cubic-bezier(.2,.8,.2,1); }
 .view.anim-sube { animation: anim-sube .34s cubic-bezier(.2,.8,.2,1); }
-.view.anim-fade, .pane-detail.anim-fade { animation: anim-fade .25s ease-out; }
+.view.anim-fade, .pane-detail.anim-fade, .cal.anim-fade { animation: anim-fade .25s ease-out; }
 /* Pestañas: el ícono de la elegida da un saltito */
 @keyframes tab-salto { 0% { transform: scale(1); } 40% { transform: scale(1.18) translateY(-2px); } 100% { transform: scale(1); } }
 .tabbar a .ic, #tab-planilla .ic { transition: color .2s, transform .2s; }
@@ -1899,3 +1899,5 @@ html.lenis, html.lenis body { height: auto; }
 @media (min-width: 900px) { .detail-page { max-width: none; } }
 /* Al abrir: la aurora de la intro más tenue, así no hay salto fuerte de azul al modo oscuro */
 .splash.solo-aurora .aurora i { opacity: .22; }
+/* Computadora: el vehículo abierto en el calendario se desplaza solo en su panel */
+@media (min-width: 1100px) { body[data-ruta="calendario"] .cal-page .pane-detail { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding-right: 4px; } }

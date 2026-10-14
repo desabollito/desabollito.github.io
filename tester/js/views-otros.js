@@ -1,7 +1,7 @@
 import {
   S, activos, papelera, restaurar, eliminarDefinitivo, soyAdmin, miRol, renombrarEmpresa, guardarSello,
   agregarMiembro, cambiarRol, quitarMiembro, guardarEtiquetas, resolverSolicitud, desvincularWhatsApp, salirDeEmpresa, eliminarEmpresa, crearEmpresa, elegirEmpresa,
-  actualizarPerfil, salir, mensajeError, llamarAdmin, soloDesmontaje, pedirUnion, linksCompartidos
+  actualizarPerfil, salir, mensajeError, llamarAdmin, soloDesmontaje, pedirUnion, linksCompartidos, getVehiculo
 } from "./data.js";
 import { cargarExcelJS } from "./excel.js";
 import { ESTADOS, ESTADO, ROLES, estadoActual } from "./domain.js";
@@ -16,6 +16,7 @@ import { planillaPDF } from "./pdf.js";
 import { exportarExcel } from "./excel.js";
 import { setTopbar, go, logoOperativo } from "./shell.js";
 import { APP_VERSION, WHATSAPP_BOT, BOT_API } from "./config.js";
+import { renderDetalle } from "./views-vehiculos.js";
 
 // ═════════════════════════════════════════════════════════════
 //  PLANILLA
@@ -183,8 +184,10 @@ function elegirDiaAuto() {
 }
 const MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
 
-export function vistaCalendario(view) {
-  setTopbar({ title: "Calendario", sub: S.company?.name });
+// Computadora: con selId, el vehículo tocado en la lista del día reemplaza al calendario (como en Vehículos)
+export function vistaCalendario(view, selId = null) {
+  const sel = selId ? getVehiculo(selId) : null;
+  setTopbar({ title: "Calendario", sub: S.company?.name, back: sel ? "#/calendario" : null });
   if (C.auto && !S.loadingVehicles) { C.auto = false; elegirDiaAuto(); }
   const iso = d => `${C.y}-${String(C.m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
   const sinConf = v => estadoActual(v) === "turnado" && !v.turnoConfirmado;
@@ -217,9 +220,10 @@ export function vistaCalendario(view) {
   const delDia = (C.dia ? (porDia[C.dia] || []) : []).slice().sort((a, b) => sinConf(b) - sinConf(a));
   const totalMes = Object.entries(porDia).filter(([k]) => k.startsWith(iso(1).slice(0, 7))).reduce((s, [, l]) => s + l.length, 0);
 
+  const scrollDia = $(".cal-day", view)?.scrollTop || 0;   // la lista del día no salta al abrir un vehículo
   view.innerHTML = `
   <div class="cal-page">
-    <section class="cal">
+    ${sel ? `<section class="pane-detail"></section>` : `<section class="cal">
       <div class="cal-head">
         <button class="icon-btn" id="prev" aria-label="Mes anterior">${icon("back")}</button>
         <h2>${MESES[C.m]} ${C.y}</h2>
@@ -232,7 +236,7 @@ export function vistaCalendario(view) {
       </div>
       <div class="cal-grid">${["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"].map(d => `<div class="cw">${d}</div>`).join("")}${celdas}</div>
       <p class="muted small">${totalMes} ${C.campo === "turnado" ? "turnos" : C.campo === "reparado" ? "reparaciones" : "peritajes"} en ${MESES[C.m]}.</p>
-    </section>
+    </section>`}
     <section class="cal-day">
       <h3>${C.dia ? fechaLarga(C.dia) : "Elegí un día"}</h3>
       ${C.dia ? (delDia.length ? `<div class="vlist compact">${delDia.map(v => `
@@ -245,6 +249,8 @@ export function vistaCalendario(view) {
     </section>
   </div>`;
 
+  $(".cal-day", view).scrollTop = scrollDia;
+  if (sel) { renderDetalle($(".pane-detail", view), sel, true); return; }
   $("#prev", view).onclick = () => { if (--C.m < 0) { C.m = 11; C.y--; } C.dia = null; vistaCalendario(view); };
   $("#next", view).onclick = () => { if (++C.m > 11) { C.m = 0; C.y++; } C.dia = null; vistaCalendario(view); };
   $("#hoy", view).onclick = () => { const d = new Date(); C.y = d.getFullYear(); C.m = d.getMonth(); C.dia = hoyISO(); vistaCalendario(view); };

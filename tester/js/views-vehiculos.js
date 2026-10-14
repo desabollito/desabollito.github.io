@@ -361,7 +361,7 @@ function elegirEtapa(v, tipo, item) {
   });
 }
 
-function renderDetalle(root, v, embebido) {
+export function renderDetalle(root, v, embebido) {
   // Llegó desde una notificación de fotos: se abre esa foto
   if (S.abrirFoto?.vid === v.id) {
     const f = S.abrirFoto; S.abrirFoto = null;
