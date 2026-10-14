@@ -114,6 +114,8 @@ export function vistaTecnicos(view) {
       const tw = $(".table-wrap", body), sx = tw?.scrollLeft || 0, sy = tw?.scrollTop || 0;
       body.innerHTML = pintarAutos(rows); conectarAnchos(body);
       const nw = $(".table-wrap", body); if (nw && tw) { nw.scrollLeft = sx; nw.scrollTop = sy; }
+      // Volviendo de un vehículo: la planilla queda donde estaba
+      if (nw && T.volver) { nw.scrollLeft = T.volver.x; scrollTo(0, T.volver.y); T.volver = null; }
     }
     else if (T.tab === "sueldos") body.innerHTML = pintarSueldos();
     else body.innerHTML = pintarCierre(rows);
@@ -142,11 +144,12 @@ export function vistaTecnicos(view) {
       <tbody>${semanas.map(l => {
         const rsS = rows.filter(r => lunesDe(r.fecha) === l), s = sumaPorTec(rsS);
         const dias = [...new Set(rsS.map(r => r.fecha))];
-        return dias.map(d => `<tr class="tec-dia-fila"><td colspan="${nc}">${diaLabel(d).toUpperCase()}</td></tr>${rsS.filter(r => r.fecha === d).map(fila).join("")}`).join("") +
+        const sep = `<tr class="tec-sep"><td colspan="${nc}"></td></tr>`;
+        return dias.map(d => `<tr class="tec-dia-fila"><td colspan="${nc}">${diaLabel(d).toUpperCase()}</td></tr>${rsS.filter(r => r.fecha === d).map(fila).join("")}${sep}`).join("") +
           `<tr class="tec-sub"><td colspan="2">SEMANA ${semanas.indexOf(l) + 1}</td>
             <td class="num col-imp">${pesos(rsS.reduce((a, r) => a + r.valor, 0))}</td><td class="tec-sepcol"></td>
             ${tecs.map(t => s[t.id] ? `<td class="num">${pesos(s[t.id])}</td>` : `<td class="tec-no">⨯</td>`).join("")}${ed ? "<td></td>" : ""}</tr>
-          <tr class="tec-sep"><td colspan="${nc}"></td></tr>`;
+          ${sep}${sep}`;
       }).join("")}</tbody></table></div>
       ${ed ? `<p class="muted small">Tocá la celda de un técnico para sumarlo o sacarlo de ese auto. El importe se reparte solo.</p>` : ""}`;
   };
@@ -297,6 +300,7 @@ export function vistaTecnicos(view) {
       return guardarFila(fila.dataset.vid, { tecs });
     }
     if (t.closest("[data-act=fila]") && fila && T.editando) return opcionesFila(fila.dataset.vid);
+    if (fila && !T.editando) { T.volver = { y: scrollY, x: $(".table-wrap", view)?.scrollLeft || 0 }; location.hash = `#/v/${fila.dataset.vid}`; return; }
     const add = t.closest("[data-add-mov]");
     if (add && T.editando) {
       const tecid = t.closest("[data-tecid]").dataset.tecid, tipo = add.dataset.addMov;
@@ -366,8 +370,6 @@ export function vistaTecnicos(view) {
     const pintarL = () => { $("#tl", s.el).innerHTML = cfg.tecnicos.map(t => `<li data-id="${esc(t.id)}">
       <small class="tl-def">Por defecto</small><button type="button" class="switch ${t.activo !== false ? "on" : ""}" data-sw role="switch" aria-checked="${t.activo !== false}" aria-label="Marcado por defecto"><span class="sw-txt sw-si">Sí</span><span class="sw-txt sw-no">No</span><i class="sw-bola"></i></button>
       <span class="tl-nombre">${esc(t.nombre)}</span>
-      <button type="button" class="icon-btn sm" data-up aria-label="Mover a la izquierda" title="Mover antes">↑</button>
-      <button type="button" class="icon-btn sm" data-down aria-label="Mover a la derecha" title="Mover después">↓</button>
       <button type="button" class="icon-btn sm" data-ren aria-label="Renombrar">${icon("edit")}</button>
       <button type="button" class="icon-btn sm danger" data-del aria-label="Quitar">${icon("trash")}</button></li>`).join("") || `<li class="muted small">Sin técnicos</li>`; };
     pintarL();
@@ -376,14 +378,26 @@ export function vistaTecnicos(view) {
       const n = await pedirTexto({ title: "Nuevo técnico", label: "Nombre", placeholder: "Ej: Juan", ok: "Agregar" });
       if (n?.trim()) guardarTecs([...cfg.tecnicos, { id: nuevoId(), nombre: n.trim().toUpperCase(), activo: true }]);
     };
-    $("#tl-valor", s.el).onchange = e => guardarCfg({ valorDefault: Math.max(0, Number(e.target.value) || 0) });
+    // Arrastrar el nombre para arriba o abajo cambia el orden (el de las columnas)
+    $("#tl", s.el).addEventListener("pointerdown", e => {
+      const li = e.target.closest(".tl-nombre")?.closest("li[data-id]"); if (!li) return;
+      e.preventDefault(); e.stopPropagation(); li.classList.add("arrastrando");
+      const mover = ev => {
+        const otro = document.elementFromPoint(ev.clientX, ev.clientY)?.closest("#tl > li[data-id]"); if (!otro || otro === li) return;
+        const r = otro.getBoundingClientRect(); otro.parentNode.insertBefore(li, ev.clientY > r.top + r.height / 2 ? otro.nextSibling : otro);
+      };
+      const soltar = () => {
+        removeEventListener("pointermove", mover); removeEventListener("pointerup", soltar); removeEventListener("pointercancel", soltar);
+        li.classList.remove("arrastrando");
+        const orden = $$("#tl > li[data-id]", s.el).map(x => x.dataset.id);
+        if (orden.join() !== cfg.tecnicos.map(t => t.id).join()) guardarTecs(orden.map(id => cfg.tecnicos.find(t => t.id === id)));
+      };
+      addEventListener("pointermove", mover); addEventListener("pointerup", soltar); addEventListener("pointercancel", soltar);
+    });
+    $("#tl-valor", s.el).onchange =e => guardarCfg({ valorDefault: Math.max(0, Number(e.target.value) || 0) });
     $("#tl", s.el).onclick = async e => {
       const li = e.target.closest("[data-id]"); if (!li) return;
       const id = li.dataset.id, t = cfg.tecnicos.find(x => x.id === id);
-      const i = cfg.tecnicos.findIndex(x => x.id === id);
-      const mover = d => { const l = [...cfg.tecnicos], j = i + d; if (j < 0 || j >= l.length) return; [l[i], l[j]] = [l[j], l[i]]; guardarTecs(l); };
-      if (e.target.closest("[data-up]")) return mover(-1);
-      if (e.target.closest("[data-down]")) return mover(1);
       if (e.target.closest("[data-sw]")) return guardarTecs(cfg.tecnicos.map(x => x.id === id ? { ...x, activo: x.activo === false } : x));
       if (e.target.closest("[data-ren]")) {
         const n = await pedirTexto({ title: "Renombrar", label: "Nombre", value: t.nombre });

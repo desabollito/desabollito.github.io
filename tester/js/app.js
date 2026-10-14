@@ -35,7 +35,7 @@ function irAVehiculo(arg) {
 
 const RUTAS = [
   [/^#?\/?$/,               "vehiculos",  () => vistaVehiculos(view)],
-  [/^#\/v\/([\w-]+)$/,      "vehiculos",  id => !esAncho() || S.invitado?.uno ? vistaDetalle(view, id) : S.volverA ? vistaCalendario(view, id) : vistaVehiculos(view, id)],
+  [/^#\/v\/([\w-]+)$/,      "vehiculos",  id => !esAncho() || S.invitado?.uno || S.volverA === "#/tecnicos" ? vistaDetalle(view, id) : S.volverA ? vistaCalendario(view, id) : vistaVehiculos(view, id)],
   [/^#\/o\/([\w-]+\/v\/[\w-]+)$/, "link", a => irAVehiculo(a.replace("/v/", "|"))],
   [/^#\/nuevo$/,            "nuevo",      () => vistaFormulario(view)],
   [/^#\/editar\/([\w-]+)$/, "editar",     id => vistaFormulario(view, id)],
@@ -132,12 +132,12 @@ function render({ conservarScroll = false, reabrir = false } = {}) {
     return render({ reabrir: true });
   }
   // Vehículo abierto desde el calendario: al salir vuelve al calendario (no a la lista)
-  if (hit[1] === "vehiculos" && arg) { if (reabrir) S.volverA = null; else if (ruta.nombre === "calendario") S.volverA = "#/calendario"; else if (ruta.nombre === "vehiculos" && !ruta.arg) S.volverA = null; }
+  if (hit[1] === "vehiculos" && arg) { if (reabrir) S.volverA = null; else if (["calendario", "tecnicos"].includes(ruta.nombre)) S.volverA = "#/" + ruta.nombre; else if (ruta.nombre === "vehiculos" && !ruta.arg) S.volverA = null; }
   else if (hit[1] !== "editar") S.volverA = null;
   const y = conservarScroll && mismaRuta ? scrollY : 0;
   ruta = { nombre: hit[1], arg };
   // Computadora: el vehículo abierto desde el calendario se ve dentro del calendario (vistaCalendario con selId)
-  const enCal = hit[1] === "vehiculos" && arg && S.volverA && esAncho() && !S.invitado?.uno;
+  const enCal = hit[1] === "vehiculos" && arg && S.volverA === "#/calendario" && esAncho() && !S.invitado?.uno;
   document.body.dataset.ruta = enCal ? "calendario" : hit[1];
   document.body.dataset.detalle = hit[1] === "vehiculos" && arg ? "1" : "";
   marcarNav(enCal ? "calendario" : ["nuevo", "editar", "operativo"].includes(hit[1]) ? "" : hit[1] === "papelera" ? "ajustes" : ["planilla", "gastos", "tecnicos", "fijos"].includes(hit[1]) ? "planillas" : hit[1]);

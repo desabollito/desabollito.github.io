@@ -2003,3 +2003,7 @@ body[data-ruta="checkform"] .main { padding-bottom: calc(90px + var(--safe-b)); 
 .tec-chk { accent-color: var(--primary); margin: 0; width: 16px; height: 16px; flex: none; }
 .tec-excel .tec-sub .tec-no { color: inherit; }
 .tec-add-persona { margin-top: 16px; }
+.tbl.tec-excel tbody .tec-sub td { background: color-mix(in srgb, var(--primary) 10%, var(--surface)); }   /* también la celda fija de "SEMANA" */
+.tec-lista .tl-nombre { cursor: grab; touch-action: none; user-select: none; }
+.tec-lista li.arrastrando { opacity: .6; }
+.tec-excel tbody tr.tec-sep { cursor: default; }
