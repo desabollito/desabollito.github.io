@@ -143,7 +143,7 @@ export function vistaTecnicos(view) {
         const rsS = rows.filter(r => lunesDe(r.fecha) === l), s = sumaPorTec(rsS);
         const dias = [...new Set(rsS.map(r => r.fecha))];
         return dias.map(d => `<tr class="tec-dia-fila"><td colspan="${nc}">${diaLabel(d).toUpperCase()}</td></tr>${rsS.filter(r => r.fecha === d).map(fila).join("")}`).join("") +
-          `<tr class="tec-sub"><td colspan="2">SEMANA ${+l.slice(8)} AL ${+masDias(l, 6).slice(8)}</td>
+          `<tr class="tec-sub"><td colspan="2">SEMANA ${semanas.indexOf(l) + 1}</td>
             <td class="num col-imp">${pesos(rsS.reduce((a, r) => a + r.valor, 0))}</td><td class="tec-sepcol"></td>
             ${tecs.map(t => `<td class="num">${s[t.id] ? pesos(s[t.id]) : "—"}</td>`).join("")}${ed ? "<td></td>" : ""}</tr>
           <tr class="tec-sep"><td colspan="${nc}"></td></tr>`;
