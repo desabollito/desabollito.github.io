@@ -210,3 +210,18 @@ export function marcarError(input) {
   input.scrollIntoView({ block: "center", behavior: "smooth" });
   input.addEventListener("input", () => input.closest(".field")?.classList.remove("invalid"), { once: true });
 }
+
+// Blobatar: avatar generado por nombre de usuario (se arma en el navegador, sin mandar datos afuera).
+// Mientras carga la librería (o sin señal) quedan las iniciales.
+export function avatarUsuario(usuario, nombre, cls = "") {
+  return `<span class="avatar ${cls}" data-blob="${esc(usuario || nombre || "")}">${esc(initials(nombre || usuario || ""))}</span>`;
+}
+import("https://cdn.jsdelivr.net/npm/blobatar@2.7.0/+esm").then(({ blobatar }) => {
+  const pintar = raiz => raiz.querySelectorAll("[data-blob]:not(.con-blob)").forEach(el => {
+    if (!el.dataset.blob) return;
+    el.innerHTML = blobatar(el.dataset.blob.toLowerCase()); el.classList.add("con-blob");
+  });
+  pintar(document);
+  new MutationObserver(ms => ms.forEach(m => m.addedNodes.forEach(n => n.nodeType === 1 && pintar(n.parentNode || n))))
+    .observe(document.body, { childList: true, subtree: true });
+}).catch(() => {});

@@ -10,8 +10,8 @@ import { ESTADOS, ESTADO, SECUENCIA, PASO_REP, PIEZA, ORDEN_PIEZAS, estadoActual
 import {
   $, $$, esc, money, fechaCorta, fechaLarga, hoyISO, plate, estadoPill, icon, toast, openSheet,
   confirmar, busy, debounce, marcarError, horaDe } from "./ui.js";
-import { carMapSVG, montarMapa } from "./carmap.js";
-import { montar3D } from "./car3d.js";
+import { carMapSVG, montarMapa, pulsar } from "./carmap.js";
+import { contar } from "./efectos.js";
 import { subir, comprimir, borrarConToken, thumb, grande, cloudinaryListo, esVideo, videoURL } from "./media.js";
 import { presupuestoPDF, nombreArchivo } from "./pdf.js";
 import { armarZip } from "./zip.js";
@@ -144,6 +144,7 @@ export function vistaVehiculos(view, selId = null) {
   });
 
   // En computadora los estados van en una fila a lo ancho de la pantalla, arriba de todo
+  let contarAlEntrar = !$("#estado-strip", view);   // solo al llegar de otra pantalla, no al redibujar
   const strip = `<div class="estado-strip" id="estado-strip" role="tablist" aria-label="Filtrar por estado"></div>`;
   view.innerHTML = `
     ${ancho ? `<div class="estado-fila">${strip}</div>` : ""}
@@ -168,6 +169,8 @@ export function vistaVehiculos(view, selId = null) {
       ESTADOS.filter(e => !soyLector() || cuenta[e.key] || F.estado === e.key).map(e => `<button class="est ${F.estado === e.key ? "on" : ""}" data-e="${e.key}" style="--c:${e.color}">
         <b>${cuenta[e.key]}</b><span>${e.label}</span></button>`).join("");
     $("#estado-strip", view).setAttribute("aria-label", `Filtrar por estado (${todos.length} en total)`);
+    // Count Up: los números de los estados cuentan desde 0 la primera vez que hay datos
+    if (contarAlEntrar && !S.loadingVehicles) { contarAlEntrar = false; $$("#estado-strip b", view).forEach(b => contar(b)); }
 
     const lista = ordenar(filtrar(todos));
     const box = $("#vlist", view);
@@ -285,15 +288,7 @@ export function vistaDetalle(view, id) {
   renderDetalle($(".detail-page", view), v, false);
 }
 
-// Vista 3D: siempre arranca en 2D al abrir un vehículo
-let modo3D = false, vid3D = null, adicAbierto = false;
-export const reiniciarVista3D = () => { modo3D = false; };
-function iniciar3D(root, v) {
-  const caja = $(".vista-3d", root), cap = $(".caption-3d", root);
-  caja.innerHTML = `<div class="skeleton" style="height:280px"></div>`;
-  montar3D(caja, v.piezas || {}, (k, nombre) => { if (cap) cap.innerHTML = `<strong>${esc(nombre || k)}</strong>`; })
-    .catch(err => { caja.innerHTML = `<p class="muted small center">${esc(err.message)}</p>`; });
-}
+let adicAbierto = false, pzTocada = null;   // pzTocada: paño elegido en el detalle (sobrevive al redibujo)
 
 // Mensaje configurable desde el panel del dueño: {Vehiculo}, {Patente}, {Asegurado}… se completan con el vehículo
 const VARS_WA = {
@@ -366,13 +361,12 @@ function elegirEtapa(v, tipo, item) {
   });
 }
 
-function renderDetalle(root, v, embebido) {
+export function renderDetalle(root, v, embebido) {
   // Llegó desde una notificación de fotos: se abre esa foto
   if (S.abrirFoto?.vid === v.id) {
     const f = S.abrirFoto; S.abrirFoto = null;
     setTimeout(() => { const lista = (f.desm ? v.desFotos : v.fotos) || [], i = lista.findIndex(x => x.url === f.url); if (i >= 0) visor(lista, i, f.desm ? null : v); }, 250);
   }
-  if (vid3D !== v.id) { vid3D = v.id; modo3D = false; } // al abrir otro vehículo, arranca en 2D
   const est = estadoActual(v);
   const anulado = est === "anulado";
   const marcadas = piezasMarcadas(v);
@@ -449,18 +443,15 @@ ${[...PASO_REP, "facturado"].includes(est) && !soyLector() && (soyAdmin() || soy
     </section>
 
     ${!marcadas.length ? (v.grado ? `<section class="d-sec d-piezas"><div class="sec-head"><h3>Paños afectados</h3>${gradoTag(v)}</div></section>` : "") : `<section class="d-sec d-piezas">
-      <div class="sec-head"><h3>Paños afectados ${todos ? "<small>todos</small>" : marcadas.length ? `<small>${marcadas.length}</small>` : ""}</h3>${gradoTag(v)}
-        ${marcadas.length ? `<button class="btn btn-ghost btn-sm vista-btn" data-act="vista3d">${modo3D ? "2D" : "3D"}</button>` : ""}</div>
+      <div class="sec-head"><h3>Paños afectados ${todos ? "<small>todos</small>" : marcadas.length ? `<small>${marcadas.length}</small>` : ""}</h3>${gradoTag(v)}</div>
       ${!marcadas.length ? `<p class="muted sin-panos">Sin paños marcados</p>` : `
-      <div class="vista-3d" ${modo3D ? "" : "hidden"}></div>
-      <div class="piezas-view" ${modo3D ? "hidden" : ""}>
+      <div class="piezas-view">
         <div class="map-col">${carMapSVG(v.piezas || {}, { size: "carmap-sm" })}</div>
         <p class="piezas-caption" aria-live="polite">${todos ? "<strong>Todos</strong>" : marcadas.length ? "Tocá un paño para ver su nombre" : "Sin paños marcados"}</p>
         <div class="piezas-grupos">${todos ? `<ul class="piezas-list"><li>Todos</li></ul>`
           : !marcadas.length ? `<ul class="piezas-list"><li class="muted">Sin paños marcados</li></ul>`
           : piezasAgrupadas(v)}</div>
       </div>
-      <p class="piezas-caption caption-3d" ${modo3D ? "" : "hidden"}>Arrastrá para girar · tocá un paño</p>
 `}
     </section>`}
 
@@ -513,7 +504,11 @@ ${[...PASO_REP, "facturado"].includes(est) && !soyLector() && (soyAdmin() || soy
     post.addEventListener("input", () => { crecer(); clearTimeout(reloj); reloj = setTimeout(guardar, 1500); });
     post.addEventListener("blur", guardar);
   }
-  if (modo3D && marcadas.length) iniciar3D(root, v);
+  // Al redibujar (cambios en vivo) el paño elegido sigue marcado y con su nombre
+  if (pzTocada?.vid === v.id) {
+    const g = $(`.d-piezas [data-pieza="${pzTocada.k}"]`, root), cap = $(".piezas-view .piezas-caption", root);
+    if (g) { g.classList.add("tocado"); if (cap) cap.innerHTML = `<strong>${esc(PIEZA[pzTocada.k].label)}</strong>`; }
+  }
 
   // Mantener apretado "Turnado" (con el auto turnado): lo marca Ausente; otra vez, vuelve a Turnado
   let pasoLargo = false, relojPaso = null;
@@ -598,20 +593,16 @@ ${[...PASO_REP, "facturado"].includes(est) && !soyLector() && (soyAdmin() || soy
     const act = t.closest("[data-act]")?.dataset.act;
     if (act === "pdf") return compartir(v);
     if (act === "galeria") return visor(v.fotos, 0, v);
-    if (act === "vista3d") {
-      modo3D = !modo3D;
-      t.closest("[data-act]").textContent = modo3D ? "2D" : "3D";
-      $(".vista-3d", root).hidden = !modo3D;
-      $(".d-piezas .piezas-view", root).hidden = modo3D;
-      $(".caption-3d", root).hidden = !modo3D;
-      if (modo3D) iniciar3D(root, v);
-      return;
-    }
     if (act === "firma") return firmar(v);
     if (act === "contactar") {
       const m = $(".d-menu", root), abrir = m.hidden;
       const btn = t.closest("[data-act]");
-      const cerrar = () => { m.hidden = true; btn.setAttribute("aria-expanded", "false"); $(".menu-velo")?.remove(); };
+      // Al cerrar: el menú y el velo salen animados (.sale) y recién después se ocultan
+      const cerrar = () => {
+        btn.setAttribute("aria-expanded", "false");
+        const velo = $(".menu-velo"); velo?.classList.add("sale"); m.classList.add("sale");
+        setTimeout(() => { m.hidden = true; m.classList.remove("sale"); velo?.remove(); }, 180);
+      };
       if (!abrir) return cerrar();
       m.hidden = false; btn.setAttribute("aria-expanded", "true");
       // Fondo desenfocado detrás del menú; tocarlo lo cierra
@@ -654,11 +645,12 @@ ${[...PASO_REP, "facturado"].includes(est) && !soyLector() && (soyAdmin() || soy
     if (pz) {
       const k = pz.dataset.pieza, cap = $(".piezas-caption", root);
       $$(".d-piezas .panel", root).forEach(g => g.classList.toggle("tocado", g === pz));
+      pulsar(pz); pzTocada = { vid: v.id, k };
       if (cap) cap.innerHTML = `<strong>${esc(PIEZA[k].label)}</strong>`;
       return;
     }
     const fi = t.closest("[data-foto]");
-    if (fi) return visor(v.fotos, +fi.dataset.foto);
+    if (fi) return visor(v.fotos, +fi.dataset.foto, v);
     const df = t.closest("[data-del-foto]");
     if (df) return quitarAdjunto(v, "fotos", +df.dataset.delFoto);
     const dd = t.closest("[data-del-doc]");
@@ -937,7 +929,7 @@ export async function pedirEdicion(v) {
   crearSolicitud(v, "editar").then(() => toast("Pedido enviado a los administradores", "success")).catch(e => toast(mensajeError(e), "error"));
 }
 
-async function quitarAdjunto(v, campo, idx) {
+async function quitarAdjunto(v, campo, idx, confirmado = false) {
   const item = v[campo]?.[idx]; if (!item) return;
   if (soyLector()) return;
   if (!puedoEditar(v)) {
@@ -947,7 +939,7 @@ async function quitarAdjunto(v, campo, idx) {
     crearSolicitud(v, tipo, item).then(() => toast("Pedido enviado a los administradores", "success")).catch(e => toast(mensajeError(e), "error"));
     return;
   }
-  const ok = await confirmar({
+  const ok = confirmado || await confirmar({
     title: campo === "fotos" ? "¿Quitar esta foto?" : `¿Quitar “${item.name}”?`,
     message: "Se quita del vehículo y del PDF.", ok: "Quitar", danger: true
   });
@@ -1014,18 +1006,23 @@ function zoomFoto(url, previa) {
 
 function visor(fotos = [], inicio = 0, v = null) {
   if (!fotos.length) return;
+  // Mantener para borrar: solo en las fotos del vehículo y si el usuario puede editarlo
+  const borrable = !!v && fotos === v.fotos && puedoEditar(v) && !soyLector();
+  fotos = fotos.slice();   // copia: borrar/girar acá no toca la lista del estado
   let i = inicio;
   const s = openSheet({
     wide: true,
     body: `<div class="viewer">
-      <div class="viewer-foto"><img id="vw-img" alt=""><video id="vw-vid" controls playsinline preload="metadata" hidden></video><span class="viewer-carga" hidden><span class="spin"></span></span>
+      <div class="viewer-foto ${fotos.length > 1 ? "depth" : ""}"><img class="vw-lado vw-ant" alt="" aria-hidden="true"><img class="vw-lado vw-sig" alt="" aria-hidden="true"><img id="vw-img" alt=""><video id="vw-vid" controls playsinline preload="metadata" hidden></video><span class="viewer-carga" hidden><span class="spin"></span></span>
         ${v && puedoEditar(v) ? `<button class="icon-btn viewer-ov viewer-rot" id="vw-rot" aria-label="Girar foto" title="Girar">${icon("rotate")}</button>` : ""}
         <button class="icon-btn viewer-ov viewer-x" data-close aria-label="Cerrar">${icon("x")}</button>
         <button class="icon-btn viewer-ov viewer-dl" id="vw-dl" aria-label="Descargar" title="Descargar">${icon("download")}</button>
 </div>
       <div class="viewer-bar">
         <button class="icon-btn" data-p aria-label="Anterior" ${fotos.length > 1 ? "" : "disabled"}>${icon("back")}</button>
-        <span id="vw-n"></span>
+        <div class="vw-centro"><span id="vw-n"></span>
+          ${borrable ? `<button type="button" class="hold-del" id="vw-del" aria-label="Mantené apretado para borrar esta foto" title="Mantené apretado para borrar">
+            <svg class="anillo" viewBox="0 0 36 36" aria-hidden="true"><circle class="base" cx="18" cy="18" r="16" pathLength="100"/><circle cx="18" cy="18" r="16" pathLength="100"/></svg>${icon("trash")}</button>` : ""}</div>
         <button class="icon-btn" data-n aria-label="Siguiente" ${fotos.length > 1 ? "" : "disabled"}>${icon("next")}</button>
       </div>
       ${v ? `<div class="viewer-add"><button type="button" class="btn btn-ghost btn-block" id="vw-mas">${icon("plus")}Añadir más fotos</button>
@@ -1034,11 +1031,25 @@ function visor(fotos = [], inicio = 0, v = null) {
   });
   $(".sheet", s.el).classList.add("sheet-visor");
   const img0 = $("#vw-img", s.el), carga = $(".viewer-carga", s.el);
-  img0.addEventListener("load", () => { carga.hidden = true; img0.classList.remove("cargando"); });
+  // Al cargar la principal, se precargan en grande la anterior y la siguiente (pasar de foto es instantáneo)
+  const precargar = () => [-1, 1].forEach(d => {
+    const f = fotos[(i + d + fotos.length) % fotos.length];
+    if (fotos.length > 1 && !esVideo(f)) new Image().src = grande(f.url, 1600, f.rot);
+  });
+  img0.addEventListener("load", () => { carga.hidden = true; img0.classList.remove("cargando"); precargar(); });
   img0.addEventListener("error", () => { carga.hidden = true; img0.classList.remove("cargando"); });
   const vid = $("#vw-vid", s.el);
-  const show = () => {
+  const show = (dir = 0) => {
     const url = grande(fotos[i].url, 1600, fotos[i].rot);
+    // Carrusel con profundidad: la anterior y la siguiente quedan atrás, a los costados
+    const n = fotos.length;
+    $(".viewer-foto", s.el).classList.toggle("depth", n > 1);
+    [[".vw-ant", -1], [".vw-sig", 1]].forEach(([sel, d]) => {
+      const im = $(sel, s.el), f = fotos[(i + d + n) % n];
+      im.hidden = n < 2;
+      if (n > 1) im.src = grande(f.url, 600, f.rot);
+    });
+    if (dir) [img0, vid].forEach(el => { el.classList.remove("dc-sig", "dc-ant"); void el.offsetWidth; el.classList.add(dir > 0 ? "dc-sig" : "dc-ant"); });
     // Video: se reproduce en el visor (sin girar)
     const video = esVideo(fotos[i]);
     vid.hidden = !video; img0.hidden = video;
@@ -1141,16 +1152,52 @@ function visor(fotos = [], inicio = 0, v = null) {
       });
     });
   }
-  if ($("[data-p]", s.el)) $("[data-p]", s.el).onclick = () => { i = (i - 1 + fotos.length) % fotos.length; show(); };
-  if ($("[data-n]", s.el)) $("[data-n]", s.el).onclick = () => { i = (i + 1) % fotos.length; show(); };
+  const ir = d => { if (fotos.length < 2) return; i = (i + d + fotos.length) % fotos.length; show(d); };
+  if ($("[data-p]", s.el)) $("[data-p]", s.el).onclick = () => ir(-1);
+  if ($("[data-n]", s.el)) $("[data-n]", s.el).onclick = () => ir(1);
   let x0 = null, deslizo = false;
-  const img = $("#vw-img", s.el);
+  const img = $("#vw-img", s.el), marco = $(".viewer-foto", s.el);
   img.addEventListener("touchstart", e => { x0 = e.touches[0].clientX; deslizo = false; }, { passive: true });
   img.addEventListener("touchend", e => {
     if (x0 === null) return;
     const dx = e.changedTouches[0].clientX - x0; x0 = null;
-    if (Math.abs(dx) > 40) { deslizo = true; i = (i + (dx < 0 ? 1 : -1) + fotos.length) % fotos.length; show(); }
+    if (Math.abs(dx) > 40) { deslizo = true; ir(dx < 0 ? 1 : -1); }
   });
+  // Touchpad: deslizar con dos dedos a los costados (un paso por gesto, aunque siga la inercia)
+  let acum = 0, gesto = false, finGesto = null;
+  marco.addEventListener("wheel", e => {
+    if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
+    e.preventDefault();
+    clearTimeout(finGesto); finGesto = setTimeout(() => { gesto = false; acum = 0; }, 180);
+    if (gesto) return;
+    acum += e.deltaX;
+    if (Math.abs(acum) > 40) { gesto = true; ir(acum > 0 ? 1 : -1); }
+  }, { passive: false });
+  // Mantener apretado 1,2 s para borrar esta foto (Enter/Espacio: pide confirmación)
+  const del = $("#vw-del", s.el);
+  if (del) {
+    let reloj = null;
+    const soltar = () => { clearTimeout(reloj); del.classList.remove("cargando"); };
+    const borrarActual = async conf => {
+      const f = fotos[i], idx = (getVehiculo(v.id)?.fotos || []).findIndex(x => x.url === f.url);
+      if (idx < 0) return;
+      if (!conf && !(await confirmar({ title: "¿Quitar esta foto?", message: "Se quita del vehículo y del PDF.", ok: "Quitar", danger: true }))) return;
+      quitarAdjunto(getVehiculo(v.id), "fotos", idx, true);
+      navigator.vibrate?.([15, 40, 15]);
+      fotos.splice(i, 1);
+      if (!fotos.length) return s.close();
+      i = Math.min(i, fotos.length - 1); show(1);
+      toast("Foto eliminada");
+    };
+    del.addEventListener("pointerdown", e => {
+      e.preventDefault(); del.setPointerCapture?.(e.pointerId);
+      del.classList.add("cargando"); navigator.vibrate?.(8);
+      reloj = setTimeout(() => { soltar(); borrarActual(true); }, 1200);
+    });
+    ["pointerup", "pointercancel", "lostpointercapture"].forEach(ev => del.addEventListener(ev, soltar));
+    del.addEventListener("contextmenu", e => e.preventDefault());
+    del.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); borrarActual(false); } });
+  }
   // Tocar la foto: se abre a pantalla completa con zoom
   img.addEventListener("click", () => { if (!deslizo) zoomFoto(grande(fotos[i].url, 2400, fotos[i].rot), img.src); deslizo = false; });
   const vwAdd = $("#vw-add", s.el);
@@ -1363,9 +1410,7 @@ export function vistaFormulario(view, id = null) {
         </fieldset>
         <div class="vform-der">
         <fieldset class="card vform-map">
-          <legend class="leg-flex"><span>Paños afectados</span>
-            <button type="button" class="btn btn-ghost btn-sm vista-btn" id="f-vista">3D</button></legend>
-          <div class="vista-3d" id="f-3d" hidden></div>
+          <legend class="leg-flex"><span>Paños afectados</span></legend>
           <div class="map-wrap">
             ${carMapSVG(piezas, { editable: true })}
             <div class="pieza-chips"></div>
@@ -1410,22 +1455,6 @@ export function vistaFormulario(view, id = null) {
 
   const form = $("#vform", view);
   const mapa = montarMapa($(".vform-map", view), piezas);
-  let vista3d = null;
-  $("#f-vista", view).addEventListener("click", async e => {
-    const b = e.currentTarget, caja = $("#f-3d", view), en3d = caja.hidden;
-    caja.hidden = !en3d;
-    $(".vform-map .carmap", view).style.display = en3d ? "none" : "";
-    b.textContent = en3d ? "2D" : "3D";
-    if (en3d) {
-      caja.innerHTML = `<div class="skeleton" style="height:280px"></div>`;
-      try {
-        vista3d = await montar3D(caja, piezas, {
-          editable: true,
-          alTocar: k => { piezas[k] = !piezas[k]; vista3d?.pintar(piezas); mapa.refrescar(); }
-        });
-      } catch (err) { caja.innerHTML = `<p class="muted small center">${esc(err.message)}</p>`; }
-    }
-  });
   let grado = v?.grado || null;
   $("#grado", view).addEventListener("click", e => {
     const b = e.target.closest("[data-g]"); if (!b) return;

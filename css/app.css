@@ -535,7 +535,7 @@ body[data-ruta="vehiculos"] .toasts, body[data-ruta="planilla"] .toasts, body[da
 
 /* ── Calendario ───────────────────────────────────────────── */
 .cal-page { display: grid; gap: 16px; padding-bottom: 16px; }
-@media (min-width: 1100px) { .cal-page { grid-template-columns: 1fr 360px; align-items: start; } .cal-day { position: sticky; top: calc(var(--top) + 16px); } }
+@media (min-width: 1100px) { .cal-page { grid-template-columns: 360px 1fr; align-items: start; } .cal-day { order: -1; position: sticky; top: calc(var(--top) + 16px); } }   /* lista del día a la izquierda */
 .cal { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); padding: 14px; display: flex; flex-direction: column; gap: 12px; }
 .cal-head { display: flex; align-items: center; gap: 4px; }
 .cal-head h2 { flex: 1; text-align: center; text-transform: capitalize; font-size: 19px; }
@@ -1418,7 +1418,7 @@ body[data-lector-uno="1"] .tabbar, body[data-lector-uno="1"] .side-nav, body[dat
 .fijos-est-fila label { display: flex; flex-direction: column; gap: 2px; }
 .fijos-est-fila input { min-width: 0; max-width: 150px; }
 .fijos-est-fila input { max-width: none; width: 100%; }
-.firma-autor { margin: -6px 0 0; font-size: 11px; color: var(--muted); opacity: .8; }
+.firma-autor { margin: 4px 0 0; line-height: 1.5; font-size: 11px; color: var(--muted); opacity: .8; }
 .login-tema { position: fixed; right: max(16px, env(safe-area-inset-right)); bottom: max(16px, env(safe-area-inset-bottom)); z-index: 5; background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow); }
 /* Aviso de versión nueva: botón redondo que se mueve */
 .update-pop { position: fixed; z-index: 85; top: calc(var(--safe-t) + var(--top) + 10px); right: 14px; width: 44px; height: 44px; border-radius: 50%; border: 0; cursor: pointer;
@@ -1628,12 +1628,12 @@ a.g-bar-fijo { text-decoration: none; color: inherit; }
 @media (min-width: 1100px) { body[data-ruta="calendario"] .view { max-width: none; } }
 /* Computadora: detalle más compacto para que entre sin desplazar */
 @media (min-width: 1100px) {
-  .split-on .pane-detail .detail { gap: 9px; padding-bottom: 8px; }
-  .split-on .pane-detail .d-sec { padding: 12px 14px; gap: 9px; }
-  .split-on .pane-detail .d-cover { width: 112px; height: 112px; }
-  .split-on .pane-detail .d-head { padding: 2px 2px 0; }
-  .split-on .pane-detail .d-piezas .carmap-sm { max-width: 92px; }
-  .split-on .pane-detail .d-foot { padding: 0 2px; }
+  :is(.split-on, .cal-page) .pane-detail .detail { gap: 9px; padding-bottom: 8px; }
+  :is(.split-on, .cal-page) .pane-detail .d-sec { padding: 12px 14px; gap: 9px; }
+  :is(.split-on, .cal-page) .pane-detail .d-cover { width: 112px; height: 112px; }
+  :is(.split-on, .cal-page) .pane-detail .d-head { padding: 2px 2px 0; }
+  :is(.split-on, .cal-page) .pane-detail .d-piezas .carmap-sm { max-width: 92px; }
+  :is(.split-on, .cal-page) .pane-detail .d-foot { padding: 0 2px; }
 }
 /* Opciones con color: tinte suave en vez de la rayita, y transición suave al elegir */
 .fo-seg .fo-op[style]::after { display: none; }
@@ -1666,7 +1666,7 @@ a.g-bar-fijo { text-decoration: none; color: inherit; }
 .view.anim-push { animation: anim-push .3s cubic-bezier(.2,.8,.2,1); }
 .view.anim-pop { animation: anim-pop .28s cubic-bezier(.2,.8,.2,1); }
 .view.anim-sube { animation: anim-sube .34s cubic-bezier(.2,.8,.2,1); }
-.view.anim-fade, .pane-detail.anim-fade { animation: anim-fade .25s ease-out; }
+.view.anim-fade, .pane-detail.anim-fade, .cal.anim-fade { animation: anim-fade .25s ease-out; }
 /* Pestañas: el ícono de la elegida da un saltito */
 @keyframes tab-salto { 0% { transform: scale(1); } 40% { transform: scale(1.18) translateY(-2px); } 100% { transform: scale(1); } }
 .tabbar a .ic, #tab-planilla .ic { transition: color .2s, transform .2s; }
@@ -1717,3 +1717,211 @@ a.g-bar-fijo { text-decoration: none; color: inherit; }
 @media (prefers-reduced-motion: reduce) { .sp-auto, .sp-ruta, .sp-vel, .sp-marca span { animation: none; } .sp-marca { animation: sp-marca .5s forwards; } }
 /* La animación de pestañas desplaza la pantalla de costado: que no genere desplazamiento horizontal (eso hacía saltar la vista) */
 html, body, .main { overflow-x: clip; }
+
+
+/* ══════════════════════════════════════════════════════════
+   Tester: pulido visual (estilo chapisteriaomar.com, paleta azul)
+   ══════════════════════════════════════════════════════════ */
+:root {
+  --font: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --ease: cubic-bezier(.2,.7,.2,1);
+  --card-bg: rgba(255,255,255,.72); --edge: rgba(14,27,44,.1); --r-lg: 18px;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --card-bg: rgba(255,255,255,.045); --edge: rgba(255,255,255,.1); } }
+:root[data-theme="dark"] { --card-bg: rgba(255,255,255,.045); --edge: rgba(255,255,255,.1); }
+h1, h2 { letter-spacing: -.03em; }
+h3 { letter-spacing: -.015em; }
+
+
+/* Vidrio: barras y paneles con desenfoque; tarjetas translúcidas */
+.topbar, .tabbar, .side, .sheet {
+  background: color-mix(in srgb, var(--surface) 64%, transparent);
+  -webkit-backdrop-filter: blur(18px) saturate(140%); backdrop-filter: blur(18px) saturate(140%);
+  border-color: var(--edge);
+}
+@media (min-width: 900px) { .topbar { background: color-mix(in srgb, var(--bg) 55%, transparent); } }
+@media (display-mode: standalone) { .topbar { background: var(--bg); -webkit-backdrop-filter: none; backdrop-filter: none; } }
+/* shortcut: tarjetas sin backdrop-filter (con cientos en la lista el celular se traba); sumarlo si se ve pobre */
+.card, .d-sec, .vcard { background-color: var(--card-bg); border-color: var(--edge); }
+.sheet-backdrop { -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); }
+.sheet { transition-timing-function: var(--ease); }
+
+/* Botones píldora con brillo */
+.btn { border-radius: 999px; transition: background .2s var(--ease), border-color .2s var(--ease), box-shadow .25s var(--ease), transform .1s; }
+.btn-primary:hover { box-shadow: 0 0 26px color-mix(in srgb, var(--btn) 50%, transparent); }
+.btn-ghost:hover { border-color: var(--primary); }
+.field input, .field textarea, .field select, select, .money-in { border-radius: 12px; }
+.tabbar a.on .ic { filter: drop-shadow(0 0 8px color-mix(in srgb, var(--primary) 60%, transparent)); }
+
+/* Glow alrededor del mouse en toda la app (solo con mouse) */
+@media (hover: hover) and (pointer: fine) {
+  .glow-mouse { position: fixed; left: -280px; top: -280px; width: 560px; height: 560px; z-index: 9000; pointer-events: none; opacity: 0;
+    border-radius: 50%; background: radial-gradient(closest-side, color-mix(in srgb, var(--primary) 12%, transparent), transparent); transition: opacity .3s; will-change: transform; }
+}
+
+/* Intro: aurora azul, logo y nombre que entran desenfocados; al terminar se abre un agujero desde el centro */
+@property --hole { syntax: "<percentage>"; inherits: false; initial-value: 0%; }
+.splash.intro { overflow: hidden; gap: 10px; color: var(--ink); }
+.aurora { position: absolute; inset: 0; z-index: -1; }
+.aurora i { position: absolute; width: 55vmax; height: 45vmax; border-radius: 50%; filter: blur(70px) saturate(130%); opacity: .5; animation: aurora 16s ease-in-out infinite alternate; }
+.aurora i:nth-child(1) { background: #2b5ce6; left: -15vmax; top: -10vmax; }
+.aurora i:nth-child(2) { background: #5c86ff; right: -18vmax; top: 10vh; animation-duration: 19s; }
+.aurora i:nth-child(3) { background: #0e1b2c; left: 10vw; bottom: -20vmax; animation-duration: 14s; }
+.aurora i:nth-child(4) { background: #cfe0ff; right: 5vw; bottom: -15vmax; opacity: .22; animation-duration: 20s; }
+@keyframes aurora { to { transform: translate(6vmax, 4vmax) scale(1.15); } }
+.splash.intro .intro-logo { width: 84px; height: 84px; object-fit: contain; border-radius: 0; animation: blur-in 1.2s var(--ease) both; }
+.intro-nombre { font-size: 30px; font-weight: 700; letter-spacing: -.04em; animation: blur-in 1s .25s var(--ease) both; }
+.intro-sub { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: var(--primary); animation: blur-in 1s .45s var(--ease) both; }
+.intro-barra { width: 120px; height: 2px; margin-top: 18px; border-radius: 2px; overflow: hidden; background: color-mix(in srgb, var(--ink) 12%, transparent); position: relative; animation: blur-in 1s .6s var(--ease) both; }
+.intro-barra::after { content: ""; position: absolute; inset: 0; width: 40%; border-radius: 2px; background: var(--primary); animation: intro-barra 1.2s var(--ease) infinite; }
+@keyframes intro-barra { from { transform: translateX(-100%); } to { transform: translateX(260%); } }
+@keyframes blur-in { from { opacity: 0; filter: blur(12px); transform: translateY(-.2em); } to { opacity: 1; filter: none; transform: none; } }
+.splash.abre { pointer-events: none; animation: abre 1s var(--ease) forwards;
+  -webkit-mask: radial-gradient(circle at 50% 50%, transparent var(--hole), #000 calc(var(--hole) + 8%));
+  mask: radial-gradient(circle at 50% 50%, transparent var(--hole), #000 calc(var(--hole) + 8%)); }
+.splash.abre > :not(.aurora) { transition: filter .5s, opacity .5s; filter: blur(14px); opacity: 0; }
+@keyframes abre { to { --hole: 150%; } }
+
+/* Blur Text: palabras que entran desenfocadas */
+.bw { animation: blur-txt .8s calc(var(--i) * 40ms) var(--ease) both; }
+@keyframes blur-txt { from { opacity: 0; filter: blur(10px); } to { opacity: 1; filter: none; } }
+
+/* Fade Content: velo desenfocado que se disipa al cambiar de pantalla (no se toca .view: tiene botones fijos adentro) */
+.velo-cambio { position: fixed; z-index: 15; inset: calc(var(--top) + var(--safe-t)) 0 0 0; pointer-events: none;
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); animation: velo .45s var(--ease) forwards; }
+@media (min-width: 900px) { .velo-cambio { left: var(--side); } }
+@keyframes velo { to { opacity: 0; } }
+.view.anim-der, .view.anim-izq, .view.anim-push, .view.anim-pop, .view.anim-sube, .view.anim-op { animation-duration: .45s; animation-timing-function: var(--ease); }
+
+/* Scroll suave (Lenis) */
+html.lenis, html.lenis body { height: auto; }
+.lenis.lenis-stopped { overflow: clip; }
+
+/* Botones de seguimiento */
+.step .dot { transition: background .35s var(--ease), border-color .35s var(--ease), box-shadow .35s var(--ease), transform .2s var(--ease); }
+@media (hover: hover) { .step:hover .dot { transform: translateY(-2px) scale(1.06); } }
+.step:active .dot { transform: scale(.9); }
+.step-l { transition: color .3s var(--ease); }
+.step.now:not(.recien):not(.toca) .dot { animation: step-latido 2.4s ease-in-out infinite; }
+@keyframes step-latido { 50% { box-shadow: 0 0 0 9px color-mix(in srgb, var(--c) 12%, transparent); } }
+.est { transition: background .25s var(--ease), border-color .25s var(--ease), transform .15s var(--ease); }
+.est:active { transform: scale(.95); }
+
+/* Mapa de carrocería: color y contorno con transición, pulso breve al tocar, nombre legible */
+.carmap .panel rect { transition: fill .3s var(--ease), stroke .3s var(--ease), stroke-width .2s var(--ease); transform-box: fill-box; transform-origin: center; }
+.carmap .panel.pulso rect { animation: pz-pulso .32s var(--ease); }
+@keyframes pz-pulso { 40% { transform: scale(.9); filter: brightness(1.25); } }
+.carmap .panel.tocado rect { stroke: var(--primary); stroke-width: 3; }
+.carmap .panel.on.tocado rect { stroke: var(--ink); }
+.piezas-caption strong { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 15px;
+  background: var(--primary-soft); color: var(--primary); animation: blur-txt .35s var(--ease); }
+.chip { transition: background .25s var(--ease), border-color .25s var(--ease), color .25s var(--ease); }
+
+/* Visor de fotos: carrusel con profundidad */
+.viewer-foto.depth { perspective: 1200px; overflow: hidden; }
+.viewer-foto.depth #vw-img, .viewer-foto.depth #vw-vid { position: relative; z-index: 1; width: auto; max-width: 78%; margin: 0 auto; }
+.viewer .vw-lado { position: absolute; top: 50%; z-index: 0; width: 46% !important; height: 60% !important; max-height: none; object-fit: cover;
+  border-radius: 14px; opacity: .4; filter: blur(2px); pointer-events: none; cursor: default; }
+.vw-ant { left: 0; transform: translate(-38%, -50%) rotateY(35deg) scale(.82); }
+.vw-sig { right: 0; transform: translate(38%, -50%) rotateY(-35deg) scale(.82); }
+@media (max-width: 699px) { .viewer-foto.depth #vw-img, .viewer-foto.depth #vw-vid { max-width: 84%; } }
+.dc-sig { animation: dc-sig .45s var(--ease); }
+.dc-ant { animation: dc-ant .45s var(--ease); }
+@keyframes dc-sig { from { transform: translateX(35%) rotateY(-30deg) scale(.82); filter: blur(4px); opacity: .4; } }
+@keyframes dc-ant { from { transform: translateX(-35%) rotateY(30deg) scale(.82); filter: blur(4px); opacity: .4; } }
+
+/* Mantener para borrar (Hold Button) */
+.vw-centro { flex: 1; display: flex; align-items: center; justify-content: center; gap: 10px; min-width: 0; }
+.viewer-bar .vw-centro #vw-n { flex: 0 1 auto; }
+.hold-del { position: relative; width: 36px; height: 36px; padding: 0; border-radius: 50%; border: 0; background: none; color: var(--muted); display: grid; place-items: center;
+  -webkit-touch-callout: none; user-select: none; touch-action: none; transition: color .2s var(--ease), transform .15s var(--ease); }
+.hold-del .ic { width: 17px; height: 17px; }
+.hold-del svg.anillo { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); fill: none; stroke-width: 2; }
+.hold-del .anillo circle { stroke: var(--danger); stroke-dasharray: 100; stroke-dashoffset: 100; transition: stroke-dashoffset .25s var(--ease); }
+.hold-del .anillo .base { stroke: var(--line-2); stroke-dashoffset: 0; }
+.hold-del.cargando { color: var(--danger); transform: scale(1.08); }
+.hold-del.cargando .anillo circle:not(.base) { stroke-dashoffset: 0; transition: stroke-dashoffset 1.2s linear; }
+
+@media (prefers-reduced-motion: reduce) {
+  .aurora i, .intro-barra::after, .bw, .velo-cambio, .step .dot, .carmap .panel rect, .dc-sig, .dc-ant { animation: none !important; }
+}
+
+/* Vehículo elegido: glow en vez de contorno */
+.vcard.sel { border-color: var(--edge); box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary) 35%, transparent), 0 0 26px color-mix(in srgb, var(--primary) 32%, transparent); }
+.vcard { -webkit-tap-highlight-color: transparent; transition: box-shadow .3s var(--ease), border-color .3s var(--ease); }
+.vcard:focus:not(:focus-visible) { outline: none; }
+/* Calendario: el "+N" no se recorta */
+.cd-ev i.more { overflow: visible; text-overflow: clip; flex-shrink: 0; padding: 0 2px; line-height: 1.25; }
+/* Visor: menos transparente */
+.sheet.sheet-visor { background: color-mix(in srgb, var(--surface) 94%, transparent); }
+/* Mantener para borrar: el anillo rojo solo aparece al apretar */
+.hold-del .anillo circle:not(.base) { opacity: 0; }
+.hold-del.cargando .anillo circle:not(.base) { opacity: 1; }
+/* Calendario: el "+N" como etiqueta, separado del borde */
+.cd-ev i.more { padding: 1px 5px; margin: 1px 0 0 1px; align-self: flex-start; border-radius: 6px; font-size: 10.5px; font-weight: 700;
+  color: var(--ink-2); background: color-mix(in srgb, var(--ink) 9%, transparent); }
+@media (max-width: 600px) { .cd-ev i.more { font-size: 10px; padding: 0 4px; margin: 0; } }
+/* Lista de vehículos (computadora): aire para que el glow del elegido no se corte */
+.split-on .pane-list { padding: 8px 10px 8px 10px; margin: -8px -10px; }
+/* Menús y hojas: más opacos y con más desenfoque */
+.sheet { background: color-mix(in srgb, var(--surface) 86%, transparent); -webkit-backdrop-filter: blur(28px) saturate(150%); backdrop-filter: blur(28px) saturate(150%); }
+/* Calendario: las patentes de cada día entran sin cortarse (Inter es más ancha que Archivo) */
+@media (min-width: 601px) { .cd-ev i:not(.more) { font-size: 9.5px; letter-spacing: -.01em; padding: 1px 3px; } }
+/* Animación de actualización (Scroll Expand): la app se oscurece y una ventana con la aurora crece hasta llenar la pantalla */
+.expande { position: fixed; inset: 0; z-index: 400; pointer-events: none; overflow: hidden;
+  background: color-mix(in srgb, var(--bg) 55%, transparent); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  animation: hiper-in .45s var(--ease) both; transition: opacity .5s var(--ease); }
+.expande.sale { opacity: 0; }
+@keyframes hiper-in { from { opacity: 0; } }
+.ex-media { position: absolute; left: 50%; top: 50%; border-radius: 50%; opacity: 0;
+  background: radial-gradient(closest-side, #1d3a6e, #12223a 45%, rgb(14 14 16 / .85) 72%, transparent); }
+/* sin filter: blur, que al escalar en pantallas grandes deja ver el borde rectangular de la capa; el degradé ya difumina */
+.ex-logo { position: absolute; left: 50%; top: 50%; width: min(220px, 56vw); aspect-ratio: 470 / 380; translate: -50% -50%; overflow: visible;
+  fill: none; stroke: var(--ink); stroke-width: 15; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 1; stroke-dashoffset: 1;
+  filter: drop-shadow(0 0 12px color-mix(in srgb, var(--primary) 70%, transparent)); }
+/* Login de vidrio sobre la aurora de la intro (así la intro pasa al login sin corte) */
+.login-art { z-index: 0; overflow: hidden; }
+.login-art .aurora { z-index: 0; }
+.login-art .aurora i { opacity: .38; }
+.login-card { background: color-mix(in srgb, var(--surface) 42%, transparent); border: 1px solid var(--edge);
+  -webkit-backdrop-filter: blur(24px) saturate(150%); backdrop-filter: blur(24px) saturate(150%); }
+/* Botón de filtros: fondo propio de vidrio para que no se mezcle con el texto que pasa por detrás */
+.filtro-btn { background: color-mix(in srgb, var(--surface) 88%, transparent); -webkit-backdrop-filter: blur(24px); backdrop-filter: blur(24px); border: 1px solid var(--edge); }
+/* En el celular no hay glow del mouse: luz suave fija en el fondo */
+@media (hover: none) {
+  body::before { content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+    background: radial-gradient(70vmax 50vmax at 0% 0%, color-mix(in srgb, var(--primary) 16%, transparent), transparent 60%),
+      radial-gradient(60vmax 45vmax at 100% 100%, color-mix(in srgb, var(--primary) 10%, transparent), transparent 60%); }
+}
+/* App instalada: mientras se dibuja el logo, la intro muestra solo la aurora */
+.splash.solo-aurora > :not(.aurora) { visibility: hidden; }
+/* Al abrir: la aurora de la intro más tenue, así no hay salto fuerte de azul al modo oscuro */
+.splash.solo-aurora .aurora i { opacity: .22; }
+/* Computadora: el vehículo abierto en el calendario se desplaza solo en su panel */
+@media (min-width: 1100px) { body[data-ruta="calendario"] .cal-page .pane-detail { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding-right: 4px; } }
+/* Contactar: el teléfono suena al abrir, el menú se despliega con resorte desde el botón y las opciones entran escalonadas; al cerrar sale al revés */
+.d-contacto > .btn[aria-expanded="true"] { background: var(--primary-soft); color: var(--primary); }
+.d-contacto > .btn[aria-expanded="true"] .ic { animation: tel-suena .5s ease-in-out; }
+@keyframes tel-suena { 0%, 100% { transform: none; } 20%, 60% { transform: rotate(-14deg); } 40%, 80% { transform: rotate(14deg); } }
+.d-menu:not([hidden]) { transform-origin: top center; animation: menu-abre .32s cubic-bezier(.34, 1.4, .64, 1) both; }
+.d-menu:not([hidden]) a { animation: menu-item .3s var(--ease) both; }
+.d-menu:not([hidden]) a:nth-child(2) { animation-delay: .06s; }
+.d-menu.sale { animation: menu-cierra .18s ease-in both; }
+.d-menu a .ic { transition: transform .2s var(--ease); }
+.d-menu a:hover .ic { transform: scale(1.15); }
+.menu-velo { animation: velo-in .25s ease-out both; transition: opacity .18s; }
+.menu-velo.sale { opacity: 0; }
+@keyframes menu-abre { from { opacity: 0; transform: translateY(-8px) scale(.92); filter: blur(4px); } }
+@keyframes menu-cierra { to { opacity: 0; transform: translateY(-6px) scale(.95); filter: blur(3px); } }
+@keyframes menu-item { from { opacity: 0; transform: translateY(-6px); } }
+@keyframes velo-in { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .d-menu, .d-menu a, .menu-velo, .d-contacto .ic { animation: none !important; } }
+/* Botón + flotante de vidrio: azul translúcido con desenfoque y borde claro, como el resto de la app */
+.fab { color: #fff;
+  background: color-mix(in srgb, var(--primary) 90%, transparent);
+  -webkit-backdrop-filter: blur(16px) saturate(160%); backdrop-filter: blur(16px) saturate(160%);
+  border: 0;
+  box-shadow: 0 0 22px 2px color-mix(in srgb, var(--primary) 55%, transparent), 0 10px 24px -6px color-mix(in srgb, var(--primary) 65%, transparent); }
+/* Blobatar */
+.avatar.con-blob { background: none; }
+.avatar.con-blob svg { width: 100%; height: 100%; display: block; }

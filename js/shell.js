@@ -1,5 +1,5 @@
 import { S } from "./data.js";
-import { $, $$, esc, icon, initials } from "./ui.js";
+import { $, $$, esc, icon, avatarUsuario } from "./ui.js";
 import { ROLES } from "./domain.js";
 import { avatar } from "./media.js";
 import { pintarCampana } from "./notificaciones.js";
@@ -47,7 +47,7 @@ export function pintarLateral() {
   $("#company-role").textContent = S.invitado ? `Solo lectura · ${S.invitado.compania}` : c ? `${ROLES[c.roles?.[S.user.uid]]?.label || "Miembro"} · ${c.members.length} ${c.members.length === 1 ? "persona" : "personas"}` : "";
   const p = S.profile || {};
   $("#side-user").innerHTML = `
-    <span class="avatar">${esc(initials(p.name))}</span>
+    ${avatarUsuario(p.username, p.name)}
     <span class="side-user-meta"><strong>${esc(p.name || "")}</strong><small>${S.invitado ? "Solo lectura" : "@" + esc(p.username || "")}</small></span>
     ${S.invitado ? `<button class="icon-btn sm" data-tema-lector aria-label="Modo claro / oscuro" title="Modo claro / oscuro">${ICONO_TEMA}</button>` : ""}`;
 }

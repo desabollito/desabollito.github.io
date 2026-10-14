@@ -1,13 +1,13 @@
 import {
   S, activos, papelera, restaurar, eliminarDefinitivo, soyAdmin, miRol, renombrarEmpresa, guardarSello,
   agregarMiembro, cambiarRol, quitarMiembro, guardarEtiquetas, resolverSolicitud, desvincularWhatsApp, salirDeEmpresa, eliminarEmpresa, crearEmpresa, elegirEmpresa,
-  actualizarPerfil, salir, mensajeError, llamarAdmin, soloDesmontaje, pedirUnion, linksCompartidos
+  actualizarPerfil, salir, mensajeError, llamarAdmin, soloDesmontaje, pedirUnion, linksCompartidos, getVehiculo
 } from "./data.js";
 import { cargarExcelJS } from "./excel.js";
 import { ESTADOS, ESTADO, ROLES, estadoActual } from "./domain.js";
 import {
   $, $$, esc, money, fechaCorta, fechaLarga, hoyISO, plate, estadoPill, icon, toast, openSheet, confirmar,
-  pedirTexto, busy, debounce, initials, tsToISO, elegirDescarga, horaDe
+  pedirTexto, busy, debounce, avatarUsuario, tsToISO, elegirDescarga, horaDe
 } from "./ui.js";
 import { sonidosOn, setSonidos, sonidoNotif, ruidoMotor, SONIDOS_AUTO } from "./sonidos.js";
 import { imagenChica, avatar } from "./media.js";
@@ -16,6 +16,7 @@ import { planillaPDF } from "./pdf.js";
 import { exportarExcel } from "./excel.js";
 import { setTopbar, go, logoOperativo } from "./shell.js";
 import { APP_VERSION, WHATSAPP_BOT, BOT_API } from "./config.js";
+import { renderDetalle } from "./views-vehiculos.js";
 
 // ═════════════════════════════════════════════════════════════
 //  PLANILLA
@@ -183,8 +184,10 @@ function elegirDiaAuto() {
 }
 const MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
 
-export function vistaCalendario(view) {
-  setTopbar({ title: "Calendario", sub: S.company?.name });
+// Computadora: con selId, el vehículo tocado en la lista del día reemplaza al calendario (como en Vehículos)
+export function vistaCalendario(view, selId = null) {
+  const sel = selId ? getVehiculo(selId) : null;
+  setTopbar({ title: "Calendario", sub: S.company?.name, back: sel ? "#/calendario" : null });
   if (C.auto && !S.loadingVehicles) { C.auto = false; elegirDiaAuto(); }
   const iso = d => `${C.y}-${String(C.m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
   const sinConf = v => estadoActual(v) === "turnado" && !v.turnoConfirmado;
@@ -217,9 +220,10 @@ export function vistaCalendario(view) {
   const delDia = (C.dia ? (porDia[C.dia] || []) : []).slice().sort((a, b) => sinConf(b) - sinConf(a));
   const totalMes = Object.entries(porDia).filter(([k]) => k.startsWith(iso(1).slice(0, 7))).reduce((s, [, l]) => s + l.length, 0);
 
+  const scrollDia = $(".cal-day", view)?.scrollTop || 0;   // la lista del día no salta al abrir un vehículo
   view.innerHTML = `
   <div class="cal-page">
-    <section class="cal">
+    ${sel ? `<section class="pane-detail"></section>` : `<section class="cal">
       <div class="cal-head">
         <button class="icon-btn" id="prev" aria-label="Mes anterior">${icon("back")}</button>
         <h2>${MESES[C.m]} ${C.y}</h2>
@@ -232,7 +236,7 @@ export function vistaCalendario(view) {
       </div>
       <div class="cal-grid">${["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"].map(d => `<div class="cw">${d}</div>`).join("")}${celdas}</div>
       <p class="muted small">${totalMes} ${C.campo === "turnado" ? "turnos" : C.campo === "reparado" ? "reparaciones" : "peritajes"} en ${MESES[C.m]}.</p>
-    </section>
+    </section>`}
     <section class="cal-day">
       <h3>${C.dia ? fechaLarga(C.dia) : "Elegí un día"}</h3>
       ${C.dia ? (delDia.length ? `<div class="vlist compact">${delDia.map(v => `
@@ -245,6 +249,8 @@ export function vistaCalendario(view) {
     </section>
   </div>`;
 
+  $(".cal-day", view).scrollTop = scrollDia;
+  if (sel) { renderDetalle($(".pane-detail", view), sel, true); return; }
   $("#prev", view).onclick = () => { if (--C.m < 0) { C.m = 11; C.y--; } C.dia = null; vistaCalendario(view); };
   $("#next", view).onclick = () => { if (++C.m > 11) { C.m = 0; C.y++; } C.dia = null; vistaCalendario(view); };
   $("#hoy", view).onclick = () => { const d = new Date(); C.y = d.getFullYear(); C.m = d.getMonth(); C.dia = hoyISO(); vistaCalendario(view); };
@@ -279,7 +285,7 @@ export function vistaEmpresa(view) {
       <h3>Equipo <small class="muted">${miembros.length}</small></h3>
       <ul class="members">${miembros.map(m => `
         <li>
-          <span class="avatar">${esc(initials(m.name))}</span>
+          ${avatarUsuario(m.user, m.name)}
           <span class="m-meta">
             <strong>${esc(m.name)}${m.uid === S.user.uid ? " (vos)" : ""}</strong>
             <small>${m.user ? `@${esc(m.user)} · ` : ""}${ROLES[m.rol]?.label || m.rol}</small>
@@ -358,7 +364,7 @@ export function vistaEmpresa(view) {
       const q = inp.value.trim().toLowerCase().replace(/^@/, "");
       const l = todos.filter(u => !q || u.username.toLowerCase().includes(q) || u.name.toLowerCase().includes(q)).slice(0, 30);
       tira.innerHTML = l.length ? l.map(u => `<button type="button" class="usr-chip ${u.username.toLowerCase() === q ? "on" : ""}" data-u="${esc(u.username)}">
-          <span class="avatar sm">${esc(initials(u.name || u.username))}</span><span><strong>${esc(u.name || u.username)}</strong><small>@${esc(u.username)}</small></span></button>`).join("")
+          ${avatarUsuario(u.username, u.name, "sm")}<span><strong>${esc(u.name || u.username)}</strong><small>@${esc(u.username)}</small></span></button>`).join("")
         : `<span class="muted small">${todos.length ? "No hay coincidencias" : "No hay usuarios para sumar"}</span>`;
     };
     S.user.getIdToken().then(idToken => fetch(`${BOT_API}/usuarios-app`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ idToken, cid: c.id }) }))
@@ -526,7 +532,7 @@ export function vistaAjustes(view) {
     <section class="card profile">
       <button type="button" class="icon-btn aj-son" id="aj-sonidos"></button>
       <div class="profile-row">
-        <span class="avatar lg">${esc(initials(p.name))}</span>
+        ${avatarUsuario(p.username, p.name, "lg")}
         <div class="profile-meta"><h2>${esc(p.name)}</h2><p class="muted">@${esc(p.username)}</p>
           ${p.whatsapp ? `<p class="perfil-wa" title="WhatsApp vinculado al bot">${icon("chat")}+${esc(String(p.whatsapp).replace(/^(\d{2})(9)(\d{2})(\d{4})(\d{4})$/, "$1 $2 $3 $4-$5"))}</p>` : ""}</div>
       </div>
@@ -556,9 +562,12 @@ export function vistaAjustes(view) {
 
     <section class="card">
       <button class="btn btn-danger-ghost btn-block" id="salir">${icon("logout")}Cerrar sesión</button>
+      <p class="center firma-autor">Made in Argentina</p>
+    </section>
+
+    <section class="card">
       <p class="center"><button type="button" class="version-btn" onclick="window.dispatchEvent(new Event('forzar-actualizacion'))"
         title="Tocá para forzar la actualización">Desabollito ${APP_VERSION} ${icon("rotate")}</button></p>
-      <p class="center firma-autor">by @gzmatte</p>
       <details class="novedades-log"><summary>Novedades</summary>
         ${NOVEDADES.map(n => `<section><small class="muted">Versión ${esc(n.v)}</small><ul>${n.items.map(i => `<li>${esc(i)}</li>`).join("")}</ul></section>`).join("")}
       </details>

@@ -1,13 +1,13 @@
 import {
   S, onChange, iniciarSesion, ingresar, crearCuenta, mensajeError, elegirEmpresa
 } from "./data.js";
-import { ruidoMotor } from "./sonidos.js";
+import { cerrarSplash, veloCambio } from "./efectos.js";
 import { $, $$, esc, toast, busy, openSheet } from "./ui.js";
 import { FIREBASE, BOT_API } from "./config.js";
 import { iniciarFechas } from "./fecha.js";
 import { cuentaPendiente, salir, marcarOperativosVistos, soyCreador, crearEmpresa, pedirUnion, cancelarPedidoUnion, escucharMiPedido, responderPedidoUnion, soyDesmontaje, miRol, soyAdmin, getVehiculo, iniciarInvitado, soyLector, puedeVer } from "./data.js";
 import { marcarNav, pintarLateral, esAncho } from "./shell.js";
-import { vistaVehiculos, vistaDetalle, vistaFormulario, reiniciarVista3D, elegirVehiculoDesmontaje } from "./views-vehiculos.js";
+import { vistaVehiculos, vistaDetalle, vistaFormulario, elegirVehiculoDesmontaje } from "./views-vehiculos.js";
 import {
   vistaPlanilla, vistaCalendario, calendarioAlEntrar, reiniciarCalendario, vistaEmpresa, vistaAjustes, vistaPapelera, elegirEmpresaSheet, panelCreador
 } from "./views-otros.js";
@@ -35,7 +35,7 @@ function irAVehiculo(arg) {
 
 const RUTAS = [
   [/^#?\/?$/,               "vehiculos",  () => vistaVehiculos(view)],
-  [/^#\/v\/([\w-]+)$/,      "vehiculos",  id => esAncho() && !S.volverA && !S.invitado?.uno ? vistaVehiculos(view, id) : vistaDetalle(view, id)],
+  [/^#\/v\/([\w-]+)$/,      "vehiculos",  id => !esAncho() || S.invitado?.uno ? vistaDetalle(view, id) : S.volverA ? vistaCalendario(view, id) : vistaVehiculos(view, id)],
   [/^#\/o\/([\w-]+\/v\/[\w-]+)$/, "link", a => irAVehiculo(a.replace("/v/", "|"))],
   [/^#\/nuevo$/,            "nuevo",      () => vistaFormulario(view)],
   [/^#\/editar\/([\w-]+)$/, "editar",     id => vistaFormulario(view, id)],
@@ -73,7 +73,7 @@ function animarCambio(antes, ahora) {
   } else clase = ahora.arg || !(ahora.nombre in ORDEN_TAB) ? "anim-push" : "anim-pop";
   view.classList.remove("anim-sube", "anim-fade", "anim-push", "anim-pop", "anim-der", "anim-izq");
   void view.offsetWidth;
-  view.classList.add(clase);
+  view.classList.add(clase); veloCambio();
   view.addEventListener("animationend", () => view.classList.remove(clase), { once: true });
 }
 // Cambio de operativo: la pantalla entra con un zoom suave
@@ -129,9 +129,11 @@ function render({ conservarScroll = false, reabrir = false } = {}) {
   else if (hit[1] !== "editar") S.volverA = null;
   const y = conservarScroll && mismaRuta ? scrollY : 0;
   ruta = { nombre: hit[1], arg };
-  document.body.dataset.ruta = hit[1];
+  // Computadora: el vehículo abierto desde el calendario se ve dentro del calendario (vistaCalendario con selId)
+  const enCal = hit[1] === "vehiculos" && arg && S.volverA && esAncho() && !S.invitado?.uno;
+  document.body.dataset.ruta = enCal ? "calendario" : hit[1];
   document.body.dataset.detalle = hit[1] === "vehiculos" && arg ? "1" : "";
-  marcarNav(["nuevo", "editar", "operativo"].includes(hit[1]) ? "" : hit[1] === "papelera" ? "ajustes" : ["planilla", "gastos", "tecnicos", "fijos"].includes(hit[1]) ? "planillas" : hit[1]);
+  marcarNav(enCal ? "calendario" : ["nuevo", "editar", "operativo"].includes(hit[1]) ? "" : hit[1] === "papelera" ? "ajustes" : ["planilla", "gastos", "tecnicos", "fijos"].includes(hit[1]) ? "planillas" : hit[1]);
   pintarTabPlanilla(hit[1]);
   // Menú lateral (computadora): Planillas se despliega con sus 3 planillas
   const enPlan = ["planillas", "planilla", "gastos", "tecnicos", "fijos"].includes(hit[1]);
@@ -139,10 +141,13 @@ function render({ conservarScroll = false, reabrir = false } = {}) {
   $$(".side-sub a").forEach(a => a.classList.toggle("on", a.dataset.sub === hit[1]));
   $$(".side-sub [data-sub=tecnicos], .side-sub [data-sub=fijos], .side-sub [data-sub=gastos]").forEach(a => { a.hidden = !puedeVer(a.dataset.sub); });
   if (hit[1] === "calendario" && !mismaRuta) calendarioAlEntrar();
-  if (!mismaRuta) reiniciarVista3D(); // cada vez que se abre un vehículo, arranca en 2D
   ultimoRender = Date.now();
+  const eraCal = !!$(".cal-page", view);
   ctrl = hit[2](arg) || null;
-  if (!mismaRuta && !reabrir) animarCambio(previa, ruta);
+  // Computadora, calendario ↔ vehículo dentro del calendario: la lista del día queda quieta y solo se funde el panel de la derecha
+  const panel = eraCal && esAncho() && $(".cal-page > :first-child", view);
+  if (panel && !mismaRuta) panel.classList.add("anim-fade");
+  else if (!mismaRuta && !reabrir) animarCambio(previa, ruta);
   if (hit[1] === "vehiculos" && arg) S.ultimoVid = arg;
   // Último vehículo abierto: marcado en la lista y el calendario
   const marcar = () => { if (!S.ultimoVid) return null;
@@ -277,12 +282,6 @@ $("#login-form").addEventListener("submit", async e => {
 
 
 
-$("#login-tema").addEventListener("click", () => {
-  const t = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
-  document.documentElement.setAttribute("data-theme", t);
-  try { localStorage.setItem("temaLogin", t); } catch { /* sin almacenamiento */ }
-});
-
 // Olvidé mi contraseña: el bot manda un código por WhatsApp y con él se elige una nueva
 $("#olvide").addEventListener("click", () => {
   const api = (ruta, datos) => fetch(`${BOT_API}/${ruta}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(datos) })
@@ -324,13 +323,12 @@ if (FIREBASE.apiKey.startsWith("TU_")) {
 }
 const tokenVer = new URLSearchParams(location.search).get("ver");
 const alEntrar = (logueado, error) => {
-  $("#splash").hidden = true;
+  cerrarSplash();
   $("#login").hidden = logueado;
-  // Login: tema propio (claro por defecto); con sesión, el tema elegido en Ajustes (oscuro por defecto)
+  // Login y app: oscuro por defecto hasta que el usuario elija otro en Ajustes
   try {
     localStorage.setItem("sesion", logueado ? "1" : "0");
-    const t = localStorage.getItem(logueado ? "tema" : "temaLogin");
-    document.documentElement.setAttribute("data-theme", logueado ? (t === "light" ? "light" : "dark") : (t === "dark" ? "dark" : "light"));
+    document.documentElement.setAttribute("data-theme", localStorage.getItem("tema") === "light" ? "light" : "dark");
   } catch { /* sin almacenamiento */ }
   $("#shell").hidden = !logueado;
   if (!logueado) {
@@ -349,7 +347,7 @@ if (tokenVer) {
   // Link de solo lectura para un perito: sin login, solo ve los vehículos de su compañía
   document.body.dataset.lector = "1";
   iniciarInvitado(tokenVer, (ok, err) => {
-    $("#splash").hidden = true;
+    cerrarSplash();
     if (!ok) { $("#login").hidden = true; document.body.insertAdjacentHTML("beforeend", `<section class="espera"><div class="espera-caja"><img src="img/logo-oscuro.png" alt="" class="espera-logo"><h1>Link no disponible</h1><p>${esc(err?.message || "")}</p></div></section>`); return; }
     $("#login").hidden = true; $("#shell").hidden = false;
     if (S.invitado?.uno) document.body.dataset.lectorUno = "1";
@@ -394,38 +392,16 @@ function mostrarSegunAprobacion() {
 }
 
 // ── Actualizaciones ───────────────────────────────────────────
-// Al actualizar: un auto que acelera y cruza la pantalla, con ruido de motor (hecho con Web Audio, sin archivos)
-const AUTO_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5.6 16H4a1 1 0 0 1-1-1v-2.4c0-.6.4-1.1 1-1.3l2.4-.7 2.5-3A2 2 0 0 1 10.4 7h4.4a2 2 0 0 1 1.6.8l2.4 3.2 1.4.4c.8.2 1.3.9 1.3 1.7V15a1 1 0 0 1-1 1h-1.1M9.4 16h5.2"/><circle cx="7.5" cy="16" r="1.9"/><circle cx="16.5" cy="16" r="1.9"/></svg>`;
-// El botón se convierte en el auto: viaja hasta la izquierda, acelera en el lugar y cruza toda la pantalla
-function animacionActualizar(boton = null) {
-  ruidoMotor(S.config?.sonidoAuto);
+// Al actualizar: aparece la intro (aurora, logo y nombre que entran desenfocados) y la app recarga;
+// al volver a abrir se dibuja el logo. La intro queda puesta hasta que la página recarga (siempre recarga: forzar-actualizacion).
+function animacionActualizar() {
   if (matchMedia("(prefers-reduced-motion: reduce)").matches) return Promise.resolve();
-  const capa = document.createElement("div");
-  capa.className = "arranque";
-  capa.innerHTML = `<div class="arranque-auto"><i class="arranque-estela"></i><i class="arranque-lineas"></i><i class="arranque-humo"></i>${AUTO_SVG}</div>`;
-  document.body.appendChild(capa);
-  const auto = capa.firstElementChild, T = 84;   // tamaño del auto
-  const y = innerHeight * 0.45 - T / 2, x0 = 24;
-  // Arranca donde está el botón (del mismo tamaño) y crece hasta el auto
-  const r = boton?.getBoundingClientRect();
-  const ini = r ? `translate(${r.left + r.width / 2 - T / 2}px, ${r.top + r.height / 2 - T / 2}px) scale(${r.width / T})` : `translate(${-T - 20}px, ${y}px)`;
-  if (boton) boton.classList.add("se-va");
-  const fin = `translate(${innerWidth + T + 60}px, ${y}px)`;
-  const a = auto.animate([
-    { transform: ini, offset: 0 },
-    { transform: `translate(${x0}px, ${y}px) scale(1)`, offset: 0.24, easing: "ease-in-out" },
-    { transform: `translate(${x0 - 3}px, ${y + 1}px) rotate(-3deg)`, offset: 0.3 },
-    { transform: `translate(${x0 + 2}px, ${y - 1}px) rotate(2deg)`, offset: 0.36 },
-    { transform: `translate(${x0 - 3}px, ${y + 1}px) rotate(-3deg)`, offset: 0.42 },
-    { transform: `translate(${x0 - 8}px, ${y}px) rotate(-6deg)`, offset: 0.5, easing: "cubic-bezier(.6,0,.85,.4)" },
-    { transform: fin, offset: 1 }
-  ], { duration: 1700, fill: "forwards" });
-  capa.classList.add("en-marcha");
-  return a.finished.catch(() => {}).then(() => capa.remove());
+  const sp = $("#splash"); sp.classList.remove("abre", "solo-aurora"); sp.hidden = false;   // al mostrarse, sus animaciones arrancan de nuevo
+  $(".intro-sub", sp).textContent = "Actualizando";
+  return new Promise(r => setTimeout(r, 1300));   // que se alcance a ver la intro antes de recargar
 }
 if (/[?&]act=\d+/.test(location.search)) history.replaceState(null, "", location.pathname + location.hash);
 addEventListener("forzar-actualizacion", async () => {
-  toast("Actualizando a la última versión…");
   await animacionActualizar();
   try {
     const keys = await caches.keys();
@@ -438,43 +414,16 @@ addEventListener("forzar-actualizacion", async () => {
 
 // Si se publica una versión nueva mientras la app está abierta, aparece un aviso.
 if ("serviceWorker" in navigator) {
-  // Solo se recarga cuando el usuario tocó "Actualizar" (ni en la primera visita
-  // ni cuando la versión nueva se activa sola al abrir la app).
-  let recargarAlCambiar = false;
-  navigator.serviceWorker.addEventListener("controllerchange", () => {
-    if (!recargarAlCambiar) return;
-    recargarAlCambiar = false;
-    location.reload();
-  });
-
   // Versión nueva: un botón redondo arriba a la derecha que se mueve; al tocarlo se actualiza y se muestran las novedades
-  const avisar = sw => {
+  const avisar = () => {
     if ($("#update-bar")) return;
     const bar = document.createElement("button");
     bar.type = "button"; bar.id = "update-bar"; bar.className = "update-pop";
     bar.setAttribute("aria-label", "Hay una versión nueva: tocá para actualizar"); bar.title = "Versión nueva";
     bar.innerHTML = `<span class="pop-auto"><i class="pop-lineas"></i><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5.6 16H4a1 1 0 0 1-1-1v-2.4c0-.6.4-1.1 1-1.3l2.4-.7 2.5-3A2 2 0 0 1 10.4 7h4.4a2 2 0 0 1 1.6.8l2.4 3.2 1.4.4c.8.2 1.3.9 1.3 1.7V15a1 1 0 0 1-1 1h-1.1M9.4 16h5.2"/><circle cx="7.5" cy="16" r="1.9"/><circle cx="16.5" cy="16" r="1.9"/></svg></span>`;
-    let tocado = false;
-    bar.onclick = async () => {
-      // Segundo toque (si no se actualizó solo): recarga directo
-      if (tocado) return location.reload();
-      tocado = true;
-      bar.classList.add("cargando");
-      await animacionActualizar(bar);
-      recargarAlCambiar = true; sw.postMessage("activar");
-      // 3 segundos después de la animación (si el navegador no recargó solo): vuelve el botón y el cartel
-      setTimeout(() => {
-        bar.classList.remove("se-va");
-        if ($(".update-hint")) return;
-        const hint = document.createElement("button");
-        hint.type = "button"; hint.className = "update-hint update-hint-pop";
-        hint.textContent = "Si no se actualiza, tocá de nuevo";
-        hint.onclick = () => location.reload();
-        document.body.appendChild(hint);
-        requestAnimationFrame(() => hint.classList.add("in"));
-      }, 3000);
-      setTimeout(() => location.reload(), 9000);   // por si el navegador no recarga solo
-    };
+    // Al tocarlo el botón se va (no queda encima de la intro) y se fuerza la actualización completa:
+    // se borran los cachés y el service worker y la página recarga sola, sin tener que tocar de nuevo.
+    bar.onclick = () => { bar.remove(); dispatchEvent(new Event("forzar-actualizacion")); };
     document.body.appendChild(bar);
     requestAnimationFrame(() => bar.classList.add("in"));
   };
@@ -488,7 +437,7 @@ if ("serviceWorker" in navigator) {
       reg.addEventListener("updatefound", () => {
         const nuevo = reg.installing;
         nuevo?.addEventListener("statechange", () => {
-          if (nuevo.state === "installed" && navigator.serviceWorker.controller) avisar(nuevo);
+          if (nuevo.state === "installed" && navigator.serviceWorker.controller) avisar();
         });
       });
 

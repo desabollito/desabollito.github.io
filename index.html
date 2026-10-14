@@ -9,10 +9,9 @@
       try {
         // Oscuro por defecto; el usuario lo cambia en Ajustes
         // Link de perito (?ver=): claro por defecto, con su propio botón para cambiarlo
-        // Pantalla de login (sin sesión): clara por defecto, con su propio botón
-        var lector = /[?&]ver=/.test(location.search), sesion = localStorage.getItem("sesion") === "1";
-        var t = localStorage.getItem(lector ? "temaLector" : sesion ? "tema" : "temaLogin");
-        document.documentElement.setAttribute("data-theme", (lector || !sesion) ? (t === "dark" ? "dark" : "light") : (t === "light" ? "light" : "dark"));
+        var lector = /[?&]ver=/.test(location.search);
+        var t = localStorage.getItem(lector ? "temaLector" : "tema");
+        document.documentElement.setAttribute("data-theme", lector ? (t === "dark" ? "dark" : "light") : (t === "light" ? "light" : "dark"));
       } catch (e) {}
       // La barra del sistema (hora, batería, isla) toma el color de fondo del tema: sin contenido ni desenfoque debajo
       var pintarBarra = function () {
@@ -53,7 +52,7 @@
   <link rel="manifest" href="manifest.json">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/app.css">
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
@@ -100,19 +99,17 @@
 </svg>
 
 <!-- Carga inicial -->
-<div id="splash" class="splash" aria-label="Cargando">
-  <div class="sp-escena">
-    <div class="sp-auto"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5.6 16H4a1 1 0 0 1-1-1v-2.4c0-.6.4-1.1 1-1.3l2.4-.7 2.5-3A2 2 0 0 1 10.4 7h4.4a2 2 0 0 1 1.6.8l2.4 3.2 1.4.4c.8.2 1.3.9 1.3 1.7V15a1 1 0 0 1-1 1h-1.1M9.4 16h5.2"/><circle class="sp-rueda" cx="7.5" cy="16" r="1.9"/><circle class="sp-rueda" cx="16.5" cy="16" r="1.9"/></svg></div>
-    <i class="sp-vel sp-v1"></i><i class="sp-vel sp-v2"></i><i class="sp-vel sp-v3"></i>
-    <div class="sp-ruta"></div>
-  </div>
-  <div class="sp-marca" aria-label="Desabollito"><span style="--i:0">D</span><span style="--i:1">e</span><span style="--i:2">s</span><span style="--i:3">a</span><span style="--i:4">b</span><span style="--i:5">o</span><span style="--i:6">l</span><span style="--i:7">l</span><span style="--i:8">i</span><span style="--i:9">t</span><span style="--i:10">o</span></div>
+<div id="splash" class="splash intro solo-aurora" role="status" aria-label="Cargando">
+  <div class="aurora" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+  <img class="intro-logo logo-on-light" src="img/logo-oscuro.png" alt=""><img class="intro-logo logo-on-dark" src="img/logo-claro.png" alt="">
+  <div class="intro-nombre">Desabollito</div>
+  <div class="intro-sub">Gestión de granizo</div>
+  <i class="intro-barra" aria-hidden="true"></i>
 </div>
 
 <!-- Ingreso -->
 <main id="login" class="login" hidden>
-  <button type="button" class="icon-btn login-tema" id="login-tema" aria-label="Modo claro / oscuro" title="Modo claro / oscuro"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor"/></svg></button>
-  <div class="login-art" aria-hidden="true"></div>
+  <div class="login-art" aria-hidden="true"><div class="aurora"><i></i><i></i><i></i><i></i></div></div>
   <section class="login-card">
     <img class="login-logo logo-on-light" src="img/logo-oscuro.png" alt=""><img class="login-logo logo-on-dark" src="img/logo-claro.png" alt="">
     <h1>Desabollito</h1>

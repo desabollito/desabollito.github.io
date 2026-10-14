@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "2.48.0", items: ["Nueva intro: el logo se dibuja por líneas al abrir la app; al actualizar, pantalla de «Actualizando» y recarga completa sola.", "Login y botones de vidrio, botón + con glow, avatares únicos para cada usuario.", "Computadora: en Calendario la lista del día va a la izquierda y el vehículo se abre en lugar del calendario.", "Contactar con animaciones; Ajustes con versión y novedades en su propia tarjeta."] },
   { v: "2.47.0", items: ["Transiciones al cambiar de pestaña y al abrir vehículos, y animación del botón +."] },
   { v: "2.46.13", items: ["Actualizar: el botón se convierte en un auto con brillo que arranca y cruza toda la pantalla."] },
   { v: "2.46.7", items: ["Filtrar y ordenar: nuevo orden (orden, compañías deslizables, grado, pintura, repuestos, turnos) y más compacto."] },
