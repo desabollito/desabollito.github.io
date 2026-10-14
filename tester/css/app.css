@@ -1925,3 +1925,4 @@ html.lenis, html.lenis body { height: auto; }
 /* Blobatar */
 .avatar.con-blob { background: none; }
 .avatar.con-blob svg { width: 100%; height: 100%; display: block; }
+.piezas-lados > div:only-child { grid-column: 1 / -1; }

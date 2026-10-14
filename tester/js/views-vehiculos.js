@@ -107,8 +107,8 @@ function piezasAgrupadas(v) {
   const [centro, izq, der] = GRUPOS_PIEZAS.map(g => g.filter(k => v.piezas?.[k]));
   return (centro.length ? listaPiezas(centro).replace('class="piezas-list"', 'class="piezas-list piezas-centro"') : "") +
     (izq.length || der.length ? `<div class="piezas-lados">
-      <div><small class="muted">Lado izquierdo</small>${izq.length ? listaPiezas(izq) : `<p class="muted small">—</p>`}</div>
-      <div><small class="muted">Lado derecho</small>${der.length ? listaPiezas(der) : `<p class="muted small">—</p>`}</div></div>` : "");
+      ${izq.length ? `<div><small class="muted">Lado izquierdo</small>${listaPiezas(izq)}</div>` : ""}
+      ${der.length ? `<div><small class="muted">Lado derecho</small>${listaPiezas(der)}</div>` : ""}</div>` : "");
 }
 
 // Fecha de las tarjetas: la del peritaje o la del último estado (se elige en Ordenar y se recuerda en este equipo)

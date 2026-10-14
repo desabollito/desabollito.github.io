@@ -1,4 +1,5 @@
 import { ESTADO, estadoActual } from "./domain.js";
+import { S } from "./data.js";
 
 export const $ = (sel, root = document) => root.querySelector(sel);
 export const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
@@ -216,10 +217,19 @@ export function marcarError(input) {
 export function avatarUsuario(usuario, nombre, cls = "") {
   return `<span class="avatar ${cls}" data-blob="${esc(usuario || nombre || "")}">${esc(initials(nombre || usuario || ""))}</span>`;
 }
+// Solo celestes y azules (tono OKLCH 195°–265°). Los del operativo se reparten en orden alfabético para no repetirse
+// (tono y claridad alternados); los de afuera caen en un lugar fijo según el nombre.
+function colorBlob(u) {
+  const lista = Object.values(S.company?.memberUsers || {}).filter(Boolean).map(x => x.toLowerCase()).sort();
+  let i = lista.indexOf(u), n = lista.length;
+  if (i < 0) { n = 12; i = [...u].reduce((a, c) => a * 31 + c.charCodeAt(0) >>> 0, 7) % n; }
+  return { hue: 195 + 70 * i / Math.max(n, 1), tone: [.3, .6, .85][i % 3] };
+}
 import("https://cdn.jsdelivr.net/npm/blobatar@2.7.0/+esm").then(({ blobatar }) => {
   const pintar = raiz => raiz.querySelectorAll("[data-blob]:not(.con-blob)").forEach(el => {
     if (!el.dataset.blob) return;
-    el.innerHTML = blobatar(el.dataset.blob.toLowerCase()); el.classList.add("con-blob");
+    const u = el.dataset.blob.toLowerCase();
+    el.innerHTML = blobatar(u, colorBlob(u)); el.classList.add("con-blob");
   });
   pintar(document);
   new MutationObserver(ms => ms.forEach(m => m.addedNodes.forEach(n => n.nodeType === 1 && pintar(n.parentNode || n))))
