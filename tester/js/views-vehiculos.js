@@ -716,13 +716,13 @@ function lotesDesm(v) {
 const fechaHora = t => { const d = new Date(t); return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`; };
 
 // ═════════════════ Check in / out ═════════════════
-// Basado en las planillas del taller, adaptado a sacabollos/PDR. Cada ítem es un interruptor; Elementos arranca sin marcar.
+// Basado en las planillas del taller, adaptado a sacabollos/PDR. Cada ítem arranca sin marcar: un toque = bien, otro = mal, otro = sin marcar.
 const CHECK = {
   in: [
     ["exterior", "Exterior", ["Bien", "Dañado"], ["Ópticas delanteras", "Ópticas traseras", "Tercer stop", "Espejos", "Parabrisas", "Luneta",
       "Vidrios laterales", "Colizas", "Antena", "Logos e insignias"]],
     ["interior", "Interior", ["Bien", "Dañado"], ["Pantalla", "Levantavidrios", "Cerraduras y manijas", "Tapizado de techo", "Luces de tablero"]],
-    ["elementos", "Elementos", ["Está", "Falta"], ["Auxilio", "Criquet y llave", "Matafuego", "Objetos de valor", "Pertenencias personales"], true]
+    ["elementos", "Elementos", ["Está", "Falta"], ["Auxilio", "Criquet y llave", "Matafuego", "Objetos de valor", "Pertenencias personales"]]
   ],
   out: [
     ["control", "Control de calidad", ["OK", "Revisar"], ["Bollos", "Golpes", "Cold Glue", "Colizas", "Ópticas", "Pintura",
@@ -748,9 +748,9 @@ export function vistaCheckForm(view, id, t) {
         <label class="field"><span>Kilometraje</span><input name="km" inputmode="numeric" value="${esc(c.km || "")}" placeholder="Ej: 85000"></label>
         <div class="field"><span>Combustible</span>${seg("nafta", COMBUSTIBLE, c.nafta)}</div></fieldset>`
       : `<fieldset class="card"><legend>Calidad</legend>${CALIDAD.map((x, i) => `<div class="field"><span>${x}</span>${seg("calidad." + i, NOTAS, c.calidad?.[i])}</div>`).join("")}</fieldset>`}
-    ${CHECK[t].map(([k, titulo, ops, items, nulo]) => `<fieldset class="card chk-grupo"><legend>${titulo}</legend>
-      ${items.map(it => { const x = c[k]?.[it], sel = x?.v ?? (nulo ? "" : 0); return `<div class="chk-fila ${ANOTAR.includes(it) ? "anota" : ""}" data-sel="${sel}"><span>${esc(it)}</span>
-        <button type="button" class="chk-tog" data-k="${k}" data-it="${esc(it)}" data-ops="${esc(ops.join("|"))}" ${nulo ? "data-nulo" : ""}>${sel === "" ? "—" : ops[sel]}</button>
+    ${CHECK[t].map(([k, titulo, ops, items]) => `<fieldset class="card chk-grupo"><legend>${titulo}</legend>
+      ${items.map(it => { const x = c[k]?.[it], sel = x?.v ?? ""; return `<div class="chk-fila ${ANOTAR.includes(it) ? "anota" : ""}" data-sel="${sel}"><span>${esc(it)}</span>
+        <button type="button" class="chk-tog" data-k="${k}" data-it="${esc(it)}" data-ops="${esc(ops.join("|"))}">${sel === "" ? "—" : ops[sel]}</button>
         <label class="field chk-obs"><input data-obs="${k}|${esc(it)}" value="${esc(x?.obs || "")}" placeholder="${ANOTAR.includes(it) ? "¿Qué hay?" : "¿Qué tiene?"}"></label></div>`; }).join("")}</fieldset>`).join("")}
     <fieldset class="card"><legend>Observaciones y fotos</legend>
       <label class="field"><textarea name="obs" rows="3" placeholder="Algo más para anotar">${esc(c.obs || "")}</textarea></label>
@@ -765,9 +765,9 @@ export function vistaCheckForm(view, id, t) {
     const f = e.target.closest("[data-cfoto]");
     if (f) return visor(c.fotos, Math.max(0, c.fotos.findIndex(x => x.url === f.dataset.cfoto)));
     const tg = e.target.closest(".chk-tog");
-    if (tg) {   // interruptor: Bien ⇄ Dañado (Dañado abre la observación); sin marcar → Está → Falta → sin marcar
+    if (tg) {   // sin marcar → Bien/Está/OK → Dañado/Falta/Revisar (abre la observación) → sin marcar
       const fila = tg.closest(".chk-fila"), s0 = fila.dataset.sel;
-      const nv = "nulo" in tg.dataset ? (s0 === "" ? "0" : s0 === "0" ? "1" : "") : (s0 === "1" ? "0" : "1");
+      const nv = s0 === "" ? "0" : s0 === "0" ? "1" : "";
       fila.dataset.sel = nv; tg.textContent = nv === "" ? "—" : tg.dataset.ops.split("|")[nv];
       if (getComputedStyle($(".chk-obs", fila)).display !== "none") $("input", fila).focus();
       return;
