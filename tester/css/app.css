@@ -1875,9 +1875,9 @@ html.lenis, html.lenis body { height: auto; }
 @keyframes hiper-in { from { opacity: 0; } }
 .ex-media { position: absolute; left: 50%; top: 50%; overflow: hidden; border-radius: 32px; background: var(--bg); opacity: 0;
   filter: blur(16px); box-shadow: 0 0 60px 20px color-mix(in srgb, var(--primary) 35%, transparent); }  /* borde difuminado con halo azul */
-.ex-tit { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: .3em;
-  color: var(--ink); font-size: clamp(30px, 6vw, 56px); font-weight: 700; letter-spacing: -.04em; }
-.ex-tit span { opacity: 0; }
+.ex-logo { position: absolute; left: 50%; top: 50%; width: min(220px, 56vw); aspect-ratio: 470 / 380; translate: -50% -50%; overflow: visible;
+  fill: none; stroke: var(--ink); stroke-width: 15; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 1; stroke-dashoffset: 1;
+  filter: drop-shadow(0 0 12px color-mix(in srgb, var(--primary) 70%, transparent)); }
 /* Login de vidrio sobre la aurora de la intro (así la intro pasa al login sin corte) */
 .login-art { z-index: 0; overflow: hidden; }
 .login-art .aurora { z-index: 0; }
@@ -1885,7 +1885,7 @@ html.lenis, html.lenis body { height: auto; }
 .login-card { background: color-mix(in srgb, var(--surface) 42%, transparent); border: 1px solid var(--edge);
   -webkit-backdrop-filter: blur(24px) saturate(150%); backdrop-filter: blur(24px) saturate(150%); }
 /* Botón de filtros: fondo propio de vidrio para que no se mezcle con el texto que pasa por detrás */
-.filtro-btn { background: color-mix(in srgb, var(--surface) 88%, transparent); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); border: 1px solid var(--edge); }
+.filtro-btn { background: color-mix(in srgb, var(--surface) 88%, transparent); -webkit-backdrop-filter: blur(24px); backdrop-filter: blur(24px); border: 1px solid var(--edge); }
 /* En el celular no hay glow del mouse: luz suave fija en el fondo */
 @media (hover: none) {
   body::before { content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;

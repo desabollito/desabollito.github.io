@@ -556,7 +556,7 @@ export function vistaAjustes(view) {
 
     <section class="card">
       <button class="btn btn-danger-ghost btn-block" id="salir">${icon("logout")}Cerrar sesión</button>
-      <p class="center firma-autor">Made in Argentina<br>by @gzmatte</p>
+      <p class="center firma-autor">Made in Argentina</p>
     </section>
 
     <section class="card">
