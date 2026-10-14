@@ -329,6 +329,41 @@ export function planillaPDF(lista, empresa, filtroTexto = "", sinTotal = false) 
   return doc;
 }
 
+// Tabla genérica (planilla de técnicos, gastos fijos). cols: [{ titulo, ancho, tipo }]; filas: arrays (fila.negrita = total)
+export function tablaPDF(empresa, subtitulo, cols, filas) {
+  acento(empresa);
+  const doc = nuevoDoc("landscape");
+  const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), M = 12;
+  const k = Math.min(1, (W - M * 2) / cols.reduce((s, c) => s + (c.ancho || 16), 0));   // se achica para entrar en la hoja
+  const ws = cols.map(c => (c.ancho || 16) * k), tw = ws.reduce((a, b) => a + b, 0), x0 = (W - tw) / 2, rh = 7;
+  const txt = (c, v) => v == null || v === "" ? "" : c.tipo === "moneda" ? money(v) || "$0" : c.tipo === "fecha" ? fecha(v) : String(v);
+  const der = c => c.tipo === "moneda";
+  let y = encabezado(doc, empresa, subtitulo) + 8;
+  const fila = (vals, estilo) => {
+    let x = x0;
+    cols.forEach((c, i) => {
+      const t = doc.splitTextToSize(estilo ? String(vals[i] ?? "") : txt(c, vals[i]), ws[i] - 3)[0] || "";
+      doc.text(t, der(c) ? x + ws[i] - 1.5 : x + 1.5, y + 4.8, { align: der(c) ? "right" : "left" }); x += ws[i];
+    });
+    y += rh;
+  };
+  const cab = () => {
+    doc.setFillColor(...AZUL); doc.rect(x0, y, tw, rh, "F");
+    doc.setFont("helvetica", "bold"); doc.setFontSize(7.5); doc.setTextColor(255, 255, 255);
+    fila(cols.map(c => c.titulo), true);
+  };
+  cab();
+  filas.forEach((f, n) => {
+    if (y + rh > H - 21) { doc.addPage(); y = 16; cab(); }
+    if (f.negrita) { doc.setFillColor(...LINEA); doc.rect(x0, y, tw, rh, "F"); }
+    else if (n % 2 === 0) { doc.setFillColor(...SUAVE); doc.rect(x0, y, tw, rh, "F"); }
+    doc.setFont("helvetica", f.negrita ? "bold" : "normal"); doc.setFontSize(7.5); doc.setTextColor(...INK);
+    fila(f);
+  });
+  pie(doc, `${empresa?.name || "Desabollito"} · ${subtitulo}`);
+  return doc;
+}
+
 export function gastosPDF(lista, empresa, periodo, CAT) {
   acento(empresa);
   const doc = nuevoDoc();

@@ -1,6 +1,9 @@
 // Exportación a Excel real (.xlsx): acentos y Ñ correctos, letra Nunito,
 // todo alineado a la izquierda, encabezado fijo y filtros.
 // La librería (ExcelJS, ~1 MB) se descarga solo la primera vez que se exporta.
+import { S } from "./data.js";
+import { elegirDescarga } from "./ui.js";
+import { tablaPDF } from "./pdf.js";
 
 const FUENTES = [
   "https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js",
@@ -76,7 +79,7 @@ export async function exportarExcel({ archivo, hoja, titulo, columnas, filas, to
         v = v == null ? "" : String(v);
       }
       c.value = v === "" ? null : v;
-      c.font = FUENTE;
+      c.font = f.negrita ? { ...FUENTE, bold: true } : FUENTE;
       c.alignment = { ...IZQ, wrapText: col.tipo === "texto" && (col.ancho || 16) >= 30 };
       if (n % 2 === 1) c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF4F6F9" } };
     });
@@ -98,4 +101,13 @@ export async function exportarExcel({ archivo, hoja, titulo, columnas, filas, to
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob); a.download = archivo; a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+
+// Botón Descargar de una tabla simple: Excel o PDF con las mismas columnas y filas (fila.negrita = total)
+export function descargarTabla({ archivo, titulo, cols, filas }) {
+  elegirDescarga(titulo, {
+    excel: () => exportarExcel({ archivo: archivo + ".xlsx", hoja: titulo.slice(0, 31), titulo: `${S.company?.name || "Desabollito"} · ${titulo}`,
+      columnas: cols.map((c, i) => ({ ...c, valor: f => f[i] })), filas }),
+    pdf: async () => tablaPDF(S.company, titulo, cols, filas).save(archivo + ".pdf")
+  });
 }

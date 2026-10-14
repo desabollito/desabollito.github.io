@@ -9,6 +9,7 @@ import { $, $$, esc, icon, toast, openSheet, confirmar, pedirTexto, fechaCorta, 
 import { setTopbar } from "./shell.js";
 import { estadoActual } from "./domain.js";
 import { viandasPorTec, repartoAlquiler } from "./views-fijos.js";
+import { descargarTabla } from "./excel.js";
 
 export function vistaPlanillas(view) {
   setTopbar({ title: "Planillas", sub: S.company?.name });
@@ -39,7 +40,7 @@ let unsub = null;
 
 export function vistaTecnicos(view) {
   setTopbar({ title: "Planilla de técnicos", sub: S.company?.name, back: "#/planillas",
-    actions: `<button class="btn btn-ghost btn-sm" id="t-tec">${icon("team")}<span class="hide-sm">Técnicos</span></button>
+    actions: `<button class="btn btn-ghost btn-sm" id="t-dl" aria-label="Descargar">${icon("download")}<span class="hide-sm">Descargar</span></button><button class="btn btn-ghost btn-sm" id="t-tec">${icon("team")}<span class="hide-sm">Técnicos</span></button>
       <button class="btn btn-sm ${T.editando ? "btn-primary" : "btn-ghost"}" id="t-edit">${icon(T.editando ? "check" : "edit")}<span>${T.editando ? "Listo" : "Editar"}</span></button>` });
   if (!puedeVer("tecnicos")) { view.innerHTML = `<div class="empty"><p>No tenés acceso a esta planilla.</p></div>`; return; }
   view.innerHTML = `<div class="skeleton tall"></div>`;
@@ -410,6 +411,24 @@ export function vistaTecnicos(view) {
   }
 
   $("#t-tec")?.addEventListener("click", () => cfg && gestionarTecnicos());
+  // Descargar: los autos del período, con el total de cada semana y el total general
+  $("#t-dl")?.addEventListener("click", () => {
+    if (!cfg) return;
+    const rows = lista(), tecs = cfg.tecnicos;
+    if (!rows.length) return toast("No hay autos para descargar", "warning");
+    const total = (etq, rs) => { const s = sumaPorTec(rs);
+      return Object.assign(["", etq, "", rs.reduce((a, r) => a + r.valor, 0), ...tecs.map(t => s[t.id] || "")], { negrita: true }); };
+    const filas = [];
+    [...new Set(rows.map(r => lunesDe(r.fecha)))].forEach((l, i) => {
+      const rs = rows.filter(r => lunesDe(r.fecha) === l);
+      rs.forEach(r => filas.push([r.fecha, (r.v.modelo || "").toUpperCase(), r.v.patente || "", r.valor, ...tecs.map(t => r.tecs.includes(t.id) ? r.parte : "")]));
+      filas.push(total(`SEMANA ${i + 1}`, rs));
+    });
+    filas.push(total("TOTAL", rows));
+    descargarTabla({ archivo: `Tecnicos_${hoyISO()}`, titulo: "Planilla de técnicos", filas,
+      cols: [{ titulo: "Fecha", ancho: 12, tipo: "fecha" }, { titulo: "Vehículo", ancho: 26 }, { titulo: "Patente", ancho: 11 },
+        { titulo: "Importe", ancho: 14, tipo: "moneda" }, ...tecs.map(t => ({ titulo: t.nombre, ancho: 14, tipo: "moneda" }))] });
+  });
   $("#t-edit")?.addEventListener("click", () => {
     T.editando = !T.editando;
     const b = $("#t-edit"); b.className = `btn btn-sm ${T.editando ? "btn-primary" : "btn-ghost"}`;

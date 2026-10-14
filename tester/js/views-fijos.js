@@ -9,6 +9,7 @@ import { db, collection, doc, onSnapshot, setDoc } from "./firebase.js";
 import { S, puedeVer, mensajeError } from "./data.js";
 import { $, $$, esc, icon, toast, openSheet, confirmar, pedirTexto, fechaCorta, hoyISO } from "./ui.js";
 import { setTopbar } from "./shell.js";
+import { descargarTabla } from "./excel.js";
 
 const pesos = n => "$" + Math.round(Number(n) || 0).toLocaleString("es-AR");
 const DIAS = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
@@ -98,7 +99,7 @@ let unsub = null;
 
 export function vistaFijos(view) {
   setTopbar({ title: "Gastos fijos", sub: S.company?.name, back: "#/planillas",
-    actions: `<button class="btn btn-ghost btn-sm" id="f-tec">${icon("team")}<span class="hide-sm">Técnicos</span></button><button class="btn btn-sm ${F.editando ? "btn-primary" : "btn-ghost"}" id="f-edit">${icon(F.editando ? "check" : "edit")}<span>${F.editando ? "Listo" : "Editar"}</span></button>` });
+    actions: `<button class="btn btn-ghost btn-sm" id="f-dl" aria-label="Descargar">${icon("download")}<span class="hide-sm">Descargar</span></button><button class="btn btn-ghost btn-sm" id="f-tec">${icon("team")}<span class="hide-sm">Técnicos</span></button><button class="btn btn-sm ${F.editando ? "btn-primary" : "btn-ghost"}" id="f-edit">${icon(F.editando ? "check" : "edit")}<span>${F.editando ? "Listo" : "Editar"}</span></button>` });
   if (!puedeVer("fijos")) { view.innerHTML = `<div class="empty"><p>No tenés acceso a esta planilla.</p></div>`; return; }
   view.innerHTML = `<div class="skeleton tall"></div>`;
   if (!S.company) return;   // F5: el operativo todavía no llegó; se repinta solo cuando llega
@@ -357,6 +358,19 @@ export function vistaFijos(view) {
     };
   }
   $("#f-tec")?.addEventListener("click", gestionarTecnicos);
+  // Descargar: viandas día por día y, al final, totales de viandas, alquiler y general por técnico
+  $("#f-dl")?.addEventListener("click", () => {
+    const tecs = cfg.tecnicos, dias = diasViandas(fijos), al = repartoAlquiler(fijos, tecs).porTec;
+    if (!tecs.length) return toast("No hay nada para descargar", "warning");
+    const vi = Object.fromEntries(tecs.map(t => [t.id, 0]));
+    const filas = dias.map(d => { d.tecs.forEach(id => { if (id in vi) vi[id] += d.parte; });
+      return [fechaCorta(d.fecha), d.vianda * d.tecs.length + (d.tecs.length ? d.envio : 0), ...tecs.map(t => d.tecs.includes(t.id) ? d.parte : "")]; });
+    const suma = o => tecs.reduce((a, t) => a + (o[t.id] || 0), 0);
+    const total = (etq, o) => Object.assign([etq, suma(o), ...tecs.map(t => o[t.id] || "")], { negrita: true });
+    filas.push(total("Total viandas", vi), total("Alquiler", al), total("TOTAL", Object.fromEntries(tecs.map(t => [t.id, (vi[t.id] || 0) + (al[t.id] || 0)]))));
+    descargarTabla({ archivo: `Gastos_fijos_${hoyISO()}`, titulo: "Gastos fijos", filas,
+      cols: [{ titulo: "Día", ancho: 14 }, { titulo: "Total del día", ancho: 15, tipo: "moneda" }, ...tecs.map(t => ({ titulo: t.nombre, ancho: 14, tipo: "moneda" }))] });
+  });
 
   $("#f-edit")?.addEventListener("click", () => {
     F.editando = !F.editando;
