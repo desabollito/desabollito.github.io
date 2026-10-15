@@ -2028,3 +2028,8 @@ body[data-solo-ver="1"] :is(.step, .etapa-item) { pointer-events: none; }
 .aj-fila { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .aj-version { margin: 8px 0 24px; }
 .viewer-add-fila .viewer-pint-fila { flex: 0 0 auto; width: 44px; height: 44px; }
+/* Buscador de vehículos siempre a la vista al bajar (celular: debajo de la barra de arriba; computadora: arriba de la lista) */
+.pane-list > .list-tools { display: contents; }
+.pane-list > .list-tools > * { margin-bottom: 10px; }
+.pane-list > .list-tools > .search { position: sticky; top: calc(var(--top) + var(--safe-t, 0px) + 6px); z-index: 6; box-shadow: 0 6px 18px -8px rgba(0, 0, 0, .45); }
+.split-on .pane-list > .list-tools > .search { top: 0; }
