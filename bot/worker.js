@@ -661,7 +661,7 @@ async function operativoFijo(env, numero, uid, q = null) {
   // Primero: el operativo asignado al grupo (si quien escribe es miembro)
   if (q?.grupoOp?.cid) {
     const cg = await fsGet(env, `companies/${q.grupoOp.cid}`).catch(() => null);
-    if (cg && (!uid || (cg.members || []).includes(uid))) return { cid: q.grupoOp.cid, operativo: cg.name || q.grupoOp.operativo, grupo: true };
+    if (cg && (!uid || (cg.members || []).includes(uid)) && puedeCargar(cg, uid)) return { cid: q.grupoOp.cid, operativo: cg.name || q.grupoOp.operativo, grupo: true };
   }
   let o = await fsGet(env, `bot_operativo/${numero}`);
   // Si el operativo se eligió en la app después que en el bot, manda el de la app
@@ -669,14 +669,17 @@ async function operativoFijo(env, numero, uid, q = null) {
   if (u?.activeCompanyId && Number(u.activeCompanyAt || 0) > Number(o?.ts || 0)) o = { cid: u.activeCompanyId, operativo: "" };
   if (!o?.cid) return null;
   const c = await fsGet(env, `companies/${o.cid}`);
-  if (!c || (uid && !(c.members || []).includes(uid))) return null;   // ya no es miembro
+  if (!c || (uid && !(c.members || []).includes(uid)) || !puedeCargar(c, uid)) return null;   // ya no es miembro, o es Sacabollos
   return { cid: o.cid, operativo: c.name || o.operativo };
 }
 const fijarOperativo = (env, numero, op) => fsSet(env, `bot_operativo/${numero}`, { cid: op.cid, operativo: op.operativo, ts: Date.now() });
 
-async function listaOperativos(env, uid) {
+// Sacabollos (el rol por defecto): por ahora solo mira; el bot no le deja cargar nada en ese operativo
+const puedeCargar = (c, uid) => !uid || (c?.roles?.[uid] || "tecnico") !== "tecnico";
+async function listaOperativos(env, uid, { cargar = true } = {}) {   // cargar false: también los de solo mirar (resúmenes)
   if (!uid) return [];
   return (await fsQuery(env, "", "companies", { field: "members", op: "ARRAY_CONTAINS", value: uid }, 50))
+    .filter(o => !cargar || puedeCargar(o, uid))
     .map(o => ({ cid: o.__ruta.split("/")[1], operativo: o.name || "Operativo", t: Date.parse(o.createdAt || "") || 9e15 }))
     .sort((a, b) => a.t - b.t || a.operativo.localeCompare(b.operativo)).slice(0, 20);   // por orden de creación
 }
@@ -1266,7 +1269,7 @@ async function operativoAll(env, numero, s, t) {
   if (st.paso === "usuario") {
     const u = st.lista[n - 1];
     if (!u) return `Elegí un número del 1 al ${st.lista.length}, o 0 para salir.`;
-    const ops = await listaOperativos(env, u.uid);
+    const ops = await listaOperativos(env, u.uid, { cargar: false });
     if (!ops.length) return `${u.nombre} no está en ningún operativo.`;
     await fsMerge(env, `bot_sesiones/${numero}`, { ts: Date.now(), opAll: { paso: "op", u, ops, lista: st.lista, t: Date.now() } });
     return `🏢 *${u.nombre}* · actual: *${u.op}*\n\n¿A qué operativo lo paso? Respondé con el número:\n\n` + menuOperativos(ops);
@@ -2492,7 +2495,7 @@ async function elegirResumenDiario(env, m, quien, texto, menu) {
 }
 const fechaCortaAR = iso => iso.split("-").reverse().slice(0, 2).join("/");
 async function textoResumenDiario(env, uid, hoy, cfg = { todos: true }) {
-  const ops = (await listaOperativos(env, uid)).filter(o => cfg.todos !== false || (cfg.cids || []).includes(o.cid));
+  const ops = (await listaOperativos(env, uid, { cargar: false })).filter(o => cfg.todos !== false || (cfg.cids || []).includes(o.cid));
   const bloques = [];
   let total = 0, totalEnt = 0;
   const ok = v => !v.deleted && v.estado !== "anulado" && !v.fechas?.anulado;
@@ -2626,7 +2629,7 @@ async function compartirApi(env, { idToken, cid, compania, accion, token, vid })
   const m = await miembroDe(env, idToken, cid);
   // Un solo vehículo ("Vehículo en App"): cualquiera del operativo menos el desmontador. Si ya hay link, se reusa.
   if (accion === "vehiculo") {
-    if (!m || m.c.roles?.[m.uid] === "desmontaje" || !idValido(vid)) return json({ ok: false, error: "No autorizado" }, 403);
+    if (!m || ["desmontaje", "tecnico", undefined].includes(m.c.roles?.[m.uid]) || !idValido(vid)) return json({ ok: false, error: "No autorizado" }, 403);
     const v = await fsGet(env, `companies/${cid}/vehicles/${vid}`);
     if (!v || v.deleted) return json({ ok: false, error: "No encontré el vehículo" }, 404);
     const ya = (await fsQuery(env, "", "compartidos", { field: "vid", op: "EQUAL", value: vid }, 10).catch(() => [])).find(x => x.cid === cid && !x.__id.includes("-"));
@@ -2768,7 +2771,7 @@ async function moverVehiculo(env, { idToken, cid, vid, destino }) {
   const [cOrig, cDest] = await Promise.all([fsGet(env, `companies/${cid}`), fsGet(env, `companies/${destino}`)]);
   if (!cOrig || !cDest || !(cOrig.members || []).includes(uid) || !(cDest.members || []).includes(uid))
     return json({ ok: false, error: "Tenés que ser parte de los dos operativos" }, 403);
-  if (cDest.roles?.[uid] === "desmontaje") return json({ ok: false, error: "No podés cargar vehículos en ese operativo" }, 403);
+  if (["desmontaje", "tecnico", undefined].includes(cDest.roles?.[uid])) return json({ ok: false, error: "No podés cargar vehículos en ese operativo" }, 403);
   const r = await fs(env, `${base(env)}/companies/${cid}/vehicles/${vid}`);
   if (!r.ok) return json({ ok: false, error: "No encontré el vehículo" }, 404);
   const docV = await r.json(), f = docV.fields || {};
