@@ -2054,3 +2054,9 @@ body[data-solo-ver="1"] :is(.step, .etapa-item) { pointer-events: none; }
 .viewer-add-fila .hold-del { color: var(--ink); }
 .viewer-add-fila .hold-del .anillo .base { stroke: transparent; }
 .viewer-add-fila .hold-del.cargando { color: var(--danger); }
+/* Computadora: buscador en la barra de arriba, ocupa todo el espacio entre "Vehículos" y los filtros */
+.topbar > .search { flex: 1; min-width: 0; min-height: 40px; margin: 0 14px; border-radius: 22px; border-color: var(--edge);
+  background: color-mix(in srgb, var(--surface) 64%, transparent); -webkit-backdrop-filter: blur(18px) saturate(140%); backdrop-filter: blur(18px) saturate(140%); }
+.topbar:has(> .search) .tb-title { flex: 0 0 auto; }
+.topbar > .search:focus-within { border-color: color-mix(in srgb, var(--primary) 55%, var(--edge)); box-shadow: 0 0 24px -4px color-mix(in srgb, var(--primary) 45%, transparent); }
+.topbar > .search:focus-within .ic { color: var(--primary); filter: drop-shadow(0 0 8px color-mix(in srgb, var(--primary) 60%, transparent)); }

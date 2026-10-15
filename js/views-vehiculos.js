@@ -163,6 +163,9 @@ export function vistaVehiculos(view, selId = null) {
       ${ancho ? `<section class="pane-detail" id="pane-detail"></section>` : ""}
     </div>`;
 
+  // Computadora: el buscador va arriba, a lo largo entre el título y el botón de filtros
+  if (ancho) $("#topbar .tb-title")?.after($(".list-tools .search", view));
+
   const pintar = (animar = false) => {
     const todos = activos();
     const cuenta = Object.fromEntries(ESTADOS.map(e => [e.key, 0]));
@@ -192,7 +195,7 @@ export function vistaVehiculos(view, selId = null) {
          <button class="btn btn-ghost" id="limpiar">Limpiar filtros</button></div>`;
     box.classList.toggle("lista-anim", animar);
     if (animar) [...box.children].forEach((c, i) => c.style.setProperty("--i", i));
-    $("#limpiar", box)?.addEventListener("click", () => { F.q = ""; F.estado = "todos"; F.mios = false; F.cias.clear(); F.grado = null; F.repuestos = null; F.pintura = null; F.turno = null; marcarBoton(); $("#q", view).value = ""; pintar(); });
+    $("#limpiar", box)?.addEventListener("click", () => { F.q = ""; F.estado = "todos"; F.mios = false; F.cias.clear(); F.grado = null; F.repuestos = null; F.pintura = null; F.turno = null; marcarBoton(); $("#q").value = ""; pintar(); });
   };
 
   // Computadora: tocar de nuevo el vehículo marcado lo desmarca y cierra el detalle
@@ -200,9 +203,9 @@ export function vistaVehiculos(view, selId = null) {
     const a = e.target.closest("a.vcard.sel"); if (!a || !ancho || e.metaKey || e.ctrlKey) return;
     e.preventDefault(); S.ultimoVid = null; a.classList.remove("sel"); go("#/");
   });
-  $("#q", view).addEventListener("input", debounce(e => { F.q = e.target.value; pintar(true); }, 120));
+  $("#q").addEventListener("input", debounce(e => { F.q = e.target.value; pintar(true); }, 120));
   // Doble clic selecciona toda la búsqueda (en Mac no lo hacía solo)
-  $("#q", view).addEventListener("dblclick", e => { e.target.select(); });
+  $("#q").addEventListener("dblclick", e => { e.target.select(); });
   $("#estado-strip", view).addEventListener("click", e => {
     const b = e.target.closest("[data-e]"); if (!b) return;
     F.estado = F.estado === b.dataset.e ? "todos" : b.dataset.e; pintar();
