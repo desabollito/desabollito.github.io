@@ -236,7 +236,21 @@ function pintarTabPlanilla(r) {
   $('.tabbar [data-nav="calendario"]').hidden = enPlan;
 }
 // Tocar Calendario estando en el calendario (2.º toque) lleva a Planillas, y tocar Planillas estando ahí vuelve al calendario
+// Mantener apretado Calendario también abre Planillas
+let tabLargo = false;
+const CAL_TAB = '.tabbar [data-nav="calendario"]';
+document.addEventListener("pointerdown", e => {
+  if (!e.target.closest(CAL_TAB)) return;
+  tabLargo = false;
+  const x0 = e.clientX, y0 = e.clientY;
+  const t = setTimeout(() => { tabLargo = true; location.hash = $("#tab-planilla").getAttribute("href"); }, 500);
+  const mov = ev => { if (Math.hypot(ev.clientX - x0, ev.clientY - y0) > 10) fin(); };
+  const fin = () => { clearTimeout(t); removeEventListener("pointerup", fin); removeEventListener("pointercancel", fin); removeEventListener("pointermove", mov); };
+  addEventListener("pointerup", fin); addEventListener("pointercancel", fin); addEventListener("pointermove", mov);
+});
+document.addEventListener("contextmenu", e => { if (e.target.closest(CAL_TAB)) e.preventDefault(); });
 document.addEventListener("click", e => {
+  if (tabLargo && e.target.closest(CAL_TAB)) { tabLargo = false; e.preventDefault(); e.stopImmediatePropagation(); return; }   // el toque largo ya abrió Planillas
   const cal = e.target.closest('.tabbar [data-nav="calendario"]'), plan = e.target.closest(".tabbar #tab-planilla.on");
   if (!(cal && ruta.nombre === "calendario") && !plan) return;
   e.preventDefault(); e.stopImmediatePropagation();   // antes que "tocar de nuevo la pestaña" (que reinicia el calendario)

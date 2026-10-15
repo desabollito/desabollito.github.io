@@ -433,14 +433,16 @@ export function vistaTecnicos(view) {
   // Hoja del cierre, como la planilla: un técnico por columna (sacabollos y sueldos) y los conceptos hacia abajo
   const cierreDescarga = rows => {
     const l = datosCierre(rows), sum = f => l.reduce((a, x) => a + (Number(f(x)) || 0), 0);
-    const fila = (etq, f, total = true) => [etq, ...l.map(f), total ? sum(f) : ""];
+    // TOTAL primero, una columna vacía y después cada técnico; los descuentos en rojo rosado
+    const fila = (etq, f, total = true) => [etq, total ? sum(f) : "", "", ...l.map(f)];
+    const rojo = r => Object.assign(r, { rojo: true });
     const filas = [
-      fila("TIPO", x => x.sueldo ? "Sueldo" : "Sacabollo", false), fila("AUTOS", x => x.sueldo ? "" : String(x.autos), false),
-      fila("GANADO / SUELDO", x => x.ganado), fila("ADELANTOS", x => suma(x.ad)), fila("GASTOS", x => suma(x.ga)),
-      fila("VIANDAS", x => x.desc ? x.v : ""), fila("ALQUILER", x => x.desc ? x.a : ""),
+      fila("AUTOS", x => x.sueldo ? "" : String(x.autos), false), fila("GANANCIA", x => x.ganado),
+      rojo(fila("ADELANTOS", x => suma(x.ad))), rojo(fila("GASTOS", x => suma(x.ga))),
+      rojo(fila("VIANDAS", x => x.desc ? x.v : "")), rojo(fila("ALQUILER", x => x.desc ? x.a : "")),
       Object.assign(fila("FINAL A PAGAR", x => x.fin), { negrita: true })];
-    return { titulo: "Cierre", filas, cols: [{ titulo: "", ancho: 30 }, ...l.map(x => ({ titulo: x.t.nombre, ancho: 17.5, tipo: "moneda", centro: true })),
-      { titulo: "TOTAL", ancho: 20, tipo: "moneda", centro: true }] };
+    return { titulo: "Cierre", filas, cols: [{ titulo: "", ancho: 33.5 }, { titulo: "TOTAL", ancho: 23.5, tipo: "moneda", centro: true }, { titulo: "", ancho: 8 },
+      ...l.map(x => ({ titulo: x.t.nombre, ancho: 21, tipo: "moneda", centro: true }))] };
   };
   $("#t-edit")?.addEventListener("click", () => {
     T.editando = !T.editando;

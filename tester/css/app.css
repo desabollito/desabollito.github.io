@@ -2033,3 +2033,4 @@ body[data-solo-ver="1"] :is(.step, .etapa-item) { pointer-events: none; }
 .pane-list > .list-tools > * { margin-bottom: 10px; }
 .pane-list > .list-tools > .search { position: sticky; top: calc(var(--top) + var(--safe-t, 0px) + 6px); z-index: 6; box-shadow: 0 6px 18px -8px rgba(0, 0, 0, .45); }
 .split-on .pane-list > .list-tools > .search { top: 0; }
+.tabbar [data-nav="calendario"] { -webkit-touch-callout: none; user-select: none; }

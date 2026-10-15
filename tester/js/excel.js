@@ -82,7 +82,7 @@ export async function exportarExcel({ archivo, hoja, titulo, columnas, filas, to
         v = v == null ? "" : String(v);
       }
       c.value = v === "" ? null : v;
-      c.font = f.negrita ? { ...FUENTE, bold: true } : FUENTE;
+      c.font = { ...FUENTE, ...(f.negrita ? { bold: true } : {}), ...(f.rojo ? { color: { argb: "FFE0486E" } } : {}) };   // rojo: descuentos
       c.alignment = { ...IZQ, wrapText: col.tipo === "texto" && (col.ancho || 16) >= 30 };
       if (n % 2 === 1) c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF4F6F9" } };
     });
