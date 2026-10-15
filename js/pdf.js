@@ -345,7 +345,7 @@ export function tablaPDF(empresa, subtitulo, cols, filas, { doc0 = null, pieTxt 
   const fila = (vals, estilo) => {
     let x = x0;
     cols.forEach((c, i) => {
-      if (!estilo) doc.setFont("helvetica", vals.negrita || vals.gruesa || c.negrita ? "bold" : "normal");   // gruesa: negrita sin estilo de total
+      if (!estilo) doc.setFont("helvetica", vals.negrita || c.negrita ? "bold" : "normal");
       const t = doc.splitTextToSize(estilo ? String(vals[i] ?? "") : txt(c, vals[i]), ws[i] - 3)[0] || "";
       doc.text(t, c.centro ? x + ws[i] / 2 : der(c) ? x + ws[i] - 1.5 : x + 1.5, y + 4.8, { align: c.centro ? "center" : der(c) ? "right" : "left" }); x += ws[i];
     });
