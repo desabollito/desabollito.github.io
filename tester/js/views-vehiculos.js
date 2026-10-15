@@ -400,8 +400,8 @@ export function renderDetalle(root, v, embebido) {
       ${v.telefono ? `<div class="d-contacto">
         <button class="btn btn-ghost" data-act="contactar" aria-haspopup="true" aria-expanded="false">${icon("phone")}Contactar</button>
         <div class="d-menu" hidden>
-          <a href="${waLink(v.telefono, soyLector() ? "" : mensajeWa(v))}" target="_blank" rel="noopener">${icon("chat")}WhatsApp</a>
-          <a href="tel:${esc(v.telefono)}">${icon("phone")}Llamar</a>
+          <a ${soySacabollos() ? `role="button"` : `href="${waLink(v.telefono, soyLector() ? "" : mensajeWa(v))}" target="_blank" rel="noopener"`}>${icon("chat")}WhatsApp</a>   <!-- Sacabollos: se puede tocar pero no hace nada -->
+          <a ${soySacabollos() ? `role="button"` : `href="tel:${esc(v.telefono)}"`}>${icon("phone")}Llamar</a>
         </div></div>` : ""}
       ${embebido && !soloVer ? `<a class="btn btn-ghost btn-icon" href="#/editar/${v.id}" aria-label="Editar" title="Editar">${icon("edit")}</a>` : ""}
     </div>
