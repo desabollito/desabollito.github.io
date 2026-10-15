@@ -444,10 +444,10 @@ export function vistaTecnicos(view) {
   const cierreDescarga = rows => {
     const l = datosCierre(rows), sum = f => l.reduce((a, x) => a + (Number(f(x)) || 0), 0);
     // TOTAL primero, una columna vacía y después cada técnico; los descuentos en rojo rosado
-    const fila = (etq, f, total = true) => [etq, total ? sum(f) : "", "", ...l.map(f)];
+    const fila = (etq, f, total = sum(f)) => [etq, total, "", ...l.map(f)];
     const rojo = r => Object.assign(r, { rojo: true });
     const filas = [
-      fila("AUTOS", x => x.sueldo ? "" : String(x.autos), false), fila("GANANCIA", x => x.ganado),
+      fila("AUTOS", x => x.sueldo ? "" : String(x.autos), String(rows.length)), fila("GANANCIA", x => x.ganado),
       rojo(fila("ADELANTOS", x => suma(x.ad))), rojo(fila("GASTOS", x => suma(x.ga))),
       rojo(fila("VIANDAS", x => x.v)), rojo(fila("ALQUILER", x => x.a)),   // se muestran siempre; FINAL solo los resta con x.desc
       Object.assign(fila("FINAL A PAGAR", x => x.fin), { negrita: true })];
