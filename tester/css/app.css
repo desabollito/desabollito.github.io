@@ -2025,3 +2025,5 @@ body[data-solo-ver="1"] :is(.fab, a[href="#/nuevo"], a[href^="#/editar"], .viewe
   [data-del-foto], [data-del-doc], #t-edit, #t-tec, #f-edit, #f-tec, #g-nuevo, [data-act="persona"], [data-act="cambio"], [data-act="tecnicos"],
   [data-descontar], .side-new) { display: none !important; }
 body[data-solo-ver="1"] :is(.step, .etapa-item) { pointer-events: none; }
+.aj-fila { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.aj-version { margin: 8px 0 24px; }
