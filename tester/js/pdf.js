@@ -1,6 +1,7 @@
 import { PIEZAS, PIEZA, VIDRIOS, ESTADO, estadoActual, piezasMarcadas } from "./domain.js";
 import { paraPDF, blobADataURL } from "./media.js";
-import { fechaCorta, money } from "./ui.js";
+import { fechaCorta, money as moneyUI } from "./ui.js";
+const money = n => moneyUI(Math.round(Number(n || 0)));   // en PDF sin centavos
 
 const AZUL_BASE = [43, 92, 230];
 // Colores elegidos por el dueño en el sello: encabezado, paños, subtítulos/líneas y puntitos
@@ -338,7 +339,7 @@ export function tablaPDF(empresa, subtitulo, cols, filas, { doc0 = null, pieTxt 
   const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), M = 12;
   const k = Math.min(1, (W - M * 2) / cols.reduce((s, c) => s + (c.ancho || 16), 0));   // se achica para entrar en la hoja
   const ws = cols.map(c => (c.ancho || 16) * k), tw = ws.reduce((a, b) => a + b, 0), x0 = (W - tw) / 2, rh = 7;
-  const txt = (c, v) => v == null || v === "" ? "" : typeof v === "string" ? v : c.tipo === "moneda" ? money(v) || "$0" : c.tipo === "fecha" ? fecha(v).slice(0, 5) : String(v);
+  const txt = (c, v) => v == null || v === "" ? "" : c.tipo === "fecha" ? fecha(v).slice(0, 5) : typeof v === "string" ? v : c.tipo === "moneda" ? money(v) || "$0" : String(v);
   const der = c => c.tipo === "moneda" && !c.centro;
   let y = encabezado(doc, empresa, subtitulo) + 8;
   const fila = (vals, estilo) => {
@@ -372,7 +373,7 @@ export function gastosPDF(lista, empresa, periodo, CAT) {
   const doc = nuevoDoc();
   const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), M = 16, CW = W - M * 2;
   const usd = g => g.moneda === "USD";
-  const txt = g => usd(g) ? "US$ " + Number(g.monto || 0).toLocaleString("es-AR") : money(g.monto) || "$0";
+  const txt = g => usd(g) ? "US$ " + Math.round(Number(g.monto || 0)).toLocaleString("es-AR") : money(g.monto) || "$0";
   const hg = encabezado(doc, empresa, `Rendición de gastos · ${periodo}`);
   const total = lista.filter(g => !usd(g)).reduce((s, g) => s + Number(g.monto || 0), 0);
   const totalUSD = lista.filter(usd).reduce((s, g) => s + Number(g.monto || 0), 0);
@@ -385,7 +386,7 @@ export function gastosPDF(lista, empresa, periodo, CAT) {
   doc.text(money(total) || "$0", W - M - 6, y + 12, { align: "right" });
   if (totalUSD) {
     doc.setFontSize(11); doc.setTextColor(222, 232, 252);
-    doc.text(`+ US$ ${totalUSD.toLocaleString("es-AR")}`, W - M - 6, y + 19, { align: "right" });
+    doc.text(`+ US$ ${Math.round(totalUSD).toLocaleString("es-AR")}`, W - M - 6, y + 19, { align: "right" });
   }
   y += alto + 8;
   const porCat = {};
