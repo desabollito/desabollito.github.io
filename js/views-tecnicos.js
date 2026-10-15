@@ -430,15 +430,17 @@ export function vistaTecnicos(view) {
         { titulo: "IMPORTE", ancho: 16, tipo: "moneda" }, { titulo: "", ancho: 8 }, ...tecs.map(t => ({ titulo: t.nombre, ancho: 17.5, tipo: "moneda", centro: true }))],
       mas: [cierreDescarga(rows)] });
   });
-  // Hoja del cierre: una fila por técnico (sacabollos y sueldos); viandas y alquiler solo si se descuentan
+  // Hoja del cierre, como la planilla: un técnico por columna (sacabollos y sueldos) y los conceptos hacia abajo
   const cierreDescarga = rows => {
-    const l = datosCierre(rows), m = l.map(x => [x.t.nombre, x.sueldo ? "Sueldo" : "Sacabollo", x.sueldo ? "" : x.autos, x.ganado,
-      suma(x.ad), suma(x.ga), x.desc ? x.v : "", x.desc ? x.a : "", x.fin]);
-    const sum = i => m.reduce((a, f) => a + (Number(f[i]) || 0), 0);
-    return { titulo: "Cierre", filas: [...m, Object.assign(["TOTAL", "", "", sum(3), sum(4), sum(5), sum(6), sum(7), sum(8)], { negrita: true })],
-      cols: [{ titulo: "TÉCNICO", ancho: 26 }, { titulo: "TIPO", ancho: 16 }, { titulo: "AUTOS", ancho: 12 }, { titulo: "GANADO / SUELDO", ancho: 26, tipo: "moneda" },
-        { titulo: "ADELANTOS", ancho: 24, tipo: "moneda" }, { titulo: "GASTOS", ancho: 24, tipo: "moneda" }, { titulo: "VIANDAS", ancho: 24, tipo: "moneda" },
-        { titulo: "ALQUILER", ancho: 24, tipo: "moneda" }, { titulo: "FINAL A PAGAR", ancho: 28, tipo: "moneda" }] };
+    const l = datosCierre(rows), sum = f => l.reduce((a, x) => a + (Number(f(x)) || 0), 0);
+    const fila = (etq, f, total = true) => [etq, ...l.map(f), total ? sum(f) : ""];
+    const filas = [
+      fila("TIPO", x => x.sueldo ? "Sueldo" : "Sacabollo", false), fila("AUTOS", x => x.sueldo ? "" : String(x.autos), false),
+      fila("GANADO / SUELDO", x => x.ganado), fila("ADELANTOS", x => suma(x.ad)), fila("GASTOS", x => suma(x.ga)),
+      fila("VIANDAS", x => x.desc ? x.v : ""), fila("ALQUILER", x => x.desc ? x.a : ""),
+      Object.assign(fila("FINAL A PAGAR", x => x.fin), { negrita: true })];
+    return { titulo: "Cierre", filas, cols: [{ titulo: "", ancho: 30 }, ...l.map(x => ({ titulo: x.t.nombre, ancho: 17.5, tipo: "moneda", centro: true })),
+      { titulo: "TOTAL", ancho: 20, tipo: "moneda", centro: true }] };
   };
   $("#t-edit")?.addEventListener("click", () => {
     T.editando = !T.editando;

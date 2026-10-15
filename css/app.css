@@ -2027,3 +2027,4 @@ body[data-solo-ver="1"] :is(.fab, a[href="#/nuevo"], a[href^="#/editar"], .viewe
 body[data-solo-ver="1"] :is(.step, .etapa-item) { pointer-events: none; }
 .aj-fila { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .aj-version { margin: 8px 0 24px; }
+.viewer-add-fila .viewer-pint-fila { flex: 0 0 auto; width: 44px; height: 44px; }

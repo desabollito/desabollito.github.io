@@ -338,7 +338,7 @@ export function tablaPDF(empresa, subtitulo, cols, filas, { doc0 = null, pieTxt 
   const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), M = 12;
   const k = Math.min(1, (W - M * 2) / cols.reduce((s, c) => s + (c.ancho || 16), 0));   // se achica para entrar en la hoja
   const ws = cols.map(c => (c.ancho || 16) * k), tw = ws.reduce((a, b) => a + b, 0), x0 = (W - tw) / 2, rh = 7;
-  const txt = (c, v) => v == null || v === "" ? "" : c.tipo === "moneda" ? money(v) || "$0" : c.tipo === "fecha" ? fecha(v).slice(0, 5) : String(v);
+  const txt = (c, v) => v == null || v === "" ? "" : typeof v === "string" ? v : c.tipo === "moneda" ? money(v) || "$0" : c.tipo === "fecha" ? fecha(v).slice(0, 5) : String(v);
   const der = c => c.tipo === "moneda" && !c.centro;
   let y = encabezado(doc, empresa, subtitulo) + 8;
   const fila = (vals, estilo) => {

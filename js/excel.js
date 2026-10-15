@@ -76,7 +76,7 @@ export async function exportarExcel({ archivo, hoja, titulo, columnas, filas, to
         v = new Date(Date.UTC(y, m - 1, d));
         c.numFmt = "dd/mm/yyyy";
       } else if (col.tipo === "moneda" || col.tipo === "usd") {
-        v = v == null || v === "" ? "" : Number(v);
+        v = v == null || v === "" ? "" : typeof v === "string" ? v : Number(v);   // texto suelto en una columna de plata (ej. "Sueldo")
         c.numFmt = col.tipo === "usd" ? '"US$" #,##0' : '"$" #,##0';
       } else {
         v = v == null ? "" : String(v);

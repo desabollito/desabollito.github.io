@@ -108,6 +108,7 @@ function render({ conservarScroll = false, reabrir = false } = {}) {
   let hit = RUTAS.find(([re]) => re.test(h)) || RUTAS[0];
   // Link de perito: solo Vehículos y Calendario
   if (soyLector() && !["vehiculos", "calendario", "planilla"].includes(hit[1])) { history.replaceState(null, "", "#/"); hit = RUTAS[0]; }
+  if (hit[1] === "papelera" && soySacabollos()) { history.replaceState(null, "", "#/ajustes"); return render(); }   // Sacabollos no ve la papelera
   // Link de un solo vehículo: siempre ese vehículo
   if (S.invitado?.uno && h !== `#/v/${S.invitado.uno}`) { history.replaceState(null, "", `#/v/${S.invitado.uno}`); return render(); }
   // Rol Desmontaje: no carga ni edita vehículos; "nuevo" abre la elección de vehículo para el desmontaje
