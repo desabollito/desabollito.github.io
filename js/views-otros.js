@@ -1,7 +1,7 @@
 import {
   S, activos, papelera, restaurar, eliminarDefinitivo, soyAdmin, miRol, renombrarEmpresa, guardarSello,
   agregarMiembro, cambiarRol, quitarMiembro, guardarEtiquetas, resolverSolicitud, desvincularWhatsApp, salirDeEmpresa, eliminarEmpresa, crearEmpresa, elegirEmpresa,
-  actualizarPerfil, salir, mensajeError, llamarAdmin, soloDesmontaje, pedirUnion, linksCompartidos, getVehiculo
+  actualizarPerfil, salir, mensajeError, llamarAdmin, soloDesmontaje, pedirUnion, linksCompartidos, getVehiculo, soloVer
 } from "./data.js";
 import { cargarExcelJS } from "./excel.js";
 import { ESTADOS, ESTADO, ROLES, estadoActual } from "./domain.js";
@@ -82,7 +82,7 @@ export function vistaPlanilla(view) {
     pintarOrden();
     const filas = filasPlanilla();
     const total = filas.reduce((s, v) => s + (estadoActual(v) === "anulado" ? 0 : Number(v.precio || 0)), 0);
-    $("#psum", view).innerHTML = `<span><b>${filas.length}</b> ${filas.length === 1 ? "vehículo" : "vehículos"}</span>${S.invitado ? "" : `<span>Total <b>${money(total) || "$0"}</b></span>`}`;
+    $("#psum", view).innerHTML = `<span><b>${filas.length}</b> ${filas.length === 1 ? "vehículo" : "vehículos"}</span>${soloVer() ? "" : `<span>Total <b>${money(total) || "$0"}</b></span>`}`;
 
     // Celular
     $("#plist", view).innerHTML = filas.length ? filas.map(v => `
@@ -105,7 +105,7 @@ export function vistaPlanilla(view) {
         <td>${esc(v.compania || "—")}</td><td>${esc(v.localidad || "—")}</td>
         <td>${estadoPill(v)}</td><td class="num">${money(v.precio) || "—"}</td></tr>`).join("")
       : `<tr><td colspan="7" class="empty-cell">Sin resultados.</td></tr>`;
-    $("#tf", view).innerHTML = `<tr><td colspan="6">${filas.length} ${filas.length === 1 ? "vehículo" : "vehículos"}</td><td class="num">${S.invitado ? "" : money(total) || "$0"}</td></tr>`;
+    $("#tf", view).innerHTML = `<tr><td colspan="6">${filas.length} ${filas.length === 1 ? "vehículo" : "vehículos"}</td><td class="num">${soloVer() ? "" : money(total) || "$0"}</td></tr>`;
   };
   pintar();
 
@@ -152,7 +152,7 @@ export function vistaPlanilla(view) {
         { titulo: "Cargado por", ancho: 18, valor: v => v.createdByName }
       ],
       filas,
-      total: S.invitado ? [] : [{ etiqueta: "Total", valor: filas.reduce((s, v) => s + (estadoActual(v) === "anulado" ? 0 : Number(v.precio || 0)), 0) }]
+      total: soloVer() ? [] : [{ etiqueta: "Total", valor: filas.reduce((s, v) => s + (estadoActual(v) === "anulado" ? 0 : Number(v.precio || 0)), 0) }]
     });
   };
   $("#dl").onclick = () => {
@@ -754,12 +754,12 @@ export async function panelCreador() {
         </span>
       </div>
       <details class="adm-toggles adm-accesos" ${accAbierto ? "open" : ""}>
-        <summary><b>Quién ve las planillas</b> <small class="muted">Técnicos · Gastos · Gastos fijos</small></summary>
+        <summary><b>Quién ve las planillas</b> <small class="muted">Técnicos · Gastos · Fijos</small></summary>
         <div class="adm-acc-head"><span></span><small>Técnicos</small><small>Gastos</small><small>Fijos</small></div>
         ${usuarios.filter(u => u.username !== "gzmatte" && u.aprobado !== false && !u.rechazado).map(u => { const a = accesoDe(u.uid);
           return `<div class="adm-acc-fila" data-acc="${esc(u.uid)}"><span><b>${esc(u.name || "Sin nombre")}</b> <small class="muted">@${esc(u.username)}</small></span>
             ${["tecnicos", "gastos", "fijos"].map(k => `<input type="checkbox" data-acc-sec="${k}" ${a[k] ? "checked" : ""} aria-label="${k}">`).join("")}</div>`; }).join("")}
-        <small class="muted">Sin tocar: Técnicos y Gastos fijos los ven los administradores y Gastos todos. Vos siempre ves todo.</small>
+        <small class="muted">Sin tocar: Técnicos y Fijos los ven los administradores y Gastos todos. Vos siempre ves todo.</small>
       </details>
       <div class="seg seg-sm adm-tabs">
         <button type="button" class="seg-btn ${tab === "operativos" ? "on" : ""}" data-tab="operativos">Operativos <small>${operativos.length}</small></button>

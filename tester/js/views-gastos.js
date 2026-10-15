@@ -1,4 +1,4 @@
-import { S, guardarGasto, borrarGasto, soyAdmin, puedeVer, mensajeError, buscarMiembro, guardarEtiquetasGasto } from "./data.js";
+import { S, guardarGasto, borrarGasto, soyAdmin, puedeVer, mensajeError, buscarMiembro, guardarEtiquetasGasto, soySacabollos } from "./data.js";
 import { exportarExcel } from "./excel.js";
 import { $, $$, esc, money, fechaCorta, hoyISO, icon, toast, openSheet, confirmar, debounce, busy, elegirDescarga, marcarError, pedirTexto } from "./ui.js";
 import { setTopbar } from "./shell.js";
@@ -193,7 +193,7 @@ export function vistaGastos(view) {
     });
   });
   $("#g-bars", view).onclick = e => { const b = e.target.closest("[data-cat]"); if (b) { G.cat = G.cat === b.dataset.cat ? null : b.dataset.cat; pintar(); } };
-  $("#g-list", view).onclick = e => { const r = e.target.closest("[data-id]"); if (r) formGasto(S.gastos.find(g => g.id === r.dataset.id)); };
+  $("#g-list", view).onclick = e => { const r = e.target.closest("[data-id]"); if (r && !soySacabollos()) formGasto(S.gastos.find(g => g.id === r.dataset.id)); };
   $("#g-nuevo", view).onclick = () => formGasto();
 
   const excel = async () => {

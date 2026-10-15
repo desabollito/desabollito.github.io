@@ -18,6 +18,8 @@ service cloud.firestore {
     }
     function puede(cid, sec, porDefecto) { let v = acceso(sec); return isMember(cid) && (v == true || (v == null && porDefecto)); }
     function esDesmontaje(cid) { return isMember(cid) && company(cid).roles.get(uid(), '') == 'desmontaje'; }
+    // Sacabollos (el rol por defecto): por ahora solo mira; lee Técnicos y Fijos, no escribe nada
+    function esSacabollos(cid) { return isMember(cid) && company(cid).roles.get(uid(), 'tecnico') == 'tecnico'; }
     // Cuentas aprobadas (las cuentas viejas no tienen el campo y cuentan como aprobadas)
     function aprobado() {
       let p = /databases/$(database)/documents/users/$(uid());
@@ -114,14 +116,14 @@ service cloud.firestore {
           return resource.data.get('createdBy', '') == uid() || resource.data.get('createdByUid', '') == uid() || isAdmin(cid);
         }
         allow read: if isMember(cid);
-        allow create: if isMember(cid) && !esDesmontaje(cid) && request.resource.data.createdBy == uid();
+        allow create: if isMember(cid) && !esDesmontaje(cid) && !esSacabollos(cid) && request.resource.data.createdBy == uid();
         // Quien lo cargó y los administradores pueden todo; quien recibió acceso de edición
         // puede editar los datos. El resto solo cambia el estado, agrega fotos/documentos y firma.
         allow update: if esDesmontaje(cid)
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['desFotos', 'desNotas', 'desmontador', 'checkIn', 'checkOut', 'historial', 'updatedAt', 'updatedBy'])
           && request.resource.data.get('desFotos', []).size() >= resource.data.get('desFotos', []).size()
           && request.resource.data.get('desNotas', []).size() >= resource.data.get('desNotas', []).size();
-        allow update: if isMember(cid) && !esDesmontaje(cid)
+        allow update: if isMember(cid) && !esDesmontaje(cid) && !esSacabollos(cid)
           && request.resource.data.get('createdBy', '') == resource.data.get('createdBy', '')
           && request.resource.data.get('createdByUid', '') == resource.data.get('createdByUid', '')
           && (esDueno(cid) || request.resource.data.get('deleted', false) == resource.data.get('deleted', false))
@@ -138,26 +140,26 @@ service cloud.firestore {
       // ── Solicitudes de eliminación (las resuelven los administradores)
       match /solicitudes/{sid} {
         allow read: if isAdmin(cid) || (isMember(cid) && resource.data.pedidoPor == uid());
-        allow create: if isMember(cid) && request.resource.data.pedidoPor == uid();
+        allow create: if isMember(cid) && !esSacabollos(cid) && request.resource.data.pedidoPor == uid();
         allow delete: if isAdmin(cid) || (isMember(cid) && resource.data.pedidoPor == uid());
       }
 
       // ── Planilla de técnicos (valor por auto, reparto, adelantos): solo administradores ──
       match /planTec/{d} {
-        allow read: if puede(cid, 'tecnicos', isAdmin(cid)) || (d == '_fijos' && puede(cid, 'fijos', isAdmin(cid)));
+        allow read: if puede(cid, 'tecnicos', isAdmin(cid) || esSacabollos(cid)) || (d == '_fijos' && puede(cid, 'fijos', isAdmin(cid) || esSacabollos(cid)));
         allow write: if d == '_fijos' ? puede(cid, 'fijos', isAdmin(cid)) : puede(cid, 'tecnicos', isAdmin(cid));
       }
 
       // ── Gastos del operativo ───────────────────────────────
       match /gastos/{gid} {
         allow read: if puede(cid, 'gastos', true);
-        allow create: if puede(cid, 'gastos', true) && request.resource.data.createdBy == uid()
+        allow create: if puede(cid, 'gastos', true) && !esSacabollos(cid) && request.resource.data.createdBy == uid()
           && request.resource.data.monto is number && request.resource.data.monto >= 0;
-        allow update: if puede(cid, 'gastos', true)
+        allow update: if puede(cid, 'gastos', true) && !esSacabollos(cid)
           && request.resource.data.createdBy == resource.data.createdBy
           && (isAdmin(cid) || resource.data.createdBy == uid());
         allow delete: if isAdmin(cid)
-          || (puede(cid, 'gastos', true) && resource.data.createdBy == uid());
+          || (puede(cid, 'gastos', true) && !esSacabollos(cid) && resource.data.createdBy == uid());
       }
     }
 

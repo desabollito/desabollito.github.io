@@ -315,6 +315,9 @@ export const miRol = () => S.invitado ? "lectura" : (S.company?.roles?.[S.user?.
 export const soyLector = () => !!S.invitado;
 export const soyAdmin = () => ["owner", "admin"].includes(miRol());
 export const soyDesmontaje = () => miRol() === "desmontaje";
+// Sacabollos: por ahora solo mira (como el link de perito), sin precios; también ve Técnicos y Fijos
+export const soySacabollos = () => !S.invitado && !!S.company && miRol() === "tecnico";
+export const soloVer = () => soyLector() || soySacabollos();
 // Solo tiene el rol Desmontaje (en todos sus operativos): no puede crear operativos
 export const soloDesmontaje = () => S.companies?.length > 0 && S.companies.every(c => c.roles?.[S.user?.uid] === "desmontaje");
 
@@ -405,6 +408,7 @@ function escucharVehiculos() {
   if (!S.company) return;
   unsubVehicles = onSnapshot(colVehiculos(), { includeMetadataChanges: true }, snap => {
     S.vehicles = snap.docs.map(d => ({ id: d.id, ...d.data(), _pending: d.metadata.hasPendingWrites }));
+    if (soySacabollos()) S.vehicles.forEach(v => { delete v.precio; });   // Sacabollos no ve precios
     S.vehicles.sort((a, b) => (b.fechas?.peritado || "").localeCompare(a.fechas?.peritado || "")
       || (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
     S.loadingVehicles = false; reintentos.v = 0;
@@ -554,7 +558,7 @@ export function cargadoPor(v) {
 }
 // Permisos sobre un vehículo: quien lo cargó, los administradores y a quienes se les dio acceso
 export const esMioV = v => !!v && (v.createdBy === S.user?.uid || v.createdByUid === S.user?.uid);
-export const puedoEditar = v => !soyDesmontaje() && !S.invitado && (esMioV(v) || soyAdmin() || (v?.editores || []).includes(S.user?.uid));
+export const puedoEditar = v => !soyDesmontaje() && !soloVer() && (esMioV(v) || soyAdmin() || (v?.editores || []).includes(S.user?.uid));
 
 // ── Desmontaje: fotos y notas (cada una con quién la subió) y el técnico desmontador ──
 export async function agregarDesmontaje(v, fotos, texto) {
@@ -677,7 +681,7 @@ export const soyCreador = () => S.profile?.username === "gzmatte";
 export const puedeVer = sec => {
   if (soyCreador()) return true;
   const v = S.config?.accesos?.[S.user?.uid]?.[sec];
-  return typeof v === "boolean" ? v : sec === "gastos" ? true : soyAdmin();
+  return typeof v === "boolean" ? v : sec === "gastos" ? true : soyAdmin() || (soySacabollos() && ["tecnicos", "fijos"].includes(sec));
 };
 export async function llamarAdmin(ruta, datos = {}) {
   const idToken = await S.user.getIdToken();

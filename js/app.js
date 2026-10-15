@@ -5,7 +5,7 @@ import { cerrarSplash, veloCambio } from "./efectos.js";
 import { $, $$, esc, toast, busy, openSheet } from "./ui.js";
 import { FIREBASE, BOT_API } from "./config.js";
 import { iniciarFechas } from "./fecha.js";
-import { cuentaPendiente, salir, marcarOperativosVistos, soyCreador, crearEmpresa, pedirUnion, cancelarPedidoUnion, escucharMiPedido, responderPedidoUnion, soyDesmontaje, miRol, soyAdmin, getVehiculo, iniciarInvitado, soyLector, puedeVer } from "./data.js";
+import { cuentaPendiente, salir, marcarOperativosVistos, soyCreador, crearEmpresa, pedirUnion, cancelarPedidoUnion, escucharMiPedido, responderPedidoUnion, soyDesmontaje, miRol, soyAdmin, getVehiculo, iniciarInvitado, soyLector, puedeVer, soySacabollos } from "./data.js";
 import { marcarNav, pintarLateral, esAncho } from "./shell.js";
 import { vistaVehiculos, vistaDetalle, vistaFormulario, elegirVehiculoDesmontaje, vistaCheckForm } from "./views-vehiculos.js";
 import {
@@ -35,7 +35,7 @@ function irAVehiculo(arg) {
 
 const RUTAS = [
   [/^#?\/?$/,               "vehiculos",  () => vistaVehiculos(view)],
-  [/^#\/v\/([\w-]+)$/,      "vehiculos",  id => !esAncho() || S.invitado?.uno ? vistaDetalle(view, id) : S.volverA ? vistaCalendario(view, id) : vistaVehiculos(view, id)],
+  [/^#\/v\/([\w-]+)$/,      "vehiculos",  id => !esAncho() || S.invitado?.uno ? vistaDetalle(view, id) : S.volverA === "#/calendario" ? vistaCalendario(view, id) : vistaVehiculos(view, id)],
   [/^#\/o\/([\w-]+\/v\/[\w-]+)$/, "link", a => irAVehiculo(a.replace("/v/", "|"))],
   [/^#\/nuevo$/,            "nuevo",      () => vistaFormulario(view)],
   [/^#\/editar\/([\w-]+)$/, "editar",     id => vistaFormulario(view, id)],
@@ -132,19 +132,19 @@ function render({ conservarScroll = false, reabrir = false } = {}) {
     return render({ reabrir: true });
   }
   // Vehículo abierto desde el calendario: al salir vuelve al calendario (no a la lista)
-  if (hit[1] === "vehiculos" && arg) { if (reabrir) S.volverA = null; else if (ruta.nombre === "calendario") S.volverA = "#/calendario"; else if (ruta.nombre === "vehiculos" && !ruta.arg) S.volverA = null; }
+  if (hit[1] === "vehiculos" && arg) { if (reabrir) S.volverA = null; else if (["calendario", "tecnicos"].includes(ruta.nombre)) S.volverA = "#/" + ruta.nombre; else if (ruta.nombre === "vehiculos" && !ruta.arg) S.volverA = null; }
   else if (hit[1] !== "editar") S.volverA = null;
   const y = conservarScroll && mismaRuta ? scrollY : 0;
   ruta = { nombre: hit[1], arg };
   // Computadora: el vehículo abierto desde el calendario se ve dentro del calendario (vistaCalendario con selId)
-  const enCal = hit[1] === "vehiculos" && arg && S.volverA && esAncho() && !S.invitado?.uno;
+  const enCal = hit[1] === "vehiculos" && arg && S.volverA === "#/calendario" && esAncho() && !S.invitado?.uno;
   document.body.dataset.ruta = enCal ? "calendario" : hit[1];
+  document.body.dataset.soloVer = soySacabollos() ? "1" : "";   // Sacabollos: solo mira (el CSS esconde lo que edita)
   document.body.dataset.detalle = hit[1] === "vehiculos" && arg ? "1" : "";
   marcarNav(enCal ? "calendario" : ["nuevo", "editar", "operativo"].includes(hit[1]) ? "" : hit[1] === "papelera" ? "ajustes" : ["planilla", "gastos", "tecnicos", "fijos"].includes(hit[1]) ? "planillas" : hit[1]);
   pintarTabPlanilla(hit[1]);
-  // Menú lateral (computadora): Planillas se despliega con sus 3 planillas
-  const enPlan = ["planillas", "planilla", "gastos", "tecnicos", "fijos"].includes(hit[1]);
-  $(".side-grupo")?.classList.toggle("abierto", enPlan);
+  // Menú lateral (computadora): Planillas queda desplegado solo si el usuario lo desplegó (flechita)
+  $(".side-grupo")?.classList.toggle("abierto", planAbiertas());
   $$(".side-sub a").forEach(a => a.classList.toggle("on", a.dataset.sub === hit[1]));
   $$(".side-sub [data-sub=tecnicos], .side-sub [data-sub=fijos], .side-sub [data-sub=gastos]").forEach(a => { a.hidden = !puedeVer(a.dataset.sub); });
   if (hit[1] === "calendario" && !mismaRuta) calendarioAlEntrar();
@@ -249,6 +249,16 @@ $(".fab").addEventListener("click", e => {
 document.addEventListener("click", e => {
   if (!soyDesmontaje() || ruta.nombre === "gastos") return;
   if (e.target.closest('a[href="#/nuevo"]')) { e.preventDefault(); elegirVehiculoDesmontaje(); }
+}, true);
+// Planillas desplegadas o no en el menú lateral: se recuerda por usuario (por defecto, plegadas)
+const clavePlan = () => "planAbiertas:" + (S.user?.uid || "");
+function planAbiertas() { try { return localStorage.getItem(clavePlan()) === "1"; } catch { return false; } }
+document.addEventListener("click", e => {
+  if (!e.target.closest(".side-chev")) return;
+  e.preventDefault(); e.stopPropagation();
+  const g = $(".side-grupo"), on = !g.classList.contains("abierto");
+  g.classList.toggle("abierto", on);
+  try { localStorage.setItem(clavePlan(), on ? "1" : "0"); } catch { /* sin almacenamiento */ }
 }, true);
 matchMedia("(min-width: 1100px)").addEventListener("change", () => render({ conservarScroll: true }));
 

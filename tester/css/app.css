@@ -2019,3 +2019,9 @@ body[data-ruta="checkform"] .main { padding-bottom: calc(90px + var(--safe-b)); 
 .tbl.tec-excel .tec-col { text-align: center; }   /* técnicos centrados en su columna */
 .tec-gtot b { color: #f0607e; }   /* Gastos totales: rojo rosado */
 .tbl.tec-excel tbody .tec-sep td { height: 30px; background: var(--surface); }   /* una línea vacía después de cada semana */
+/* Sacabollos (por ahora): solo mira, como el link de perito, pero con planillas y ajustes */
+body[data-solo-ver="1"] :is(.fab, a[href="#/nuevo"], a[href^="#/editar"], .viewer-add, .viewer-add-fila .btn, #vw-rot, .viewer-pint,
+  [data-act="desmontaje"], [data-act="anular"], [data-act="borrar"], [data-act="mover"], [data-act="firma"], [data-act="pdf"], [data-act="contactar"],
+  [data-del-foto], [data-del-doc], #t-edit, #t-tec, #f-edit, #f-tec, #g-nuevo, [data-act="persona"], [data-act="cambio"], [data-act="tecnicos"],
+  [data-descontar], .side-new) { display: none !important; }
+body[data-solo-ver="1"] :is(.step, .etapa-item) { pointer-events: none; }

@@ -1364,10 +1364,10 @@ body[data-rol="desmontaje"] a[href^="#/editar"] { display: none !important; }
 .tec-excel input, .tec-excel .tec-celda { width: 100%; min-width: 0; max-width: 100%; box-sizing: border-box; }
 .tec-excel th { position: relative; overflow: hidden; text-overflow: ellipsis; }
 .tec-excel td { overflow: hidden; text-overflow: ellipsis; }
-.tec-excel .col-imp { border-right: 2px solid var(--line-2); }
 .col-res { position: absolute; top: 0; right: 0; width: 8px; height: 100%; cursor: col-resize; touch-action: none; }
 .col-res:hover, .col-res:active { background: color-mix(in srgb, var(--primary) 30%, transparent); }
-.tec-excel .tec-sub td { background: color-mix(in srgb, var(--primary) 10%, transparent); }
+.tec-excel .tec-sub td { background: color-mix(in srgb, var(--primary) 10%, var(--surface)); }   /* opaco: la celda fija no deja ver lo que pasa por abajo */
+.tec-excel th:first-child { background: var(--surface-2); z-index: 2; }
 .tec-excel .tec-sub small { color: var(--muted); font-weight: 600; margin-left: 6px; }
 .tec-excel .tec-sep td { height: 14px; padding: 0; border: 0; background: none; }
 .tec-cierre-top { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -2000,3 +2000,28 @@ body[data-ruta="checkform"] .main { padding-bottom: calc(90px + var(--safe-b)); 
 [data-theme="light"] .ex-media { background: radial-gradient(closest-side, #cfe1fb, #e2ecfa 45%, rgb(238 241 245 / .85) 72%, transparent); }
 [data-theme="light"] .ex-logo { filter: drop-shadow(0 0 10px color-mix(in srgb, var(--primary) 35%, transparent)); }
 .chk-nafta { padding-top: 12px; }
+.tec-excel .tec-sub .tec-no { color: inherit; }
+.tec-add-persona { margin-top: 16px; }
+.tbl.tec-excel tbody .tec-sub td { background: color-mix(in srgb, var(--primary) 10%, var(--surface)); }   /* también la celda fija de "SEMANA" */
+.tec-lista .tl-nombre { cursor: grab; touch-action: none; user-select: none; }
+.tec-lista li.arrastrando { opacity: .6; }
+.tec-excel tbody tr.tec-sep { cursor: default; }
+.side-grupo .side-chev { padding: 2px; margin-right: -2px; cursor: pointer; }
+.tbl.tec-excel tbody .tec-dia-fila td { background: color-mix(in srgb, var(--ink) 9%, var(--surface)); }   /* fila de cada día: gris suave, opaco para la celda fija */
+/* Planilla de técnicos: la tabla scrollea adentro, así los títulos quedan fijos arriba al bajar */
+.tec-page .table-wrap { overflow: auto; max-height: calc(100dvh - var(--top) - var(--safe-t, 0px) - 150px); min-height: 280px; }
+@media (max-width: 899px) { .tec-page .table-wrap { max-height: calc(100dvh - var(--top) - var(--safe-t, 0px) - var(--tab, 76px) - 170px); } }
+.tbl.tec-excel thead th { position: sticky; top: 0; z-index: 2; }
+.tbl.tec-excel thead th:first-child { left: 0; z-index: 3; }
+/* El nombre del día queda a la vista al deslizar a la derecha */
+.tbl.tec-excel tbody .tec-dia-fila td { position: static; overflow: visible; }
+.tec-excel .tec-dia-fila td > span { position: sticky; left: 10px; display: inline-block; }
+.tbl.tec-excel .tec-col { text-align: center; }   /* técnicos centrados en su columna */
+.tec-gtot b { color: #f0607e; }   /* Gastos totales: rojo rosado */
+.tbl.tec-excel tbody .tec-sep td { height: 30px; background: var(--surface); }   /* una línea vacía después de cada semana */
+/* Sacabollos (por ahora): solo mira, como el link de perito, pero con planillas y ajustes */
+body[data-solo-ver="1"] :is(.fab, a[href="#/nuevo"], a[href^="#/editar"], .viewer-add, .viewer-add-fila .btn, #vw-rot, .viewer-pint,
+  [data-act="desmontaje"], [data-act="anular"], [data-act="borrar"], [data-act="mover"], [data-act="firma"], [data-act="pdf"], [data-act="contactar"],
+  [data-del-foto], [data-del-doc], #t-edit, #t-tec, #f-edit, #f-tec, #g-nuevo, [data-act="persona"], [data-act="cambio"], [data-act="tecnicos"],
+  [data-descontar], .side-new) { display: none !important; }
+body[data-solo-ver="1"] :is(.step, .etapa-item) { pointer-events: none; }

@@ -4,7 +4,7 @@ import {
   S, activos, getVehiculo, guardarVehiculo, actualizarVehiculo, cambiarEstado, moverAPapelera,
   solicitarEliminacion, cargadoPor, esDeWhatsApp, puedoEditar, esMioV, crearSolicitud, yaPedi,
   nuevoIdVehiculo, soyAdmin, mensajeError, ultimoDeshacible, deshacerCambio, aseguradoDePadron,
-  soyDesmontaje, agregarDesmontaje, elegirDesmontador, borrarMedia, soyLector, linkVehiculo
+  soyDesmontaje, agregarDesmontaje, elegirDesmontador, borrarMedia, soyLector, linkVehiculo, soloVer, soySacabollos
 } from "./data.js";
 import { ESTADOS, ESTADO, SECUENCIA, PASO_REP, PIEZA, ORDEN_PIEZAS, estadoActual, piezasMarcadas } from "./domain.js";
 import {
@@ -59,7 +59,7 @@ function filtrar(lista) {
 // Historial del vehículo (lo más nuevo arriba). Los vehículos viejos arrancan con la carga.
 // Historial con botón para deshacer el último cambio
 function abrirHistorial(v0) {
-  const v = getVehiculo(v0.id) || v0, ult = soyDesmontaje() || soyLector() ? null : ultimoDeshacible(v);
+  const v = getVehiculo(v0.id) || v0, ult = soyDesmontaje() || soloVer() ? null : ultimoDeshacible(v);
   const s = openSheet({ title: "Historial", body: `${ult ? `<button type="button" class="btn btn-ghost btn-block hist-undo" data-deshacer>${icon("rotate")}Deshacer último cambio</button>` : ""}${historialHTML(v)}` });
   $("[data-deshacer]", s.el)?.addEventListener("click", async () => {
     if (!(await confirmar({ title: "¿Estás seguro?", message: `Se deshace: “${ult.txt}”.`, ok: "Deshacer" }))) return;
@@ -139,7 +139,7 @@ export function vistaVehiculos(view, selId = null) {
     b.classList.toggle("activo", k > 0); const n = $(".fo-badge", b); if (n) { n.textContent = k; n.hidden = !k; } };
   setTopbar({
     title: "Vehículos",
-    sub: S.company?.name,
+    sub: S.company?.name, back: S.volverA || null,   // abierto desde la planilla de técnicos: volver a la planilla
     actions: `<button class="icon-btn filtro-btn ${cuantosActivos() ? "activo" : ""}" id="tb-filtros" aria-label="Filtrar y ordenar" title="Filtrar y ordenar">${icon("filter")}<span class="fo-badge" ${cuantosActivos() ? "" : "hidden"}>${cuantosActivos()}</span></button>`
   });
 
@@ -284,7 +284,7 @@ export function vistaDetalle(view, id) {
   }
   setTopbar({
     title: "Detalle", sub: v.patente || v.modelo || "", back: S.invitado?.uno ? null : (S.volverA || "#/"),
-    actions: soyDesmontaje() || soyLector() ? "" : `<a class="icon-btn" href="#/editar/${v.id}" aria-label="Editar">${icon("edit")}</a>`
+    actions: soyDesmontaje() || soloVer() ? "" : `<a class="icon-btn" href="#/editar/${v.id}" aria-label="Editar">${icon("edit")}</a>`
   });
   view.innerHTML = `<div class="detail-page"></div>`;
   renderDetalle($(".detail-page", view), v, false);
@@ -374,7 +374,7 @@ export function renderDetalle(root, v, embebido) {
   const marcadas = piezasMarcadas(v);
   const todos = marcadas.length === ORDEN_PIEZAS.length;
   const esMio = esMioV(v);
-  const soloVer = soyDesmontaje() || soyLector();   // Desmontaje: solo ve y carga desmontajes; link de perito: solo ve
+  const soloVer = soyDesmontaje() || soyLector() || soySacabollos();   // Desmontaje: solo ve y carga desmontajes; link de perito: solo ve
 
   // Estado recién tocado: al redibujar, su círculo aparece con un "pop"
   if (S.pasoTocado && Date.now() - S.pasoTocado.t < 4000) { const k = S.pasoTocado.k; queueMicrotask(() => { const b = root.querySelector(`.step[data-estado="${k}"]`);
@@ -397,7 +397,7 @@ export function renderDetalle(root, v, embebido) {
 
     <div class="d-actions">
       <button class="btn btn-primary" data-act="pdf">${icon("share")}Compartir</button>
-      ${v.telefono ? `<div class="d-contacto">
+      ${v.telefono && !soySacabollos() ? `<div class="d-contacto">
         <button class="btn btn-ghost" data-act="contactar" aria-haspopup="true" aria-expanded="false">${icon("phone")}Contactar</button>
         <div class="d-menu" hidden>
           <a href="${waLink(v.telefono, soyLector() ? "" : mensajeWa(v))}" target="_blank" rel="noopener">${icon("chat")}WhatsApp</a>
@@ -575,7 +575,7 @@ ${[...PASO_REP, "facturado"].includes(est) && !soyLector() && (soyAdmin() || soy
     const t = e.target;
     // Rol Desmontaje: no modifica nada del vehículo
     if (soloVer && (t.closest("[data-estado], .etapa-item, [data-del-foto], [data-del-doc]") || ["anular", "borrar", "firma", "mover"].includes(t.closest("[data-act]")?.dataset.act))) return;
-    if (soyLector() && ["desmontaje", "fotos", "subir", "docs"].includes(t.closest("[data-act]")?.dataset.act)) return;
+    if ((soyLector() || soySacabollos()) && ["desmontaje", "fotos", "subir", "docs"].includes(t.closest("[data-act]")?.dataset.act)) return;
     if (t.closest("[data-act]")?.dataset.act === "desmontaje") return chkLargo ? undefined : go(`#/check/${v.id}/in`);
     if (t.closest("[data-act]")?.dataset.act === "pintura-fotos") return abrirPintura(v);
     const pf = t.closest("[data-pfoto]");
@@ -1063,7 +1063,7 @@ export async function pedirEdicion(v) {
 
 async function quitarAdjunto(v, campo, idx, confirmado = false) {
   const item = v[campo]?.[idx]; if (!item) return;
-  if (soyLector()) return;
+  if (soloVer()) return;
   if (!puedoEditar(v)) {
     const tipo = campo === "archivos" ? "documento" : "foto";
     if (!(await confirmar({ title: "Este vehículo no es tuyo",
@@ -1141,7 +1141,7 @@ const GOTA = `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentCol
 function visor(fotos = [], inicio = 0, v = null, campo = "fotos") {   // campo: "fotos" o "fotosPintura"
   if (!fotos.length) return;
   // Mantener para borrar: solo en las fotos del vehículo y si el usuario puede editarlo
-  const borrable = !!v && fotos === v[campo] && puedoEditar(v) && !soyLector();
+  const borrable = !!v && fotos === v[campo] && puedoEditar(v) && !soloVer();
   fotos = fotos.slice();   // copia: borrar/girar acá no toca la lista del estado
   let i = inicio;
   const s = openSheet({

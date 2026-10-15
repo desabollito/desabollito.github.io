@@ -1,4 +1,4 @@
-import { S, guardarGasto, borrarGasto, soyAdmin, puedeVer, mensajeError, buscarMiembro, guardarEtiquetasGasto } from "./data.js";
+import { S, guardarGasto, borrarGasto, soyAdmin, puedeVer, mensajeError, buscarMiembro, guardarEtiquetasGasto, soySacabollos } from "./data.js";
 import { exportarExcel } from "./excel.js";
 import { $, $$, esc, money, fechaCorta, hoyISO, icon, toast, openSheet, confirmar, debounce, busy, elegirDescarga, marcarError, pedirTexto } from "./ui.js";
 import { setTopbar } from "./shell.js";
@@ -111,7 +111,7 @@ export function vistaGastos(view) {
     const filas = Object.entries(porCat).sort((a, b) => b[1] - a[1]);
     const max = filas[0]?.[1] || 1;
     const maxF = Math.max(filas[0]?.[1] || 0, fx?.vi || 0, fx?.al || 0) || 1;
-    const barrasFijas = fx ? `<div class="g-fijos-sep"><span>Gastos fijos</span><a href="#/fijos">Ver ${icon("next")}</a></div>` + [["Viandas", fx.vi, "#e0a526"], ["Alquiler", fx.al, "#8b5cf6"]].map(([l, v, c]) =>
+    const barrasFijas = fx ? `<div class="g-fijos-sep"><span>Fijos</span><a href="#/fijos">Ver ${icon("next")}</a></div>` + [["Viandas", fx.vi, "#e0a526"], ["Alquiler", fx.al, "#8b5cf6"]].map(([l, v, c]) =>
       `<a class="g-bar g-bar-fijo" href="#/fijos" style="--c:${c}"><span class="g-bar-l">${l}</span>
         <span class="g-bar-track"><i style="width:${Math.max(4, v / maxF * 100)}%"></i></span><span class="g-bar-v">${money(v) || "$0"}</span></a>`).join("") : "";
     $("#g-bars", view).innerHTML = barrasFijas + (fx && filas.length ? `<div class="g-fijos-sep"><span>Gastos comunes</span><span>${money(total) || "$0"}</span></div>` : "") + (filas.length ? filas.map(([k, v]) => {
@@ -193,7 +193,7 @@ export function vistaGastos(view) {
     });
   });
   $("#g-bars", view).onclick = e => { const b = e.target.closest("[data-cat]"); if (b) { G.cat = G.cat === b.dataset.cat ? null : b.dataset.cat; pintar(); } };
-  $("#g-list", view).onclick = e => { const r = e.target.closest("[data-id]"); if (r) formGasto(S.gastos.find(g => g.id === r.dataset.id)); };
+  $("#g-list", view).onclick = e => { const r = e.target.closest("[data-id]"); if (r && !soySacabollos()) formGasto(S.gastos.find(g => g.id === r.dataset.id)); };
   $("#g-nuevo", view).onclick = () => formGasto();
 
   const excel = async () => {

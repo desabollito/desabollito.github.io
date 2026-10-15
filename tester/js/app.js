@@ -5,7 +5,7 @@ import { cerrarSplash, veloCambio } from "./efectos.js";
 import { $, $$, esc, toast, busy, openSheet } from "./ui.js";
 import { FIREBASE, BOT_API } from "./config.js";
 import { iniciarFechas } from "./fecha.js";
-import { cuentaPendiente, salir, marcarOperativosVistos, soyCreador, crearEmpresa, pedirUnion, cancelarPedidoUnion, escucharMiPedido, responderPedidoUnion, soyDesmontaje, miRol, soyAdmin, getVehiculo, iniciarInvitado, soyLector, puedeVer } from "./data.js";
+import { cuentaPendiente, salir, marcarOperativosVistos, soyCreador, crearEmpresa, pedirUnion, cancelarPedidoUnion, escucharMiPedido, responderPedidoUnion, soyDesmontaje, miRol, soyAdmin, getVehiculo, iniciarInvitado, soyLector, puedeVer, soySacabollos } from "./data.js";
 import { marcarNav, pintarLateral, esAncho } from "./shell.js";
 import { vistaVehiculos, vistaDetalle, vistaFormulario, elegirVehiculoDesmontaje, vistaCheckForm } from "./views-vehiculos.js";
 import {
@@ -139,6 +139,7 @@ function render({ conservarScroll = false, reabrir = false } = {}) {
   // Computadora: el vehículo abierto desde el calendario se ve dentro del calendario (vistaCalendario con selId)
   const enCal = hit[1] === "vehiculos" && arg && S.volverA === "#/calendario" && esAncho() && !S.invitado?.uno;
   document.body.dataset.ruta = enCal ? "calendario" : hit[1];
+  document.body.dataset.soloVer = soySacabollos() ? "1" : "";   // Sacabollos: solo mira (el CSS esconde lo que edita)
   document.body.dataset.detalle = hit[1] === "vehiculos" && arg ? "1" : "";
   marcarNav(enCal ? "calendario" : ["nuevo", "editar", "operativo"].includes(hit[1]) ? "" : hit[1] === "papelera" ? "ajustes" : ["planilla", "gastos", "tecnicos", "fijos"].includes(hit[1]) ? "planillas" : hit[1]);
   pintarTabPlanilla(hit[1]);
