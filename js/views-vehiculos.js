@@ -3,7 +3,7 @@ import { botonesFotos, conectarFotos } from "./camara.js";
 import {
   S, activos, getVehiculo, guardarVehiculo, actualizarVehiculo, cambiarEstado, moverAPapelera,
   solicitarEliminacion, cargadoPor, esDeWhatsApp, puedoEditar, esMioV, crearSolicitud, yaPedi,
-  nuevoIdVehiculo, soyAdmin, mensajeError, ultimoDeshacible, deshacerCambio, aseguradoDePadron,
+  nuevoIdVehiculo, soyAdmin, mensajeError, deshaciblesDe, deshacerCambio, aseguradoDePadron,
   soyDesmontaje, agregarDesmontaje, elegirDesmontador, borrarMedia, soyLector, linkVehiculo, soloVer, soySacabollos
 } from "./data.js";
 import { ESTADOS, ESTADO, SECUENCIA, PASO_REP, PIEZA, ORDEN_PIEZAS, estadoActual, piezasMarcadas } from "./domain.js";
@@ -57,14 +57,17 @@ function filtrar(lista) {
 }
 
 // Historial del vehículo (lo más nuevo arriba). Los vehículos viejos arrancan con la carga.
-// Historial con botón para deshacer el último cambio
+// Historial con botón para deshacer: al tocarlo se elige qué cambio deshacer
 function abrirHistorial(v0) {
-  const v = getVehiculo(v0.id) || v0, ult = soyDesmontaje() || soloVer() ? null : ultimoDeshacible(v);
-  const s = openSheet({ title: "Historial", body: `${ult ? `<button type="button" class="btn btn-ghost btn-block hist-undo" data-deshacer>${icon("rotate")}Deshacer último cambio</button>` : ""}${historialHTML(v)}` });
-  $("[data-deshacer]", s.el)?.addEventListener("click", async () => {
-    if (!(await confirmar({ title: "¿Estás seguro?", message: `Se deshace: “${ult.txt}”.`, ok: "Deshacer" }))) return;
+  const v = getVehiculo(v0.id) || v0, lista = soyDesmontaje() || soloVer() ? [] : deshaciblesDe(v);
+  const s = openSheet({ title: "Historial", body: `${lista.length ? `<details class="hist-undo-op"><summary class="btn btn-ghost btn-block hist-undo">${icon("rotate")}Deshacer cambios</summary>
+    <div class="stack hist-undo-lista">${lista.map((e, i) => `<button type="button" class="btn btn-ghost btn-block hist-undo-item" data-deshacer="${i}"><span>${esc(e.txt)}</span><small class="muted">${fechaHora(e.t)}</small></button>`).join("")}</div></details>` : ""}${historialHTML(v)}` });
+  s.el.addEventListener("click", async e => {
+    const b = e.target.closest("[data-deshacer]"); if (!b) return;
+    const elegido = lista[+b.dataset.deshacer];
+    if (!(await confirmar({ title: "¿Estás seguro?", message: `Se deshace: “${elegido.txt}”.`, ok: "Deshacer" }))) return;
     s.close();
-    deshacerCambio(v, ult).then(() => toast("Cambio deshecho", "success")).catch(err => toast(mensajeError(err), "error"));
+    deshacerCambio(v, elegido).then(() => toast("Cambio deshecho", "success")).catch(err => toast(mensajeError(err), "error"));
   });
 }
 
@@ -469,7 +472,7 @@ ${[...PASO_REP, "facturado"].includes(est) && !soyLector() && (soyAdmin() || soy
       <div class="sec-head"><h3>Documentos <small>${v.archivos?.length || 0}</small></h3></div>
       <ul class="docs">${(v.archivos || []).map((a, i) => `
         <li><a href="${esc(a.url)}" target="_blank" rel="noopener">${icon("file")}<span>${esc(a.name)}</span></a>
-          ${soloVer ? "" : `<button class="icon-btn sm" data-del-doc="${i}" aria-label="Quitar documento">${icon("x")}</button>`}</li>`).join("")}</ul>
+          </li>`).join("")}</ul>   <!-- los documentos se quitan solo desde Editar -->
     </section>` : "",
         v.fechas?.reparado || v.fechas?.facturado || v.firma ? `<section class="d-sub">
       <div class="sec-head"><h3>Firma del cliente</h3>
@@ -1674,11 +1677,15 @@ export function vistaFormulario(view, id = null) {
   });
   // Documentos desde el formulario: se suben en segundo plano igual que las fotos
   const docsNuevos = []; // { key, name, estado, doc }
+  const quitados = new Set();   // documentos que ya tenía y se quitan al guardar (se recuperan con Deshacer)
   const pintarDocs = () => {
-    $("#ff-docs", view).innerHTML = docsNuevos.map(d => `
+    $("#ff-docs", view).innerHTML = (v?.archivos || []).filter(a => !quitados.has(a.url)).map(a => `
+      <li><span class="ff-doc ok">${icon("file")}<span>${esc(a.name)}</span></span>
+        <button type="button" class="icon-btn sm" data-quitar-viejo="${esc(a.url)}" aria-label="Quitar documento">${icon("x")}</button></li>`).join("") + docsNuevos.map(d => `
       <li><span class="ff-doc ${d.estado}">${d.estado === "subiendo" ? `<span class="spin"></span>` : icon("file")}<span>${esc(d.name)}</span></span>
         <button type="button" class="icon-btn sm" data-quitar-doc="${d.key}" aria-label="Quitar documento">${icon("x")}</button></li>`).join("");
   };
+  pintarDocs();   // los que ya tiene, con su x para quitarlos
   $("#ff-doc-in", view).addEventListener("change", e => {
     const files = [...e.target.files]; e.target.value = "";
     if (!files.length) return;
@@ -1704,6 +1711,8 @@ export function vistaFormulario(view, id = null) {
     pintarDocs();
   });
   $("#ff-docs", view).addEventListener("click", e => {
+    const vj = e.target.closest("[data-quitar-viejo]");
+    if (vj) { quitados.add(vj.dataset.quitarViejo); return pintarDocs(); }
     const b = e.target.closest("[data-quitar-doc]"); if (!b) return;
     const i = docsNuevos.findIndex(d => d.key === b.dataset.quitarDoc);
     if (i < 0) return;
@@ -1758,7 +1767,7 @@ export function vistaFormulario(view, id = null) {
     const listas = nuevas.filter(n => n.foto).map(n => n.foto);
     if (listas.length) data.fotos = [...(getVehiculo(vid)?.fotos || v?.fotos || []), ...listas];
     const docsListos = docsNuevos.filter(d => d.doc).map(d => d.doc);
-    if (docsListos.length) data.archivos = [...(getVehiculo(vid)?.archivos || v?.archivos || []), ...docsListos];
+    if (docsListos.length || quitados.size) data.archivos = [...(getVehiculo(vid)?.archivos || v?.archivos || []).filter(a => !quitados.has(a.url)), ...docsListos];
     // Con la caché offline el cambio se ve al instante; la red sincroniza sola.
     guardarVehiculo(nuevoId, data, !v).catch(err => toast("No se guardó: " + mensajeError(err), "error"));
     toast(v ? "Cambios guardados" : "Vehículo guardado", "success");

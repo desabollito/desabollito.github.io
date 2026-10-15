@@ -433,8 +433,8 @@ export function nuevoIdVehiculo() {
 // ── Historial de cambios de cada vehículo ─────────────────────
 const entrada = (txt, antes) => ({ t: Date.now(), uid: S.user.uid, por: S.profile?.name || "", txt, ...(antes ? { antes } : {}) });
 
-// ── Deshacer: cada cambio guarda cómo estaban los campos antes (no fotos ni documentos) ──
-const SIN_DESHACER = new Set(["fotos", "archivos", "firma", "historial", "updatedAt", "updatedBy", "deleted", "deletedAt", "deletedBy", "avisoReparado"]);
+// ── Deshacer: cada cambio guarda cómo estaban los campos antes (no fotos; los documentos sí, se quitan solo desde Editar) ──
+const SIN_DESHACER = new Set(["fotos", "firma", "historial", "updatedAt", "updatedBy", "deleted", "deletedAt", "deletedBy", "avisoReparado"]);
 const valorEn = (obj, ruta) => ruta.split(".").reduce((o, k) => o?.[k], obj);
 function antesDe(v, campos) {
   if (!v) return null;
@@ -446,10 +446,10 @@ function antesDe(v, campos) {
   }
   return Object.keys(out).length ? out : null;
 }
-// El último cambio que se puede deshacer (que no se haya deshecho ya)
-export function ultimoDeshacible(v) {
+// Cambios que se pueden deshacer (que no se hayan deshecho ya), el más nuevo primero
+export function deshaciblesDe(v) {
   const h = v?.historial || [], hechos = new Set(h.filter(e => e.deshace).map(e => e.deshace));
-  return [...h].sort((a, b) => (b.t || 0) - (a.t || 0)).find(e => e.antes && !e.deshace && !hechos.has(e.t)) || null;
+  return [...h].sort((a, b) => (b.t || 0) - (a.t || 0)).filter(e => e.antes && !e.deshace && !hechos.has(e.t));
 }
 export async function deshacerCambio(v, e) {
   const campos = {};
@@ -479,6 +479,12 @@ function cambiosDe(viejo, nuevo) {
     const menos = Object.keys(a).filter(k => a[k] && !b[k]).map(k => PIEZA[k]?.label || k);
     if (mas.length) out.push(`Marcó ${mas.join(", ")}`);
     if (menos.length) out.push(`Desmarcó ${menos.join(", ")}`);
+  }
+  if ("archivos" in nuevo) {
+    const a = viejo.archivos || [], b = nuevo.archivos || [];
+    const q = a.filter(x => !b.some(y => y.url === x.url)).map(x => `“${x.name}”`), n = b.filter(y => !a.some(x => x.url === y.url)).length;
+    if (q.length) out.push(`Quitó ${q.length === 1 ? "el documento" : "los documentos"} ${q.join(", ")}`);
+    if (n) out.push(`Agregó ${n} ${n === 1 ? "documento" : "documentos"}`);
   }
   if ("fotos" in nuevo && (nuevo.fotos?.length || 0) > (viejo.fotos?.length || 0)) {
     const n = nuevo.fotos.length - (viejo.fotos?.length || 0);

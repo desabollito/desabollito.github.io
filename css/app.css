@@ -2040,3 +2040,7 @@ body[data-solo-ver="1"] :is(.step, .etapa-item) { pointer-events: none; }
 .tab-dots i { width: 5px; height: 5px; border-radius: 50%; background: var(--line-2); transition: background .2s; }
 .tab-dots i.on { background: var(--primary); box-shadow: 0 0 6px color-mix(in srgb, var(--primary) 70%, transparent); }
 @media (min-width: 900px) { .tab-dots { display: none !important; } }
+.hist-undo-op > summary { list-style: none; } .hist-undo-op > summary::-webkit-details-marker { display: none; }
+.hist-undo-lista { margin: 8px 0 12px; }
+.hist-undo-item { justify-content: space-between; text-align: left; gap: 10px; }
+.hist-undo-item span { white-space: normal; }
