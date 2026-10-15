@@ -1,7 +1,7 @@
 import {
   S, activos, papelera, restaurar, eliminarDefinitivo, soyAdmin, miRol, renombrarEmpresa, guardarSello,
   agregarMiembro, cambiarRol, quitarMiembro, guardarEtiquetas, resolverSolicitud, desvincularWhatsApp, salirDeEmpresa, eliminarEmpresa, crearEmpresa, elegirEmpresa,
-  actualizarPerfil, salir, mensajeError, llamarAdmin, soloDesmontaje, pedirUnion, linksCompartidos, getVehiculo, soloVer
+  actualizarPerfil, salir, mensajeError, llamarAdmin, soloDesmontaje, pedirUnion, linksCompartidos, getVehiculo, soloVer, soySacabollos
 } from "./data.js";
 import { cargarExcelJS } from "./excel.js";
 import { ESTADOS, ESTADO, ROLES, estadoActual } from "./domain.js";
@@ -552,9 +552,9 @@ export function vistaAjustes(view) {
         `<button class="seg-btn ${(() => { try { return localStorage.getItem("fechaVista") || "peritado"; } catch { return "peritado"; } })() === k ? "on" : ""}" data-fv="${k}">${t}</button>`).join("")}</div>`}
     </section>
 
-    <section class="card aj-fila">
-      <a class="btn btn-ghost" href="#/papelera">${icon("trash")}Papelera${(() => { const n = enPapelera + (soyAdmin() ? S.solicitudes?.length || 0 : 0); return n ? ` (${n})` : ""; })()}</a>
-      <button class="btn btn-danger-ghost" id="salir">${icon("logout")}Cerrar sesión</button>
+    <section class="card ${soySacabollos() ? "" : "aj-fila"}">
+      ${soySacabollos() ? "" : `<a class="btn btn-ghost" href="#/papelera">${icon("trash")}Papelera${(() => { const n = enPapelera + (soyAdmin() ? S.solicitudes?.length || 0 : 0); return n ? ` (${n})` : ""; })()}</a>`}
+      <button class="btn btn-danger-ghost ${soySacabollos() ? "btn-block" : ""}" id="salir">${icon("logout")}Cerrar sesión</button>
     </section>
 
     <p class="center aj-version"><button type="button" class="version-btn" onclick="window.dispatchEvent(new Event('forzar-actualizacion'))"
