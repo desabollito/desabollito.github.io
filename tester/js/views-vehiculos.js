@@ -397,7 +397,7 @@ export function renderDetalle(root, v, embebido) {
 
     <div class="d-actions">
       <button class="btn btn-primary" data-act="pdf">${icon("share")}Compartir</button>
-      ${v.telefono && !soySacabollos() ? `<div class="d-contacto">
+      ${v.telefono ? `<div class="d-contacto">
         <button class="btn btn-ghost" data-act="contactar" aria-haspopup="true" aria-expanded="false">${icon("phone")}Contactar</button>
         <div class="d-menu" hidden>
           <a href="${waLink(v.telefono, soyLector() ? "" : mensajeWa(v))}" target="_blank" rel="noopener">${icon("chat")}WhatsApp</a>

@@ -2682,7 +2682,7 @@ async function compartidoApi(env, { token }) {
   } else vs = (await fsList(env, `companies/${c.cid}/vehicles`))
     .filter(v => !v.deleted && mismaCia(v.compania, c.compania))
     .map(({ __id, ...v }) => ({ ...v, id: __id }));
-  if (c.sinPrecio) vs.forEach(v => { delete v.precio; });
+  if (c.sinPrecio) vs.forEach(v => { delete v.precio; delete v.archivos; });   // link de un Sacabollos: sin precio ni documentos
   return json({ ok: true, compania: c.compania, vid: c.vid || null,
     operativo: { id: c.cid, name: op.name || "", seal: op.seal || {}, memberUsers: op.memberUsers || {}, memberNames: op.memberNames || {} }, vehiculos: vs });
 }

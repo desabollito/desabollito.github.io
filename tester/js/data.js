@@ -408,7 +408,7 @@ function escucharVehiculos() {
   if (!S.company) return;
   unsubVehicles = onSnapshot(colVehiculos(), { includeMetadataChanges: true }, snap => {
     S.vehicles = snap.docs.map(d => ({ id: d.id, ...d.data(), _pending: d.metadata.hasPendingWrites }));
-    if (soySacabollos()) S.vehicles.forEach(v => { delete v.precio; });   // Sacabollos no ve precios
+    if (soySacabollos()) S.vehicles.forEach(v => { delete v.precio; delete v.archivos; });   // Sacabollos no ve precios ni documentos
     S.vehicles.sort((a, b) => (b.fechas?.peritado || "").localeCompare(a.fechas?.peritado || "")
       || (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
     S.loadingVehicles = false; reintentos.v = 0;
