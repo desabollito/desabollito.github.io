@@ -2044,3 +2044,9 @@ body[data-solo-ver="1"] :is(.step, .etapa-item) { pointer-events: none; }
 .hist-undo-lista { margin: 8px 0 12px; }
 .hist-undo-item { justify-content: space-between; text-align: left; gap: 10px; }
 .hist-undo-item span { white-space: normal; }
+/* Buscador de vidrio, como la barra de abajo: translúcido, desenfoca lo que pasa por detrás y brilla en azul al escribir */
+.pane-list > .list-tools > .search { background: color-mix(in srgb, var(--surface) 64%, transparent); -webkit-backdrop-filter: blur(18px) saturate(140%); backdrop-filter: blur(18px) saturate(140%);
+  border-color: var(--edge); border-radius: 22px; box-shadow: 0 14px 34px -12px rgb(0 0 0 / .55); }
+.pane-list > .list-tools > .search:focus-within { border-color: color-mix(in srgb, var(--primary) 55%, var(--edge));
+  box-shadow: 0 14px 34px -12px rgb(0 0 0 / .55), 0 0 24px -4px color-mix(in srgb, var(--primary) 45%, transparent); }
+.pane-list > .list-tools > .search:focus-within .ic { color: var(--primary); filter: drop-shadow(0 0 8px color-mix(in srgb, var(--primary) 60%, transparent)); }
