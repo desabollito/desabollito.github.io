@@ -152,7 +152,7 @@ service cloud.firestore {
 
       // ── Gastos del operativo ───────────────────────────────
       match /gastos/{gid} {
-        allow read: if puede(cid, 'gastos', true);
+        allow read: if puede(cid, 'gastos', !esSacabollos(cid));   // Sacabollos no ve los gastos (salvo que el creador se lo habilite)
         allow create: if puede(cid, 'gastos', true) && !esSacabollos(cid) && request.resource.data.createdBy == uid()
           && request.resource.data.monto is number && request.resource.data.monto >= 0;
         allow update: if puede(cid, 'gastos', true) && !esSacabollos(cid)

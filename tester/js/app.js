@@ -109,6 +109,7 @@ function render({ conservarScroll = false, reabrir = false } = {}) {
   // Link de perito: solo Vehículos y Calendario
   if (soyLector() && !["vehiculos", "calendario", "planilla"].includes(hit[1])) { history.replaceState(null, "", "#/"); hit = RUTAS[0]; }
   if (hit[1] === "papelera" && soySacabollos()) { history.replaceState(null, "", "#/ajustes"); return render(); }   // Sacabollos no ve la papelera
+  if (["planilla", "gastos"].includes(hit[1]) && !soyLector() && !puedeVer(hit[1])) { history.replaceState(null, "", "#/planillas"); return render(); }
   // Link de un solo vehículo: siempre ese vehículo
   if (S.invitado?.uno && h !== `#/v/${S.invitado.uno}`) { history.replaceState(null, "", `#/v/${S.invitado.uno}`); return render(); }
   // Rol Desmontaje: no carga ni edita vehículos; "nuevo" abre la elección de vehículo para el desmontaje
@@ -147,7 +148,7 @@ function render({ conservarScroll = false, reabrir = false } = {}) {
   // Menú lateral (computadora): Planillas queda desplegado solo si el usuario lo desplegó (flechita)
   $(".side-grupo")?.classList.toggle("abierto", planAbiertas());
   $$(".side-sub a").forEach(a => a.classList.toggle("on", a.dataset.sub === hit[1]));
-  $$(".side-sub [data-sub=tecnicos], .side-sub [data-sub=fijos], .side-sub [data-sub=gastos]").forEach(a => { a.hidden = !puedeVer(a.dataset.sub); });
+  $$(".side-sub [data-sub=tecnicos], .side-sub [data-sub=fijos], .side-sub [data-sub=gastos], .side-sub [data-sub=planilla]").forEach(a => { a.hidden = !puedeVer(a.dataset.sub); });
   if (hit[1] === "calendario" && !mismaRuta) calendarioAlEntrar();
   ultimoRender = Date.now();
   const eraCal = !!$(".cal-page", view);

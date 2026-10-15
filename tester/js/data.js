@@ -681,7 +681,8 @@ export const soyCreador = () => S.profile?.username === "gzmatte";
 export const puedeVer = sec => {
   if (soyCreador()) return true;
   const v = S.config?.accesos?.[S.user?.uid]?.[sec];
-  return typeof v === "boolean" ? v : sec === "gastos" ? true : soyAdmin() || (soySacabollos() && ["tecnicos", "fijos"].includes(sec));
+  // Sacabollos: solo Técnicos y Fijos (ni planilla de vehículos ni gastos)
+  return typeof v === "boolean" ? v : soySacabollos() ? ["tecnicos", "fijos"].includes(sec) : ["gastos", "planilla"].includes(sec) || soyAdmin();
 };
 export async function llamarAdmin(ruta, datos = {}) {
   const idToken = await S.user.getIdToken();
