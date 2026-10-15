@@ -130,7 +130,7 @@ service cloud.firestore {
           && (esDueno(cid) || request.resource.data.get('editores', []) == resource.data.get('editores', []))
           && (esDueno(cid) || uid() in resource.data.get('editores', [])
               || (request.resource.data.diff(resource.data).affectedKeys()
-                    .hasOnly(['estado', 'fechas', 'horas', 'etapasRepuestos', 'etapasPintura', 'postReparacion', 'razonAnulacion', 'turnoConfirmado', 'horaTurno', 'fotos', 'archivos', 'firma', 'historial', 'desFotos', 'desNotas', 'desmontador', 'checkIn', 'checkOut', 'fotosPintura', 'updatedAt', 'updatedBy'])
+                    .hasOnly(['estado', 'fechas', 'horas', 'etapasRepuestos', 'etapasPintura', 'postReparacion', 'razonAnulacion', 'turnoConfirmado', 'horaTurno', 'conformidad', 'fotos', 'archivos', 'firma', 'historial', 'desFotos', 'desNotas', 'desmontador', 'checkIn', 'checkOut', 'fotosPintura', 'updatedAt', 'updatedBy'])
                   && request.resource.data.get('fotos', []).size() >= resource.data.get('fotos', []).size()
                   && request.resource.data.get('archivos', []).size() >= resource.data.get('archivos', []).size()));
         // Se borran de verdad solo desde el bot (papelera de 48 h, "eliminar para siempre" o mover de operativo)

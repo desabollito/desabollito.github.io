@@ -1542,7 +1542,25 @@ a.g-bar-fijo { text-decoration: none; color: inherit; }
   font-weight: 650; font-size: 13.5px; white-space: nowrap; cursor: pointer; }
 .fo-dir .ic { width: 16px; height: 16px; }
 .fo-switch { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; font-weight: 650; cursor: pointer; }
-.fo-switch input { width: 22px; height: 22px; accent-color: var(--primary); }
+/* Switch: la perilla se desliza con un leve rebote */
+.fo-switch input { appearance: none; -webkit-appearance: none; flex: 0 0 auto; position: relative; width: 44px; height: 26px; margin: 0; border-radius: 13px;
+  background: var(--line); cursor: pointer; transition: background-color .22s ease; }
+.fo-switch input::before { content: ""; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,.25); transition: transform .25s cubic-bezier(.34, 1.56, .64, 1); }
+.fo-switch input:checked { background: var(--primary); }
+.fo-switch input:checked::before { transform: translateX(18px); }
+.fo-switch input:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .fo-switch input, .fo-switch input::before { transition: none; } }
+
+/* Conformidad del cliente: caritas verde / roja clarita */
+.conf-ops { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.conf-op { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 16px 8px; border: 2px solid transparent; border-radius: 14px; cursor: pointer;
+  background: color-mix(in srgb, var(--c) 14%, var(--surface)); color: var(--c); font-weight: 750; font-size: 15px; transition: transform .15s ease, border-color .15s ease; }
+.conf-op .cara { width: 46px; height: 46px; }
+.conf-op:active { transform: scale(.96); }
+.conf-op.on { border-color: var(--c); background: color-mix(in srgb, var(--c) 24%, var(--surface)); }
+.step-cara { display: block; margin: 3px auto 0; width: 16px; height: 16px; color: var(--c); }
+.step-cara .cara { display: block; width: 100%; height: 100%; }
 .fo-pie { position: sticky; bottom: 0; display: grid; grid-template-columns: auto 1fr; gap: 10px; padding: 10px 0 2px; background: linear-gradient(transparent, var(--surface) 30%); }
 @media (max-width: 420px) { .fo-op { padding: 0 9px; font-size: 13.5px; } }
 @media (min-width: 700px) { .sheet:has(.fo) { max-width: 560px; } }

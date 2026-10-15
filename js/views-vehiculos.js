@@ -18,7 +18,27 @@ import { armarZip } from "./zip.js";
 import { setTopbar, go, esAncho } from "./shell.js";
 
 // Filtros de la lista (se conservan al navegar)
-const F = { estado: "todos", q: "", mios: false, orden: "fecha", dir: -1, grado: null, repuestos: null, pintura: null, turno: null, cias: new Set() }; // grado: null = todos, 0 = sin grado
+const F = { estado: "todos", q: "", mios: false, orden: "fecha", dir: -1, grado: null, repuestos: null, pintura: null, turno: null, cliente: null, cias: new Set() }; // grado: null = todos, 0 = sin grado
+
+// Conformidad del cliente al entregar: carita y color de cada opción
+const CARAS = { conforme: ["Conforme", "#22b07d", "M8 14.5c1 1.4 2.4 2 4 2s3-.6 4-2"], desconforme: ["Desconforme", "#e0486e", "M8 16.5c1-1.4 2.4-2 4-2s3 .6 4 2"] };
+const cara = k => `<svg class="cara" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><circle cx="9" cy="10" r=".6" fill="currentColor"/><circle cx="15" cy="10" r=".6" fill="currentColor"/><path d="${CARAS[k][2]}"/></svg>`;
+const conformidadHTML = v => `<div class="conf-ops">${Object.entries(CARAS).map(([k, [t, c]]) =>
+  `<button type="button" class="conf-op ${v.conformidad === k ? "on" : ""}" data-conf="${k}" style="--c:${c}">${cara(k)}<span>${t}</span></button>`).join("")}</div>`;
+// Tocar una carita la guarda; tocar la que ya estaba la quita
+function elegirConformidad(el, v, alElegir) {
+  el.addEventListener("click", e => {
+    const b = e.target.closest("[data-conf]"); if (!b) return;
+    const cur = getVehiculo(v.id) || v, k = cur.conformidad === b.dataset.conf ? null : b.dataset.conf;
+    $$("[data-conf]", el).forEach(x => x.classList.toggle("on", x.dataset.conf === k));
+    actualizarVehiculo(v.id, { conformidad: k }, k ? `Cliente ${k}` : "Quitó la conformidad del cliente").catch(err => toast(mensajeError(err), "error"));
+    alElegir?.();
+  });
+}
+function popupConformidad(v) {
+  const s = openSheet({ title: "¿Cómo se fue el cliente?", body: conformidadHTML(getVehiculo(v.id) || v) });
+  elegirConformidad(s.el, v, () => setTimeout(() => s.close(), 250));
+}
 const ORDENES = [["fecha", "Fecha"], ["patente", "Patente"], ["modelo", "Modelo"], ["estado", "Estado"]];
 function ordenar(lista) {
   if (F.orden === "fecha" && F.dir === -1) return lista;   // ya viene ordenada por fecha, la más nueva arriba
@@ -48,6 +68,7 @@ function filtrar(lista) {
     (!F.repuestos || tieneEtapa(v, "repuestos", F.repuestos)) &&
     (!F.pintura || tieneEtapa(v, "pintura", F.pintura)) &&
     (!F.turno || (estadoActual(v) === "turnado" && (F.turno === "si") === (v.turnoConfirmado === true))) &&
+    (!F.cliente || v.conformidad === F.cliente) &&
     (!F.cias.size || F.cias.has(ciaDe(v))) &&
     (!q || (q.startsWith("@")
       // "@usuario": los vehículos que cargó esa persona
@@ -139,7 +160,7 @@ export function vistaVehiculos(view, selId = null) {
   if (selId && !ancho) return vistaDetalle(view, selId);
 
   // Cuántos filtros/órdenes distintos de lo normal hay puestos (se ve en el botón)
-  const cuantosActivos = () => [F.mios, F.grado !== null, F.repuestos, F.pintura, F.turno, F.cias.size > 0, F.orden !== "fecha" || F.dir !== -1].filter(Boolean).length;
+  const cuantosActivos = () => [F.mios, F.grado !== null, F.repuestos, F.pintura, F.turno, F.cliente, F.cias.size > 0, F.orden !== "fecha" || F.dir !== -1].filter(Boolean).length;
   const marcarBoton = () => { const b = $("#tb-filtros"); if (!b) return; const k = cuantosActivos();
     b.classList.toggle("activo", k > 0); const n = $(".fo-badge", b); if (n) { n.textContent = k; n.hidden = !k; } };
   setTopbar({
@@ -197,7 +218,7 @@ export function vistaVehiculos(view, selId = null) {
          <button class="btn btn-ghost" id="limpiar">Limpiar filtros</button></div>`;
     box.classList.toggle("lista-anim", animar);
     if (animar) [...box.children].forEach((c, i) => c.style.setProperty("--i", i));
-    $("#limpiar", box)?.addEventListener("click", () => { F.q = ""; F.estado = "todos"; F.mios = false; F.cias.clear(); F.grado = null; F.repuestos = null; F.pintura = null; F.turno = null; marcarBoton(); $("#q").value = ""; pintar(); });
+    $("#limpiar", box)?.addEventListener("click", () => { F.q = ""; F.estado = "todos"; F.mios = false; F.cias.clear(); F.grado = null; F.repuestos = null; F.pintura = null; F.turno = null; F.cliente = null; marcarBoton(); $("#q").value = ""; pintar(); });
   };
 
   // Computadora: tocar de nuevo el vehículo marcado lo desmarca y cierra el detalle
@@ -222,7 +243,8 @@ export function vistaVehiculos(view, selId = null) {
       <section class="fo-sec"><h3>Pintura</h3><div class="fo-seg" id="fo-pintura"></div></section>
       <section class="fo-sec"><h3>Repuestos</h3><div class="fo-seg" id="fo-repuestos"></div></section>
       <section class="fo-sec fo-compacto"><h3>Turnos</h3><div class="fo-seg" id="fo-turno"></div></section>
-      ${lector ? "" : `<label class="fo-switch"><span>Solo los que cargué yo</span><input type="checkbox" id="fo-mios" ${F.mios ? "checked" : ""}></label>`}
+      <section class="fo-sec"><h3>Cliente</h3><div class="fo-seg" id="fo-cliente"></div></section>
+      ${lector ? "" : `<label class="fo-switch"><span>Cargados por mí</span><input type="checkbox" id="fo-mios" ${F.mios ? "checked" : ""}></label>`}
       <div class="fo-pie"><button type="button" class="btn btn-ghost" data-close id="fo-reset">Limpiar</button><button type="button" class="btn btn-primary" data-close id="fo-ver"></button></div>
     </div>` });
     const el = id => $(id, hoja.el);
@@ -241,6 +263,7 @@ export function vistaVehiculos(view, selId = null) {
       ["pintura", "repuestos"].forEach(tipo => degrade(`#fo-${tipo}`, ETAPAS[tipo].map(e => e[2])));
       el("#fo-turno").innerHTML = [["no", "Sin confirmar", "#e0a526", false], ["si", "Confirmados", "#22b07d", true]].map(([k, t, c, si]) =>
           op("turno", k, t, n(v => estadoActual(v) === "turnado" && (v.turnoConfirmado === true) === si), F.turno === k, c)).join("");
+      el("#fo-cliente").innerHTML = Object.entries(CARAS).map(([k, [t, c]]) => op("cliente", k, t, n(v => v.conformidad === k), F.cliente === k, c)).join("");
       ["pintura", "repuestos"].forEach(tipo => {
         el(`#fo-${tipo}`).innerHTML = ETAPAS[tipo].map(([k, t, c]) => op(tipo, k, t, n(v => tieneEtapa(v, tipo, k)), F[tipo] === k, c)).join("");
       });
@@ -254,14 +277,14 @@ export function vistaVehiculos(view, selId = null) {
     hoja.el.addEventListener("click", e => {
       const c = e.target.closest("[data-cia]");
       if (c) { const k = c.dataset.cia; F.cias.has(k) ? F.cias.delete(k) : F.cias.add(k); return aplicar(); }
-      if (e.target.closest("#fo-reset")) { F.mios = false; F.grado = null; F.repuestos = null; F.pintura = null; F.turno = null; F.cias.clear(); F.orden = "fecha"; F.dir = -1;
+      if (e.target.closest("#fo-reset")) { F.mios = false; F.grado = null; F.repuestos = null; F.pintura = null; F.turno = null; F.cliente = null; F.cias.clear(); F.orden = "fecha"; F.dir = -1;
         if (el("#fo-mios")) el("#fo-mios").checked = false; return aplicar(); }
       const b = e.target.closest("[data-g]"); if (!b) return;
       const g = b.dataset.g, v = b.dataset.v;
       if (g === "orden") { if (F.orden === v) F.dir *= -1; else { F.orden = v; F.dir = v === "fecha" ? -1 : 1; } }
       // Sin "Todos": tocar la opción elegida la quita (ninguna elegida = todos)
       else if (g === "grado") F.grado = F.grado === Number(v) ? null : Number(v);
-      else F[g] = F[g] === v ? null : v;   // turno, pintura, repuestos
+      else F[g] = F[g] === v ? null : v;   // turno, cliente, pintura, repuestos
       aplicar();
     });
     el("#fo-mios")?.addEventListener("change", e => { F.mios = e.target.checked; aplicar(); });
@@ -432,6 +455,7 @@ ${[...PASO_REP, "facturado"].includes(est) && !soyLector() && (soyAdmin() || soy
             <span class="dot">${hecho ? icon(aus ? "x" : "check") : ""}</span>
             <span class="step-l">${e.label}</span>
             <span class="step-d">${fechaK ? fechaCorta(fechaK) : "—"}${(k === "peritado" || k === "turnado") && v.fechas?.[k] && horaDe(v, k) ? `<br>${horaDe(v, k)}` : ""}</span>
+            ${hecho && k === "rep" && CARAS[v.conformidad] ? `<span class="step-cara" style="--c:${CARAS[v.conformidad][1]}" title="${CARAS[v.conformidad][0]}">${cara(v.conformidad)}</span>` : ""}
             ${k === "turnado" && est === "turnado" ? `<span class="step-conf ${v.turnoConfirmado ? "ok" : ""}">${v.turnoConfirmado ? "Confirmado" : "Esperando confirmación"}</span>` : ""}</button></li>`;
         }).join("")}
       </ol>
@@ -600,6 +624,7 @@ ${[...PASO_REP, "facturado"].includes(est) && !soyLector() && (soyAdmin() || soy
         cambiarEstado(cur, sig, hoyISO()).catch(err => toast(mensajeError(err), "error"));
         toast(ESTADO[sig].label, "success");
         if (sig === "llamado") setTimeout(() => ofrecerAvisoCliente(cur), 350);
+        if (sig === "entregado") setTimeout(() => popupConformidad(cur), 350);
         return;
       }
       // Facturado: un toque y queda con la fecha de hoy (mantener apretado para elegir otra)
@@ -968,9 +993,12 @@ function fechasReparacion(v) {
   const est = estadoActual(v), hasta = Math.max(PASO_REP.indexOf(est), ["facturado"].includes(est) ? PASO_REP.length - 1 : -1);
   const pasos = PASO_REP.filter((k, i) => i <= hasta || v.fechas?.[k]);
   if (!pasos.length) return toast("Todavía no entró a reparación");
+  const entregado = ["entregado", "facturado"].includes(est);
   const s = openSheet({ title: "Fechas de la reparación", body: `<form class="stack">
+    ${entregado ? `<div class="field"><span>Cliente</span>${conformidadHTML(v)}</div>` : ""}
     ${pasos.map(k => `<label class="field"><span>${esc(ESTADO[k].label)}</span><input type="date" name="${k}" value="${esc(v.fechas?.[k] || "")}"></label>`).join("")}
     <button class="btn btn-primary btn-block">Guardar</button></form>` });
+  if (entregado) elegirConformidad(s.el, v);
   $("form", s.el).onsubmit = ev => {
     ev.preventDefault();
     const fechas = { ...(v.fechas || {}) };
