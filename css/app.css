@@ -2035,7 +2035,7 @@ body[data-solo-ver="1"] :is(.step, .etapa-item) { pointer-events: none; }
 .split-on .pane-list > .list-tools > .search { top: 0; }
 .tabbar a { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; -webkit-user-drag: none; }
 /* Calendario y Planillas comparten lugar: dos puntitos dicen en cuál de las dos estás */
-.tab-dots { display: none; position: absolute; left: 50%; bottom: 7px; transform: translateX(-50%); gap: 4px; pointer-events: none; }
+.tab-dots { display: none; position: absolute; left: 50%; top: calc(50% + 18px); transform: translateX(-50%); gap: 4px; pointer-events: none; }   /* debajo del ícono, sin moverlo; centrado entre los 2 puntos */
 .tabbar a.on .tab-dots { display: flex; }
 .tab-dots i { width: 5px; height: 5px; border-radius: 50%; background: var(--line-2); transition: background .2s; }
 .tab-dots i.on { background: var(--primary); box-shadow: 0 0 6px color-mix(in srgb, var(--primary) 70%, transparent); }
