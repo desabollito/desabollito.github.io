@@ -57,15 +57,17 @@ function filtrar(lista) {
 }
 
 // Historial del vehículo (lo más nuevo arriba). Los vehículos viejos arrancan con la carga.
+// En pantalla sin el "Pasó a" de los cambios de estado (el texto guardado lo sigue teniendo: lo usan colores y avisos)
+const sinPaso = txt => String(txt || "").replace(/Pasó a /g, "");
 // Historial con botón para deshacer: al tocarlo se elige qué cambio deshacer
 function abrirHistorial(v0) {
   const v = getVehiculo(v0.id) || v0, lista = soyDesmontaje() || soloVer() ? [] : deshaciblesDe(v);
-  const s = openSheet({ title: "Historial", body: `${lista.length ? `<details class="hist-undo-op"><summary class="btn btn-ghost btn-block hist-undo">${icon("rotate")}Deshacer cambios</summary>
-    <div class="stack hist-undo-lista">${lista.map((e, i) => `<button type="button" class="btn btn-ghost btn-block hist-undo-item" data-deshacer="${i}"><span>${esc(e.txt)}</span><small class="muted">${fechaHora(e.t)}</small></button>`).join("")}</div></details>` : ""}${historialHTML(v)}` });
+  const s = openSheet({ title: "Historial", body: `${lista.length ? `<details class="hist-undo-op"><summary class="btn btn-ghost btn-block hist-undo">${icon("rotate")}Eliminar cambios</summary>
+    <div class="stack hist-undo-lista">${lista.map((e, i) => `<button type="button" class="btn btn-ghost btn-block hist-undo-item" data-deshacer="${i}"><span>${esc(sinPaso(e.txt))}</span><small class="muted">${fechaHora(e.t)}</small></button>`).join("")}</div></details>` : ""}${historialHTML(v)}` });
   s.el.addEventListener("click", async e => {
     const b = e.target.closest("[data-deshacer]"); if (!b) return;
     const elegido = lista[+b.dataset.deshacer];
-    if (!(await confirmar({ title: "¿Estás seguro?", message: `Se deshace: “${elegido.txt}”.`, ok: "Deshacer" }))) return;
+    if (!(await confirmar({ title: "¿Estás seguro?", message: `Se deshace: “${sinPaso(elegido.txt)}”.`, ok: "Deshacer" }))) return;
     s.close();
     deshacerCambio(v, elegido).then(() => toast("Cambio deshecho", "success")).catch(err => toast(mensajeError(err), "error"));
   });
@@ -92,7 +94,7 @@ function historialHTML(v) {
   }
   h.sort((a, b) => (b.t || 0) - (a.t || 0));
   const cuando = t => t ? new Date(t).toLocaleString("es-AR", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" }) : "";
-  return `<ol class="hist">${h.map(e => `<li class="${colorHist(e.txt) ? "hc" : ""}" style="${colorHist(e.txt) ? `--c:${colorHist(e.txt)}` : ""}"><span class="hist-txt"><strong>${esc(e.por || "Alguien")}</strong> ${esc(String(e.txt || "").replace(/ por WhatsApp/g, ""))}</span><time>${cuando(e.t)}</time></li>`).join("")}</ol>`;
+  return `<ol class="hist">${h.map(e => `<li class="${colorHist(e.txt) ? "hc" : ""}" style="${colorHist(e.txt) ? `--c:${colorHist(e.txt)}` : ""}"><span class="hist-txt"><strong>${esc(e.por || "Alguien")}</strong> ${esc(sinPaso(e.txt).replace(/ por WhatsApp/g, ""))}</span><time>${cuando(e.t)}</time></li>`).join("")}</ol>`;
 }
 
 const gradoTag = v => v.grado ? `<span class="grado-tag g${v.grado} d-grado-tag">Grado ${v.grado}</span>` : "";
