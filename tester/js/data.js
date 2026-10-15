@@ -431,20 +431,42 @@ export function nuevoIdVehiculo() {
 }
 
 // ── Historial de cambios de cada vehículo ─────────────────────
-const entrada = (txt, antes) => ({ t: Date.now(), uid: S.user.uid, por: S.profile?.name || "", txt, ...(antes ? { antes } : {}) });
+const entrada = (txt, cambio) => ({ t: Date.now(), uid: S.user.uid, por: S.profile?.name || "", txt, ...cambio });
 
-// ── Deshacer: cada cambio guarda cómo estaban los campos antes (no fotos; los documentos sí, se quitan solo desde Editar) ──
+// ── Deshacer: cada cambio guarda cómo estaban los campos antes y cómo quedaron (no fotos; los documentos sí, se quitan solo desde Editar) ──
 const SIN_DESHACER = new Set(["fotos", "firma", "historial", "updatedAt", "updatedBy", "deleted", "deletedAt", "deletedBy", "avisoReparado"]);
 const valorEn = (obj, ruta) => ruta.split(".").reduce((o, k) => o?.[k], obj);
+const esObj = x => !!x && typeof x === "object" && Object.getPrototypeOf(x) === Object.prototype;
+const copia = x => x === undefined ? null : JSON.parse(JSON.stringify(x));
 function antesDe(v, campos) {
-  if (!v) return null;
-  const out = {};
-  for (const k of Object.keys(campos)) {
+  if (!v) return {};
+  const antes = {}, despues = {};
+  for (const [k, nuevo] of Object.entries(campos)) {
     if (SIN_DESHACER.has(k.split(".")[0])) continue;
-    const val = valorEn(v, k);
-    out[k.replace(/\./g, "|")] = val === undefined ? null : JSON.parse(JSON.stringify(val));
+    const kk = k.replace(/\./g, "|");
+    antes[kk] = copia(valorEn(v, k));
+    if (!(nuevo && typeof nuevo === "object" && !Array.isArray(nuevo) && !esObj(nuevo))) despues[kk] = copia(nuevo);   // arrayUnion y otros sentinels: sin "después"
   }
-  return Object.keys(out).length ? out : null;
+  return Object.keys(antes).length ? { antes, despues } : {};
+}
+// Revierte solo lo que hizo ese cambio: lo que se cambió después (en el mismo campo, pieza o documento) queda
+const orden = x => Array.isArray(x) ? x.map(orden) : esObj(x) ? Object.fromEntries(Object.keys(x).sort().map(k => [k, orden(x[k])])) : x;
+const igual = (x, y) => JSON.stringify(orden(x ?? null)) === JSON.stringify(orden(y ?? null));
+function revertir(ahora, antes, despues) {
+  if (igual(ahora, despues)) return antes;
+  if (Array.isArray(ahora) && (Array.isArray(antes) || antes == null) && (Array.isArray(despues) || despues == null)) {
+    const k = x => x?.url || JSON.stringify(orden(x)), A = new Set((antes || []).map(k)), D = new Set((despues || []).map(k)), H = new Set(ahora.map(k));
+    return [...ahora.filter(x => A.has(k(x)) || !D.has(k(x))), ...(antes || []).filter(x => !D.has(k(x)) && !H.has(k(x)))];
+  }
+  if (esObj(ahora) && (esObj(antes) || antes == null) && (esObj(despues) || despues == null)) {
+    const out = { ...ahora };
+    for (const k of new Set([...Object.keys(antes || {}), ...Object.keys(despues || {})])) {
+      const r = revertir(ahora[k], antes?.[k], despues?.[k]);
+      if (r == null) delete out[k]; else out[k] = r;
+    }
+    return out;
+  }
+  return ahora;   // otro cambio posterior lo pisó
 }
 // Cambios que se pueden deshacer (que no se hayan deshecho ya), el más nuevo primero
 export function deshaciblesDe(v) {
@@ -452,8 +474,11 @@ export function deshaciblesDe(v) {
   return [...h].sort((a, b) => (b.t || 0) - (a.t || 0)).filter(e => e.antes && !e.deshace && !hechos.has(e.t));
 }
 export async function deshacerCambio(v, e) {
-  const campos = {};
-  for (const [k, val] of Object.entries(e.antes || {})) campos[k.replace(/\|/g, ".")] = val === null ? deleteField() : val;
+  const campos = {}, ahora = getVehiculo(v.id) || v;
+  for (const [k, a] of Object.entries(e.antes || {})) {
+    const ruta = k.replace(/\|/g, "."), val = e.despues && k in e.despues ? revertir(valorEn(ahora, ruta), a, e.despues[k]) : a;   // entradas viejas: sin "después"
+    campos[ruta] = val == null ? deleteField() : val;
+  }
   await updateDoc(doc(colVehiculos(), v.id), { ...campos,
     historial: arrayUnion({ ...entrada(`Deshizo: ${e.txt}`), deshace: e.t }), updatedAt: serverTimestamp(), updatedBy: S.user.uid });
 }
@@ -501,7 +526,7 @@ export async function guardarVehiculo(id, data, esNuevo) {
     const viejo = getVehiculo(id), cambios = cambiosDe(viejo, data);
     if (cambios.length) {
       // El deshacer de una edición revierte todo lo que se cambió al guardar
-      const cambiados = Object.fromEntries(Object.keys(data).filter(k => JSON.stringify(data[k] ?? null) !== JSON.stringify(viejo?.[k] ?? null)).map(k => [k, 1]));
+      const cambiados = Object.fromEntries(Object.keys(data).filter(k => JSON.stringify(data[k] ?? null) !== JSON.stringify(viejo?.[k] ?? null)).map(k => [k, data[k]]));
       base.historial = arrayUnion(entrada(cambios.join(" · "), antesDe(viejo, cambiados)));
     }
   }
