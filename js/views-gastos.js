@@ -54,7 +54,7 @@ function delMes() {
 export function vistaGastos(view) {
   setTopbar({
     title: "Planilla de gastos", sub: S.company?.name, back: "#/planillas",
-    actions: `<button class="icon-btn filtro-btn ${G.cat || G.metodo || G.mes || G.orden !== "fecha" || G.dir !== -1 ? "activo" : ""}" id="g-filtros" aria-label="Filtrar y ordenar" title="Filtrar y ordenar">${icon("filter")}</button><button class="btn btn-ghost btn-sm" id="g-dl" aria-label="Descargar">${icon("download")}<span class="hide-sm">Descargar</span></button>`
+    actions: `<button class="btn btn-ghost btn-sm" id="g-dl" aria-label="Descargar">${icon("download")}<span class="hide-sm">Descargar</span></button><button class="icon-btn filtro-btn ${G.cat || G.metodo || G.mes || G.orden !== "fecha" || G.dir !== -1 ? "activo" : ""}" id="g-filtros" aria-label="Filtrar y ordenar" title="Filtrar y ordenar">${icon("filter")}</button><button class="btn btn-ghost btn-sm" id="g-dl" aria-label="Descargar">${icon("download")}<span class="hide-sm">Descargar</span></button>`
   });
 
   if (!puedeVer("gastos")) { view.innerHTML = `<div class="empty"><p>No tenés acceso a esta planilla.</p></div>`; return; }
