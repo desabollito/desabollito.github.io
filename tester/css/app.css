@@ -2050,3 +2050,7 @@ body[data-solo-ver="1"] :is(.step, .etapa-item) { pointer-events: none; }
 .pane-list > .list-tools > .search:focus-within { border-color: color-mix(in srgb, var(--primary) 55%, var(--edge));
   box-shadow: 0 14px 34px -12px rgb(0 0 0 / .55), 0 0 24px -4px color-mix(in srgb, var(--primary) 45%, transparent); }
 .pane-list > .list-tools > .search:focus-within .ic { color: var(--primary); filter: drop-shadow(0 0 8px color-mix(in srgb, var(--primary) 60%, transparent)); }
+/* Visor: tacho sin aro (el aro rojo aparece solo mientras lo mantenés apretado) y del mismo color que el botón de pintura */
+.viewer-add-fila .hold-del { color: var(--ink); }
+.viewer-add-fila .hold-del .anillo .base { stroke: transparent; }
+.viewer-add-fila .hold-del.cargando { color: var(--danger); }
