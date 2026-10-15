@@ -63,7 +63,7 @@ const sinPaso = txt => String(txt || "").replace(/Pasó a /g, "");
 function abrirHistorial(v0) {
   const v = getVehiculo(v0.id) || v0, lista = soyDesmontaje() || soloVer() ? [] : deshaciblesDe(v);
   const s = openSheet({ title: "Historial", body: `${lista.length ? `<details class="hist-undo-op"><summary class="btn btn-ghost btn-block hist-undo">${icon("rotate")}Eliminar cambios</summary>
-    <div class="stack hist-undo-lista">${lista.map((e, i) => `<button type="button" class="btn btn-ghost btn-block hist-undo-item" data-deshacer="${i}"><span>${esc(sinPaso(e.txt))}</span><small class="muted">${fechaHora(e.t)}</small></button>`).join("")}</div></details>` : ""}${historialHTML(v)}` });
+    <div class="stack hist-undo-lista">${lista.map((e, i) => `<button type="button" class="btn btn-ghost btn-block hist-undo-item" data-deshacer="${i}">${icon("x")}<span>${esc(sinPaso(e.txt))}</span><small class="muted">${fechaHora(e.t)}</small></button>`).join("")}</div></details>` : ""}${historialHTML(v)}` });
   s.el.addEventListener("click", async e => {
     const b = e.target.closest("[data-deshacer]"); if (!b) return;
     const elegido = lista[+b.dataset.deshacer];
