@@ -5,7 +5,7 @@ import { cerrarSplash, veloCambio } from "./efectos.js";
 import { $, $$, esc, toast, busy, openSheet } from "./ui.js";
 import { FIREBASE, BOT_API } from "./config.js";
 import { iniciarFechas } from "./fecha.js";
-import { cuentaPendiente, salir, marcarOperativosVistos, soyCreador, crearEmpresa, pedirUnion, cancelarPedidoUnion, escucharMiPedido, responderPedidoUnion, soyDesmontaje, miRol, soyAdmin, getVehiculo, iniciarInvitado, soyLector, puedeVer, soySacabollos } from "./data.js";
+import { cuentaPendiente, salir, marcarOperativosVistos, soyCreador, crearEmpresa, pedirUnion, cancelarPedidoUnion, escucharMiPedido, responderPedidoUnion, soyDesmontaje, miRol, soyAdmin, getVehiculo, iniciarInvitado, soyLector, puedeVer, soySacabollos, registrarRuta } from "./data.js";
 import { marcarNav, pintarLateral, esAncho } from "./shell.js";
 import { vistaVehiculos, vistaDetalle, vistaFormulario, elegirVehiculoDesmontaje, vistaCheckForm } from "./views-vehiculos.js";
 import {
@@ -138,6 +138,7 @@ function render({ conservarScroll = false, reabrir = false } = {}) {
   else if (hit[1] !== "editar") S.volverA = null;
   const y = conservarScroll && mismaRuta ? scrollY : 0;
   ruta = { nombre: hit[1], arg };
+  if (!mismaRuta) registrarRuta(hit[1], arg);   // trackeo de movimientos (solo si el creador lo activó para este usuario)
   // Computadora: el vehículo abierto desde el calendario se ve dentro del calendario (vistaCalendario con selId)
   const enCal = hit[1] === "vehiculos" && arg && S.volverA === "#/calendario" && esAncho() && !S.invitado?.uno;
   document.body.dataset.ruta = enCal ? "calendario" : hit[1];
@@ -521,15 +522,18 @@ function avisarAgregado(ops) {
   if (ir) ir.onclick = () => { elegirEmpresa(ops[0].id); s.close(); location.hash = "#/"; };
 }
 
-// Dos toques seguidos en el botón de Ajustes (solo el creador de la app): panel con todos los operativos y usuarios
+// Mantener apretado Ajustes (solo el creador de la app): panel con todos los operativos y usuarios
 {
-  // Un toque va a Ajustes (con una espera cortita); dos toques abren el panel
-  let reloj = null;
-  document.addEventListener("click", e => {
+  let reloj = null, largo = false;
+  document.addEventListener("pointerdown", e => {
     if (!e.target.closest('a[href="#/ajustes"]') || !soyCreador()) return;
-    e.preventDefault();
-    if (reloj) { clearTimeout(reloj); reloj = null; panelCreador(); return; }
-    reloj = setTimeout(() => { reloj = null; location.hash = "#/ajustes"; }, 320);
+    largo = false;
+    reloj = setTimeout(() => { reloj = null; largo = true; navigator.vibrate?.(30); panelCreador(); }, 550);
+  }, true);
+  ["pointerup", "pointerleave", "pointercancel"].forEach(ev => document.addEventListener(ev, () => clearTimeout(reloj), true));
+  // El toque que viene después de un mantenido no debe navegar a Ajustes
+  document.addEventListener("click", e => {
+    if (largo && e.target.closest('a[href="#/ajustes"]')) { e.preventDefault(); e.stopPropagation(); largo = false; }
   }, true);
 }
 

@@ -87,6 +87,26 @@ function escucharPerfil(user) {
   }, e => console.warn("perfil", e));
 }
 export const cuentaPendiente = () => S.profile?.aprobado === false;
+
+// ── Trackeo de movimientos (lo activa el creador desde el bot: users/{uid}.tracking = true) ──
+let movN = 0, movUlt = "";
+const SECMOV = { vehiculos: "Vehículos", calendario: "Calendario", planillas: "Planillas", planilla: "Planilla",
+  gastos: "Gastos", tecnicos: "Técnicos", fijos: "Fijos", ajustes: "Ajustes", papelera: "Papelera", nuevo: "Cargar vehículo", editar: "Editar vehículo" };
+const etiquetaAuto = v => [v?.modelo, v?.patente].filter(Boolean).join(" ") || "auto";
+export function registrarRuta(nombre, arg) {
+  if (nombre === "vehiculos" && arg) registrarMov("Abrió auto " + etiquetaAuto(getVehiculo(arg)));
+  else registrarMov("Entró a " + (SECMOV[nombre] || nombre));
+}
+export function registrarMov(txt) {
+  const uid = S.user?.uid;
+  if (!uid || S.invitado || !S.profile?.tracking || !txt) return;
+  if (txt === movUlt) return;        // no repetir el mismo movimiento seguido
+  movUlt = txt;
+  if (movN >= 3000) return;          // shortcut: tope por sesión para no inflar el doc; el creador corta el tracking al pedir el informe
+  movN++;
+  setDoc(doc(db, "tracking_logs", uid), { uid, username: S.profile?.username || "", name: S.profile?.name || "",
+    eventos: arrayUnion({ t: Date.now(), op: S.company?.name || "", txt: String(txt).slice(0, 160) }) }, { merge: true }).catch(() => {});
+}
 // Operativos a los que me agregaron y todavía no vi (se avisa con un cartel al abrir la app)
 const avisados = new Set();
 export function revisarAgregados() {
@@ -309,6 +329,7 @@ export async function crearEmpresa(nombre) {
     createdAt: serverTimestamp()
   });
   localStorage.setItem("empresaActiva", ref.id);
+  registrarMov("Creó operativo " + nombre.trim());
   return ref.id;
 }
 
@@ -550,11 +571,15 @@ export async function guardarVehiculo(id, data, esNuevo) {
   } else {
     await updateDoc(ref, base);
   }
+  const vv = esNuevo ? data : { ...getVehiculo(id), ...data };
+  registrarMov((esNuevo ? "Cargó auto " : "Editó auto ") + etiquetaAuto(vv));
 }
 
 export async function actualizarVehiculo(id, campos, hist) {
-  const extra = hist ? { historial: arrayUnion(entrada(hist, antesDe(getVehiculo(id), campos))) } : {};
+  const v = getVehiculo(id);
+  const extra = hist ? { historial: arrayUnion(entrada(hist, antesDe(v, campos))) } : {};
   await updateDoc(doc(colVehiculos(), id), { ...campos, ...extra, updatedAt: serverTimestamp(), updatedBy: S.user.uid });
+  if (hist) registrarMov(etiquetaAuto(v) + ": " + hist);
 }
 
 export async function cambiarEstado(v, estado, fecha = hoyISO(), extra = {}) {

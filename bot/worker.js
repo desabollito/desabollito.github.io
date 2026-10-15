@@ -2341,6 +2341,11 @@ async function comandoAdmin(env, m, texto) {
   // Confirmar o rechazar la eliminación de un operativo: "BORRAR ab12" / "NO BORRAR ab12"
   const bo = t.match(/^(no\s+)?borrar\s+([a-z0-9]{4,8})$/);
   if (bo) { await confirmarBorrado(env, m, bo[2], !bo[1]); return true; }
+  // Trackeo de movimientos de un usuario: "tracking @juan" activa; de nuevo desactiva y manda el informe. "informe @juan" lo manda sin apagar.
+  const tk = t.match(/^tracking\s+@?([a-z0-9._-]{3,64})$/);
+  if (tk) { await comandoTracking(env, m, tk[1]); return true; }
+  const inf = t.match(/^informe\s+@?([a-z0-9._-]{3,64})$/);
+  if (inf) { await enviarInforme(env, m, inf[1], false); return true; }
   if (t === "pendientes") {
     const pend = await fsList(env, "bot_pendientes");
     await responder(env, dest(m), pend.length ? "📋 Cuentas esperando aprobación:\n\n" + pend.map(p => `• ${p.name || ""} (@${p.username})`).join("\n") + "\n\nRespondé *SI usuario* o *NO usuario*."
@@ -2372,6 +2377,45 @@ async function comandoAdmin(env, m, texto) {
     ? `✅ Aprobaste a *${p.name || p.username}*.`
     : `❌ Rechazaste a *${p.name || p.username}*.`);
   return true;
+}
+
+// Busca el uid de un usuario por su nombre de usuario
+async function uidDeUsuario(env, username) {
+  const u = await fsGet(env, `usernames/${limpiarUsuario(username)}`).catch(() => null);
+  return u?.uid || null;
+}
+// "tracking @usuario": alterna el trackeo. Al apagarlo, manda el informe y limpia el registro.
+async function comandoTracking(env, m, username) {
+  const user = limpiarUsuario(username);
+  const uid = await uidDeUsuario(env, user);
+  if (!uid) return void await responder(env, dest(m), `No encontré al usuario *@${user}*.`);
+  const p = await fsGet(env, `users/${uid}`);
+  if (p?.tracking) {
+    await fsMerge(env, `users/${uid}`, { tracking: false });
+    await enviarInforme(env, m, user, true);   // apaga → informe + borra el registro
+  } else {
+    await fsMerge(env, `users/${uid}`, { tracking: true });
+    await responder(env, dest(m), `🔎 Trackeo *activado* para *@${user}*. Se registran sus movimientos en la app.\n\nEscribí de nuevo *tracking ${user}* para apagarlo y recibir el informe.`);
+  }
+}
+// Informe de lo que hizo un usuario. borrar: vacía el registro después (al apagar el trackeo).
+async function enviarInforme(env, m, username, borrar) {
+  const user = limpiarUsuario(username);
+  const uid = await uidDeUsuario(env, user);
+  if (!uid) return void await responder(env, dest(m), `No encontré al usuario *@${user}*.`);
+  const log = await fsGet(env, `tracking_logs/${uid}`).catch(() => null);
+  const evs = (log?.eventos || []).slice().sort((a, b) => (a.t || 0) - (b.t || 0));
+  const nombre = log?.name || (await fsGet(env, `users/${uid}`).catch(() => null))?.name || user;
+  if (!evs.length) {
+    await responder(env, dest(m), `📄 *@${user}* (${nombre}) no tiene movimientos registrados.`);
+  } else {
+    const fmt = t => { const d = new Date(t); return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`; };
+    const lineas = evs.map(e => `• ${fmt(e.t)}${e.op ? ` [${e.op}]` : ""} ${e.txt || ""}`);
+    const ultimas = lineas.slice(-80);   // WhatsApp corta los mensajes largos: se mandan los últimos 80 movimientos
+    const cab = `📄 *Informe de @${user}* (${nombre})\n${evs.length} movimiento(s)${lineas.length > ultimas.length ? `, muestro los últimos ${ultimas.length}` : ""}:\n\n`;
+    await responder(env, dest(m), cab + ultimas.join("\n"));
+  }
+  if (borrar) await fsSet(env, `tracking_logs/${uid}`, { uid, username: user, name: nombre, eventos: [] }).catch(() => {});
 }
 
 // La app avisa que alguien se registró: se le pregunta al administrador por WhatsApp

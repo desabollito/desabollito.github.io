@@ -36,8 +36,14 @@ service cloud.firestore {
       allow update: if signedIn() && uid() == userId
         && request.resource.data.get('aprobado', true) == resource.data.get('aprobado', true)
         && request.resource.data.get('rechazado', false) == resource.data.get('rechazado', false)
+        && request.resource.data.get('tracking', false) == resource.data.get('tracking', false)   // el trackeo solo lo prende/apaga el creador (desde el bot)
         && (request.resource.data.get('whatsapp', '') == resource.data.get('whatsapp', '')
             || !('whatsapp' in request.resource.data));   // solo se puede desvincular, no poner otro número
+    }
+
+    // Registro de movimientos de cada usuario (lo lee el creador por el bot; el bot lo prende/apaga y lo limpia)
+    match /tracking_logs/{userId} {
+      allow read, write: if signedIn() && uid() == userId;
     }
 
     // ── Planilla de asegurados (la escribe solo el bot, a pedido del creador) ──
