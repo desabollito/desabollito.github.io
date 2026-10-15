@@ -2629,7 +2629,7 @@ async function compartirApi(env, { idToken, cid, compania, accion, token, vid })
   const m = await miembroDe(env, idToken, cid);
   // Un solo vehículo ("Vehículo en App"): cualquiera del operativo menos el desmontador. Si ya hay link, se reusa.
   if (accion === "vehiculo") {
-    if (!m || ["desmontaje", "tecnico", undefined].includes(m.c.roles?.[m.uid]) || !idValido(vid)) return json({ ok: false, error: "No autorizado" }, 403);
+    if (!m || m.c.roles?.[m.uid] === "desmontaje" || !idValido(vid)) return json({ ok: false, error: "No autorizado" }, 403);
     const v = await fsGet(env, `companies/${cid}/vehicles/${vid}`);
     if (!v || v.deleted) return json({ ok: false, error: "No encontré el vehículo" }, 404);
     const ya = (await fsQuery(env, "", "compartidos", { field: "vid", op: "EQUAL", value: vid }, 10).catch(() => [])).find(x => x.cid === cid && !x.__id.includes("-"));
