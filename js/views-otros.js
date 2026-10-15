@@ -9,9 +9,8 @@ import {
   $, $$, esc, money, fechaCorta, fechaLarga, hoyISO, plate, estadoPill, icon, toast, openSheet, confirmar,
   pedirTexto, busy, debounce, avatarUsuario, tsToISO, elegirDescarga, horaDe
 } from "./ui.js";
-import { sonidosOn, setSonidos, sonidoNotif, ruidoMotor, SONIDOS_AUTO } from "./sonidos.js";
+import { ruidoMotor, SONIDOS_AUTO } from "./sonidos.js";
 import { imagenChica, avatar } from "./media.js";
-import { NOVEDADES } from "./novedades.js";
 import { planillaPDF } from "./pdf.js";
 import { exportarExcel } from "./excel.js";
 import { setTopbar, go, logoOperativo } from "./shell.js";
@@ -520,8 +519,6 @@ export function aplicarTema(t) {
   document.documentElement.setAttribute("data-theme", t === "light" ? "light" : "dark");
 }
 
-const ICO_SON = `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg>`;
-const ICO_MUTE = `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="m16 9 6 6M22 9l-6 6"/></svg>`;
 export function vistaAjustes(view) {
   setTopbar({ title: "Ajustes", back: "#/" });
   const p = S.profile;
@@ -530,13 +527,12 @@ export function vistaAjustes(view) {
   view.innerHTML = `
   <div class="page narrow">
     <section class="card profile">
-      <button type="button" class="icon-btn aj-son" id="aj-sonidos"></button>
+      <button type="button" class="icon-btn aj-son" id="editar-perfil" aria-label="Editar perfil" title="Editar perfil">${icon("edit")}</button>
       <div class="profile-row">
         ${avatarUsuario(p.username, p.name, "lg")}
         <div class="profile-meta"><h2>${esc(p.name)}</h2><p class="muted">@${esc(p.username)}</p>
           ${p.whatsapp ? `<p class="perfil-wa" title="WhatsApp vinculado al bot">${icon("chat")}+${esc(String(p.whatsapp).replace(/^(\d{2})(9)(\d{2})(\d{4})(\d{4})$/, "$1 $2 $3 $4-$5"))}</p>` : ""}</div>
       </div>
-      <button class="btn btn-ghost btn-block" id="editar-perfil">${icon("edit")}Editar perfil</button>
     </section>
 
     ${WHATSAPP_BOT ? `<section class="card">
@@ -556,22 +552,13 @@ export function vistaAjustes(view) {
         `<button class="seg-btn ${(() => { try { return localStorage.getItem("fechaVista") || "peritado"; } catch { return "peritado"; } })() === k ? "on" : ""}" data-fv="${k}">${t}</button>`).join("")}</div>`}
     </section>
 
-    <nav class="card menu">
-      <a href="#/papelera">${icon("trash")}<span><strong>Papelera</strong><small>${(S.solicitudes?.length && soyAdmin()) ? `${S.solicitudes.length} ${S.solicitudes.length === 1 ? "solicitud" : "solicitudes"} · ` : ""}${enPapelera ? `${enPapelera} ${enPapelera === 1 ? "vehículo" : "vehículos"}` : "Vacía"}</small></span>${icon("next")}</a>
-    </nav>
-
-    <section class="card">
-      <button class="btn btn-danger-ghost btn-block" id="salir">${icon("logout")}Cerrar sesión</button>
-      <p class="center firma-autor">Made in Argentina</p>
+    <section class="card aj-fila">
+      <a class="btn btn-ghost" href="#/papelera">${icon("trash")}Papelera${(() => { const n = enPapelera + (soyAdmin() ? S.solicitudes?.length || 0 : 0); return n ? ` (${n})` : ""; })()}</a>
+      <button class="btn btn-danger-ghost" id="salir">${icon("logout")}Cerrar sesión</button>
     </section>
 
-    <section class="card">
-      <p class="center"><button type="button" class="version-btn" onclick="window.dispatchEvent(new Event('forzar-actualizacion'))"
-        title="Tocá para forzar la actualización">Desabollito ${APP_VERSION} ${icon("rotate")}</button></p>
-      <details class="novedades-log"><summary>Novedades</summary>
-        ${NOVEDADES.map(n => `<section><small class="muted">Versión ${esc(n.v)}</small><ul>${n.items.map(i => `<li>${esc(i)}</li>`).join("")}</ul></section>`).join("")}
-      </details>
-    </section>
+    <p class="center aj-version"><button type="button" class="version-btn" onclick="window.dispatchEvent(new Event('forzar-actualizacion'))"
+      title="Tocá para forzar la actualización">Desabollito ${APP_VERSION} ${icon("rotate")}</button></p>
   </div>`;
 
   $("#editar-perfil", view).onclick = () => editarPerfil(() => vistaAjustes(view));
@@ -579,10 +566,6 @@ export function vistaAjustes(view) {
     const b = e.target.closest("[data-t]"); if (!b) return;
     aplicarTema(b.dataset.t); $$(".seg-btn", $("#tema", view)).forEach(x => x.classList.toggle("on", x === b));
   };
-  const pintarSon = () => { const b = $("#aj-sonidos", view), on = sonidosOn(); b.innerHTML = on ? ICO_SON : ICO_MUTE; b.classList.toggle("off", !on);
-    b.setAttribute("aria-label", on ? "Silenciar sonidos" : "Activar sonidos"); b.title = b.getAttribute("aria-label"); };
-  $("#aj-sonidos", view).onclick = () => { setSonidos(!sonidosOn()); pintarSon(); if (sonidosOn()) sonidoNotif(); };
-  pintarSon();
   if ($("#fecha-vista", view)) $("#fecha-vista", view).onclick = e => {
     const b = e.target.closest("[data-fv]"); if (!b) return;
     try { localStorage.setItem("fechaVista", b.dataset.fv); } catch { /* sin almacenamiento */ }
