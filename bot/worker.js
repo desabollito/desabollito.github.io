@@ -560,6 +560,13 @@ const AYUDA =
   "🚨 *Operativo*\n\n" +
   "Para cambiarlo escribí *operativo*.";
 
+const AYUDA_PINTURA =
+  "🎨 *Fotos de pintura*\n\n" +
+  "- Escribí *Saltó pintura* y la patente. Ej: *Saltó pintura AA123BB* (también vale *despegó*, *dañada* o *rota*).\n\n" +
+  "- Después mandá las fotos: se guardan en *Fotos de pintura* de ese vehículo, aparte de las fotos comunes.\n\n" +
+  "- También podés poner ese texto como pie de la primera foto.\n\n" +
+  "- Tenés 5 minutos para mandarlas; después las fotos vuelven a ir a las comunes.";
+
 const lineaOperativo = fijo => `\n\n> Operativo actual: ${fijo ? fijo.operativo : "ninguno (escribí *operativo* para elegirlo)"}`;
 
 const NOMBRE_PANO = { capot: "Capot", techo: "Techo", baul: "Baúl", parante_izq: "Parante izq.", parante_der: "Parante der.",
@@ -730,6 +737,8 @@ async function alRecibirTexto(env, m, quien, texto) {
 
   // "!resumendiario": este chat recibe todos los días a las 20 hs el resumen de los peritados del día
   // "!operativo" en un grupo: asigna un operativo al grupo (todo lo que se cargue ahí va a ese operativo)
+  // "!pintura": explica cómo se cargan las fotos de pintura
+  if (/^!\s*pintura\s*$/i.test(String(texto).trim())) return responder(env, dest(m), AYUDA_PINTURA);
   const cmdOp = String(texto).trim().match(/^!\s*operativo\b\s*(.*)$/i);
   if (cmdOp) return comandoOperativoGrupo(env, m, quien, cmdOp[1]);
   if (grupo && s?.grupoOpMenu?.t && Date.now() - s.grupoOpMenu.t < 10 * 60_000 && s.grupoOpMenu.to === dest(m) && /^\s*\d{1,2}\s*$/.test(texto))
