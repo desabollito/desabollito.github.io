@@ -449,7 +449,7 @@ export function vistaTecnicos(view) {
     const filas = [
       fila("AUTOS", x => x.sueldo ? "" : String(x.autos), false), fila("GANANCIA", x => x.ganado),
       rojo(fila("ADELANTOS", x => suma(x.ad))), rojo(fila("GASTOS", x => suma(x.ga))),
-      rojo(fila("VIANDAS", x => x.desc ? x.v : "")), rojo(fila("ALQUILER", x => x.desc ? x.a : "")),
+      rojo(fila("VIANDAS", x => x.v)), rojo(fila("ALQUILER", x => x.a)),   // se muestran siempre; FINAL solo los resta con x.desc
       Object.assign(fila("FINAL A PAGAR", x => x.fin), { negrita: true })];
     return { titulo: "Cierre", filas, cols: [{ titulo: "", ancho: 33.5 }, { titulo: "TOTAL", ancho: 23.5, tipo: "moneda", centro: true }, { titulo: "", ancho: 8 },
       ...l.map(x => ({ titulo: x.t.nombre, ancho: 21, tipo: "moneda", centro: true }))] };
