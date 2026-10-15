@@ -98,7 +98,7 @@ let unsub = null;
 
 export function vistaFijos(view) {
   setTopbar({ title: "Fijos", sub: S.company?.name, back: "#/planillas",
-    actions: `<button class="btn btn-ghost btn-sm" id="f-tec">${icon("team")}<span class="hide-sm">Técnicos</span></button><button class="btn btn-sm ${F.editando ? "btn-primary" : "btn-ghost"}" id="f-edit">${icon(F.editando ? "check" : "edit")}<span>${F.editando ? "Listo" : "Editar"}</span></button>` });
+    actions: `<button class="btn btn-ghost btn-sm" id="f-tec">${icon("team")}<span class="hide-sm">Técnicos</span></button><button class="btn btn-sm ${F.editando ? "btn-primary" : "btn-ghost"}" id="f-edit">${icon(F.editando ? "check" : "edit")}${F.editando ? "<span>Listo</span>" : ""}</button>` });
   if (!puedeVer("fijos")) { view.innerHTML = `<div class="empty"><p>No tenés acceso a esta planilla.</p></div>`; return; }
   view.innerHTML = `<div class="skeleton tall"></div>`;
   if (!S.company) return;   // F5: el operativo todavía no llegó; se repinta solo cuando llega
@@ -361,7 +361,7 @@ export function vistaFijos(view) {
   $("#f-edit")?.addEventListener("click", () => {
     F.editando = !F.editando;
     const b = $("#f-edit"); b.className = `btn btn-sm ${F.editando ? "btn-primary" : "btn-ghost"}`;
-    b.innerHTML = `${icon(F.editando ? "check" : "edit")}<span>${F.editando ? "Listo" : "Editar"}</span>`;
+    b.innerHTML = `${icon(F.editando ? "check" : "edit")}${F.editando ? "<span>Listo</span>" : ""}`;
     pintar();
   });
 }

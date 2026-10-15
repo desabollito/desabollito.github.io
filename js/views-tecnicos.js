@@ -41,7 +41,7 @@ let unsub = null;
 export function vistaTecnicos(view) {
   setTopbar({ title: "Planilla de técnicos", sub: S.company?.name, back: "#/planillas",
     actions: `<button class="btn btn-ghost btn-sm" id="t-dl" aria-label="Descargar">${icon("download")}<span class="hide-sm">Descargar</span></button><button class="btn btn-ghost btn-sm" id="t-tec">${icon("team")}<span class="hide-sm">Técnicos</span></button>
-      <button class="btn btn-sm ${T.editando ? "btn-primary" : "btn-ghost"}" id="t-edit">${icon(T.editando ? "check" : "edit")}<span>${T.editando ? "Listo" : "Editar"}</span></button>` });
+      <button class="btn btn-sm ${T.editando ? "btn-primary" : "btn-ghost"}" id="t-edit">${icon(T.editando ? "check" : "edit")}${T.editando ? "<span>Listo</span>" : ""}</button>` });
   if (!puedeVer("tecnicos")) { view.innerHTML = `<div class="empty"><p>No tenés acceso a esta planilla.</p></div>`; return; }
   view.innerHTML = `<div class="skeleton tall"></div>`;
   if (!S.company) return;   // F5: el operativo todavía no llegó; se repinta solo cuando llega
@@ -447,7 +447,7 @@ export function vistaTecnicos(view) {
   $("#t-edit")?.addEventListener("click", () => {
     T.editando = !T.editando;
     const b = $("#t-edit"); b.className = `btn btn-sm ${T.editando ? "btn-primary" : "btn-ghost"}`;
-    b.innerHTML = `${icon(T.editando ? "check" : "edit")}<span>${T.editando ? "Listo" : "Editar"}</span>`;
+    b.innerHTML = `${icon(T.editando ? "check" : "edit")}${T.editando ? "<span>Listo</span>" : ""}`;
     if (cfg) pintar();
   });
   return { soloLista: () => { if (cfg) { asegurarFilas(); pintar(); } } };

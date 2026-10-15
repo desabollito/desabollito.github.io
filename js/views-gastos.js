@@ -54,7 +54,7 @@ function delMes() {
 export function vistaGastos(view) {
   setTopbar({
     title: "Planilla de gastos", sub: S.company?.name, back: "#/planillas",
-    actions: `<button class="icon-btn filtro-btn ${G.cat || G.metodo ? "activo" : ""}" id="g-filtros" aria-label="Filtros" title="Filtros">${icon("filter")}</button><button class="icon-btn filtro-btn ${G.orden !== "fecha" || G.dir !== -1 ? "activo" : ""}" id="g-orden" aria-label="Ordenar" title="Ordenar">${icon("sort")}</button><button class="btn btn-ghost btn-sm" id="g-dl" aria-label="Descargar">${icon("download")}<span class="hide-sm">Descargar</span></button>`
+    actions: `<button class="icon-btn filtro-btn ${G.cat || G.metodo || G.mes || G.orden !== "fecha" || G.dir !== -1 ? "activo" : ""}" id="g-filtros" aria-label="Filtrar y ordenar" title="Filtrar y ordenar">${icon("filter")}</button><button class="btn btn-ghost btn-sm" id="g-dl" aria-label="Descargar">${icon("download")}<span class="hide-sm">Descargar</span></button>`
   });
 
   if (!puedeVer("gastos")) { view.innerHTML = `<div class="empty"><p>No tenés acceso a esta planilla.</p></div>`; return; }
@@ -146,48 +146,35 @@ export function vistaGastos(view) {
 
   $("#g-prev", view).onclick = () => { G.mes = G.mes ? moverMes(G.mes, -1) : mesActual(); pintar(); marcarOrden(); };
   $("#g-next", view).onclick = () => { G.mes = G.mes ? moverMes(G.mes, 1) : mesActual(); pintar(); marcarOrden(); };
-  const marcarOrden = () => $("#g-orden")?.classList.toggle("activo", G.orden !== "fecha" || G.dir !== -1 || !!G.mes);
+  const marcarOrden = () => $("#g-filtros")?.classList.toggle("activo", G.orden !== "fecha" || G.dir !== -1 || !!G.mes || !!G.cat || !!G.metodo);
   $("#g-q", view).oninput = debounce(e => { G.q = e.target.value; pintar(); }, 120);
-  // Ordenar: tocar un criterio lo elige; tocarlo de nuevo invierte el orden
-  $("#g-orden")?.addEventListener("click", () => {
-    const hoja = openSheet({ title: "Ordenar por", body: `<div class="stack filtros"><div class="p-chips" id="go-chips"></div>
-      <span class="muted small">Mes</span><div class="p-chips" id="go-mes"></div></div>` });
+  // Filtrar y ordenar, en una sola hoja: orden (tocarlo de nuevo invierte), mes, categoría y método de pago
+  $("#g-filtros")?.addEventListener("click", () => {
+    const hoja = openSheet({ title: "Filtrar y ordenar", body: `<div class="stack filtros">
+      <span class="muted small">Ordenar por</span><div class="p-chips" id="go-chips"></div>
+      <span class="muted small">Mes</span><div class="p-chips" id="go-mes"></div>
+      <span class="muted small">Categoría</span><div class="p-chips" id="gf-cat"></div>
+      <span class="muted small">Método de pago</span><div class="p-chips" id="gf-met"></div>
+      <button class="btn btn-ghost btn-sm" id="gf-reset">Quitar filtros</button></div>` });
     const meses = [...new Set(S.gastos.map(g => String(g.fecha || "").slice(0, 7)).filter(x => /^\d{4}-\d{2}$/.test(x)))].sort().reverse();
     const chips = () => {
       $("#go-chips", hoja.el).innerHTML = ORDEN_G.map(([k, t]) => `<button type="button" class="p-chip ${G.orden === k ? "on" : ""}" data-o="${k}">${t}${G.orden === k ? `<i>${G.dir > 0 ? "↑" : "↓"}</i>` : ""}</button>`).join("");
       $("#go-mes", hoja.el).innerHTML = [["", "Todos"], ...meses.map(k => [k, nombreMes(k)])].map(([k, t]) =>
         `<button type="button" class="p-chip ${(G.mes || "") === k ? "on" : ""}" data-mes="${k}">${t}</button>`).join("");
-      marcarOrden();
-    };
-    chips();
-    hoja.el.addEventListener("click", e => {
-      const mb = e.target.closest("[data-mes]");
-      if (mb) { G.mes = mb.dataset.mes || null; chips(); pintar(); return; }
-      const b = e.target.closest("[data-o]"); if (!b) return;
-      if (G.orden === b.dataset.o) G.dir *= -1; else { G.orden = b.dataset.o; G.dir = ["fecha", "monto"].includes(G.orden) ? -1 : 1; }
-      chips(); pintar();
-    });
-  });
-
-  // Filtros: categoría y método de pago (con la cantidad de gastos del mes)
-  $("#g-filtros")?.addEventListener("click", () => {
-    const hoja = openSheet({ title: "Filtros", body: `<div class="stack filtros">
-      <span class="muted small">Categoría</span><div class="p-chips" id="gf-cat"></div>
-      <span class="muted small">Método de pago</span><div class="p-chips" id="gf-met"></div>
-      <button class="btn btn-ghost btn-sm" id="gf-reset">Quitar filtros</button></div>` });
-    const chips = () => {
       const mes = S.gastos.filter(g => (g.fecha || "").startsWith(claveMes()));
       const cats = [...CATEGORIAS, ...propias()].filter(c => mes.some(g => g.categoria === c.key) || G.cat === c.key);
       $("#gf-cat", hoja.el).innerHTML = cats.map(c => `<button type="button" class="p-chip ${G.cat === c.key ? "on" : ""}" data-cat="${esc(c.key)}" style="--c:${c.color}"><i class="f-dot"></i>${esc(c.label)} <b class="f-n">${mes.filter(g => g.categoria === c.key).length}</b></button>`).join("") || `<span class="muted small">Sin gastos este mes</span>`;
       $("#gf-met", hoja.el).innerHTML = METODOS.map(m => `<button type="button" class="p-chip ${G.metodo === m ? "on" : ""}" data-met="${m}">${m} <b class="f-n">${mes.filter(g => (g.metodo || "Efectivo") === m).length}</b></button>`).join("");
-      $("#g-filtros")?.classList.toggle("activo", !!(G.cat || G.metodo));
+      marcarOrden();
     };
     chips();
     hoja.el.addEventListener("click", e => {
-      const c = e.target.closest("[data-cat]"), m = e.target.closest("[data-met]");
-      if (c) G.cat = G.cat === c.dataset.cat ? null : c.dataset.cat;
+      const mb = e.target.closest("[data-mes]"), o = e.target.closest("[data-o]"), c = e.target.closest("[data-cat]"), m = e.target.closest("[data-met]");
+      if (mb) G.mes = mb.dataset.mes || null;
+      else if (o) { if (G.orden === o.dataset.o) G.dir *= -1; else { G.orden = o.dataset.o; G.dir = ["fecha", "monto"].includes(G.orden) ? -1 : 1; } }
+      else if (c) G.cat = G.cat === c.dataset.cat ? null : c.dataset.cat;
       else if (m) G.metodo = G.metodo === m.dataset.met ? null : m.dataset.met;
-      else if (e.target.closest("#gf-reset")) { G.cat = null; G.metodo = null; }
+      else if (e.target.closest("#gf-reset")) { G.cat = null; G.metodo = null; G.mes = null; G.orden = "fecha"; G.dir = -1; }
       else return;
       chips(); pintar();
     });
