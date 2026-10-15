@@ -31,9 +31,11 @@ export async function ingresar(usuario, pass) {
   await signInWithEmailAndPassword(auth, emailInterno(usuario), pass);
 }
 
-export async function crearCuenta(usuario, pass, nombre) {
+let motivoRegistro = "";   // lo guarda asegurarPerfil al crear el perfil (antes del aviso al administrador)
+export async function crearCuenta(usuario, pass, nombre, motivo = "") {
   const u = limpiarUsuario(usuario);
   if (u.length < 3) throw new Error("El usuario debe tener al menos 3 caracteres");
+  motivoRegistro = motivo.slice(0, 200);
   const cred = await createUserWithEmailAndPassword(auth, emailInterno(u), pass);
   await updateProfile(cred.user, { displayName: nombre || u });
 }
@@ -182,7 +184,7 @@ async function asegurarPerfil(user) {
     name: user.displayName || base,
     email: user.email || "",
     username,
-    ...(nueva ? { aprobado: false } : {}),
+    ...(nueva ? { aprobado: false, ...(motivoRegistro ? { motivo: motivoRegistro } : {}) } : {}),
     createdAt: snap.exists() ? (snap.data().createdAt || serverTimestamp()) : serverTimestamp()
   };
   await setDoc(ref, data, { merge: true });

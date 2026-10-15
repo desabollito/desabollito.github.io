@@ -2383,7 +2383,7 @@ async function nuevoRegistro(env, { uid, reenviar }) {
   const username = p.username || "";
   await fsSet(env, `bot_pendientes/${username}`, { uid, username, name: p.name || "", ts: Date.now() });
   const r = await enviar(env, destinoNumero(env, numeroAdmin(env)), { type: "text", text: { body:
-    `🆕 *Nueva cuenta en Desabollito*\n\n👤 ${p.name || "(sin nombre)"}\n🔑 Usuario: *@${username}*${p.email && !/@desabollito/i.test(p.email) ? `\n✉️ ${p.email}` : ""}\n\n` +
+    `🆕 *Nueva cuenta en Desabollito*\n\n👤 ${p.name || "(sin nombre)"}\n🔑 Usuario: *@${username}*${p.email && !/@desabollito/i.test(p.email) ? `\n✉️ ${p.email}` : ""}${p.motivo ? `\n📝 Motivo: ${String(p.motivo).slice(0, 200)}` : ""}\n\n` +
     `Respondé *SI ${username}* para aprobarla o *NO ${username}* para rechazarla.`, preview_url: false } });
   await fsMerge(env, `users/${uid}`, { notificado: true, notificadoEn: Date.now() });
   return json({ ok: !!r?.ok });
