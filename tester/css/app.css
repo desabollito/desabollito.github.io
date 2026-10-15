@@ -2033,4 +2033,10 @@ body[data-solo-ver="1"] :is(.step, .etapa-item) { pointer-events: none; }
 .pane-list > .list-tools > * { margin-bottom: 10px; }
 .pane-list > .list-tools > .search { position: sticky; top: calc(var(--top) + var(--safe-t, 0px) + 6px); z-index: 6; box-shadow: 0 6px 18px -8px rgba(0, 0, 0, .45); }
 .split-on .pane-list > .list-tools > .search { top: 0; }
-.tabbar [data-nav="calendario"] { -webkit-touch-callout: none; user-select: none; }
+.tabbar a { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; -webkit-user-drag: none; }
+/* Calendario y Planillas comparten lugar: dos puntitos dicen en cuál de las dos estás */
+.tab-dots { display: none; position: absolute; left: 50%; bottom: 7px; transform: translateX(-50%); gap: 4px; pointer-events: none; }
+.tabbar a.on .tab-dots { display: flex; }
+.tab-dots i { width: 5px; height: 5px; border-radius: 50%; background: var(--line-2); transition: background .2s; }
+.tab-dots i.on { background: var(--primary); box-shadow: 0 0 6px color-mix(in srgb, var(--primary) 70%, transparent); }
+@media (min-width: 900px) { .tab-dots { display: none !important; } }

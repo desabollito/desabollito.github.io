@@ -248,7 +248,8 @@ document.addEventListener("pointerdown", e => {
   const fin = () => { clearTimeout(t); removeEventListener("pointerup", fin); removeEventListener("pointercancel", fin); removeEventListener("pointermove", mov); };
   addEventListener("pointerup", fin); addEventListener("pointercancel", fin); addEventListener("pointermove", mov);
 });
-document.addEventListener("contextmenu", e => { if (e.target.closest(CAL_TAB)) e.preventDefault(); });
+// Sin el menú de "mantener apretado" del navegador en la barra de abajo (al abrir Planillas queda otra pestaña bajo el dedo)
+document.addEventListener("contextmenu", e => { if (e.target.closest(".tabbar")) e.preventDefault(); });
 document.addEventListener("click", e => {
   if (tabLargo && e.target.closest(CAL_TAB)) { tabLargo = false; e.preventDefault(); e.stopImmediatePropagation(); return; }   // el toque largo ya abrió Planillas
   const cal = e.target.closest('.tabbar [data-nav="calendario"]'), plan = e.target.closest(".tabbar #tab-planilla.on");
