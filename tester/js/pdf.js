@@ -95,9 +95,9 @@ function encabezado(doc, empresa, subtitulo, tituloTxt = null, { soloLogo = fals
 }
 
 function pie(doc, texto) {
-  const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), n = doc.internal.getNumberOfPages();
+  const n = doc.internal.getNumberOfPages();
   for (let i = 1; i <= n; i++) {
-    doc.setPage(i);
+    doc.setPage(i); const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight();   // cada hoja puede tener otro alto
     // Pie más arriba (14 mm del borde) para que ninguna impresora lo corte por sus márgenes
     doc.setDrawColor(...LINEA); doc.setLineWidth(0.3); doc.line(16, H - 19, W - 16, H - 19);
     doc.setFontSize(7.5); doc.setTextColor(...GRIS); doc.setFont("helvetica", "normal");
@@ -332,18 +332,20 @@ export function planillaPDF(lista, empresa, filtroTexto = "", sinTotal = false) 
 // Tabla genérica (planilla de técnicos, gastos fijos). cols: [{ titulo, ancho, tipo }]; filas: arrays (fila.negrita = total)
 export function tablaPDF(empresa, subtitulo, cols, filas, { doc0 = null, pieTxt = subtitulo } = {}) {   // doc0: sumar como página nueva; pieTxt null: sin pie (se pone al final)
   acento(empresa);
-  const doc = doc0 || nuevoDoc("landscape"); if (doc0) doc.addPage("a4", "landscape");
+  // Una sola hoja larga (sin cortes): el alto sale de la cantidad de filas; nunca menos que una A4 apaisada
+  const alto = Math.max(210, 95 + 7 * (1 + filas.length + filas.filter(f => f.negrita).length)), orient = alto > 297 ? "portrait" : "landscape";
+  const doc = doc0 || new window.jspdf.jsPDF({ unit: "mm", format: [297, alto], orientation: orient }); if (doc0) doc.addPage([297, alto], orient);
   const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), M = 12;
   const k = Math.min(1, (W - M * 2) / cols.reduce((s, c) => s + (c.ancho || 16), 0));   // se achica para entrar en la hoja
   const ws = cols.map(c => (c.ancho || 16) * k), tw = ws.reduce((a, b) => a + b, 0), x0 = (W - tw) / 2, rh = 7;
   const txt = (c, v) => v == null || v === "" ? "" : c.tipo === "moneda" ? money(v) || "$0" : c.tipo === "fecha" ? fecha(v).slice(0, 5) : String(v);
-  const der = c => c.tipo === "moneda";
+  const der = c => c.tipo === "moneda" && !c.centro;
   let y = encabezado(doc, empresa, subtitulo) + 8;
   const fila = (vals, estilo) => {
     let x = x0;
     cols.forEach((c, i) => {
       const t = doc.splitTextToSize(estilo ? String(vals[i] ?? "") : txt(c, vals[i]), ws[i] - 3)[0] || "";
-      doc.text(t, der(c) ? x + ws[i] - 1.5 : x + 1.5, y + 4.8, { align: der(c) ? "right" : "left" }); x += ws[i];
+      doc.text(t, c.centro ? x + ws[i] / 2 : der(c) ? x + ws[i] - 1.5 : x + 1.5, y + 4.8, { align: c.centro ? "center" : der(c) ? "right" : "left" }); x += ws[i];
     });
     y += rh;
   };

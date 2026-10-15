@@ -2016,3 +2016,6 @@ body[data-ruta="checkform"] .main { padding-bottom: calc(90px + var(--safe-b)); 
 /* El nombre del día queda a la vista al deslizar a la derecha */
 .tbl.tec-excel tbody .tec-dia-fila td { position: static; overflow: visible; }
 .tec-excel .tec-dia-fila td > span { position: sticky; left: 10px; display: inline-block; }
+.tbl.tec-excel .tec-col { text-align: center; }   /* técnicos centrados en su columna */
+.tec-gtot b { color: #f0607e; }   /* Gastos totales: rojo rosado */
+.tbl.tec-excel tbody .tec-sep td { height: 30px; background: var(--surface); }   /* una línea vacía después de cada semana */

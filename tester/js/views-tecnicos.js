@@ -131,13 +131,13 @@ export function vistaTecnicos(view) {
     const ed = T.editando, tecs = cfg.tecnicos, nc = 4 + tecs.length + (ed ? 1 : 0), w = anchos();
     // Entre Importe y los técnicos va una columna vacía de separación
     const cols = [["veh", "VEHÍCULO", 120], ["pat", "PATENTE", 90], ["imp", "IMPORTE", 100], ["sep", "", 16], ...tecs.map(t => [t.id, t.nombre, 95])];
-    const th = ([k, txt], i) => k === "sep" ? `<th class="tec-sepcol" data-col="sep"><span class="col-res" aria-hidden="true"></span></th>` : `<th class="${i >= 2 ? "num" : ""} ${k === "imp" ? "col-imp" : ""}" data-col="${esc(k)}">${esc(txt)}<span class="col-res" aria-hidden="true"></span></th>`;
+    const th = ([k, txt], i) => k === "sep" ? `<th class="tec-sepcol" data-col="sep"><span class="col-res" aria-hidden="true"></span></th>` : `<th class="${i >= 2 ? "num" : ""} ${k === "imp" ? "col-imp" : ""} ${i >= 4 ? "tec-col" : ""}" data-col="${esc(k)}">${esc(txt)}<span class="col-res" aria-hidden="true"></span></th>`;
     const semanas = [...new Set(rows.map(r => lunesDe(r.fecha)))];
     const fila = r => `<tr data-vid="${esc(r.v.id)}">
       <td>${esc((r.v.modelo || "—").toUpperCase())}</td><td>${esc(r.v.patente || "")}</td>
       <td class="num col-imp">${ed ? `<input type="number" inputmode="numeric" min="0" step="1000" data-campo="valor" value="${r.valor}">` : pesos(r.valor)}</td><td class="tec-sepcol"></td>
       ${tecs.map(t => { const si = r.tecs.includes(t.id);
-        return `<td class="num ${si ? "" : "tec-no"}">${ed ? `<button type="button" class="tec-celda ${si ? "on" : ""}" data-tec="${esc(t.id)}">${si ? pesos(r.parte) : "⨯"}</button>` : si ? pesos(r.parte) : "⨯"}</td>`; }).join("")}
+        return `<td class="num tec-col ${si ? "" : "tec-no"}">${ed ? `<button type="button" class="tec-celda ${si ? "on" : ""}" data-tec="${esc(t.id)}">${si ? pesos(r.parte) : "⨯"}</button>` : si ? pesos(r.parte) : "⨯"}</td>`; }).join("")}
       ${ed ? `<td><button type="button" class="icon-btn sm" data-act="fila" aria-label="Opciones">${icon("edit")}</button></td>` : ""}</tr>`;
     return `<div class="table-wrap"><table class="tbl tec-excel ${ed ? "editando" : ""}">
       <colgroup>${cols.map(([k, , def]) => `<col data-col="${esc(k)}" style="width:${Number(w[k]) || def}px">`).join("")}${ed ? `<col style="width:44px">` : ""}</colgroup>
@@ -148,8 +148,8 @@ export function vistaTecnicos(view) {
         return dias.map(d => `<tr class="tec-dia-fila"><td colspan="${nc}"><span>${diaLabel(d).toUpperCase()}</span></td></tr>${rsS.filter(r => r.fecha === d).map(fila).join("")}`).join("") +
           `<tr class="tec-sub"><td colspan="2">SEMANA ${semanas.indexOf(l) + 1}</td>
             <td class="num col-imp">${pesos(rsS.reduce((a, r) => a + r.valor, 0))}</td><td class="tec-sepcol"></td>
-            ${tecs.map(t => s[t.id] ? `<td class="num">${pesos(s[t.id])}</td>` : `<td class="tec-no">⨯</td>`).join("")}${ed ? "<td></td>" : ""}</tr>
-          `;
+            ${tecs.map(t => s[t.id] ? `<td class="num tec-col">${pesos(s[t.id])}</td>` : `<td class="tec-no tec-col">⨯</td>`).join("")}${ed ? "<td></td>" : ""}</tr>
+          <tr class="tec-sep"><td colspan="${nc}"></td></tr>`;
       }).join("")}</tbody></table></div>
       ${ed ? `<p class="muted small">Tocá la celda de un técnico para sumarlo o sacarlo de ese auto. El importe se reparte solo.</p>` : ""}`;
   };
@@ -260,7 +260,7 @@ export function vistaTecnicos(view) {
         <ul class="tec-movs">${listaMovs(ga, "Sin gastos")}</ul>
         ${hayFijos ? `<div class="${desc ? "" : "tec-aparte"}"><div class="tec-linea"><span>Viandas</span><b>-${pesos(v)}</b></div>
         <div class="tec-linea"><span>Alquiler</span><b>-${pesos(a)}</b></div></div>` : ""}
-        ${sw}<div class="tec-linea"><span>Gastos totales</span><b>${pesos(gastos)}</b></div>
+        ${sw}<div class="tec-linea tec-gtot"><span>Gastos totales</span><b>${pesos(gastos)}</b></div>
         <div class="tec-linea tec-final"><span>Final a pagar</span><b>${pesos(fin)}</b></div>
       </section>`;
     };
@@ -427,7 +427,7 @@ export function vistaTecnicos(view) {
     filas.push(total("TOTAL", rows));
     descargarTabla({ archivo: `Tecnicos_${hoyISO()}`, titulo: "Planilla de técnicos", filas,
       cols: [{ titulo: "FECHA", ancho: 14, tipo: "fecha" }, { titulo: "VEHÍCULO", ancho: 26 }, { titulo: "PATENTE", ancho: 16.3 },
-        { titulo: "IMPORTE", ancho: 16, tipo: "moneda" }, { titulo: "", ancho: 8 }, ...tecs.map(t => ({ titulo: t.nombre, ancho: 17.5, tipo: "moneda" }))],
+        { titulo: "IMPORTE", ancho: 16, tipo: "moneda" }, { titulo: "", ancho: 8 }, ...tecs.map(t => ({ titulo: t.nombre, ancho: 17.5, tipo: "moneda", centro: true }))],
       mas: [cierreDescarga(rows)] });
   });
   // Hoja del cierre: una fila por técnico (sacabollos y sueldos); viandas y alquiler solo si se descuentan
