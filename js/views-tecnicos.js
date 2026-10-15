@@ -315,7 +315,7 @@ export function vistaTecnicos(view) {
   }
   function cambio(e) {
     const inp = e.target.closest("[data-campo=valor]"), fila = e.target.closest("[data-vid]");
-    if (inp && fila) guardarFila(fila.dataset.vid, { valor: Math.max(0, Number(inp.value) || 0) });
+    if (inp && fila) guardarFila(fila.dataset.vid, { valor: Math.max(0, Number(inp.value) || 0), valorManual: true });
   }
 
   function nuevoMov(tecid, tipo) {
@@ -395,7 +395,17 @@ export function vistaTecnicos(view) {
       };
       addEventListener("pointermove", mover); addEventListener("pointerup", soltar); addEventListener("pointercancel", soltar);
     });
-    $("#tl-valor", s.el).onchange =e => guardarCfg({ valorDefault: Math.max(0, Number(e.target.value) || 0) });
+    // Cambiar el valor por defecto también cambia los autos que lo tenían y nadie tocó a mano
+    $("#tl-valor", s.el).onchange = e => {
+      const viejo = Number(cfg.valorDefault) || 0, nuevo = Math.max(0, Number(e.target.value) || 0);
+      guardarCfg({ valorDefault: nuevo });
+      const ids = Object.keys(filas).filter(id => !filas[id].valorManual && (Number(filas[id].valor) || 0) === viejo);
+      for (let i = 0; i < ids.length; i += 400) {
+        const b = writeBatch(db);
+        ids.slice(i, i + 400).forEach(id => b.set(doc(col, id), { valor: nuevo }, { merge: true }));
+        b.commit().catch(err => toast(mensajeError(err), "error"));
+      }
+    };
     $("#tl", s.el).onclick = async e => {
       const li = e.target.closest("[data-id]"); if (!li) return;
       const id = li.dataset.id, t = cfg.tecnicos.find(x => x.id === id);
