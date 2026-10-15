@@ -2632,7 +2632,9 @@ async function compartirApi(env, { idToken, cid, compania, accion, token, vid })
     if (!m || m.c.roles?.[m.uid] === "desmontaje" || !idValido(vid)) return json({ ok: false, error: "No autorizado" }, 403);
     const v = await fsGet(env, `companies/${cid}/vehicles/${vid}`);
     if (!v || v.deleted) return json({ ok: false, error: "No encontré el vehículo" }, 404);
-    const ya = (await fsQuery(env, "", "compartidos", { field: "vid", op: "EQUAL", value: vid }, 10).catch(() => [])).find(x => x.cid === cid && !x.__id.includes("-"));
+    // Link hecho por un Sacabollos: no muestra el precio (y no se mezcla con el de los administradores)
+    const sinPrecio = (m.c.roles?.[m.uid] || "tecnico") === "tecnico";
+    const ya = (await fsQuery(env, "", "compartidos", { field: "vid", op: "EQUAL", value: vid }, 10).catch(() => [])).find(x => x.cid === cid && !x.__id.includes("-") && !!x.sinPrecio === sinPrecio);
     if (ya) return json({ ok: true, token: ya.__id });   // los viejos (con la patente, tienen "-") no se reusan
     // Link corto sin datos del auto: 7 caracteres al azar (desabollito.com/k7p2xmq)
     let tk = "";
@@ -2640,7 +2642,7 @@ async function compartirApi(env, { idToken, cid, compania, accion, token, vid })
       const cand = [...crypto.getRandomValues(new Uint8Array(7))].map(b => "abcdefghjkmnpqrstuvwxyz23456789"[b % 31]).join("");
       if (!(await fsGet(env, `compartidos/${cand}`).catch(() => null))) tk = cand;
     }
-    await fsSet(env, `compartidos/${tk}`, { cid, vid, compania: "", por: m.uid, t: Date.now() });
+    await fsSet(env, `compartidos/${tk}`, { cid, vid, compania: "", por: m.uid, t: Date.now(), ...(sinPrecio ? { sinPrecio: true } : {}) });
     return json({ ok: true, token: tk });
   }
   if (!m || !["owner", "admin"].includes(m.c.roles?.[m.uid])) return json({ ok: false, error: "Solo los administradores pueden compartir" }, 403);
@@ -2680,6 +2682,7 @@ async function compartidoApi(env, { token }) {
   } else vs = (await fsList(env, `companies/${c.cid}/vehicles`))
     .filter(v => !v.deleted && mismaCia(v.compania, c.compania))
     .map(({ __id, ...v }) => ({ ...v, id: __id }));
+  if (c.sinPrecio) vs.forEach(v => { delete v.precio; });
   return json({ ok: true, compania: c.compania, vid: c.vid || null,
     operativo: { id: c.cid, name: op.name || "", seal: op.seal || {}, memberUsers: op.memberUsers || {}, memberNames: op.memberNames || {} }, vehiculos: vs });
 }
