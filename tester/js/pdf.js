@@ -345,6 +345,7 @@ export function tablaPDF(empresa, subtitulo, cols, filas, { doc0 = null, pieTxt 
   const fila = (vals, estilo) => {
     let x = x0;
     cols.forEach((c, i) => {
+      if (!estilo) doc.setFont("helvetica", vals.negrita || vals.gruesa || c.negrita ? "bold" : "normal");   // gruesa: negrita sin estilo de total
       const t = doc.splitTextToSize(estilo ? String(vals[i] ?? "") : txt(c, vals[i]), ws[i] - 3)[0] || "";
       doc.text(t, c.centro ? x + ws[i] / 2 : der(c) ? x + ws[i] - 1.5 : x + 1.5, y + 4.8, { align: c.centro ? "center" : der(c) ? "right" : "left" }); x += ws[i];
     });
@@ -361,7 +362,7 @@ export function tablaPDF(empresa, subtitulo, cols, filas, { doc0 = null, pieTxt 
     if (f.negrita) {
       doc.setFillColor(...LINEA); doc.rect(x0, y, tw, rh, "F"); }
     else if (n % 2 === 0) { doc.setFillColor(...SUAVE); doc.rect(x0, y, tw, rh, "F"); }
-    doc.setFont("helvetica", f.negrita ? "bold" : "normal"); doc.setFontSize(7.5); doc.setTextColor(...(f.rojo ? [224, 72, 110] : INK));
+    doc.setFontSize(7.5); doc.setTextColor(...(f.rojo ? [224, 72, 110] : INK));
     fila(f); if (f.negrita) y += rh;   // una línea en blanco abajo de cada total
   });
   if (pieTxt) pie(doc, `${empresa?.name || "Desabollito"} · ${pieTxt}`);

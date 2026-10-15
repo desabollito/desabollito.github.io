@@ -437,7 +437,7 @@ export function vistaTecnicos(view) {
     filas.push(total("TOTAL", rows));
     descargarTabla({ archivo: `Tecnicos_${hoyISO()}`, titulo: "Planilla de técnicos", filas,
       cols: [{ titulo: "FECHA", ancho: 14, tipo: "fecha" }, { titulo: "VEHÍCULO", ancho: 26 }, { titulo: "PATENTE", ancho: 16.3 },
-        { titulo: "IMPORTE", ancho: 16, tipo: "moneda" }, { titulo: "", ancho: 8 }, ...tecs.map(t => ({ titulo: t.nombre, ancho: 17.5, tipo: "moneda", centro: true }))],
+        { titulo: "IMPORTE", ancho: 19.5, tipo: "moneda" }, { titulo: "", ancho: 8 }, ...tecs.map(t => ({ titulo: t.nombre, ancho: 17.5, tipo: "moneda", centro: true }))],
       mas: [cierreDescarga(rows)] });
   });
   // Hoja del cierre, como la planilla: un técnico por columna (sacabollos y sueldos) y los conceptos hacia abajo
@@ -447,11 +447,11 @@ export function vistaTecnicos(view) {
     const fila = (etq, f, total = sum(f)) => [etq, total, "", ...l.map(f)];
     const rojo = r => Object.assign(r, { rojo: true });
     const filas = [
-      fila("AUTOS", x => x.sueldo ? "" : String(x.autos), String(rows.length)), fila("GANANCIA", x => x.ganado),
+      Object.assign(fila("AUTOS", x => x.sueldo ? "" : String(x.autos), String(rows.length)), { gruesa: true }), fila("GANANCIA", x => x.ganado),
       rojo(fila("ADELANTOS", x => suma(x.ad))), rojo(fila("GASTOS", x => suma(x.ga))),
       rojo(fila("VIANDAS", x => x.v)), rojo(fila("ALQUILER", x => x.a)),   // se muestran siempre; FINAL solo los resta con x.desc
       Object.assign(fila("FINAL A PAGAR", x => x.fin), { negrita: true })];
-    return { titulo: "Cierre", filas, cols: [{ titulo: "", ancho: 33.5 }, { titulo: "TOTAL", ancho: 23.5, tipo: "moneda", centro: true }, { titulo: "", ancho: 8 },
+    return { titulo: "Cierre", filas, cols: [{ titulo: "", ancho: 33.5, negrita: true }, { titulo: "TOTAL", ancho: 23.5, tipo: "moneda", centro: true }, { titulo: "", ancho: 8 },
       ...l.map(x => ({ titulo: x.t.nombre, ancho: 21, tipo: "moneda", centro: true }))] };
   };
   $("#t-edit")?.addEventListener("click", () => {
