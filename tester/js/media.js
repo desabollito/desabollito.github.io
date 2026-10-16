@@ -67,17 +67,20 @@ export const esVideo = f => (typeof f === "string" ? f : f?.url || "").includes(
 const cuadro = (url, tr) => url.replace("/upload/", `/upload/so_0,${tr}/`).replace(/\.\w+$/, ".jpg");
 export const videoURL = url => url.replace("/upload/", "/upload/q_auto/").replace(/\.\w+$/, ".mp4");
 
-// Variantes servidas por Cloudinary (formato y calidad automáticos)
+// Variantes servidas por Cloudinary. Cada variante nueva cuesta una transformación (créditos del plan),
+// así que se usan pocas: una sola miniatura (160, la que ya existe para casi todas las fotos) y,
+// para ver o bajar, el archivo original (ya subido a 1920 px como máximo); solo las giradas se transforman.
 const giro = rot => (rot ? `a_${rot}/` : "");
-export function thumb(url, lado = 320, rot = 0) {
+const LADO = 160;
+export function thumb(url, _lado, rot = 0) {
   if (!url || !url.includes("/upload/")) return url;
-  if (esVideo(url)) return cuadro(url, `c_fill,w_${lado},h_${lado},q_auto`);
-  return url.replace("/upload/", `/upload/${giro(rot)}c_fill,g_auto,w_${lado},h_${lado},q_auto,f_auto/`);
+  if (esVideo(url)) return cuadro(url, `c_fill,w_${LADO},h_${LADO},q_auto`);
+  return url.replace("/upload/", `/upload/${giro(rot)}c_fill,g_auto,w_${LADO},h_${LADO},q_auto,f_auto/`);
 }
-export function grande(url, ancho = 1600, rot = 0) {
+export function grande(url, _ancho, rot = 0) {
   if (!url || !url.includes("/upload/")) return url;
-  if (esVideo(url)) return cuadro(url, `c_limit,w_${ancho},q_auto`);
-  return url.replace("/upload/", `/upload/${giro(rot)}c_limit,w_${ancho},q_auto,f_auto/`);
+  if (esVideo(url)) return cuadro(url, `c_limit,w_1600,q_auto`);
+  return rot ? url.replace("/upload/", `/upload/${giro(rot)}c_limit,w_1600,q_auto,f_auto/`) : url;
 }
 export function paraPDF(url, rot = 0) {
   if (!url || !url.includes("/upload/")) return url;

@@ -1270,23 +1270,17 @@ function visor(fotos = [], inicio = 0, v = null, campo = "fotos") {   // campo: 
   });
   // Nombre: PATENTE_01.jpg, PATENTE_02.jpg…
   const nombreFoto = n => `${String(v?.patente || v?.modelo || "foto").toUpperCase().replace(/[^A-Z0-9]+/g, "_")}_${String(n + 1).padStart(2, "0")}.${esVideo(fotos[n]) ? "mp4" : "jpg"}`;
-  const origen = f => esVideo(f) ? videoURL(f.url) : grande(f.url, 4000, f.rot).replace("f_auto", "f_jpg");
+  const origen = f => esVideo(f) ? videoURL(f.url) : grande(f.url, 0, f.rot).replace("f_auto", "f_jpg");
   const celular = matchMedia("(pointer: coarse)").matches;
   const bajar = async n => {
     const f = fotos[n], nombre = nombreFoto(n);
-    if (celular) {
-      // Celular (como antes): baja la foto directo y la guarda, sin pasos extra en Cloudinary
-      try {
-        const r = await fetch(origen(f)); if (!r.ok) throw new Error(r.status);
-        const a = document.createElement("a"); a.href = URL.createObjectURL(await r.blob()); a.download = nombre; a.click();
-        setTimeout(() => URL.revokeObjectURL(a.href), 4000);
-      } catch { open(f.url, "_blank", "noopener"); }
-      return;
-    }
-    // Computadora: Cloudinary la manda como descarga con el nombre PATENTE_NN (fl_attachment)
-    const url = origen(f).replace("/upload/", `/upload/fl_attachment:${nombre.replace(/\.(jpg|mp4)$/, "")}/`);
-    const a = document.createElement("a"); a.href = url; a.download = nombre; a.rel = "noopener";
-    document.body.appendChild(a); a.click(); a.remove();
+    // Baja la foto directo y la guarda como PATENTE_NN (sin fl_attachment: cada uno era una transformación más)
+    try {
+      const r = await fetch(origen(f)); if (!r.ok) throw new Error(r.status);
+      const a = document.createElement("a"); a.href = URL.createObjectURL(await r.blob()); a.download = nombre;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    } catch { open(f.url, "_blank", "noopener"); }
   };
   const bajarTodas = async () => {
     toast(`Descargando ${fotos.length} ${fotos.length === 1 ? "foto" : "fotos"}…`);
@@ -1481,7 +1475,7 @@ function compartir(v) {
   const s = openSheet({
     title: "Compartir presupuesto",
     body: `<div class="stack">
-      ${hayFotos ? `<label class="toggle"><input type="checkbox" id="con-fotos" checked><span>Incluir las ${v.fotos.length} fotos</span></label>` : ""}
+      ${hayFotos ? `<label class="toggle"><input type="checkbox" id="con-fotos"><span>Incluir las ${v.fotos.length} fotos</span></label>` : ""}
       ${puedeCompartirArchivos() ? `<button class="btn btn-primary btn-block btn-lg" data-m="share">${icon("share")}Compartir PDF</button>` : ""}
       <button class="btn ${puedeCompartirArchivos() ? "btn-ghost" : "btn-primary btn-lg"} btn-block" data-m="save">${icon("download")}Descargar PDF</button>
       ${soyDesmontaje() ? "" : `<button class="btn btn-ghost btn-block" data-link>${icon("car")}Vehículo en App</button>
