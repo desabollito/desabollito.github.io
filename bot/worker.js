@@ -145,6 +145,8 @@ async function procesar(m, env) {
   quien.waNombre = m._nombre || ""; quien.appNombre = cuenta.name || ""; quien.uid = cuenta.uid; quien.username = cuenta.username; quien.nombre = cuenta.name || quien.nombre;
   // Grupo con operativo asignado (!operativo): todo lo que se carga ahí va a ese operativo
   if (m._grupo) quien.grupoOp = await fsGet(env, `bot_grupo_op/${idGrupo(m)}`).catch(() => null);
+  // Grupo de desmontaje (!desmontaje): todo lo que se manda ahí va a la sección Desmontaje
+  if (m._grupo) quien.grupoDesm = !!(await fsGet(env, `bot_grupo_desm/${idGrupo(m)}`).catch(() => null));
 
   if (m.type === "text") return alRecibirTexto(env, m, quien, (m.text?.body || "").trim());
   if (m.type === "image" || m.type === "document" || m.type === "video") return alRecibirArchivo(env, m, quien);
@@ -559,6 +561,11 @@ const AYUDA =
   "- Listo! Seguí con otro o enviá *OK* para finalizar.\n\n" +
   "🚨 *Operativo*\n\n" +
   "Para cambiarlo escribí *operativo*.";
+const AYUDA_DESM =
+  "🔧 *Grupo de desmontaje*\n\n" +
+  "- Enviá la patente del vehículo y sus fotos.\n\n" +
+  "- Si querés, también podés escribir los detalles.\n\n" +
+  "- Después de un rato se cierra.";
 
 const AYUDA_PINTURA =
   "🎨 *Fotos de pintura*\n\n" +
@@ -741,6 +748,10 @@ async function alRecibirTexto(env, m, quien, texto) {
   if (/^!\s*pintura\s*$/i.test(String(texto).trim())) return responder(env, dest(m), AYUDA_PINTURA);
   const cmdOp = String(texto).trim().match(/^!\s*operativo\b\s*(.*)$/i);
   if (cmdOp) return comandoOperativoGrupo(env, m, quien, cmdOp[1]);
+  // "!desmontaje" en un grupo: lo deja solo para desmontaje ("!desmontaje off" lo quita)
+  const cmdDesm = String(texto).trim().match(/^!\s*desmontaje\s*(|off|no|quitar|sacar|0)\s*$/i);
+  if (cmdDesm) return comandoDesmGrupo(env, m, quien, !cmdDesm[1]);
+  if (quien.grupoDesm && (/^!\s*ayuda\s*$/i.test(texto) || (mencion && esAyuda(sinMencion)))) return responder(env, dest(m), AYUDA_DESM);
   if (grupo && s?.grupoOpMenu?.t && Date.now() - s.grupoOpMenu.t < 10 * 60_000 && s.grupoOpMenu.to === dest(m) && /^\s*\d{1,2}\s*$/.test(texto))
     return elegirOperativoGrupo(env, m, quien, Number(texto.trim()), s.grupoOpMenu);
   const cmdRes = String(texto).trim().match(/^!\s*resumen\s*diario\b\s*(.*)$/i);
@@ -1200,13 +1211,13 @@ const VENTANA_DESM = 300;   // segundos: después de la patente, 5 minutos para 
 async function abrirModoDesm(env, numero, quien, texto, datos, hora) {
   // La palabra cuenta solo fuera de "detalle: …" y sin "no" adelante ("Detalle: NO DESMONTAR TECHO" es un dato)
   const antes = String(texto || "").split(/(?:^|\s)(?:detalles?|adicional(?:es)?|observaci[oó]n(?:es)?|obs|repuestos?|pintura)\b/i)[0];
-  const kw = RE_DESM.test(antes) && !/(^|\s)no\s+desmont/i.test(antes);
+  const kw = quien.grupoDesm || (RE_DESM.test(antes) && !/(^|\s)no\s+desmont/i.test(antes));
   const enc = await buscarPatente(env, datos.patente, quien.uid);
   const fijo = await operativoFijo(env, numero, quien.uid, quien);
   const e = enc.find(x => x.cid === fijo?.cid) || enc[0];
   const rol = e ? await esDesm(env, e.cid, quien.uid) : fijo ? await esDesm(env, fijo.cid, quien.uid) : false;
   if (!kw && !rol) return null;
-  if (!e && !rol) return null;   // no existe y no es desmontador: se carga normal
+  if (!e && !rol && !quien.grupoDesm) return null;   // no existe y no es desmontador: se carga normal
   if (!e) return { msg: `🔎 No encontré la patente *${datos.patente}*.` + (rol ? `\n\n${NO_DESM}` : "") };
   const s = await leerSesion(env, numero);
   if (abierta(s)) await cerrarEnSilencio(env, numero, hora - 1);   // otra patente corta la anterior
@@ -1592,6 +1603,7 @@ async function alRecibirArchivo(env, m, quien) {
     // Rol Desmontaje: las fotos van a la sección Desmontaje del vehículo
     if (esFoto) await fsAppend(env, ruta, "desFotos", { url: subido.secure_url, publicId: subido.public_id, lote: loteWa(numero, destino),
       t: Date.now(), uid: quien.uid || "", por: quien.nombre || numero, via: "whatsapp", ...extraVid });
+    if (quien.grupoDesm) await tilde(env, m);   // grupo de desmontaje: ✅ en cada foto guardada
   } else if (esFoto && enModoPintura(sesion, destino.vid, hora)) {
     // "Saltó pintura PATENTE": van a la sección Fotos de pintura del vehículo
     await fsAppend(env, ruta, "fotosPintura", { url: subido.secure_url, publicId: subido.public_id, t: Date.now(), por: quien.nombre || numero, ...origen, ...extraVid });
@@ -3164,6 +3176,17 @@ async function comandoOperativoGrupo(env, m, quien, arg) {
   return responder(env, dest(m), `🏢 *Operativo de este grupo*\n${actual?.cid ? `Ahora carga en *${actual.operativo}*.` : "Ahora no tiene ninguno: cada uno carga en el suyo."}\n\n` +
     "¿En qué operativo se cargan los vehículos de este grupo? Respondé con el número:\n\n" + ops.map((o, i) => `${i + 1}. ${o.operativo}`).join("\n") +
     (actual?.cid ? "\n\n0. Quitar (cada uno carga en el suyo)" : ""));
+}
+async function comandoDesmGrupo(env, m, quien, prender) {
+  if (!m._grupo) return responder(env, dest(m), "📌 *!desmontaje* se usa en un grupo: deja ese grupo solo para desmontaje.");
+  if (!quien.uid) return responder(env, dest(m), "Primero vinculá tu número con la app.");
+  const id = idGrupo(m);
+  if (!prender) {
+    await fsDelete(env, `bot_grupo_desm/${id}`).catch(() => {});
+    return responder(env, dest(m), "👌 Listo: este grupo ya no es de desmontaje.");
+  }
+  await fsSet(env, `bot_grupo_desm/${id}`, { por: quien.uid, porNombre: quien.nombre || "", ts: Date.now() });
+  return responder(env, dest(m), "✅ Listo: este grupo es de *desmontaje*. Las fotos y textos van a la sección Desmontaje del vehículo.\n\n" + AYUDA_DESM);
 }
 async function elegirOperativoGrupo(env, m, quien, n, menu) {
   await fsMerge(env, `bot_sesiones/${quien.numero}`, { grupoOpMenu: null, ts: Date.now() }).catch(() => {});
