@@ -446,7 +446,7 @@ export function renderDetalle(root, v, embebido) {
         </div></div>` : ""}
       ${embebido && !soloVer ? `<a class="btn btn-ghost btn-icon" href="#/editar/${v.id}" aria-label="Editar" title="Editar">${icon("edit")}</a>` : ""}
     </div>
-${[...PASO_REP, "facturado"].includes(est) && !soyLector() && (soyAdmin() || soyDesmontaje() || soySacabollos()) ? `<div class="d-desm-fila"><button class="btn btn-ghost btn-block d-desm" data-act="desmontaje">${icon("table")}Chequeo y Desmontaje</button></div>` : ""}
+${[...PASO_REP, "facturado"].includes(est) && !soyLector() && (soyAdmin() || soyDesmontaje() || soySacabollos()) ? `<div class="d-desm-fila"><button class="btn btn-ghost btn-block d-desm" data-act="desmontaje">${icon("table")}Chequeo y Desmontaje${CARGADO.desm(v) || CARGADO.check(v) ? `<i class="d-desm-punto" aria-label="Tiene algo cargado"></i>` : ""}</button></div>` : ""}
 
     <section class="d-sec">
       <div class="seg-head"><h3>Seguimiento</h3>
