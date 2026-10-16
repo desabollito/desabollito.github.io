@@ -367,7 +367,19 @@ export function vistaTecnicos(view) {
       <ul class="tec-lista" id="tl"></ul>
       <button type="button" class="btn btn-ghost btn-block" id="tl-add">${icon("plus")}Agregar técnico</button>
       <label class="field"><span>Valor del auto por defecto</span><input type="number" inputmode="numeric" id="tl-valor" value="${Number(cfg.valorDefault) || 0}"></label>
+      <button type="button" class="btn btn-ghost btn-block" id="tl-reset">Reiniciar importes</button>
     </div>` });
+    // Todos los autos vuelven al valor por defecto (también los cambiados a mano)
+    $("#tl-reset", s.el).onclick = async () => {
+      const v = Number(cfg.valorDefault) || 0, ids = Object.keys(filas);
+      if (!ids.length || !(await confirmar({ title: "¿Reiniciar importes?", message: `Los ${ids.length} autos de la planilla quedan en ${pesos(v)}, también los que se cambiaron a mano. No se puede deshacer.`, ok: "Reiniciar", danger: true }))) return;
+      for (let i = 0; i < ids.length; i += 400) {
+        const b = writeBatch(db);
+        ids.slice(i, i + 400).forEach(id => b.set(doc(col, id), { valor: v, valorManual: false }, { merge: true }));
+        await b.commit().catch(err => toast(mensajeError(err), "error"));
+      }
+      toast("Importes reiniciados");
+    };
     const pintarL = () => { $("#tl", s.el).innerHTML = cfg.tecnicos.map(t => `<li data-id="${esc(t.id)}">
       <small class="tl-def">Por defecto</small><button type="button" class="switch ${t.activo !== false ? "on" : ""}" data-sw role="switch" aria-checked="${t.activo !== false}" aria-label="Marcado por defecto"><span class="sw-txt sw-si">Sí</span><span class="sw-txt sw-no">No</span><i class="sw-bola"></i></button>
       <span class="tl-nombre">${esc(t.nombre)}</span>
