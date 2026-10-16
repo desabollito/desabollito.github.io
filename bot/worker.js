@@ -1220,12 +1220,14 @@ async function abrirModoDesm(env, numero, quien, texto, datos, hora) {
 const RE_PINT = /(^|\s)(salt(?:[oóa]|ad[ao])|despeg(?:[oóa]|ad[ao])|da[ñn]ad[ao]|rot[ao])(?=\s|$|[:,.!])/i;
 const adjPint = p => /despeg/i.test(p) ? "despegada" : /salt/i.test(p) ? "saltada" : /rot/i.test(p) ? "rota" : "dañada";
 async function abrirModoPintura(env, numero, quien, texto, datos, hora) {
-  const pal = /(^|\s)pintura\b/i.test(texto) && (texto.match(RE_PINT) || [])[2];
+  // "Observación: pintura rota" es un dato: el comando cuenta solo antes de una etiqueta de detalle
+  const cmd = String(texto || "").split(/(?:^|\s)(?:detalles?|adicional(?:es)?|observaci[oó]n(?:es)?|obs)(?![a-záéíóúñ])/i)[0];
+  const pal = /(^|\s)pintura\b/i.test(cmd) && (cmd.match(RE_PINT) || [])[2];
   if (!pal) return null;
   const enc = await buscarPatente(env, datos.patente, quien.uid);
   const fijo = await operativoFijo(env, numero, quien.uid, quien);
   const e = enc.find(x => x.cid === fijo?.cid) || enc[0];
-  if (!e) return { msg: `🔎 No encontré la patente *${datos.patente}*.` };
+  if (!e) return null;   // vehículo nuevo: se carga normal (la pintura queda en sus datos)
   const s = await leerSesion(env, numero);
   if (abierta(s)) await cerrarEnSilencio(env, numero, hora - 1);   // otra patente corta la anterior
   await abrir(env, numero, e, hora, await leerSesion(env, numero), false);
