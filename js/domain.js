@@ -9,6 +9,7 @@ export const ESTADOS = [
   { key: "llamado",   label: "Contactado", color: "#14b8a6" },
   { key: "entregado", label: "Entregado", color: "#16a34a" },
   { key: "facturado", label: "Facturado", color: "#9b7bf2" },
+  { key: "anular",    label: "Anular",    color: "#f0743e" },   // primer toque de "Anular"; el segundo lo deja Anulado
   { key: "anulado",   label: "Anulado",   color: "#e5484d" },
   { key: "ausente",   label: "Ausente",   color: "#5f6b7a" }    // turnado que no vino (mantener apretado "Turnado")
 ];
@@ -53,6 +54,9 @@ export const ROLES = {
 export function estadoActual(v) {
   return v?.estado && ESTADO[v.estado] ? v.estado : "peritado";
 }
+
+// "Anular" y "Anulado" no cuentan en totales, calendario ni filtros
+export const esAnulado = v => ["anular", "anulado"].includes(estadoActual(v));
 
 export function fechaPeritado(v) {
   return v?.fechas?.peritado || null;

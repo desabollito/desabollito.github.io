@@ -1117,6 +1117,7 @@ details.vform-det .field + .field { margin-top: 12px; }
 /* Seguimiento: "Anular vehículo" en la misma línea del título */
 .seg-head { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 12px; }
 .seg-head h3 { margin: 0; }
+.seg-acts { display: flex; gap: 16px; }
 .seg-head .link-btn { padding: 2px 0; font-size: 13px; }
 .perfil-wa .wa-desv { color: var(--danger); width: 26px; height: 26px; min-width: 0; padding: 0; }
 .perfil-wa .wa-desv .ic { width: 15px; height: 15px; }

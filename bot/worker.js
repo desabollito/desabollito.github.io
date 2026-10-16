@@ -579,11 +579,11 @@ const lineaOperativo = fijo => `\n\n> Operativo actual: ${fijo ? fijo.operativo 
 const NOMBRE_PANO = { capot: "Capot", techo: "Techo", baul: "Baúl", parante_izq: "Parante izq.", parante_der: "Parante der.",
   gf_izq: "Guardabarro del. izq.", pd_izq: "Puerta del. izq.", pt_izq: "Puerta tras. izq.", gt_izq: "Guardabarro tras. izq.",
   gf_der: "Guardabarro del. der.", pd_der: "Puerta del. der.", pt_der: "Puerta tras. der.", gt_der: "Guardabarro tras. der." };
-const ESTADO_TXT = { peritado: "Peritado", turnado: "Turnado", enreparacion: "Reparando", reparado: "Revisión", llamado: "Contactado", entregado: "Entregado", facturado: "Facturado", ausente: "Ausente", anulado: "Anulado" };
+const ESTADO_TXT = { peritado: "Peritado", turnado: "Turnado", enreparacion: "Reparando", reparado: "Revisión", llamado: "Contactado", entregado: "Entregado", facturado: "Facturado", ausente: "Ausente", anular: "Anular", anulado: "Anulado" };
 const fechaTxt = iso => { const [a, mm, d] = String(iso || "").split("-"); return d ? `${d}/${mm}/${a.slice(2)}` : ""; };
 // Ficha del vehículo por escrito (para "localizá")
 function detalleVehiculo(v, operativo) {
-  const est = v.fechas?.anulado ? "anulado" : ["ausente", "enreparacion"].includes(v.estado) ? v.estado : ["facturado", "entregado", "llamado", "reparado", "turnado", "peritado"].find(k => v.fechas?.[k]) || v.estado || "peritado";
+  const est = v.fechas?.anulado ? "anulado" : ["ausente", "enreparacion", "anular"].includes(v.estado) ? v.estado : ["facturado", "entregado", "llamado", "reparado", "turnado", "peritado"].find(k => v.fechas?.[k]) || v.estado || "peritado";
   const cuando = k => v.fechas?.[k] ? `${fechaTxt(v.fechas[k])}${v.horas?.[k] ? " " + v.horas[k] : ""}` : "";
   const panos = Object.keys(v.piezas || {}).filter(k => v.piezas[k]);
   const filas = [
@@ -614,7 +614,7 @@ const claveRep = x => sinTildes(String(x)).replace(/[^a-z0-9]+/g, "_").replace(/
 const faseDe = (v, x) => FASES_REP.find(f => f[0] === v.etapasRepuestos?.[claveRep(x)]) || FASES_REP[0];
 const RE_PIDE_REP = /^(?:localiz\w*\s+)?repuestos?\s+(\S+(?:\s+\S+)?)$/i;
 function textoRepuestos(v, operativo) {
-  const est = v.fechas?.anulado ? "anulado" : ["ausente", "enreparacion"].includes(v.estado) ? v.estado : ["facturado", "entregado", "llamado", "reparado", "turnado", "peritado"].find(k => v.fechas?.[k]) || "peritado";
+  const est = v.fechas?.anulado ? "anulado" : ["ausente", "enreparacion", "anular"].includes(v.estado) ? v.estado : ["facturado", "entregado", "llamado", "reparado", "turnado", "peritado"].find(k => v.fechas?.[k]) || "peritado";
   const items = itemsRep(v.repuestos);
   return [`🚗 *${v.modelo || "Sin modelo"}* · ${v.patente || ""}`,
     v.compania ? `🛡 ${v.compania}` : null,
@@ -1325,7 +1325,7 @@ async function textoTurnosHoy(env, numero, uid) {
   const lista = [];
   for (const o of ops) {
     const vs = await fsQuery(env, `companies/${o.cid}`, "vehicles", { field: "fechas.turnado", op: "EQUAL", value: hoy }, 100).catch(() => []);
-    vs.filter(v => !v.deleted && !v.fechas?.anulado && v.estado !== "anulado").forEach(v => lista.push({ ...v, operativo: o.operativo }));
+    vs.filter(v => !v.deleted && !v.fechas?.anulado && !["anular", "anulado"].includes(v.estado)).forEach(v => lista.push({ ...v, operativo: o.operativo }));
   }
   if (!lista.length) return `📅 Hoy no hay turnos en *${fijo.operativo}*.`;
   lista.sort((a, b) => String(a.horaTurno || "99").localeCompare(String(b.horaTurno || "99")));
@@ -2565,7 +2565,7 @@ async function textoResumenDiario(env, uid, hoy, cfg = { todos: true }) {
   const ops = (await listaOperativos(env, uid, { cargar: false })).filter(o => cfg.todos !== false || (cfg.cids || []).includes(o.cid));
   const bloques = [];
   let total = 0, totalEnt = 0;
-  const ok = v => !v.deleted && v.estado !== "anulado" && !v.fechas?.anulado;
+  const ok = v => !v.deleted && !["anular", "anulado"].includes(v.estado) && !v.fechas?.anulado;
   for (const o of ops) {
     const [vs, ent] = await Promise.all([
       fsQuery(env, `companies/${o.cid}`, "vehicles", { field: "fechas.peritado", op: "EQUAL", value: hoy }, 300).catch(() => []),

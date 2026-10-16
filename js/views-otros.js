@@ -4,7 +4,7 @@ import {
   actualizarPerfil, salir, mensajeError, llamarAdmin, soloDesmontaje, pedirUnion, linksCompartidos, getVehiculo, soloVer, soySacabollos
 } from "./data.js";
 import { cargarExcelJS } from "./excel.js";
-import { ESTADOS, ESTADO, ROLES, estadoActual } from "./domain.js";
+import { ESTADOS, ESTADO, ROLES, estadoActual, esAnulado } from "./domain.js";
 import {
   $, $$, esc, money, fechaCorta, fechaLarga, hoyISO, plate, estadoPill, icon, toast, openSheet, confirmar,
   pedirTexto, busy, debounce, avatarUsuario, tsToISO, elegirDescarga, horaDe
@@ -80,7 +80,7 @@ export function vistaPlanilla(view) {
   const pintar = () => {
     pintarOrden();
     const filas = filasPlanilla();
-    const total = filas.reduce((s, v) => s + (estadoActual(v) === "anulado" ? 0 : Number(v.precio || 0)), 0);
+    const total = filas.reduce((s, v) => s + (esAnulado(v) ? 0 : Number(v.precio || 0)), 0);
     $("#psum", view).innerHTML = `<span><b>${filas.length}</b> ${filas.length === 1 ? "vehículo" : "vehículos"}</span>${soloVer() ? "" : `<span>Total <b>${money(total) || "$0"}</b></span>`}`;
 
     // Celular
@@ -151,7 +151,7 @@ export function vistaPlanilla(view) {
         { titulo: "Cargado por", ancho: 18, valor: v => v.createdByName }
       ],
       filas,
-      total: soloVer() ? [] : [{ etiqueta: "Total", valor: filas.reduce((s, v) => s + (estadoActual(v) === "anulado" ? 0 : Number(v.precio || 0)), 0) }]
+      total: soloVer() ? [] : [{ etiqueta: "Total", valor: filas.reduce((s, v) => s + (esAnulado(v) ? 0 : Number(v.precio || 0)), 0) }]
     });
   };
   $("#dl").onclick = () => {
@@ -173,7 +173,7 @@ if (!["peritado", "turnado"].includes(C.campo)) C.campo = "turnado";
 export function calendarioAlEntrar() { if (!C.dia) C.auto = true; }
 // Tocar de nuevo la pestaña Calendario: vuelve al día automático
 export function reiniciarCalendario() { C.dia = null; C.auto = true; }
-const delCal = () => activos().filter(v => estadoActual(v) !== "anulado");   // los anulados no figuran en el calendario
+const delCal = () => activos().filter(v => !esAnulado(v));   // los anulados no figuran en el calendario
 function elegirDiaAuto() {
   const hoy = hoyISO();
   const dias = [...new Set(delCal().map(v => v.fechas?.[C.campo]).filter(Boolean))].sort();

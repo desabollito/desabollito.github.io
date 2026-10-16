@@ -1,4 +1,4 @@
-import { PIEZAS, PIEZA, VIDRIOS, ESTADO, estadoActual, piezasMarcadas } from "./domain.js";
+import { PIEZAS, PIEZA, VIDRIOS, ESTADO, estadoActual, esAnulado, piezasMarcadas } from "./domain.js";
 import { paraPDF, blobADataURL } from "./media.js";
 import { fechaCorta, money as moneyUI } from "./ui.js";
 const money = n => moneyUI(Math.round(Number(n || 0)));   // en PDF sin centavos
@@ -319,7 +319,7 @@ export function planillaPDF(lista, empresa, filtroTexto = "", sinTotal = false) 
       doc.text(t, i === cols.length - 1 ? x + w - 2 : x + 2, y + 5, { align: i === cols.length - 1 ? "right" : "left" });
       x += w;
     });
-    if (estadoActual(v) !== "anulado") total += Number(v.precio || 0);
+    if (!esAnulado(v)) total += Number(v.precio || 0);
     y += rh;
   });
   y += 3;

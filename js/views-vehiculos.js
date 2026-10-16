@@ -6,7 +6,7 @@ import {
   nuevoIdVehiculo, soyAdmin, mensajeError, deshaciblesDe, deshacerCambio, aseguradoDePadron,
   soyDesmontaje, agregarDesmontaje, elegirDesmontador, borrarMedia, soyLector, linkVehiculo, soloVer, soySacabollos
 } from "./data.js";
-import { ESTADOS, ESTADO, SECUENCIA, PASO_REP, PIEZA, ORDEN_PIEZAS, estadoActual, piezasMarcadas } from "./domain.js";
+import { ESTADOS, ESTADO, SECUENCIA, PASO_REP, PIEZA, ORDEN_PIEZAS, estadoActual, esAnulado, piezasMarcadas } from "./domain.js";
 import {
   $, $$, esc, money, fechaCorta, fechaLarga, hoyISO, plate, estadoPill, icon, toast, openSheet,
   confirmar, busy, debounce, marcarError, horaDe } from "./ui.js";
@@ -55,7 +55,7 @@ const tokensBorrado = new Map(); // publicId → delete_token (válido 10 min)
 const docsOn = () => S.config?.documentos !== false;   // el creador puede apagar los documentos
 const tieneEtapa = (v, tipo, fase) => itemsTexto(v[tipo]).some(x => etapaItem(v, tipo, x)[0] === fase);
 // "Ocultar anulados": los anulados no se cuentan ni se listan
-const visibles = () => activos().filter(v => !F.sinAnul || estadoActual(v) !== "anulado");
+const visibles = () => activos().filter(v => !F.sinAnul || !esAnulado(v));
 // Compañías (filtro múltiple): ninguna o todas marcadas = se ven todas
 const ciaDe = v => String(v.compania || "").trim() || "Sin compañía";
 const ciasDisponibles = () => { const n = new Map(); visibles().forEach(v => n.set(ciaDe(v), (n.get(ciaDe(v)) || 0) + 1)); return [...n].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])); };
@@ -66,7 +66,7 @@ function filtrar(lista) {
   return lista.filter(v =>
     (F.estado === "todos" || estadoActual(v) === F.estado) &&
     (!F.mios || esMioV(v)) &&
-    (!F.sinAnul || estadoActual(v) !== "anulado") &&
+    (!F.sinAnul || !esAnulado(v)) &&
     (F.grado === null || (v.grado || 0) === F.grado) &&
     (!F.repuestos || tieneEtapa(v, "repuestos", F.repuestos)) &&
     (!F.pintura || tieneEtapa(v, "pintura", F.pintura)) &&
@@ -406,7 +406,7 @@ export function renderDetalle(root, v, embebido) {
     setTimeout(() => { const lista = (f.desm ? v.desFotos : v.fotos) || [], i = lista.findIndex(x => x.url === f.url); if (i >= 0) visor(lista, i, f.desm ? null : v); }, 250);
   }
   const est = estadoActual(v);
-  const anulado = est === "anulado";
+  const anulado = est === "anulado" || est === "anular";
   const marcadas = piezasMarcadas(v);
   const todos = marcadas.length === ORDEN_PIEZAS.length;
   const esMio = esMioV(v);
@@ -445,7 +445,7 @@ ${[...PASO_REP, "facturado"].includes(est) && !soyLector() && (soyAdmin() || soy
 
     <section class="d-sec">
       <div class="seg-head"><h3>Seguimiento</h3>
-        ${soloVer ? "" : `<button class="link-btn small ${anulado ? "" : "danger"}" data-act="anular">${anulado ? "Reactivar" : "Anular"}</button>`}</div>
+        ${soloVer ? "" : `<span class="seg-acts">${anulado ? `<button class="link-btn small" data-act="reactivar">Reactivar</button>` : ""}${est !== "anulado" ? `<button class="link-btn small danger" data-act="anular">${est === "anular" ? "Anulado" : "Anular"}</button>` : ""}</span>`}</div>
       <ol class="stepper ${anulado ? "is-anulado" : ""}">
         ${["peritado", "turnado", "rep", "facturado"].map(k => {
           const aus = k === "turnado" && est === "ausente";
@@ -464,7 +464,7 @@ ${[...PASO_REP, "facturado"].includes(est) && !soyLector() && (soyAdmin() || soy
             ${k === "turnado" && est === "turnado" ? `<span class="step-conf ${v.turnoConfirmado ? "ok" : ""}">${v.turnoConfirmado ? "Confirmado" : "Esperando confirmación"}</span>` : ""}</button></li>`;
         }).join("")}
       </ol>
-      ${anulado ? `<p class="muted small">Anulado el ${fechaCorta(v.fechas?.anulado)}</p>` : ""}
+      ${anulado ? `<p class="muted small">${ESTADO[est].label} el ${fechaCorta(v.fechas?.[est])}</p>` : ""}
     </section>
 
     ${soloVer && !(anulado ? v.razonAnulacion : v.postReparacion) ? "" : anulado ? `<section class="d-sec d-post">
@@ -663,15 +663,17 @@ ${[...PASO_REP, "facturado"].includes(est) && !soyLector() && (soyAdmin() || soy
       $$("a", m).forEach(a => a.addEventListener("click", () => setTimeout(cerrar, 50), { once: true }));
       return;
     }
-    if (act === "anular") {
+    if (act === "anular" || act === "reactivar") {
       // Anular o reactivar: quien lo cargó o un administrador (de cualquier vehículo del operativo)
       if (!esMio && !soyAdmin()) return toast("Solo un administrador o quien lo cargó puede anularlo", "error");
-      if (anulado) {
+      if (act === "reactivar") {
         const ultimo = SECUENCIA.filter(k => v.fechas?.[k]).pop() || "peritado";
         return cambiarEstado(v, ultimo, v.fechas?.[ultimo] || hoyISO()).catch(err => toast(mensajeError(err), "error"));
       }
-      if (await confirmar({ title: "¿Anular este trabajo?", message: "Queda registrado como anulado. Podés reactivarlo después.", ok: "Anular", danger: true }))
-        cambiarEstado(v, "anulado").catch(err => toast(mensajeError(err), "error"));
+      // Primer toque: queda en "Anular"; el segundo lo deja "Anulado" por completo
+      const fin = est === "anular";
+      if (await confirmar({ title: fin ? "¿Anularlo por completo?" : "¿Anular este trabajo?", message: fin ? "Pasa de Anular a Anulado." : "Queda en Anular. Tocá Anulado después para anularlo por completo, o Reactivar.", ok: fin ? "Anulado" : "Anular", danger: true }))
+        cambiarEstado(v, fin ? "anulado" : "anular").catch(err => toast(mensajeError(err), "error"));
       return;
     }
     if (act === "historial") { abrirHistorial(v); return; }
