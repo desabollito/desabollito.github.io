@@ -1678,6 +1678,8 @@ a.g-bar-fijo { text-decoration: none; color: inherit; }
 /* Filtrar y ordenar: todos los botones con la misma altura */
 .fo .fo-op, .fo .fo-switch, .fo .fo-pie .btn { height: 44px; min-height: 44px; box-sizing: border-box; }
 .fo .fo-op { overflow: hidden; }
+/* Compañías: los mismos botones que "Ordenar por", de a 4 por fila */
+.fo-seg.fo-cias { grid-auto-flow: row; grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .fo .fo-switch { padding-block: 0; }
 
 /* ── Transiciones entre pantallas ── */

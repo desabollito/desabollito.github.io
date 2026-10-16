@@ -244,7 +244,7 @@ export function vistaVehiculos(view, selId = null) {
     const lector = soyLector();
     const hoja = openSheet({ title: "Filtrar y ordenar", body: `<div class="fo">
       <section class="fo-sec"><h3>Ordenar por</h3><div class="fo-seg" id="fo-orden"></div></section>
-      ${lector ? "" : `<section class="fo-sec"><h3>Compañías</h3><div class="fo-chips fo-scroll" id="fo-cias"></div></section>`}
+      ${lector ? "" : `<section class="fo-sec"><h3>Compañías</h3><div class="fo-seg fo-cias" id="fo-cias"></div></section>`}
       <section class="fo-sec fo-grados"><h3>Grado</h3><div class="fo-seg" id="fo-grado"></div></section>
       <section class="fo-sec"><h3>Pintura</h3><div class="fo-seg" id="fo-pintura"></div></section>
       <section class="fo-sec"><h3>Repuestos</h3><div class="fo-seg" id="fo-repuestos"></div></section>
@@ -276,7 +276,7 @@ export function vistaVehiculos(view, selId = null) {
       ["pintura", "repuestos"].forEach(tipo => {
         el(`#fo-${tipo}`).innerHTML = ETAPAS[tipo].map(([k, t, c]) => op(tipo, k, t, n(v => tieneEtapa(v, tipo, k)), F[tipo] === k, c)).join("");
       });
-      if (el("#fo-cias")) el("#fo-cias").innerHTML = ciasDisponibles().map(([c, k]) => `<button type="button" class="fo-op ${F.cias.has(c) ? "on" : ""}" data-cia="${esc(c)}">${esc(c)} <b>${k}</b></button>`).join("")
+      if (el("#fo-cias")) el("#fo-cias").innerHTML = ciasDisponibles().map(([c, k]) => `<button type="button" class="fo-op ${F.cias.has(c) ? "on" : ""}" data-cia="${esc(c)}"><span class="fo-txt">${esc(c)}</span><b>${k}</b></button>`).join("")
         || `<span class="muted small">Sin vehículos</span>`;
       const cant = filtrar(activos()).length;
       el("#fo-ver").textContent = `Ver ${cant} ${cant === 1 ? "vehículo" : "vehículos"}`;
