@@ -1541,6 +1541,8 @@ a.g-bar-fijo { text-decoration: none; color: inherit; }
 .fo-dir { display: inline-flex; align-items: center; gap: 6px; padding: 0 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); color: var(--ink);
   font-weight: 650; font-size: 13.5px; white-space: nowrap; cursor: pointer; }
 .fo-dir .ic { width: 16px; height: 16px; }
+.fo-switches { display: flex; flex-wrap: wrap; gap: 10px; }
+.fo-switches .fo-switch { flex: 1 1 150px; }
 .fo-switch { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; font-weight: 650; cursor: pointer; }
 /* Switch: la perilla se desliza con un leve rebote */
 .fo-switch input { appearance: none; -webkit-appearance: none; flex: 0 0 auto; position: relative; width: 44px; height: 26px; margin: 0; border-radius: 13px;

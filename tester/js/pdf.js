@@ -334,7 +334,7 @@ export function planillaPDF(lista, empresa, filtroTexto = "", sinTotal = false) 
 export function tablaPDF(empresa, subtitulo, cols, filas, { doc0 = null, pieTxt = subtitulo } = {}) {   // doc0: sumar como página nueva; pieTxt null: sin pie (se pone al final)
   acento(empresa);
   // Una sola hoja larga (sin cortes): el alto sale de la cantidad de filas; nunca menos que una A4 apaisada
-  const alto = Math.max(210, 95 + 7 * (1 + filas.length + filas.filter(f => f.negrita).length)), orient = alto > 297 ? "portrait" : "landscape";
+  const alto = Math.max(210, 95 + 7 * (1 + filas.length + filas.filter(f => f.negrita || f.cab).length)), orient = alto > 297 ? "portrait" : "landscape";
   const doc = doc0 || new window.jspdf.jsPDF({ unit: "mm", format: [297, alto], orientation: orient }); if (doc0) doc.addPage([297, alto], orient);
   const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), M = 12;
   const k = Math.min(1, (W - M * 2) / cols.reduce((s, c) => s + (c.ancho || 16), 0));   // se achica para entrar en la hoja
@@ -359,6 +359,7 @@ export function tablaPDF(empresa, subtitulo, cols, filas, { doc0 = null, pieTxt 
   cab();
   filas.forEach((f, n) => {
     if (y + rh > H - 21) { doc.addPage(); y = 16; cab(); }
+    else if (f.cab && n > 0) cab();   // fila.cab: repite los títulos (ej. al empezar cada semana)
     if (f.negrita) {
       doc.setFillColor(...LINEA); doc.rect(x0, y, tw, rh, "F"); }
     else if (n % 2 === 0) { doc.setFillColor(...SUAVE); doc.rect(x0, y, tw, rh, "F"); }
