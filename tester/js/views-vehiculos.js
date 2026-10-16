@@ -68,7 +68,7 @@ function filtrar(lista) {
   return lista.filter(v =>
     (F.estado === "todos" || estadoActual(v) === F.estado) &&
     (!F.mios || esMioV(v)) &&
-    (!F.sinAnul || !esAnulado(v)) &&
+    (!F.sinAnul || q || !esAnulado(v)) &&   // buscando, los anulados aparecen igual
     (F.grado === null || (v.grado || 0) === F.grado) &&
     (!F.repuestos || tieneEtapa(v, "repuestos", F.repuestos)) &&
     (!F.pintura || tieneEtapa(v, "pintura", F.pintura)) &&
