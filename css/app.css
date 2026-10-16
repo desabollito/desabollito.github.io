@@ -1404,7 +1404,8 @@ body[data-lector="1"] [data-act="pdf"] { display: none !important; }
 .card.plegable-btn { flex-direction: row; flex-wrap: nowrap; gap: 10px; }
 .plegable-btn > .ic:last-child { flex-shrink: 0; }
 /* Link de un solo vehículo: sin navegación */
-body[data-lector-uno="1"] .tabbar, body[data-lector-uno="1"] .side-nav, body[data-lector-uno="1"] .side-new { display: none !important; }
+body[data-lector-uno="1"] .tabbar, body[data-lector-uno="1"] .side-nav, body[data-lector-uno="1"] .side-new,
+body[data-lector-uno="1"] .estado-fila, body[data-lector-uno="1"] #topbar .search, body[data-lector-uno="1"] #tb-filtros { display: none !important; }
 .tec-excel .tec-sepcol { padding: 0; }
 .tl-def { color: var(--muted); font-size: 11px; white-space: nowrap; }
 .fijos-page .card { margin-bottom: 14px; }
