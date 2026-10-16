@@ -287,7 +287,7 @@ export function vistaEmpresa(view) {
           ${avatarUsuario(m.user, m.name)}
           <span class="m-meta">
             <strong>${esc(m.name)}${m.uid === S.user.uid ? " (vos)" : ""}</strong>
-            <small>${m.user ? `@${esc(m.user)} · ` : ""}${ROLES[m.rol]?.label || m.rol}</small>
+            <small>${[m.user ? `@${esc(m.user)}` : "", admin && m.rol !== "owner" && m.uid !== S.user.uid ? "" : ROLES[m.rol]?.label || m.rol].filter(Boolean).join(" · ")}</small>
           </span>
           ${admin && m.rol !== "owner" && m.uid !== S.user.uid ? `
             <span class="m-actions">
