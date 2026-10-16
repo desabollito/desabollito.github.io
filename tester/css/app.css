@@ -2046,9 +2046,11 @@ body[data-ruta="checkform"] .main { padding-bottom: calc(90px + var(--safe-b)); 
 .tbl.tec-excel tbody .tec-sep td { height: 30px; background: var(--surface); }   /* una línea vacía después de cada semana */
 /* Sacabollos (por ahora): solo mira, como el link de perito, pero con planillas y ajustes */
 body[data-solo-ver="1"] :is(.fab, a[href="#/nuevo"], a[href^="#/editar"], .viewer-add, .viewer-add-fila .btn, #vw-rot, .viewer-pint,
-  [data-act="desmontaje"], [data-act="desm-ver"], [data-act="anular"], [data-act="borrar"], [data-act="mover"], [data-act="firma"],
+  [data-act="anular"], [data-act="borrar"], [data-act="mover"], [data-act="firma"],
   [data-del-foto], [data-del-doc], #t-edit, #t-tec, #f-edit, #f-tec, #g-nuevo, [data-act="persona"], [data-act="cambio"], [data-act="tecnicos"],
-  [data-descontar], .side-new) { display: none !important; }
+  [data-descontar], .side-new, #desm-add, #desm-tec, .chk-form .vform-bar .btn-primary, .chk-form #chk-op) { display: none !important; }
+/* Sacabollos ve el check in / out y el desmontaje, sin poder cambiarlos */
+body[data-solo-ver="1"] .chk-form :is(.chk-tog, input, textarea) { pointer-events: none; }
 body[data-solo-ver="1"] :is(.step, .etapa-item) { pointer-events: none; }
 .aj-fila { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .aj-version { margin: 8px 0 24px; }

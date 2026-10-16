@@ -441,7 +441,7 @@ export function renderDetalle(root, v, embebido) {
         </div></div>` : ""}
       ${embebido && !soloVer ? `<a class="btn btn-ghost btn-icon" href="#/editar/${v.id}" aria-label="Editar" title="Editar">${icon("edit")}</a>` : ""}
     </div>
-${[...PASO_REP, "facturado"].includes(est) && !soyLector() && (soyAdmin() || soyDesmontaje()) ? `<div class="d-desm-fila"><button class="btn btn-ghost btn-block d-desm" data-act="desmontaje">${icon("table")}Check in / out</button>
+${[...PASO_REP, "facturado"].includes(est) && !soyLector() && (soyAdmin() || soyDesmontaje() || soySacabollos()) ? `<div class="d-desm-fila"><button class="btn btn-ghost btn-block d-desm" data-act="desmontaje">${icon("table")}Check in / out</button>
       <button class="btn btn-ghost btn-block d-desm-ver ${(v.desFotos?.length || v.desNotas?.length) ? "con" : ""}" data-act="desm-ver" style="--c:${ESTADO.peritado.color}">${icon("camera")}Desmontaje</button></div>` : ""}
 
     <section class="d-sec">
@@ -613,7 +613,7 @@ ${[...PASO_REP, "facturado"].includes(est) && !soyLector() && (soyAdmin() || soy
     const t = e.target;
     // Rol Desmontaje: no modifica nada del vehículo
     if (soloVer && (t.closest("[data-estado], .etapa-item, [data-del-foto], [data-del-doc]") || ["anular", "borrar", "firma", "mover"].includes(t.closest("[data-act]")?.dataset.act))) return;
-    if ((soyLector() || soySacabollos()) && ["desmontaje", "desm-ver", "fotos", "subir", "docs"].includes(t.closest("[data-act]")?.dataset.act)) return;
+    if ((soyLector() || soySacabollos()) && [...(soyLector() ? ["desmontaje", "desm-ver"] : []), "fotos", "subir", "docs"].includes(t.closest("[data-act]")?.dataset.act)) return;
     if (t.closest("[data-act]")?.dataset.act === "desmontaje") return chkLargo ? undefined : go(`#/check/${v.id}/in`);
     if (t.closest("[data-act]")?.dataset.act === "desm-ver") return abrirDesmontaje(v);
     if (t.closest("[data-act]")?.dataset.act === "pintura-fotos") return abrirPintura(v);
