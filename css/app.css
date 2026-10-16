@@ -1266,10 +1266,9 @@ html, body { overscroll-behavior-y: none; }
 
 /* ── Desmontaje ── */
 .d-desm-fila { display: flex; gap: 8px; margin-top: -6px; margin-bottom: 14px; }
-.d-desm, .d-desm-ver { flex: 1; gap: 8px; }
-/* Desmontaje: gris si está vacío; con fotos o notas, delineado y latiendo como el paso actual (Peritado) */
-.d-desm-ver { color: var(--ink-2); }
-.d-desm-ver.con { color: var(--ink); border-color: var(--c); box-shadow: 0 0 0 3px color-mix(in srgb, var(--c) 25%, transparent); animation: step-latido 2.4s ease-in-out infinite; }
+.d-desm { flex: 1; gap: 8px; }
+/* Chequeo y Desmontaje: con algo cargado, delineado y latiendo como el paso actual (Peritado) */
+.d-desm.con { color: var(--ink); border-color: var(--c); box-shadow: 0 0 0 3px color-mix(in srgb, var(--c) 25%, transparent); animation: step-latido 2.4s ease-in-out infinite; }
 .d-desm small { color: var(--ink-2); font-weight: 600; }
 .desm { display: flex; flex-direction: column; gap: 12px; }
 .desm-quien { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 12px; }
@@ -1389,7 +1388,7 @@ body[data-lector="1"] .fab, body[data-lector="1"] a[href="#/nuevo"], body[data-l
 body[data-lector-uno="1"] [data-nav="planillas"], body[data-lector-uno="1"] .side-grupo, body[data-lector-uno="1"] #tab-planilla,
 body[data-lector="1"] .side-sub, body[data-lector="1"] .side-chev,
 body[data-lector="1"] a[href="#/ajustes"], body[data-lector="1"] [data-nav="ajustes"], body[data-lector="1"] .viewer-add, body[data-lector="1"] #vw-rot,
-body[data-lector="1"] [data-act="desmontaje"], body[data-lector="1"] [data-act="desm-ver"], body[data-lector="1"] [data-act="anular"], body[data-lector="1"] [data-act="borrar"],
+body[data-lector="1"] [data-act="desmontaje"], body[data-lector="1"] [data-act="anular"], body[data-lector="1"] [data-act="borrar"],
 body[data-lector="1"] [data-act="mover"], body[data-lector="1"] [data-act="firma"], body[data-lector="1"] [data-del-foto], body[data-lector="1"] [data-del-doc],
 body[data-lector="1"] #company-switch .ic { display: none !important; }
 body[data-lector="1"] .step, body[data-lector="1"] .etapa-item { pointer-events: none; }
