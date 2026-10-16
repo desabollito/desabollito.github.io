@@ -1267,8 +1267,6 @@ html, body { overscroll-behavior-y: none; }
 /* ── Desmontaje ── */
 .d-desm-fila { display: flex; gap: 8px; margin-top: -6px; margin-bottom: 14px; }
 .d-desm { flex: 1; gap: 8px; }
-/* Chequeo y Desmontaje: con algo cargado, delineado y latiendo como el paso actual (Peritado) */
-.d-desm.con { color: var(--ink); border-color: var(--c); box-shadow: 0 0 0 3px color-mix(in srgb, var(--c) 25%, transparent); animation: step-latido 2.4s ease-in-out infinite; }
 .d-desm small { color: var(--ink-2); font-weight: 600; }
 .desm { display: flex; flex-direction: column; gap: 12px; }
 .desm-quien { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 12px; }
