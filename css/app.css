@@ -1676,6 +1676,10 @@ a.g-bar-fijo { text-decoration: none; color: inherit; }
 .est { border-radius: 10px; }
 .fo-chips .fo-op { flex-direction: column; gap: 0; min-height: 42px; padding: 4px 14px; background: var(--surface-2); }
 .fo-chips .fo-op b { font-size: 10.5px; line-height: 1; }
+/* Filtrar y ordenar: todos los botones con la misma altura */
+.fo .fo-op, .fo .fo-switch, .fo .fo-pie .btn { height: 44px; min-height: 44px; box-sizing: border-box; }
+.fo .fo-op { overflow: hidden; }
+.fo .fo-switch { padding-block: 0; }
 
 /* ── Transiciones entre pantallas ── */
 /* Se anima con "left" (no transform) para no mover los botones fijos que hay adentro de la pantalla */
