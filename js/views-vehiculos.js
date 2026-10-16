@@ -1478,8 +1478,7 @@ function compartir(v) {
       ${hayFotos ? `<label class="toggle"><input type="checkbox" id="con-fotos"><span>Incluir las ${v.fotos.length} fotos</span></label>` : ""}
       ${puedeCompartirArchivos() ? `<button class="btn btn-primary btn-block btn-lg" data-m="share">${icon("share")}Compartir PDF</button>` : ""}
       <button class="btn ${puedeCompartirArchivos() ? "btn-ghost" : "btn-primary btn-lg"} btn-block" data-m="save">${icon("download")}Descargar PDF</button>
-      ${soyDesmontaje() ? "" : `<button class="btn btn-ghost btn-block" data-link>${icon("car")}Vehículo en App</button>
-      <small class="muted center">Link para ver solo este vehículo, sin poder cambiar nada.</small>`}</div>`
+      ${soyDesmontaje() ? "" : `<button class="btn btn-ghost btn-block" data-link>${icon("car")}Vehículo en App</button>`}</div>`
   });
   const nombre = nombreArchivo(v);
   const texto = `Presupuesto de granizo${v.modelo ? " · " + v.modelo : ""}${v.patente ? " " + v.patente : ""}${v.precio ? " · Total " + money(v.precio) : ""}`;
