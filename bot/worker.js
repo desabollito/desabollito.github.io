@@ -1201,29 +1201,24 @@ async function rolEn(env, cid, uid) {
   return c.roles[uid] || "";
 }
 const esDesm = async (env, cid, uid) => (await rolEn(env, cid, uid)) === "desmontaje";
-const NO_DESM = "🔧 Con el rol *Desmontador* solo podés cargar fotos y notas de desmontaje a vehículos ya cargados.";
-const RE_DESM = /(^|\s)desmont(?:aje|ado|ada|e|ar)\b/i, RE_DESM_G = /(^|\s)desmont(?:aje|ado|ada|e|ar)\b/gi;
+const NO_DESM = "🔧 Con el rol *Desmontador* solo podés cargar fotos y notas de desmontaje a vehículos ya cargados, desde el grupo de desmontaje o la app.";
 const VENTANA_DESM = 300;   // segundos: después de la patente, 5 minutos para fotos y texto de desmontaje
 
-// Modo desmontaje: lo usa el rol Desmontador siempre, y cualquiera que escriba "desmontaje" con la patente.
+// Modo desmontaje: solo en un grupo de desmontaje (!desmontaje); fuera de él, el rol Desmontador recibe NO_DESM.
 // Abre el vehículo (sin cambiar sus datos ni crear vehículos), corta el anterior y da 5 minutos
 // para mandar fotos y texto, que van a la sección Desmontaje. Devuelve null si no corresponde.
 async function abrirModoDesm(env, numero, quien, texto, datos, hora) {
-  // La palabra cuenta solo fuera de "detalle: …" y sin "no" adelante ("Detalle: NO DESMONTAR TECHO" es un dato)
-  const antes = String(texto || "").split(/(?:^|\s)(?:detalles?|adicional(?:es)?|observaci[oó]n(?:es)?|obs|repuestos?|pintura)\b/i)[0];
-  const kw = quien.grupoDesm || (RE_DESM.test(antes) && !/(^|\s)no\s+desmont/i.test(antes));
   const enc = await buscarPatente(env, datos.patente, quien.uid);
   const fijo = await operativoFijo(env, numero, quien.uid, quien);
   const e = enc.find(x => x.cid === fijo?.cid) || enc[0];
   const rol = e ? await esDesm(env, e.cid, quien.uid) : fijo ? await esDesm(env, fijo.cid, quien.uid) : false;
-  if (!kw && !rol) return null;
-  if (!e && !rol && !quien.grupoDesm) return null;   // no existe y no es desmontador: se carga normal
-  if (!e) return { msg: `🔎 No encontré la patente *${datos.patente}*.` + (rol ? `\n\n${NO_DESM}` : "") };
+  if (!quien.grupoDesm) return rol ? { msg: NO_DESM } : null;
+  if (!e) return { msg: `🔎 No encontré la patente *${datos.patente}*.` };
   const s = await leerSesion(env, numero);
   if (abierta(s)) await cerrarEnSilencio(env, numero, hora - 1);   // otra patente corta la anterior
   await abrir(env, numero, e, hora, await leerSesion(env, numero), false);
   await fsMerge(env, `bot_sesiones/${numero}`, { desm: { cid: e.cid, vid: e.vid, hasta: hora + VENTANA_DESM } });
-  await notaDesm(env, e.cid, e.vid, quien, notaDe(texto.replace(RE_DESM_G, " "), datos.patente), loteWa(numero, { desde: hora }));
+  await notaDesm(env, e.cid, e.vid, quien, notaDe(texto, datos.patente), loteWa(numero, { desde: hora }));
   return { ok: true };
 }
 // Fotos de pintura: "Saltó pintura AB123CD" (salto, saltada, despegó, despegada, dañada, rota…) → las fotos de los
@@ -1530,7 +1525,7 @@ async function alRecibirArchivo(env, m, quien) {
   if (caption && buscarPatenteEnTexto(caption)) {
     datos = interpretar(caption);
   }
-  // Pie de foto con patente en modo desmontaje (rol Desmontador o "desmontaje AB123CD")
+  // Pie de foto con patente en un grupo de desmontaje
   const rDesm = datos?.patente && !(abierta(sesion) && sesion.patente === datos.patente && sesion.desm)
     ? await abrirModoDesm(env, numero, quien, quitarMencion(caption), datos, hora) : null;
   if (rDesm?.msg) return avisarUnaVez(env, m, numero, "desm", rDesm.msg);
@@ -1564,6 +1559,8 @@ async function alRecibirArchivo(env, m, quien) {
   // Modo desmontaje: pasados los 5 minutos el vehículo queda cerrado
   const enDesm = await ventanaDesm(env, numero, sesion, hora);
   if (sesion?.desm && !enDesm) sesion = await leerSesion(env, numero);
+  // Texto de la foto: va a las notas de desmontaje (si trajo la patente, ya lo guardó abrirModoDesm)
+  if (enDesm && caption && !rDesm?.ok) await notaDesm(env, sesion.desm.cid, sesion.desm.vid, quien, notaDe(quitarMencion(caption), sesion.patente), loteWa(numero, sesion));
   const destino = destinoDe(sesion, hora);
   if (!destino) {
     if (sesion?.crear?.datos?.patente) {

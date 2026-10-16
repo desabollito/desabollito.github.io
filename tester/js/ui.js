@@ -131,7 +131,10 @@ export function cerrarHojas() { [...sheetStack].forEach(h => h.close()); }
 addEventListener("hashchange", cerrarHojas);
 
 document.addEventListener("keydown", e => {
-  if (e.key === "Escape" && sheetStack.length) sheetStack[sheetStack.length - 1].close();
+  if (e.key !== "Escape") return;
+  if (sheetStack.length) return sheetStack[sheetStack.length - 1].close();
+  // Sin ventanas abiertas: Esc vuelve atrás como la flecha de arriba (no mientras se escribe en un campo)
+  if (!e.target.closest?.("input, textarea, select, [contenteditable]")) document.getElementById("tb-back")?.click();
 });
 
 export function confirmar({ title, message = "", ok = "Confirmar", danger = false }) {

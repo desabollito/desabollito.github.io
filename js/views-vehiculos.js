@@ -884,14 +884,14 @@ function pintarDesmontaje(caja, v0) {
   const pintar = () => {
     const v = getVehiculo(v0.id) || v0, lotes = lotesDesm(v);
     caja.innerHTML = `
-      <div class="desm-quien"><span>Desmontado por</span>
-        <button type="button" class="btn btn-ghost btn-sm" id="desm-tec">${icon("team")}${esc(v.desmontador?.nombre || "Elegir técnico")}</button></div>
       <button type="button" class="btn btn-primary btn-block" id="desm-add">${icon("plus")}Cargar fotos y texto</button>
       ${lotes.length ? lotes.map(l => `<div class="desm-lote">
         <div class="desm-cab"><strong>${esc(l.por || "—")}</strong><small>${l.t ? fechaHora(l.t) : ""}</small></div>
         ${l.notas.map(n => `<p class="prose">${esc(n)}</p>`).join("")}
         ${l.fotos.length ? `<div class="desm-fotos">${l.fotos.map(f => `<button type="button" data-dfoto="${esc(f.url)}"><img src="${esc(thumb(f.url, 200))}" alt="" loading="lazy">${esVideo(f) ? `<span class="play-ic">▶</span>` : ""}</button>`).join("")}</div>` : ""}
-      </div>`).join("") : `<p class="muted center">Todavía no hay desmontaje cargado.</p>`}`;
+      </div>`).join("") : `<p class="muted center">Todavía no hay desmontaje cargado.</p>`}
+      <div class="desm-quien"><span>Desmontado por</span>
+        <button type="button" class="btn btn-ghost btn-sm" id="desm-tec">${icon("team")}${esc(v.desmontador?.nombre || "Elegir técnico")}</button></div>`;
   };
   pintar();
   caja.onclick = e => {   // onclick (no addEventListener): la pestaña se repinta cada vez que se entra
