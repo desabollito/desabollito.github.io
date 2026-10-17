@@ -21,7 +21,7 @@ import { setTopbar, go, esAncho } from "./shell.js";
 const F = { estado: "todos", q: "", mios: false, sinAnul: false, orden: "fecha", dir: -1, grado: null, repuestos: null, pintura: null, turno: null, cliente: null, cargado: null, cias: new Set() }; // grado: null = todos, 0 = sin grado
 
 // Conformidad del cliente al entregar: carita y color de cada opción
-const CARAS = { conforme: ["Conforme", "#22b07d", "M8 14.5c1 1.4 2.4 2 4 2s3-.6 4-2"], desconforme: ["Desconforme", "#e0486e", "M8 16.5c1-1.4 2.4-2 4-2s3 .6 4 2"] };
+const CARAS = { conforme: ["Conforme", "#22b07d", "M8 14.5c1 1.4 2.4 2 4 2s3-.6 4-2"], regular: ["Regular", "#e0a526", "M8.5 15.5h7"], desconforme: ["Desconforme", "#e0486e", "M8 16.5c1-1.4 2.4-2 4-2s3 .6 4 2"] };
 const cara = k => `<svg class="cara" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><circle cx="9" cy="10" r=".6" fill="currentColor"/><circle cx="15" cy="10" r=".6" fill="currentColor"/><path d="${CARAS[k][2]}"/></svg>`;
 const conformidadHTML = v => `<div class="conf-ops">${Object.entries(CARAS).map(([k, [t, c]]) =>
   `<button type="button" class="conf-op ${v.conformidad === k ? "on" : ""}" data-conf="${k}" style="--c:${c}">${cara(k)}<span>${t}</span></button>`).join("")}</div>`;
