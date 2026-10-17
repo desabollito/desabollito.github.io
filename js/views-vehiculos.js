@@ -1205,7 +1205,7 @@ function visor(fotos = [], inicio = 0, v = null, campo = "fotos") {   // campo: 
         <div class="vw-centro"><span id="vw-n"></span></div>
         <button class="icon-btn" data-n aria-label="Siguiente" ${fotos.length > 1 ? "" : "disabled"}>${icon("next")}</button>
       </div>
-      ${v ? `<div class="viewer-add"><div class="viewer-add-fila">${campo === "fotos" && puedoEditar(v) ? `<button type="button" class="icon-btn viewer-pint-fila" id="vw-pint" aria-label="Fotos de pintura" title="Fotos de pintura">${GOTA}</button>` : ""}${campo === "fotos" ? `<button type="button" class="btn btn-ghost btn-block" id="vw-mas">${icon("plus")}Añadir más fotos</button>` : ""}
+      ${v ? `<div class="viewer-add"><div class="viewer-add-fila">${campo === "fotos" && puedoEditar(v) ? `<button type="button" class="icon-btn viewer-pint-fila" id="vw-pint" aria-label="Pasar foto a pintura" title="Pasar foto a pintura">${GOTA}</button>` : ""}${campo === "fotos" ? `<button type="button" class="btn btn-ghost btn-block" id="vw-mas">${icon("plus")}Añadir más fotos</button>` : ""}
         ${borrable ? `<button type="button" class="hold-del" id="vw-del" aria-label="Mantené apretado para borrar esta foto" title="Mantené apretado para borrar">
           <svg class="anillo" viewBox="0 0 36 36" aria-hidden="true"><circle class="base" cx="18" cy="18" r="16" pathLength="100"/><circle cx="18" cy="18" r="16" pathLength="100"/></svg>${icon("trash")}</button>` : ""}</div>
         <div class="viewer-mas" id="vw-mas-op" hidden>${botonesFotos({ id: "vw-add" })}</div></div>` : ""}
@@ -1406,8 +1406,16 @@ function visor(fotos = [], inicio = 0, v = null, campo = "fotos") {   // campo: 
     show();
     actualizarVehiculo(v.id, { fotos: lista }).catch(e => toast(mensajeError(e), "error"));
   });
-  // Gota: abre la sección de fotos de pintura del vehículo
-  $("#vw-pint", s.el)?.addEventListener("click", () => abrirPintura(getVehiculo(v.id) || v));
+  // Gota: pasa esta foto a la sección de fotos de pintura del vehículo
+  $("#vw-pint", s.el)?.addEventListener("click", () => {
+    const f = fotos[i], act = getVehiculo(v.id) || v;
+    if (!(act.fotos || []).some(x => x.url === f.url)) return;
+    actualizarVehiculo(v.id, { fotos: act.fotos.filter(x => x.url !== f.url), fotosPintura: [...(act.fotosPintura || []), f] }, "Pasó una foto a pintura")
+      .then(() => toast("Foto pasada a pintura", "success")).catch(e => toast(mensajeError(e), "error"));
+    fotos.splice(i, 1);
+    if (!fotos.length) return s.close();
+    i = Math.min(i, fotos.length - 1); show(1);
+  });
 
   s.el.addEventListener("keydown", e => {
     if (e.key === "ArrowRight") $("[data-n]", s.el)?.click();
