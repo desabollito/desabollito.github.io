@@ -1,8 +1,8 @@
 // ═════════════════════════════════════════════════════════════
 //  FACTURACIÓN: el documento firmado de cada vehículo. Solo figura en esta planilla (no en el vehículo).
-//  Se guarda en companies/{cid}/planTec/_factura: { vids: [vid elegidos], docs: { [vid]: { url, publicId, name, bytes, at } } }
+//  Se guarda en companies/{cid}/factura/docs (antes planTec/_factura, se migra solo): { vids: [vid elegidos], docs: { [vid]: { url, publicId, name, bytes, at } } }
 // ═════════════════════════════════════════════════════════════
-import { db, doc, onSnapshot, setDoc, arrayUnion, arrayRemove } from "./firebase.js";
+import { db, doc, getDoc, onSnapshot, setDoc, deleteDoc, arrayUnion, arrayRemove } from "./firebase.js";
 import { S, activos, puedeVer, mensajeError } from "./data.js";
 import { $, esc, icon, toast, plate, fechaCorta, tsToISO, openSheet } from "./ui.js";
 import { setTopbar } from "./shell.js";
@@ -24,7 +24,7 @@ export function vistaFacturacion(view) {
     actions: `<button class="btn btn-ghost btn-sm" id="f-todos">${icon("download")}<span class="hide-sm">Descargar todos</span></button>` });
   if (!puedeVer("facturacion")) { view.innerHTML = `<div class="empty"><p>No tenés acceso a esta planilla.</p></div>`; return; }
   if (!S.company) { view.innerHTML = `<div class="skeleton tall"></div>`; return; }
-  const ref = doc(db, "companies", S.company.id, "planTec", "_factura");
+  const ref = doc(db, "companies", S.company.id, "factura", "docs"), viejo = doc(db, "companies", S.company.id, "planTec", "_factura");
   let docs = {}, vids = [], vidSubir = null;
   view.innerHTML = `<div class="tec-page">
     <label class="search">${icon("search")}<input type="search" id="f-q" placeholder="Buscar patente o modelo" value="${esc(F.q)}" autocomplete="off" autocapitalize="characters"></label>
@@ -50,6 +50,8 @@ export function vistaFacturacion(view) {
   unsub = onSnapshot(ref, d => {
     if (!document.body.contains(view) || location.hash !== "#/facturacion") { unsub?.(); unsub = null; return; }
     docs = d.data()?.docs || {}; vids = d.data()?.vids || []; pintar();
+    // shortcut: migración única desde planTec/_factura, borrar cuando ya no quede ninguno
+    if (!d.exists() && !d.metadata.fromCache) getDoc(viejo).then(o => o.exists() && setDoc(ref, o.data()).then(() => deleteDoc(viejo))).catch(() => {});
   }, e => { $("#f-body", view).innerHTML = `<div class="empty"><p>${esc(mensajeError(e))}</p></div>`; });
 
   // Mismo selector que el desmontaje (tira + patente); queda abierto para agregar varios

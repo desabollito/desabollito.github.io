@@ -152,9 +152,15 @@ service cloud.firestore {
 
       // ── Planilla de técnicos (valor por auto, reparto, adelantos): solo administradores ──
       match /planTec/{d} {
-        // _factura (documentos firmados de Facturación): solo administradores, Sacabollos no lo ve
-        allow read: if d == '_factura' ? puede(cid, 'facturacion', isAdmin(cid)) : puede(cid, 'tecnicos', isAdmin(cid) || esSacabollos(cid)) || (d == '_fijos' && puede(cid, 'fijos', isAdmin(cid) || esSacabollos(cid)));
+        // La lectura no puede depender de {d} en primer lugar: la planilla escucha la colección entera
+        // shortcut: _factura viejo sigue legible para Técnicos hasta que Facturación lo migre a /factura, sacar esa parte después
+        allow read: if puede(cid, 'tecnicos', isAdmin(cid) || esSacabollos(cid)) || (d == '_fijos' && puede(cid, 'fijos', isAdmin(cid) || esSacabollos(cid))) || (d == '_factura' && puede(cid, 'facturacion', isAdmin(cid)));
         allow write: if d == '_fijos' ? puede(cid, 'fijos', isAdmin(cid)) : d == '_factura' ? puede(cid, 'facturacion', isAdmin(cid)) : puede(cid, 'tecnicos', isAdmin(cid));
+      }
+
+      // ── Facturación (documentos firmados por vehículo): solo administradores, Sacabollos no lo ve ──
+      match /factura/{d} {
+        allow read, write: if puede(cid, 'facturacion', isAdmin(cid));
       }
 
       // ── Gastos del operativo ───────────────────────────────
