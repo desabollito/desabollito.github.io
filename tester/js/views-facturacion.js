@@ -30,8 +30,8 @@ export function vistaFacturacion(view) {
   if (!S.company) { view.innerHTML = `<div class="skeleton tall"></div>`; return; }
   const ref = doc(db, "companies", S.company.id, "factura", "docs"), viejo = doc(db, "companies", S.company.id, "planTec", "_factura");
   let docs = {}, vids = [], estados = {}, vidSubir = null;
-  // Sin elegir: Firmado si ya tiene la orden subida, si no Impreso
-  const estadoDe = vid => estados[vid] || (docs[vid] ? "firmado" : "impreso");
+  // Sin elegir: Firmado si ya tiene la orden subida, si no Impreso (con orden subida nunca es Impreso)
+  const estadoDe = vid => (docs[vid] && estados[vid] === "impreso" ? "" : estados[vid]) || (docs[vid] ? "firmado" : "impreso");
   // Firmados y facturados en el orden de la lista: su posición es el número de línea (y el nombre de la descarga)
   const firmados = () => activos().filter(v => vids.includes(v.id) && estadoDe(v.id) !== "impreso");
   view.innerHTML = `<div class="tec-page">
@@ -96,7 +96,8 @@ export function vistaFacturacion(view) {
     // Tocar la fila (fuera de los botones) abre el vehículo; al volver queda en el mismo lugar
     if (!b) { F.volver = { y: scrollY, t: $(".table-wrap", view)?.scrollTop || 0 }; location.hash = `#/v/${vid}`; return; }
     if (b.dataset.act === "estado") {
-      return glideMenu(b, ESTADOS_F, estadoDe(vid), async est => {
+      // Con la orden ya subida no puede volver a Impreso
+      return glideMenu(b, docs[vid] ? ESTADOS_F.filter(([k]) => k !== "impreso") : ESTADOS_F, estadoDe(vid), async est => {
         try {
           await setDoc(ref, { estados: { [vid]: est } }, { merge: true });
           // Facturado acá también marca Facturado en el vehículo
