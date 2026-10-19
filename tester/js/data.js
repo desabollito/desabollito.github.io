@@ -137,9 +137,10 @@ export async function iniciarInvitado(token, onReady) {
   };
   try {
     const j = await traer();
-    S.invitado = { token, compania: j.compania, uno: j.vid || null };
+    S.invitado = { token, compania: j.compania, uno: j.vid || null, tecnicos: j.tecnicos ? { sueldos: j.tecnicos.sueldos } : null };
+    S.planTec = j.tecnicos?.docs || [];
     S.user = { uid: "invitado", invitado: true, getIdToken: async () => "" };
-    S.profile = { id: "invitado", name: j.vid ? "Vehículo compartido" : `Perito ${j.compania}`, username: "", aprobado: true };
+    S.profile = { id: "invitado", name: j.vid ? "Vehículo compartido" : j.tecnicos ? "Planilla de técnicos" : `Perito ${j.compania}`, username: "", aprobado: true };
     S.company = { ...j.operativo, roles: {}, members: [] };
     S.companies = [S.company];
     const ordenar = vs => vs.sort((a, b) => (b.fechas?.peritado || "").localeCompare(a.fechas?.peritado || ""));
@@ -147,10 +148,10 @@ export async function iniciarInvitado(token, onReady) {
     onReady(true);
     emit("companies"); emit("vehicles");
     // Se actualiza solo cada minuto
-    let firma = JSON.stringify(j.vehiculos);
+    let firma = JSON.stringify([j.vehiculos, j.tecnicos]);
     setInterval(async () => {
       if (document.hidden) return;
-      try { const n = await traer(); const f = JSON.stringify(n.vehiculos); if (f !== firma) { firma = f; S.vehicles = ordenar(n.vehiculos); emit("vehicles"); } } catch { /* sin conexión */ }
+      try { const n = await traer(); const f = JSON.stringify([n.vehiculos, n.tecnicos]); if (f !== firma) { firma = f; S.vehicles = ordenar(n.vehiculos); S.planTec = n.tecnicos?.docs || []; emit("vehicles"); } } catch { /* sin conexión */ }
     }, 60_000);
   } catch (e) { onReady(false, e); }
 }
@@ -164,6 +165,15 @@ export async function linkVehiculo(vid) {
   const j = await r.json().catch(() => ({}));
   if (!j.ok) throw new Error(j.error || "No se pudo crear el link");
   return `${location.origin}/v/?${j.token}`;   // /v/ siempre existe y tiene vista previa (desabollito.com/TOKEN da 404 hasta que corre links-cortos)
+}
+// Planilla de técnicos de solo lectura (con o sin la sección Sueldos)
+export async function linkTecnicos(sueldos) {
+  const idToken = await S.user.getIdToken();
+  const r = await fetch(`${BOT_API}/compartir`, { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ idToken, cid: S.company.id, accion: "tecnicos", sueldos }) });
+  const j = await r.json().catch(() => ({}));
+  if (!j.ok) throw new Error(j.error || "No se pudo crear el link");
+  return `${location.origin}/v/?${j.token}`;
 }
 export async function linksCompartidos(accion = "listar", extra = {}) {
   const idToken = await S.user.getIdToken();
@@ -737,6 +747,7 @@ export const soyCreador = () => S.profile?.username === "gzmatte";
 // Quién ve Técnicos, Gastos y Gastos fijos: lo elige el creador (config/app.accesos[uid][seccion]).
 // Sin elegir: Técnicos y Gastos fijos los ven los administradores; Gastos, todos los miembros. Las reglas de Firestore piden lo mismo.
 export const puedeVer = sec => {
+  if (S.invitado) return S.invitado.tecnicos ? sec === "tecnicos" : sec === "planilla";
   if (soyCreador()) return true;
   const v = S.config?.accesos?.[S.user?.uid]?.[sec];
   // Sacabollos: solo Técnicos y Fijos (ni planilla de vehículos ni gastos)

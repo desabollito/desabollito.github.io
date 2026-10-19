@@ -2689,7 +2689,7 @@ function mismaCia(a, b) {
   const grupo = COMPANIAS.find(([n, al]) => [sinTildes(n), ...al].includes(y));
   return !!grupo && [sinTildes(grupo[0]), ...grupo[1]].includes(x);
 }
-async function compartirApi(env, { idToken, cid, compania, accion, token, vid }) {
+async function compartirApi(env, { idToken, cid, compania, accion, token, vid, sueldos }) {
   const m = await miembroDe(env, idToken, cid);
   // Un solo vehículo ("Vehículo en App"): cualquiera del operativo menos el desmontador. Si ya hay link, se reusa.
   if (accion === "vehiculo") {
@@ -2710,6 +2710,20 @@ async function compartirApi(env, { idToken, cid, compania, accion, token, vid })
     return json({ ok: true, token: tk });
   }
   if (!m || !["owner", "admin"].includes(m.c.roles?.[m.uid])) return json({ ok: false, error: "Solo los administradores pueden compartir" }, 403);
+  // Planilla de técnicos de solo lectura; "sueldos" elige si se ve la sección Sueldos (y sus personas en el cierre). Se reusa si ya hay uno igual.
+  if (accion === "tecnicos") {
+    const conSueldos = !!sueldos;
+    const ya = (await fsQuery(env, "", "compartidos", { field: "cid", op: "EQUAL", value: cid }, 100).catch(() => [])).find(x => x.tipo === "tecnicos" && !!x.sueldos === conSueldos);
+    if (ya) return json({ ok: true, token: ya.__id });
+    let tk = "";
+    for (let i = 0; i < 5 && !tk; i++) {
+      const cand = [...crypto.getRandomValues(new Uint8Array(7))].map(b => "abcdefghjkmnpqrstuvwxyz23456789"[b % 31]).join("");
+      if (!(await fsGet(env, `compartidos/${cand}`).catch(() => null))) tk = cand;
+    }
+    if (!tk) return json({ ok: false, error: "Probá de nuevo" }, 500);
+    await fsSet(env, `compartidos/${tk}`, { cid, tipo: "tecnicos", sueldos: conSueldos, compania: "", por: m.uid, t: Date.now() });
+    return json({ ok: true, token: tk });
+  }
   if (accion === "crear") {
     const cia = String(compania || "").trim().slice(0, 60);
     if (!cia) return json({ ok: false, error: "Elegí una compañía" }, 400);
@@ -2728,7 +2742,7 @@ async function compartirApi(env, { idToken, cid, compania, accion, token, vid })
     if (c?.cid === cid) await fsDelete(env, `compartidos/${token}`);
   }
   const lista = (await fsQuery(env, "", "compartidos", { field: "cid", op: "EQUAL", value: cid }, 100).catch(() => []))
-    .filter(x => !x.vid).map(x => ({ token: x.__id, compania: x.compania, t: x.t || 0 })).sort((a, b) => b.t - a.t);
+    .filter(x => !x.vid && !x.tipo).map(x => ({ token: x.__id, compania: x.compania, t: x.t || 0 })).sort((a, b) => b.t - a.t);
   return json({ ok: true, lista });
 }
 // La app en modo lectura pide los datos con el token (sin cuenta)
@@ -2738,16 +2752,21 @@ async function compartidoApi(env, { token }) {
   if (!c?.cid) return json({ ok: false, error: "Este link ya no está disponible" }, 404);
   const op = await fsGet(env, `companies/${c.cid}`);
   if (!op) return json({ ok: false, error: "Este link ya no está disponible" }, 404);
-  let vs;
+  let vs, tecnicos = null;
   if (c.vid) {   // link de un solo vehículo
     const v = await fsGet(env, `companies/${c.cid}/vehicles/${c.vid}`);
     if (!v || v.deleted) return json({ ok: false, error: "Este vehículo ya no está disponible" }, 404);
     const { __id, ...resto } = v; vs = [{ ...resto, id: c.vid }];
+  } else if (c.tipo === "tecnicos") {   // planilla de técnicos: todos los autos (sin precio ni documentos) + los datos de la planilla
+    vs = (await fsList(env, `companies/${c.cid}/vehicles`)).filter(v => !v.deleted).map(({ __id, ...v }) => ({ ...v, id: __id }));
+    const docs = (await fsList(env, `companies/${c.cid}/planTec`)).filter(d => d.__id !== "_factura").map(({ __id, ...d }) => ({ id: __id, d }));
+    if (!c.sueldos) docs.forEach(x => { if (x.id === "_config") { delete x.d.personas; x.d.movs = (x.d.movs || []).filter(m => m.tipo !== "sueldo"); } });
+    tecnicos = { sueldos: !!c.sueldos, docs };
   } else vs = (await fsList(env, `companies/${c.cid}/vehicles`))
     .filter(v => !v.deleted && mismaCia(v.compania, c.compania))
     .map(({ __id, ...v }) => ({ ...v, id: __id }));
-  if (c.sinPrecio) vs.forEach(v => { delete v.precio; delete v.archivos; });   // link de un Sacabollos: sin precio ni documentos
-  return json({ ok: true, compania: c.compania, vid: c.vid || null,
+  if (c.sinPrecio || tecnicos) vs.forEach(v => { delete v.precio; delete v.archivos; });   // link de un Sacabollos o de técnicos: sin precio ni documentos
+  return json({ ok: true, compania: c.compania, vid: c.vid || null, tecnicos,
     operativo: { id: c.cid, name: op.name || "", seal: op.seal || {}, memberUsers: op.memberUsers || {}, memberNames: op.memberNames || {} }, vehiculos: vs });
 }
 

@@ -4,8 +4,8 @@
 //  cada auto se guardan aparte (companies/{cid}/planTec) y no cambian nada del vehículo.
 // ═════════════════════════════════════════════════════════════
 import { db, collection, doc, onSnapshot, setDoc, writeBatch } from "./firebase.js";
-import { S, activos, puedeVer, mensajeError } from "./data.js";
-import { $, $$, esc, icon, toast, openSheet, confirmar, pedirTexto, fechaCorta, hoyISO } from "./ui.js";
+import { S, activos, puedeVer, mensajeError, soyAdmin, linkTecnicos } from "./data.js";
+import { $, $$, esc, icon, toast, openSheet, confirmar, pedirTexto, fechaCorta, hoyISO, busy } from "./ui.js";
 import { setTopbar } from "./shell.js";
 import { estadoActual } from "./domain.js";
 import { viandasPorTec, repartoAlquiler } from "./views-fijos.js";
@@ -41,15 +41,17 @@ let unsub = null;
 
 export function vistaTecnicos(view) {
   setTopbar({ title: "Planilla de técnicos", sub: S.company?.name, back: "#/planillas",
-    actions: `<button class="btn btn-ghost btn-sm" id="t-dl" aria-label="Descargar">${icon("download")}<span class="hide-sm">Descargar</span></button><button class="btn btn-ghost btn-sm" id="t-tec">${icon("team")}<span class="hide-sm">Técnicos</span></button>
-      <button class="btn btn-sm ${T.editando ? "btn-primary" : "btn-ghost"}" id="t-edit">${icon(T.editando ? "check" : "edit")}${T.editando ? "<span>Listo</span>" : ""}</button>` });
+    actions: `<button class="btn btn-ghost btn-sm" id="t-dl" aria-label="Descargar">${icon("download")}<span class="hide-sm">Descargar</span></button>${S.invitado ? "" : `${soyAdmin() ? `<button class="btn btn-ghost btn-sm" id="t-share" aria-label="Compartir">${icon("share")}<span class="hide-sm">Compartir</span></button>` : ""}<button class="btn btn-ghost btn-sm" id="t-tec">${icon("team")}<span class="hide-sm">Técnicos</span></button>
+      <button class="btn btn-sm ${T.editando ? "btn-primary" : "btn-ghost"}" id="t-edit">${icon(T.editando ? "check" : "edit")}${T.editando ? "<span>Listo</span>" : ""}</button>`}` });
+  if (S.invitado) T.editando = false;
+  const sinSueldos = !!S.invitado && !S.invitado.tecnicos?.sueldos;   // link compartido sin la sección Sueldos
   if (!puedeVer("tecnicos")) { view.innerHTML = `<div class="empty"><p>No tenés acceso a esta planilla.</p></div>`; return; }
   view.innerHTML = `<div class="skeleton tall"></div>`;
   if (!S.company) return;   // F5: el operativo todavía no llegó; se repinta solo cuando llega
   const cid = S.company.id, col = collection(db, "companies", cid, "planTec");
   let cfg = null, filas = {}, fijos = {}, creando = false, gestionando = false;
   unsub?.();
-  unsub = onSnapshot(col, snap => {
+  const cargar = snap => {
     filas = {}; cfg = null;
     fijos = {};
     snap.docs.forEach(d => { if (d.id === "_config") cfg = d.data(); else if (d.id === "_fijos") fijos = d.data(); else if (!d.id.startsWith("_")) filas[d.id] = d.data(); });
@@ -57,14 +59,18 @@ export function vistaTecnicos(view) {
     if (!document.body.contains(view) || location.hash !== "#/tecnicos") { unsub?.(); unsub = null; return; }
     if (!$(".tec-page", view)) estructura();
     asegurarFilas(); pintar();
-  }, e => { view.innerHTML = `<div class="empty"><p>${esc(mensajeError(e))}</p></div>`; });
+  };
+  // Link compartido: los datos vienen del bot (S.planTec), no de Firestore
+  const cargarInvitado = () => cargar({ docs: (S.planTec || []).map(x => ({ id: x.id, data: () => x.d })) });
+  if (S.invitado) setTimeout(cargarInvitado);
+  else unsub = onSnapshot(col, cargar, e => { view.innerHTML = `<div class="empty"><p>${esc(mensajeError(e))}</p></div>`; });
 
   const guardarCfg = cambios => setDoc(doc(col, "_config"), cambios, { merge: true }).catch(e => toast(mensajeError(e), "error"));
   const guardarFila = (vid, cambios) => setDoc(doc(col, vid), cambios, { merge: true }).catch(e => toast(mensajeError(e), "error"));
 
   // Autos reparados (de la app) que todavía no están en la planilla: se agregan con el valor y los técnicos activos
   const asegurarFilas = () => {
-    if (creando || gestionando || !cfg.tecnicos.length) return;   // se arma cuando ya están los técnicos   // sin técnicos todavía no se arma nada
+    if (S.invitado || creando || gestionando || !cfg.tecnicos.length) return;   // se arma cuando ya están los técnicos   // sin técnicos todavía no se arma nada
     const faltan = activos().filter(v => entregado(v) && fechaRep(v) && !filas[v.id]);
     if (!faltan.length) return;
     creando = true;
@@ -85,7 +91,7 @@ export function vistaTecnicos(view) {
   const estructura = () => {
     view.innerHTML = `<div class="tec-page">
       <label class="search">${icon("search")}<input type="search" id="t-q" placeholder="Buscar patente" value="${esc(T.q)}" autocomplete="off" autocapitalize="characters"></label>
-      <div class="seg seg-sm tec-tabs" id="t-tabs">${[["autos", "Sacabollos"], ["sueldos", "Sueldos"], ["cierre", "Cierre"]].map(([k, t]) =>
+      <div class="seg seg-sm tec-tabs" id="t-tabs">${[["autos", "Sacabollos"], ["sueldos", "Sueldos"], ["cierre", "Cierre"]].filter(([k]) => !(sinSueldos && k === "sueldos")).map(([k, t]) =>
         `<button type="button" class="seg-btn ${T.tab === k ? "on" : ""}" data-tab="${k}">${t}</button>`).join("")}</div>
       <div id="t-body"></div></div>`;
     $("#t-q", view).oninput = e => { T.q = e.target.value; pintar(); };
@@ -106,7 +112,7 @@ export function vistaTecnicos(view) {
         <button class="btn btn-primary" data-act="tecnicos">${icon("plus")}Agregar técnicos</button></div>`;
       return;
     }
-    if (!["sueldos", "cierre"].includes(T.tab)) T.tab = "autos";
+    if (!["sueldos", "cierre"].includes(T.tab) || (sinSueldos && T.tab === "sueldos")) T.tab = "autos";
     if (T.tab === "autos") {
       // Al repintar (por ej. al tocar un técnico) la tabla queda donde estaba deslizada
       const tw = $(".table-wrap", body), sx = tw?.scrollLeft || 0, sy = tw?.scrollTop || 0;
@@ -241,7 +247,7 @@ export function vistaTecnicos(view) {
         gastos: suma(ga) + v + a, fin: ganado - suma(ad) - suma(ga) - (desc ? v + a : 0) };
     };
     return [...cfg.tecnicos.map(t => item(t, de[t.id] || [], false)),
-      ...personasSueldo(sueltos).map(p => item(p, sueltos.filter(f => norm(f.nombre) === norm(p.nombre)).map(f => f.id), true))];
+      ...(sinSueldos ? [] : personasSueldo(sueltos)).map(p => item(p, sueltos.filter(f => norm(f.nombre) === norm(p.nombre)).map(f => f.id), true))];
   };
   const pintarCierre = rows => {
     const total = rows.reduce((a, r) => a + r.valor, 0);
@@ -277,7 +283,7 @@ export function vistaTecnicos(view) {
     const t = e.target;
     if (t.closest("[data-act=tecnicos]")) return gestionarTecnicos();
     const dsw = t.closest("[data-descontar]");
-    if (dsw) { const id = dsw.closest("[data-tecid]").dataset.tecid; return guardarCfg({ descontar: { ...(cfg.descontar || {}), [id]: !cfg.descontar?.[id] } }); }
+    if (dsw && !S.invitado) { const id = dsw.closest("[data-tecid]").dataset.tecid; return guardarCfg({ descontar: { ...(cfg.descontar || {}), [id]: !cfg.descontar?.[id] } }); }
     if (t.closest("[data-act=persona]")) {
       const nombre = (await pedirTexto({ title: "Técnico a sueldo", label: "Nombre", ok: "Agregar" }))?.trim();
       if (nombre) guardarCfg({ personas: [...(cfg.personas || []), { id: nuevoId(), nombre: nombre.toUpperCase() }] });
@@ -298,7 +304,7 @@ export function vistaTecnicos(view) {
       return guardarFila(fila.dataset.vid, { tecs });
     }
     if (t.closest("[data-act=fila]") && fila && T.editando) return opcionesFila(fila.dataset.vid);
-    if (fila && !T.editando) { T.volver = { y: scrollY, x: $(".table-wrap", view)?.scrollLeft || 0, t: $(".table-wrap", view)?.scrollTop || 0 }; location.hash = `#/v/${fila.dataset.vid}`; return; }
+    if (fila && !T.editando && !S.invitado) { T.volver = { y: scrollY, x: $(".table-wrap", view)?.scrollLeft || 0, t: $(".table-wrap", view)?.scrollTop || 0 }; location.hash = `#/v/${fila.dataset.vid}`; return; }
     const add = t.closest("[data-add-mov]");
     if (add && T.editando) {
       const tecid = t.closest("[data-tecid]").dataset.tecid, tipo = add.dataset.addMov;
@@ -469,5 +475,27 @@ export function vistaTecnicos(view) {
     b.innerHTML = `${icon(T.editando ? "check" : "edit")}${T.editando ? "<span>Listo</span>" : ""}`;
     if (cfg) pintar();
   });
-  return { soloLista: () => { if (cfg) { asegurarFilas(); pintar(); } } };
+  // Compartir: link de solo lectura de esta planilla (con o sin Sueldos)
+  $("#t-share")?.addEventListener("click", () => {
+    const s = openSheet({ title: "Compartir planilla de técnicos", body: `<div class="stack">
+      <p class="muted small">Link de solo lectura: ve la planilla y el cierre, sin precios ni documentos de los vehículos.</p>
+      <label class="switch-row"><span>Mostrar Sueldos (y sus personas en el cierre)</span><input type="checkbox" id="ts-sueldos"></label>
+      <button type="button" class="btn btn-primary btn-block" id="ts-link">${icon("share")}Crear y copiar link</button></div>` });
+    $("#ts-link", s.el).onclick = async e => {
+      const b = e.currentTarget; busy(b, true, "Creando link…");
+      const pedido = linkTecnicos($("#ts-sueldos", s.el).checked);
+      // El portapapeles se pide en este mismo toque (si no, el celular lo bloquea) y se llena cuando llega el link
+      const copia = window.ClipboardItem && navigator.clipboard?.write
+        ? navigator.clipboard.write([new ClipboardItem({ "text/plain": pedido.then(u => new Blob([u], { type: "text/plain" })) })])
+        : pedido.then(u => navigator.clipboard.writeText(u));
+      try {
+        const url = await pedido, ok = await copia.then(() => true, () => false);
+        busy(b, false);
+        if (ok) { toast(`Link copiado: ${url.replace(/^https?:\/\//, "")}`, "success"); s.close(); return; }
+        b.insertAdjacentHTML("afterend", `<input readonly value="${esc(url)}" style="width:100%">`);
+        b.nextElementSibling.select();
+      } catch (err) { busy(b, false); toast(err.message, "error"); }
+    };
+  });
+  return { soloLista: () => { if (S.invitado) return cargarInvitado(); if (cfg) { asegurarFilas(); pintar(); } } };
 }
