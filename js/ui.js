@@ -77,6 +77,47 @@ export function icon(name) {
   return `<svg class="ic" aria-hidden="true"><use href="#i-${name}"/></svg>`;
 }
 
+// ── Menú "Glide Select" (como reactbits.dev/micro/glide-select): sale del chip y un resaltado se desliza entre las opciones ──
+// opciones: [[valor, texto], …]. Va fijo sobre la página para que la tabla no lo recorte; se cierra al deslizar.
+export function glideMenu(chip, opciones, actual, alElegir) {
+  document.querySelector(".gs-menu")?.cerrar?.();
+  const m = document.createElement("div");
+  m.className = "gs-menu"; m.setAttribute("role", "listbox");
+  m.innerHTML = `<span class="gs-pill" aria-hidden="true"></span>` + opciones.map(([k, t], i) =>
+    `<div class="gs-op" role="option" data-i="${i}" aria-selected="${k === actual}"><span>${esc(t)}</span>${icon("check")}</div>`).join("");
+  document.body.appendChild(m);
+  const r = chip.getBoundingClientRect(), abajo = r.bottom + m.offsetHeight + 8 < innerHeight;
+  m.style.left = `${Math.max(8, Math.min(r.left, innerWidth - m.offsetWidth - 8))}px`;
+  m.style.top = `${abajo ? r.bottom + 6 : r.top - m.offsetHeight - 6}px`;
+  m.style.transformOrigin = abajo ? "top left" : "bottom left";
+  const pill = m.firstChild, ops = [...m.querySelectorAll(".gs-op")];
+  let act = Math.max(0, opciones.findIndex(([k]) => k === actual));
+  const mover = (i, salto) => {
+    act = i; pill.style.transitionDuration = salto ? "0ms" : "";
+    pill.style.transform = `translateY(${ops[i].offsetTop}px)`; pill.style.opacity = "1";
+  };
+  const fuera = e => { if (!m.contains(e.target) && !chip.contains(e.target)) cerrar(); };
+  const teclas = e => {
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); mover((act + (e.key === "ArrowDown" ? 1 : ops.length - 1)) % ops.length); }
+    else if (e.key === "Enter" || e.key === " ") { e.preventDefault(); elegir(act); }
+    else if (e.key === "Escape" || e.key === "Tab") cerrar();
+  };
+  const cerrar = () => {
+    chip.setAttribute("aria-expanded", "false"); m.dataset.state = "closed";
+    document.removeEventListener("pointerdown", fuera, true); document.removeEventListener("keydown", teclas, true);
+    removeEventListener("scroll", cerrar, true); setTimeout(() => m.remove(), 140);
+  };
+  const elegir = i => { cerrar(); chip.focus({ preventScroll: true }); if (opciones[i][0] !== actual) alElegir(opciones[i][0]); };
+  m.cerrar = cerrar;
+  m.addEventListener("pointerover", e => { const o = e.target.closest(".gs-op"); if (o && e.pointerType !== "touch") mover(+o.dataset.i); });
+  m.addEventListener("click", e => { const o = e.target.closest(".gs-op"); if (o) elegir(+o.dataset.i); });
+  document.addEventListener("pointerdown", fuera, true); document.addEventListener("keydown", teclas, true);
+  addEventListener("scroll", cerrar, true);
+  chip.setAttribute("aria-expanded", "true");
+  mover(act, true);
+  requestAnimationFrame(() => { m.dataset.state = "open"; });
+}
+
 // ── Toasts ────────────────────────────────────────────────────
 export function toast(msg, type = "info") {
   const box = $("#toasts");

@@ -1,15 +1,17 @@
 // ═════════════════════════════════════════════════════════════
 //  FACTURACIÓN: el documento firmado de cada vehículo. Solo figura en esta planilla (no en el vehículo).
-//  Se guarda en companies/{cid}/factura/docs (antes planTec/_factura, se migra solo): { vids: [vid elegidos], docs: { [vid]: { url, publicId, name, bytes, at } } }
+//  Se guarda en companies/{cid}/factura/docs (antes planTec/_factura, se migra solo): { vids: [vid elegidos], estados: { [vid]: impreso|firmado|facturado }, docs: { [vid]: { url, publicId, name, bytes, at } } }
 // ═════════════════════════════════════════════════════════════
 import { db, doc, getDoc, onSnapshot, setDoc, deleteDoc, arrayUnion, arrayRemove } from "./firebase.js";
-import { S, activos, puedeVer, mensajeError } from "./data.js";
-import { $, esc, icon, toast, plate, fechaCorta, tsToISO, openSheet } from "./ui.js";
+import { S, activos, puedeVer, mensajeError, cambiarEstado } from "./data.js";
+import { $, esc, icon, toast, plate, openSheet, glideMenu } from "./ui.js";
+import { estadoActual } from "./domain.js";
 import { setTopbar } from "./shell.js";
 import { subir, cloudinaryListo, thumb } from "./media.js";
 import { armarZip } from "./zip.js";
 
-const F = { q: "", editando: false };
+const F = { q: "", editando: false, volver: null };
+const ESTADOS_F = [["impreso", "Impreso"], ["firmado", "Firmado"], ["facturado", "Facturado"]];
 let unsub = null;
 const norm = t => String(t || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
 // Se descarga como número de línea + patente (1_AA444AA.pdf), con la extensión del archivo subido
@@ -27,9 +29,11 @@ export function vistaFacturacion(view) {
   if (!puedeVer("facturacion")) { view.innerHTML = `<div class="empty"><p>No tenés acceso a esta planilla.</p></div>`; return; }
   if (!S.company) { view.innerHTML = `<div class="skeleton tall"></div>`; return; }
   const ref = doc(db, "companies", S.company.id, "factura", "docs"), viejo = doc(db, "companies", S.company.id, "planTec", "_factura");
-  let docs = {}, vids = [], vidSubir = null;
-  // Firmados en el orden de la lista: su posición es el número de línea (y el nombre de la descarga)
-  const firmados = () => activos().filter(v => vids.includes(v.id) && docs[v.id]);
+  let docs = {}, vids = [], estados = {}, vidSubir = null;
+  // Sin elegir: Firmado si ya tiene la orden subida, si no Impreso
+  const estadoDe = vid => estados[vid] || (docs[vid] ? "firmado" : "impreso");
+  // Firmados y facturados en el orden de la lista: su posición es el número de línea (y el nombre de la descarga)
+  const firmados = () => activos().filter(v => vids.includes(v.id) && estadoDe(v.id) !== "impreso");
   view.innerHTML = `<div class="tec-page">
     <label class="search">${icon("search")}<input type="search" id="f-q" placeholder="Buscar patente o modelo" value="${esc(F.q)}" autocomplete="off" autocapitalize="characters"></label>
     <button type="button" class="btn btn-primary" id="f-add">${icon("plus")}Agregar vehículo</button>
@@ -38,24 +42,26 @@ export function vistaFacturacion(view) {
 
   const pintar = () => {
     const q = norm(F.q), body = $("#f-body", view); if (!body) return;
-    // Firmados primero (numerados); los impresos al final, sin número
-    const elegidos = activos().filter(v => vids.includes(v.id)).sort((a, b) => !!docs[b.id] - !!docs[a.id]);
+    // Firmados y facturados primero (numerados); los impresos al final, sin número
+    const fs = firmados(), elegidos = [...fs, ...activos().filter(v => vids.includes(v.id) && !fs.includes(v))];
     const vs = elegidos.filter(v => !q || norm(v.patente).includes(q) || norm(v.modelo).includes(q));
     body.innerHTML = vs.length ? `<div class="table-wrap"><table class="tbl tbl-fact"><thead><tr><th class="num">#</th><th>Vehículo</th><th>Patente</th><th>Compañía</th><th>Estado</th><th></th></tr></thead>
-      <tbody>${vs.map(v => { const d = docs[v.id];
+      <tbody>${vs.map(v => { const d = docs[v.id], est = estadoDe(v.id);
         // El número de línea es el de la lista completa: buscando, cada vehículo conserva el suyo
-        return `<tr data-vid="${esc(v.id)}"><td class="num muted">${d ? elegidos.indexOf(v) + 1 : ""}</td><td>${esc(v.modelo || "—")}</td><td>${plate(v.patente)}</td><td>${esc(v.compania || "—")}</td>
-          <td>${d ? `Firmado <small class="muted">${fechaCorta(tsToISO(d.at))}</small>` : `<span class="muted">Impreso</span>`}</td>
+        return `<tr data-vid="${esc(v.id)}"><td class="num muted">${est !== "impreso" ? fs.indexOf(v) + 1 : ""}</td><td>${esc(v.modelo || "—")}</td><td>${plate(v.patente)}</td><td>${esc(v.compania || "—")}</td>
+          <td><button type="button" class="gs-chip" data-est="${est}" data-act="estado" aria-haspopup="listbox" aria-expanded="false" aria-label="Estado">${ESTADOS_F.find(([k]) => k === est)[1]}${icon("next")}</button></td>
           <td class="num">${!d || F.editando ? `<label class="btn btn-ghost btn-sm" for="f-in" data-act="subir" aria-label="${d ? "Cambiar" : "Cargar orden firmada"}">${icon("file")}<span class="hide-sm">${d ? "Cambiar" : "Cargar orden firmada"}</span></label>` : ""}
             ${d ? `<button type="button" class="btn btn-primary btn-sm" data-act="bajar" aria-label="Descargar">${icon("download")}</button>` : ""}
-            ${!d || F.editando ? `<button type="button" class="btn btn-ghost btn-sm" data-act="quitar" aria-label="Quitar de la lista">${icon("x")}</button>` : ""}</td></tr>`; }).join("")}</tbody></table></div>`
+            ${F.editando ? `<button type="button" class="btn btn-ghost btn-sm" data-act="quitar" aria-label="Quitar de la lista">${icon("x")}</button>` : ""}</td></tr>`; }).join("")}</tbody></table></div>`
       : `<div class="empty small"><p>${q && elegidos.length ? "No hay vehículos con esa patente." : "Agregá los vehículos a facturar con el botón de arriba."}</p></div>`;
   };
 
   unsub?.();
   unsub = onSnapshot(ref, d => {
     if (!document.body.contains(view) || location.hash !== "#/facturacion") { unsub?.(); unsub = null; return; }
-    docs = d.data()?.docs || {}; vids = d.data()?.vids || []; pintar();
+    docs = d.data()?.docs || {}; vids = d.data()?.vids || []; estados = d.data()?.estados || {}; pintar();
+    // Volviendo de un vehículo: la planilla queda donde estaba
+    if (F.volver) { const tw = $(".table-wrap", view); if (tw) tw.scrollTop = F.volver.t; scrollTo(0, F.volver.y); F.volver = null; }
     // shortcut: migración única desde planTec/_factura, borrar cuando ya no quede ninguno
     if (!d.exists() && !d.metadata.fromCache) getDoc(viejo).then(o => o.exists() && setDoc(ref, o.data()).then(() => deleteDoc(viejo))).catch(() => {});
   }, e => { $("#f-body", view).innerHTML = `<div class="empty"><p>${esc(mensajeError(e))}</p></div>`; });
@@ -86,7 +92,19 @@ export function vistaFacturacion(view) {
   };
   $("#f-q", view).oninput = e => { F.q = e.target.value; pintar(); };
   $("#f-body", view).onclick = async e => {
-    const b = e.target.closest("[data-act]"), vid = b?.closest("[data-vid]")?.dataset.vid; if (!vid) return;
+    const b = e.target.closest("[data-act]"), vid = e.target.closest("[data-vid]")?.dataset.vid; if (!vid) return;
+    // Tocar la fila (fuera de los botones) abre el vehículo; al volver queda en el mismo lugar
+    if (!b) { F.volver = { y: scrollY, t: $(".table-wrap", view)?.scrollTop || 0 }; location.hash = `#/v/${vid}`; return; }
+    if (b.dataset.act === "estado") {
+      return glideMenu(b, ESTADOS_F, estadoDe(vid), async est => {
+        try {
+          await setDoc(ref, { estados: { [vid]: est } }, { merge: true });
+          // Facturado acá también marca Facturado en el vehículo
+          const v = activos().find(x => x.id === vid);
+          if (est === "facturado" && v && estadoActual(v) !== "facturado") { await cambiarEstado(v, "facturado"); toast("Vehículo marcado Facturado", "success"); }
+        } catch (err) { toast(mensajeError(err), "error"); }
+      });
+    }
     if (b.dataset.act === "subir") {
       // El <label for="f-in"> abre el selector solo (el .click() por código falla en Android)
       if (!cloudinaryListo()) { e.preventDefault(); return toast("Falta configurar Cloudinary en js/config.js", "error"); }
@@ -106,7 +124,8 @@ export function vistaFacturacion(view) {
     toast("Subiendo documento…");
     try {
       const r = await subir(file, `${S.company.id}/${vid}/factura`, { tipo: "auto", nombre: file.name });
-      await setDoc(ref, { docs: { [vid]: { url: r.url, publicId: r.publicId, name: file.name, bytes: r.bytes, at: Date.now() } } }, { merge: true });
+      await setDoc(ref, { docs: { [vid]: { url: r.url, publicId: r.publicId, name: file.name, bytes: r.bytes, at: Date.now() } },
+        ...(estadoDe(vid) === "impreso" ? { estados: { [vid]: "firmado" } } : {}) }, { merge: true });   // subir la orden la pasa a Firmado
       toast("Documento guardado", "success");
     } catch (err) { toast(mensajeError(err), "error"); }
   };

@@ -138,7 +138,7 @@ function render({ conservarScroll = false, reabrir = false } = {}) {
     return render({ reabrir: true });
   }
   // Vehículo abierto desde el calendario: al salir vuelve al calendario (no a la lista)
-  if (hit[1] === "vehiculos" && arg) { if (reabrir) S.volverA = null; else if (["calendario", "tecnicos"].includes(ruta.nombre)) S.volverA = "#/" + ruta.nombre; else if (ruta.nombre === "vehiculos" && !ruta.arg) S.volverA = null; }
+  if (hit[1] === "vehiculos" && arg) { if (reabrir) S.volverA = null; else if (["calendario", "tecnicos", "facturacion"].includes(ruta.nombre)) S.volverA = "#/" + ruta.nombre; else if (ruta.nombre === "vehiculos" && !ruta.arg) S.volverA = null; }
   else if (hit[1] !== "editar") S.volverA = null;
   const y = conservarScroll && mismaRuta ? scrollY : 0;
   ruta = { nombre: hit[1], arg };
