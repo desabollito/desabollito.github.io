@@ -9,10 +9,11 @@ import { setTopbar } from "./shell.js";
 import { subir, cloudinaryListo, thumb } from "./media.js";
 import { armarZip } from "./zip.js";
 
-const F = { q: "" };
+const F = { q: "", editando: false };
 let unsub = null;
 const norm = t => String(t || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
-const nombreArchivo = (v, d) => `${norm(v.patente) || v.id}_${d.name || "documento"}`.replace(/[\\/:*?"<>|]/g, "_");
+// Se descarga como número de línea + patente (1_AA444AA.pdf), con la extensión del archivo subido
+const nombreArchivo = (v, d, n) => `${n}_${norm(v.patente) || v.id}${(String(d.name || d.url || "").match(/\.[a-z0-9]{2,5}$/i) || [""])[0].toLowerCase()}`;
 const guardarBlob = (blob, nombre) => {
   const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = nombre;
   document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 10000);
@@ -21,11 +22,14 @@ const traer = async d => { const r = await fetch(d.url); if (!r.ok) throw new Er
 
 export function vistaFacturacion(view) {
   setTopbar({ title: "Facturación", sub: S.company?.name, back: "#/planillas",
-    actions: `<button class="btn btn-ghost btn-sm" id="f-todos">${icon("download")}<span class="hide-sm">Descargar todos</span></button>` });
+    actions: `<button class="btn btn-ghost btn-sm" id="f-todos">${icon("download")}<span class="hide-sm">Descargar todos</span></button>
+      <button class="btn btn-sm ${F.editando ? "btn-primary" : "btn-ghost"}" id="f-edit" aria-label="Editar">${icon(F.editando ? "check" : "edit")}${F.editando ? "<span>Listo</span>" : ""}</button>` });
   if (!puedeVer("facturacion")) { view.innerHTML = `<div class="empty"><p>No tenés acceso a esta planilla.</p></div>`; return; }
   if (!S.company) { view.innerHTML = `<div class="skeleton tall"></div>`; return; }
   const ref = doc(db, "companies", S.company.id, "factura", "docs"), viejo = doc(db, "companies", S.company.id, "planTec", "_factura");
   let docs = {}, vids = [], vidSubir = null;
+  // Firmados en el orden de la lista: su posición es el número de línea (y el nombre de la descarga)
+  const firmados = () => activos().filter(v => vids.includes(v.id) && docs[v.id]);
   view.innerHTML = `<div class="tec-page">
     <label class="search">${icon("search")}<input type="search" id="f-q" placeholder="Buscar patente o modelo" value="${esc(F.q)}" autocomplete="off" autocapitalize="characters"></label>
     <button type="button" class="btn btn-primary" id="f-add">${icon("plus")}Agregar vehículo</button>
@@ -42,9 +46,9 @@ export function vistaFacturacion(view) {
         // El número de línea es el de la lista completa: buscando, cada vehículo conserva el suyo
         return `<tr data-vid="${esc(v.id)}"><td class="num muted">${d ? elegidos.indexOf(v) + 1 : ""}</td><td>${esc(v.modelo || "—")}</td><td>${plate(v.patente)}</td><td>${esc(v.compania || "—")}</td>
           <td>${d ? `Firmado <small class="muted">${fechaCorta(tsToISO(d.at))}</small>` : `<span class="muted">Impreso</span>`}</td>
-          <td class="num"><label class="btn btn-ghost btn-sm" for="f-in" data-act="subir" aria-label="${d ? "Cambiar" : "Cargar orden firmada"}">${icon("file")}<span class="hide-sm">${d ? "Cambiar" : "Cargar orden firmada"}</span></label>
+          <td class="num">${!d || F.editando ? `<label class="btn btn-ghost btn-sm" for="f-in" data-act="subir" aria-label="${d ? "Cambiar" : "Cargar orden firmada"}">${icon("file")}<span class="hide-sm">${d ? "Cambiar" : "Cargar orden firmada"}</span></label>` : ""}
             ${d ? `<button type="button" class="btn btn-primary btn-sm" data-act="bajar" aria-label="Descargar">${icon("download")}</button>` : ""}
-            <button type="button" class="btn btn-ghost btn-sm" data-act="quitar" aria-label="Quitar de la lista">${icon("x")}</button></td></tr>`; }).join("")}</tbody></table></div>`
+            ${!d || F.editando ? `<button type="button" class="btn btn-ghost btn-sm" data-act="quitar" aria-label="Quitar de la lista">${icon("x")}</button>` : ""}</td></tr>`; }).join("")}</tbody></table></div>`
       : `<div class="empty small"><p>${q && elegidos.length ? "No hay vehículos con esa patente." : "Agregá los vehículos a facturar con el botón de arriba."}</p></div>`;
   };
 
@@ -92,7 +96,7 @@ export function vistaFacturacion(view) {
       try { await setDoc(ref, { vids: arrayRemove(vid) }, { merge: true }); } catch (err) { toast(mensajeError(err), "error"); }
     } else {
       const v = activos().find(x => x.id === vid);
-      try { guardarBlob(await traer(docs[vid]), nombreArchivo(v, docs[vid])); } catch (err) { toast(err.message, "error"); }
+      try { guardarBlob(await traer(docs[vid]), nombreArchivo(v, docs[vid], firmados().indexOf(v) + 1)); } catch (err) { toast(err.message, "error"); }
     }
   };
   $("#f-in", view).onchange = async e => {
@@ -107,15 +111,21 @@ export function vistaFacturacion(view) {
     } catch (err) { toast(mensajeError(err), "error"); }
   };
   $("#f-todos").onclick = async () => {
-    const lista = activos().filter(v => vids.includes(v.id) && docs[v.id]);
+    const lista = firmados();
     if (!lista.length) return toast("Todavía no hay documentos subidos");
     toast(`Preparando ${lista.length} documentos…`);
     try {
       const archivos = [];
-      for (const v of lista) archivos.push({ nombre: nombreArchivo(v, docs[v.id]), datos: new Uint8Array(await (await traer(docs[v.id])).arrayBuffer()) });
+      for (const [i, v] of lista.entries()) archivos.push({ nombre: nombreArchivo(v, docs[v.id], i + 1), datos: new Uint8Array(await (await traer(docs[v.id])).arrayBuffer()) });
       guardarBlob(armarZip(archivos), `Facturacion_${S.company?.name || "operativo"}.zip`.replace(/[\\/:*?"<>|]/g, "_"));
       toast("ZIP descargado", "success");
     } catch (err) { toast(err.message || "No se pudo descargar", "error"); }
+  };
+  $("#f-edit").onclick = () => {
+    F.editando = !F.editando;
+    const b = $("#f-edit"); b.className = `btn btn-sm ${F.editando ? "btn-primary" : "btn-ghost"}`;
+    b.innerHTML = `${icon(F.editando ? "check" : "edit")}${F.editando ? "<span>Listo</span>" : ""}`;
+    pintar();
   };
   // Si cambian los vehículos solo se repinta la tabla: rearmar la página perdería el archivo elegido al volver del selector
   return { soloLista: pintar };
