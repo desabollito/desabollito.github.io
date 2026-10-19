@@ -111,7 +111,7 @@ function render({ conservarScroll = false, reabrir = false } = {}) {
   // Link de perito: solo Vehículos y Calendario
   // Link de la planilla de técnicos: solo esa planilla
   if (S.invitado?.tecnicos && hit[1] !== "tecnicos") { history.replaceState(null, "", "#/tecnicos"); return render(); }
-  if (soyLector() && !["vehiculos", "calendario", "planilla"].includes(hit[1])) { history.replaceState(null, "", "#/"); hit = RUTAS[0]; }
+  if (soyLector() && !S.invitado?.tecnicos && !["vehiculos", "calendario", "planilla"].includes(hit[1])) { history.replaceState(null, "", "#/"); hit = RUTAS[0]; }
   if (hit[1] === "papelera" && soySacabollos()) { history.replaceState(null, "", "#/ajustes"); return render(); }   // Sacabollos no ve la papelera
   if (["planilla", "gastos"].includes(hit[1]) && !soyLector() && !puedeVer(hit[1])) { history.replaceState(null, "", "#/planillas"); return render(); }
   // Link de un solo vehículo: siempre ese vehículo
