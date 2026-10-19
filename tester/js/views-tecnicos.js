@@ -35,7 +35,7 @@ const entregado = v => ["enreparacion", "reparado", "llamado", "entregado", "fac
 const fechaRep = v => v.fechas?.reparado || v.fechas?.enreparacion || v.fechas?.llamado || v.fechas?.entregado || v.fechas?.facturado || "";
 const nuevoId = () => Math.random().toString(36).slice(2, 9);
 
-const T = { tab: "autos", resumen: "dia", desde: "", hasta: "", editando: false };
+const T = { tab: "autos", resumen: "dia", desde: "", hasta: "", q: "", editando: false };   // desde/hasta quedan vacíos: se sacó el filtro de fechas
 let unsub = null;
 
 export function vistaTecnicos(view) {
@@ -83,15 +83,11 @@ export function vistaTecnicos(view) {
 
   const estructura = () => {
     view.innerHTML = `<div class="tec-page">
-      <div class="tec-filtros">
-        <label class="field"><span>Desde</span><input type="date" id="t-desde" value="${esc(T.desde)}"></label>
-        <label class="field"><span>Hasta</span><input type="date" id="t-hasta" value="${esc(T.hasta)}"></label>
-      </div>
+      <label class="search">${icon("search")}<input type="search" id="t-q" placeholder="Buscar patente" value="${esc(T.q)}" autocomplete="off" autocapitalize="characters"></label>
       <div class="seg seg-sm tec-tabs" id="t-tabs">${[["autos", "Sacabollos"], ["sueldos", "Sueldos"], ["cierre", "Cierre"]].map(([k, t]) =>
         `<button type="button" class="seg-btn ${T.tab === k ? "on" : ""}" data-tab="${k}">${t}</button>`).join("")}</div>
       <div id="t-body"></div></div>`;
-    $("#t-desde", view).onchange = e => { T.desde = e.target.value; pintar(); };
-    $("#t-hasta", view).onchange = e => { T.hasta = e.target.value; pintar(); };
+    $("#t-q", view).oninput = e => { T.q = e.target.value; pintar(); };
     $("#t-tabs", view).onclick = e => { const b = e.target.closest("[data-tab]"); if (!b) return; T.tab = b.dataset.tab;
       $$("#t-tabs .seg-btn", view).forEach(x => x.classList.toggle("on", x === b)); pintar(); };
     $("#t-body", view).addEventListener("click", clic);
@@ -103,7 +99,7 @@ export function vistaTecnicos(view) {
 
   const pintar = () => {
     const body = $("#t-body", view); if (!body) return;
-    const rows = lista();
+    const rows = lista(), q = T.q.toUpperCase().replace(/[^A-Z0-9]/g, "");
     if (!cfg.tecnicos.length) {
       body.innerHTML = `<div class="empty small"><p>Primero agregá los técnicos (solo nombres, no tienen que estar en la app).</p>
         <button class="btn btn-primary" data-act="tecnicos">${icon("plus")}Agregar técnicos</button></div>`;
@@ -113,7 +109,7 @@ export function vistaTecnicos(view) {
     if (T.tab === "autos") {
       // Al repintar (por ej. al tocar un técnico) la tabla queda donde estaba deslizada
       const tw = $(".table-wrap", body), sx = tw?.scrollLeft || 0, sy = tw?.scrollTop || 0;
-      body.innerHTML = pintarAutos(rows); conectarAnchos(body);
+      body.innerHTML = pintarAutos(q ? rows.filter(r => (r.v.patente || "").toUpperCase().replace(/[^A-Z0-9]/g, "").includes(q)) : rows); conectarAnchos(body);
       const nw = $(".table-wrap", body); if (nw && tw) { nw.scrollLeft = sx; nw.scrollTop = sy; }
       // Volviendo de un vehículo: la planilla queda donde estaba
       if (nw && T.volver) { nw.scrollLeft = T.volver.x; nw.scrollTop = T.volver.t; scrollTo(0, T.volver.y); T.volver = null; }
@@ -127,7 +123,7 @@ export function vistaTecnicos(view) {
   // Las columnas se pueden ensanchar o achicar arrastrando el borde del título (se recuerda en este equipo).
   const anchos = () => { try { return JSON.parse(localStorage.getItem("tecCols") || "{}"); } catch { return {}; } };
   const pintarAutos = rows => {
-    if (!rows.length) return `<div class="empty small"><p>Todavía no hay autos en reparación ni entregados${T.desde || T.hasta ? " en ese período" : ""}.</p></div>`;
+    if (!rows.length) return `<div class="empty small"><p>${T.q ? "No hay autos con esa patente." : "Todavía no hay autos en reparación ni entregados."}</p></div>`;
     const ed = T.editando, tecs = cfg.tecnicos, nc = 4 + tecs.length + (ed ? 1 : 0), w = anchos();
     // Entre Importe y los técnicos va una columna vacía de separación
     const cols = [["veh", "VEHÍCULO", 120], ["pat", "PATENTE", 90], ["imp", "IMPORTE", 100], ["sep", "", 16], ...tecs.map(t => [t.id, t.nombre, 95])];
