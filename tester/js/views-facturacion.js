@@ -34,12 +34,13 @@ export function vistaFacturacion(view) {
 
   const pintar = () => {
     const q = norm(F.q), body = $("#f-body", view); if (!body) return;
-    const elegidos = activos().filter(v => vids.includes(v.id));
+    // Firmados primero (numerados); los impresos al final, sin número
+    const elegidos = activos().filter(v => vids.includes(v.id)).sort((a, b) => !!docs[b.id] - !!docs[a.id]);
     const vs = elegidos.filter(v => !q || norm(v.patente).includes(q) || norm(v.modelo).includes(q));
     body.innerHTML = vs.length ? `<div class="table-wrap"><table class="tbl tbl-fact"><thead><tr><th class="num">#</th><th>Vehículo</th><th>Patente</th><th>Compañía</th><th>Estado</th><th></th></tr></thead>
       <tbody>${vs.map(v => { const d = docs[v.id];
         // El número de línea es el de la lista completa: buscando, cada vehículo conserva el suyo
-        return `<tr data-vid="${esc(v.id)}"><td class="num muted">${elegidos.indexOf(v) + 1}</td><td>${esc(v.modelo || "—")}</td><td>${plate(v.patente)}</td><td>${esc(v.compania || "—")}</td>
+        return `<tr data-vid="${esc(v.id)}"><td class="num muted">${d ? elegidos.indexOf(v) + 1 : ""}</td><td>${esc(v.modelo || "—")}</td><td>${plate(v.patente)}</td><td>${esc(v.compania || "—")}</td>
           <td>${d ? `Firmado <small class="muted">${fechaCorta(tsToISO(d.at))}</small>` : `<span class="muted">Impreso</span>`}</td>
           <td class="num"><button type="button" class="btn btn-ghost btn-sm" data-act="subir">${icon("file")}<span class="hide-sm">${d ? "Cambiar" : "Subir orden firmada"}</span></button>
             ${d ? `<button type="button" class="btn btn-primary btn-sm" data-act="bajar" aria-label="Descargar">${icon("download")}</button>` : ""}
