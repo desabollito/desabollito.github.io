@@ -1,8 +1,8 @@
 // ═════════════════════════════════════════════════════════════
 //  FACTURACIÓN: el documento firmado de cada vehículo. Solo figura en esta planilla (no en el vehículo).
-//  Se guarda en companies/{cid}/planTec/_factura: { docs: { [vid]: { url, publicId, name, bytes, at } } }
+//  Se guarda en companies/{cid}/planTec/_factura: { vids: [vid elegidos], docs: { [vid]: { url, publicId, name, bytes, at } } }
 // ═════════════════════════════════════════════════════════════
-import { db, doc, onSnapshot, setDoc } from "./firebase.js";
+import { db, doc, onSnapshot, setDoc, arrayUnion, arrayRemove } from "./firebase.js";
 import { S, activos, puedeVer, mensajeError } from "./data.js";
 import { $, esc, icon, toast, plate, fechaCorta, tsToISO } from "./ui.js";
 import { setTopbar } from "./shell.js";
@@ -25,36 +25,48 @@ export function vistaFacturacion(view) {
   if (!puedeVer("facturacion")) { view.innerHTML = `<div class="empty"><p>No tenés acceso a esta planilla.</p></div>`; return; }
   if (!S.company) { view.innerHTML = `<div class="skeleton tall"></div>`; return; }
   const ref = doc(db, "companies", S.company.id, "planTec", "_factura");
-  let docs = {}, vidSubir = null;
+  let docs = {}, vids = [], vidSubir = null;
   view.innerHTML = `<div class="tec-page">
     <label class="search">${icon("search")}<input type="search" id="f-q" placeholder="Buscar patente o modelo" value="${esc(F.q)}" autocomplete="off" autocapitalize="characters"></label>
+    <select id="f-add" aria-label="Agregar vehículo"></select>
     <input type="file" id="f-in" accept="application/pdf,image/*" hidden>
     <div id="f-body"><div class="skeleton tall"></div></div></div>`;
 
   const pintar = () => {
     const q = norm(F.q), body = $("#f-body", view); if (!body) return;
-    const vs = activos().filter(v => !q || norm(v.patente).includes(q) || norm(v.modelo).includes(q));
-    body.innerHTML = vs.length ? `<div class="table-wrap"><table class="tbl"><thead><tr><th>Vehículo</th><th>Patente</th><th>Documento firmado</th><th></th></tr></thead>
+    const elegidos = activos().filter(v => vids.includes(v.id));
+    const vs = elegidos.filter(v => !q || norm(v.patente).includes(q) || norm(v.modelo).includes(q));
+    $("#f-add", view).innerHTML = `<option value="">+ Agregar vehículo…</option>` + activos().filter(v => !vids.includes(v.id))
+      .map(v => `<option value="${esc(v.id)}">${esc(v.patente || "")} · ${esc(v.modelo || "Sin modelo")}</option>`).join("");
+    body.innerHTML = vs.length ? `<div class="table-wrap"><table class="tbl tbl-fact"><thead><tr><th>Vehículo</th><th>Patente</th><th>Documento firmado</th><th></th></tr></thead>
       <tbody>${vs.map(v => { const d = docs[v.id];
         return `<tr data-vid="${esc(v.id)}"><td>${esc(v.modelo || "—")}</td><td>${plate(v.patente)}</td>
           <td>${d ? `${esc(d.name || "Documento")} <small class="muted">${fechaCorta(tsToISO(d.at))}</small>` : `<span class="muted">Sin documento</span>`}</td>
           <td class="num"><button type="button" class="btn btn-ghost btn-sm" data-act="subir">${icon("file")}<span class="hide-sm">${d ? "Cambiar" : "Subir"}</span></button>
-            ${d ? `<button type="button" class="btn btn-primary btn-sm" data-act="bajar" aria-label="Descargar">${icon("download")}</button>` : ""}</td></tr>`; }).join("")}</tbody></table></div>`
-      : `<div class="empty small"><p>No hay vehículos${q ? " con esa patente" : ""}.</p></div>`;
+            ${d ? `<button type="button" class="btn btn-primary btn-sm" data-act="bajar" aria-label="Descargar">${icon("download")}</button>` : ""}
+            <button type="button" class="btn btn-ghost btn-sm" data-act="quitar" aria-label="Quitar de la lista">${icon("x")}</button></td></tr>`; }).join("")}</tbody></table></div>`
+      : `<div class="empty small"><p>${q && elegidos.length ? "No hay vehículos con esa patente." : "Agregá los vehículos a facturar con el selector de arriba."}</p></div>`;
   };
 
   unsub?.();
   unsub = onSnapshot(ref, d => {
     if (!document.body.contains(view) || location.hash !== "#/facturacion") { unsub?.(); unsub = null; return; }
-    docs = d.data()?.docs || {}; pintar();
+    docs = d.data()?.docs || {}; vids = d.data()?.vids || []; pintar();
   }, e => { $("#f-body", view).innerHTML = `<div class="empty"><p>${esc(mensajeError(e))}</p></div>`; });
 
+  $("#f-add", view).onchange = async e => {
+    const vid = e.target.value; if (!vid) return;
+    try { await setDoc(ref, { vids: arrayUnion(vid) }, { merge: true }); } catch (err) { toast(mensajeError(err), "error"); }
+  };
   $("#f-q", view).oninput = e => { F.q = e.target.value; pintar(); };
   $("#f-body", view).onclick = async e => {
     const b = e.target.closest("[data-act]"), vid = b?.closest("[data-vid]")?.dataset.vid; if (!vid) return;
     if (b.dataset.act === "subir") {
       if (!cloudinaryListo()) return toast("Falta configurar Cloudinary en js/config.js", "error");
       vidSubir = vid; $("#f-in", view).click();
+    } else if (b.dataset.act === "quitar") {
+      // el documento subido queda guardado: si se vuelve a agregar, reaparece
+      try { await setDoc(ref, { vids: arrayRemove(vid) }, { merge: true }); } catch (err) { toast(mensajeError(err), "error"); }
     } else {
       const v = activos().find(x => x.id === vid);
       try { guardarBlob(await traer(docs[vid]), nombreArchivo(v, docs[vid])); } catch (err) { toast(err.message, "error"); }
@@ -72,7 +84,7 @@ export function vistaFacturacion(view) {
     } catch (err) { toast(mensajeError(err), "error"); }
   };
   $("#f-todos").onclick = async () => {
-    const lista = activos().filter(v => docs[v.id]);
+    const lista = activos().filter(v => vids.includes(v.id) && docs[v.id]);
     if (!lista.length) return toast("Todavía no hay documentos subidos");
     toast(`Preparando ${lista.length} documentos…`);
     try {

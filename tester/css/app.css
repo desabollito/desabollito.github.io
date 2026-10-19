@@ -1483,6 +1483,9 @@ a.g-bar-fijo { text-decoration: none; color: inherit; }
 .tbl-reparto { min-width: 0; }
 .tbl-reparto th { padding: 10px 12px; font-size: 13px; font-weight: 700; color: var(--ink-2); white-space: nowrap; }
 .tbl-reparto tbody tr { cursor: default; }
+.tbl-fact { min-width: 0; }
+.tbl-fact th, .tbl-fact th:first-child { padding: 10px 12px; font-size: 13px; font-weight: 700; color: var(--ink-2); white-space: nowrap; background: var(--surface-2); z-index: 2; }
+.tbl-fact tbody tr { cursor: default; }
 .est-acc { display: inline-flex; gap: 12px; align-items: center; }
 .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .switch-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-weight: 600; font-size: 14px; }
