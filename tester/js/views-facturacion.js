@@ -42,7 +42,7 @@ export function vistaFacturacion(view) {
         // El número de línea es el de la lista completa: buscando, cada vehículo conserva el suyo
         return `<tr data-vid="${esc(v.id)}"><td class="num muted">${d ? elegidos.indexOf(v) + 1 : ""}</td><td>${esc(v.modelo || "—")}</td><td>${plate(v.patente)}</td><td>${esc(v.compania || "—")}</td>
           <td>${d ? `Firmado <small class="muted">${fechaCorta(tsToISO(d.at))}</small>` : `<span class="muted">Impreso</span>`}</td>
-          <td class="num"><button type="button" class="btn btn-ghost btn-sm" data-act="subir">${icon("file")}<span class="hide-sm">${d ? "Cambiar" : "Cargar orden firmada"}</span></button>
+          <td class="num"><label class="btn btn-ghost btn-sm" for="f-in" data-act="subir" aria-label="${d ? "Cambiar" : "Cargar orden firmada"}">${icon("file")}<span class="hide-sm">${d ? "Cambiar" : "Cargar orden firmada"}</span></label>
             ${d ? `<button type="button" class="btn btn-primary btn-sm" data-act="bajar" aria-label="Descargar">${icon("download")}</button>` : ""}
             <button type="button" class="btn btn-ghost btn-sm" data-act="quitar" aria-label="Quitar de la lista">${icon("x")}</button></td></tr>`; }).join("")}</tbody></table></div>`
       : `<div class="empty small"><p>${q && elegidos.length ? "No hay vehículos con esa patente." : "Agregá los vehículos a facturar con el botón de arriba."}</p></div>`;
@@ -84,8 +84,9 @@ export function vistaFacturacion(view) {
   $("#f-body", view).onclick = async e => {
     const b = e.target.closest("[data-act]"), vid = b?.closest("[data-vid]")?.dataset.vid; if (!vid) return;
     if (b.dataset.act === "subir") {
-      if (!cloudinaryListo()) return toast("Falta configurar Cloudinary en js/config.js", "error");
-      vidSubir = vid; $("#f-in", view).click();
+      // El <label for="f-in"> abre el selector solo (el .click() por código falla en Android)
+      if (!cloudinaryListo()) { e.preventDefault(); return toast("Falta configurar Cloudinary en js/config.js", "error"); }
+      vidSubir = vid;
     } else if (b.dataset.act === "quitar") {
       // el documento subido queda guardado: si se vuelve a agregar, reaparece
       try { await setDoc(ref, { vids: arrayRemove(vid) }, { merge: true }); } catch (err) { toast(mensajeError(err), "error"); }
@@ -116,4 +117,6 @@ export function vistaFacturacion(view) {
       toast("ZIP descargado", "success");
     } catch (err) { toast(err.message || "No se pudo descargar", "error"); }
   };
+  // Si cambian los vehículos solo se repinta la tabla: rearmar la página perdería el archivo elegido al volver del selector
+  return { soloLista: pintar };
 }
