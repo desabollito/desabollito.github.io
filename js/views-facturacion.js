@@ -36,10 +36,10 @@ export function vistaFacturacion(view) {
     const q = norm(F.q), body = $("#f-body", view); if (!body) return;
     const elegidos = activos().filter(v => vids.includes(v.id));
     const vs = elegidos.filter(v => !q || norm(v.patente).includes(q) || norm(v.modelo).includes(q));
-    body.innerHTML = vs.length ? `<div class="table-wrap"><table class="tbl tbl-fact"><thead><tr><th>Vehículo</th><th>Patente</th><th>Documento firmado</th><th></th></tr></thead>
+    body.innerHTML = vs.length ? `<div class="table-wrap"><table class="tbl tbl-fact"><thead><tr><th>Vehículo</th><th>Patente</th><th>Estado</th><th></th></tr></thead>
       <tbody>${vs.map(v => { const d = docs[v.id];
         return `<tr data-vid="${esc(v.id)}"><td>${esc(v.modelo || "—")}</td><td>${plate(v.patente)}</td>
-          <td>${d ? `${esc(d.name || "Documento")} <small class="muted">${fechaCorta(tsToISO(d.at))}</small>` : `<span class="muted">Sin documento</span>`}</td>
+          <td>${d ? `Firmado <small class="muted">${fechaCorta(tsToISO(d.at))}</small>` : `<span class="muted">Impreso</span>`}</td>
           <td class="num"><button type="button" class="btn btn-ghost btn-sm" data-act="subir">${icon("file")}<span class="hide-sm">${d ? "Cambiar" : "Subir"}</span></button>
             ${d ? `<button type="button" class="btn btn-primary btn-sm" data-act="bajar" aria-label="Descargar">${icon("download")}</button>` : ""}
             <button type="button" class="btn btn-ghost btn-sm" data-act="quitar" aria-label="Quitar de la lista">${icon("x")}</button></td></tr>`; }).join("")}</tbody></table></div>`
@@ -70,6 +70,8 @@ export function vistaFacturacion(view) {
     };
     pintarTira(); q.focus();
     q.addEventListener("input", pintarTira);
+    // La ruedita avanza de a un vehículo por la tira horizontal
+    lista.addEventListener("wheel", e => { if (!e.deltaY) return; e.preventDefault(); lista.scrollBy({ left: Math.sign(e.deltaY) * 150, behavior: "smooth" }); }, { passive: false });
     lista.addEventListener("click", async e => {
       const b = e.target.closest("[data-id]"); if (!b) return;
       vids = [...vids, b.dataset.id]; pintarTira(); q.select();
