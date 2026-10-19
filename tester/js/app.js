@@ -14,6 +14,7 @@ import {
 import { vistaGastos, formGasto } from "./views-gastos.js";
 import { vistaPlanillas, vistaTecnicos } from "./views-tecnicos.js";
 import { vistaFijos } from "./views-fijos.js";
+import { vistaFacturacion } from "./views-facturacion.js";
 
 const view = $("#view");
 let ruta = { nombre: "", arg: null };
@@ -44,6 +45,7 @@ const RUTAS = [
   [/^#\/planilla$/,         "planilla",   () => vistaPlanilla(view)],
   [/^#\/tecnicos$/,         "tecnicos",   () => vistaTecnicos(view)],
   [/^#\/fijos$/,            "fijos",      () => vistaFijos(view)],
+  [/^#\/facturacion$/,      "facturacion", () => vistaFacturacion(view)],
   [/^#\/calendario$/,       "calendario", () => vistaCalendario(view)],
   [/^#\/(operativo|empresa)$/, "operativo", () => vistaEmpresa(view)],
   [/^#\/gastos$/,           "gastos",     () => vistaGastos(view)],
@@ -54,7 +56,7 @@ const RUTAS = [
 // ── Transiciones entre pantallas ──
 // Pestañas: se desliza hacia el lado de la pestaña nueva. Vehículo (celular): entra desde la derecha y vuelve desde la izquierda.
 // Nuevo/editar: sube desde abajo. En computadora, cambiar de vehículo funde el detalle.
-const ORDEN_TAB = { vehiculos: 0, calendario: 1, planillas: 2, planilla: 2, gastos: 2, tecnicos: 2, fijos: 2 };
+const ORDEN_TAB = { vehiculos: 0, calendario: 1, planillas: 2, planilla: 2, gastos: 2, tecnicos: 2, fijos: 2, facturacion: 2 };
 function animarCambio(antes, ahora) {
   if (!antes.nombre || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
   const view = $("#view");
@@ -144,12 +146,12 @@ function render({ conservarScroll = false, reabrir = false } = {}) {
   document.body.dataset.ruta = enCal ? "calendario" : hit[1];
   document.body.dataset.soloVer = soySacabollos() ? "1" : "";   // Sacabollos: solo mira (el CSS esconde lo que edita)
   document.body.dataset.detalle = hit[1] === "vehiculos" && arg ? "1" : "";
-  marcarNav(enCal ? "calendario" : ["nuevo", "editar", "operativo"].includes(hit[1]) ? "" : hit[1] === "papelera" ? "ajustes" : ["planilla", "gastos", "tecnicos", "fijos"].includes(hit[1]) ? "planillas" : hit[1]);
+  marcarNav(enCal ? "calendario" : ["nuevo", "editar", "operativo"].includes(hit[1]) ? "" : hit[1] === "papelera" ? "ajustes" : ["planilla", "gastos", "tecnicos", "fijos", "facturacion"].includes(hit[1]) ? "planillas" : hit[1]);
   pintarTabPlanilla(hit[1]);
   // Menú lateral (computadora): Planillas queda desplegado solo si el usuario lo desplegó (flechita)
   $(".side-grupo")?.classList.toggle("abierto", planAbiertas());
   $$(".side-sub a").forEach(a => a.classList.toggle("on", a.dataset.sub === hit[1]));
-  $$(".side-sub [data-sub=tecnicos], .side-sub [data-sub=fijos], .side-sub [data-sub=gastos], .side-sub [data-sub=planilla]").forEach(a => { a.hidden = !puedeVer(a.dataset.sub); });
+  $$(".side-sub [data-sub=tecnicos], .side-sub [data-sub=fijos], .side-sub [data-sub=facturacion], .side-sub [data-sub=gastos], .side-sub [data-sub=planilla]").forEach(a => { a.hidden = !puedeVer(a.dataset.sub); });
   if (hit[1] === "calendario" && !mismaRuta) calendarioAlEntrar();
   ultimoRender = Date.now();
   const eraCal = !!$(".cal-page", view);
@@ -231,7 +233,7 @@ addEventListener("hashchange", () => render());
 // La pestaña "Planillas" abre el menú de planillas (vehículos, técnicos y gastos)
 // Celular: Calendario y Planillas comparten el lugar de la derecha; en las planillas se ve Planillas, en el resto Calendario
 function pintarTabPlanilla(r) {
-  const enPlan = ["planillas", "planilla", "gastos", "tecnicos", "fijos"].includes(r);
+  const enPlan = ["planillas", "planilla", "gastos", "tecnicos", "fijos", "facturacion"].includes(r);
   $("#tab-planilla").classList.toggle("on", enPlan);
   $("#tab-planilla").hidden = !enPlan;
   $('.tabbar [data-nav="calendario"]').hidden = enPlan;

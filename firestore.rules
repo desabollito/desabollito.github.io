@@ -152,8 +152,9 @@ service cloud.firestore {
 
       // ── Planilla de técnicos (valor por auto, reparto, adelantos): solo administradores ──
       match /planTec/{d} {
-        allow read: if puede(cid, 'tecnicos', isAdmin(cid) || esSacabollos(cid)) || (d == '_fijos' && puede(cid, 'fijos', isAdmin(cid) || esSacabollos(cid)));
-        allow write: if d == '_fijos' ? puede(cid, 'fijos', isAdmin(cid)) : puede(cid, 'tecnicos', isAdmin(cid));
+        // _factura (documentos firmados de Facturación): solo administradores, Sacabollos no lo ve
+        allow read: if d == '_factura' ? puede(cid, 'facturacion', isAdmin(cid)) : puede(cid, 'tecnicos', isAdmin(cid) || esSacabollos(cid)) || (d == '_fijos' && puede(cid, 'fijos', isAdmin(cid) || esSacabollos(cid)));
+        allow write: if d == '_fijos' ? puede(cid, 'fijos', isAdmin(cid)) : d == '_factura' ? puede(cid, 'facturacion', isAdmin(cid)) : puede(cid, 'tecnicos', isAdmin(cid));
       }
 
       // ── Gastos del operativo ───────────────────────────────

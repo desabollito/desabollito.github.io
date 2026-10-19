@@ -18,6 +18,7 @@ export function vistaPlanillas(view) {
     ${puedeVer("tecnicos") ? `<a class="hub-btn" href="#/tecnicos">${icon("team")}<span><strong>Planilla de técnicos</strong><small>Sacabollos, sueldos y cierre</small></span></a>` : ""}
     ${puedeVer("gastos") ? `<a class="hub-btn" href="#/gastos">${icon("money")}<span><strong>Planilla de gastos</strong><small>Gastos del operativo</small></span></a>` : ""}
     ${puedeVer("fijos") ? `<a class="hub-btn" href="#/fijos">${icon("wallet")}<span><strong>Fijos</strong><small>Viandas y alquiler, repartidos entre los técnicos</small></span></a>` : ""}
+    ${puedeVer("facturacion") ? `<a class="hub-btn" href="#/facturacion">${icon("sign")}<span><strong>Facturación</strong><small>Documento firmado de cada vehículo</small></span></a>` : ""}
   </div>`;
 }
 

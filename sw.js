@@ -2,12 +2,12 @@
 // Subí el número de versión en cada publicación para forzar la actualización.
 // En /tester/ los cachés llevan prefijo propio para no borrarse con los de producción.
 const PRE = location.pathname.startsWith("/tester/") ? "tester-" : "";
-const VERSION = PRE + "desabollito-v3.1.38";
+const VERSION = PRE + "desabollito-v3.1.39";
 const SHELL = [
   "./", "./index.html", "./manifest.json", "./css/app.css",
   "./js/app.js", "./js/config.js", "./js/firebase.js", "./js/data.js", "./js/domain.js", "./js/ui.js",
   "./js/shell.js", "./js/media.js", "./js/carmap.js", "./js/pdf.js",
-  "./js/views-vehiculos.js", "./js/views-otros.js", "./js/views-gastos.js", "./js/views-tecnicos.js", "./js/views-fijos.js", "./js/novedades.js", "./js/notificaciones.js", "./js/sonidos.js", "./js/excel.js", "./js/camara.js", "./js/fecha.js", "./js/zip.js", "./js/efectos.js",
+  "./js/views-vehiculos.js", "./js/views-otros.js", "./js/views-gastos.js", "./js/views-tecnicos.js", "./js/views-fijos.js", "./js/views-facturacion.js", "./js/novedades.js", "./js/notificaciones.js", "./js/sonidos.js", "./js/excel.js", "./js/camara.js", "./js/fecha.js", "./js/zip.js", "./js/efectos.js",
   "./img/app-192.png", "./img/app-512.png", "./img/logo-claro.png", "./img/logo-oscuro.png"
 ];
 

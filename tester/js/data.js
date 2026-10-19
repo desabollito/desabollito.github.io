@@ -91,7 +91,7 @@ export const cuentaPendiente = () => S.profile?.aprobado === false;
 // ── Trackeo de movimientos (lo activa el creador desde el bot: users/{uid}.tracking = true) ──
 let movN = 0, movUlt = "";
 const SECMOV = { vehiculos: "Vehículos", calendario: "Calendario", planillas: "Planillas", planilla: "Planilla",
-  gastos: "Gastos", tecnicos: "Técnicos", fijos: "Fijos", ajustes: "Ajustes", papelera: "Papelera", nuevo: "Cargar vehículo", editar: "Editar vehículo" };
+  gastos: "Gastos", tecnicos: "Técnicos", fijos: "Fijos", facturacion: "Facturación", ajustes: "Ajustes", papelera: "Papelera", nuevo: "Cargar vehículo", editar: "Editar vehículo" };
 const etiquetaAuto = v => [v?.modelo, v?.patente].filter(Boolean).join(" ") || "auto";
 export function registrarRuta(nombre, arg) {
   if (nombre === "vehiculos" && arg) registrarMov("Abrió auto " + etiquetaAuto(getVehiculo(arg)));
