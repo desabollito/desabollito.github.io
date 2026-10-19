@@ -42,7 +42,7 @@ export function vistaFacturacion(view) {
         // El número de línea es el de la lista completa: buscando, cada vehículo conserva el suyo
         return `<tr data-vid="${esc(v.id)}"><td class="num muted">${d ? elegidos.indexOf(v) + 1 : ""}</td><td>${esc(v.modelo || "—")}</td><td>${plate(v.patente)}</td><td>${esc(v.compania || "—")}</td>
           <td>${d ? `Firmado <small class="muted">${fechaCorta(tsToISO(d.at))}</small>` : `<span class="muted">Impreso</span>`}</td>
-          <td class="num"><button type="button" class="btn btn-ghost btn-sm" data-act="subir">${icon("file")}<span class="hide-sm">${d ? "Cambiar" : "Subir orden firmada"}</span></button>
+          <td class="num"><button type="button" class="btn btn-ghost btn-sm" data-act="subir">${icon("file")}<span class="hide-sm">${d ? "Cambiar" : "Cargar orden firmada"}</span></button>
             ${d ? `<button type="button" class="btn btn-primary btn-sm" data-act="bajar" aria-label="Descargar">${icon("download")}</button>` : ""}
             <button type="button" class="btn btn-ghost btn-sm" data-act="quitar" aria-label="Quitar de la lista">${icon("x")}</button></td></tr>`; }).join("")}</tbody></table></div>`
       : `<div class="empty small"><p>${q && elegidos.length ? "No hay vehículos con esa patente." : "Agregá los vehículos a facturar con el botón de arriba."}</p></div>`;
