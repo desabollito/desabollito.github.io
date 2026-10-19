@@ -4,9 +4,9 @@
 // ═════════════════════════════════════════════════════════════
 import { db, doc, onSnapshot, setDoc, arrayUnion, arrayRemove } from "./firebase.js";
 import { S, activos, puedeVer, mensajeError } from "./data.js";
-import { $, esc, icon, toast, plate, fechaCorta, tsToISO } from "./ui.js";
+import { $, esc, icon, toast, plate, fechaCorta, tsToISO, openSheet } from "./ui.js";
 import { setTopbar } from "./shell.js";
-import { subir, cloudinaryListo } from "./media.js";
+import { subir, cloudinaryListo, thumb } from "./media.js";
 import { armarZip } from "./zip.js";
 
 const F = { q: "" };
@@ -28,7 +28,7 @@ export function vistaFacturacion(view) {
   let docs = {}, vids = [], vidSubir = null;
   view.innerHTML = `<div class="tec-page">
     <label class="search">${icon("search")}<input type="search" id="f-q" placeholder="Buscar patente o modelo" value="${esc(F.q)}" autocomplete="off" autocapitalize="characters"></label>
-    <select id="f-add" aria-label="Agregar vehículo"></select>
+    <button type="button" class="btn btn-primary" id="f-add">${icon("plus")}Agregar vehículo</button>
     <input type="file" id="f-in" accept="application/pdf,image/*" hidden>
     <div id="f-body"><div class="skeleton tall"></div></div></div>`;
 
@@ -36,8 +36,6 @@ export function vistaFacturacion(view) {
     const q = norm(F.q), body = $("#f-body", view); if (!body) return;
     const elegidos = activos().filter(v => vids.includes(v.id));
     const vs = elegidos.filter(v => !q || norm(v.patente).includes(q) || norm(v.modelo).includes(q));
-    $("#f-add", view).innerHTML = `<option value="">+ Agregar vehículo…</option>` + activos().filter(v => !vids.includes(v.id))
-      .map(v => `<option value="${esc(v.id)}">${esc(v.patente || "")} · ${esc(v.modelo || "Sin modelo")}</option>`).join("");
     body.innerHTML = vs.length ? `<div class="table-wrap"><table class="tbl tbl-fact"><thead><tr><th>Vehículo</th><th>Patente</th><th>Documento firmado</th><th></th></tr></thead>
       <tbody>${vs.map(v => { const d = docs[v.id];
         return `<tr data-vid="${esc(v.id)}"><td>${esc(v.modelo || "—")}</td><td>${plate(v.patente)}</td>
@@ -45,7 +43,7 @@ export function vistaFacturacion(view) {
           <td class="num"><button type="button" class="btn btn-ghost btn-sm" data-act="subir">${icon("file")}<span class="hide-sm">${d ? "Cambiar" : "Subir"}</span></button>
             ${d ? `<button type="button" class="btn btn-primary btn-sm" data-act="bajar" aria-label="Descargar">${icon("download")}</button>` : ""}
             <button type="button" class="btn btn-ghost btn-sm" data-act="quitar" aria-label="Quitar de la lista">${icon("x")}</button></td></tr>`; }).join("")}</tbody></table></div>`
-      : `<div class="empty small"><p>${q && elegidos.length ? "No hay vehículos con esa patente." : "Agregá los vehículos a facturar con el selector de arriba."}</p></div>`;
+      : `<div class="empty small"><p>${q && elegidos.length ? "No hay vehículos con esa patente." : "Agregá los vehículos a facturar con el botón de arriba."}</p></div>`;
   };
 
   unsub?.();
@@ -54,9 +52,27 @@ export function vistaFacturacion(view) {
     docs = d.data()?.docs || {}; vids = d.data()?.vids || []; pintar();
   }, e => { $("#f-body", view).innerHTML = `<div class="empty"><p>${esc(mensajeError(e))}</p></div>`; });
 
-  $("#f-add", view).onchange = async e => {
-    const vid = e.target.value; if (!vid) return;
-    try { await setDoc(ref, { vids: arrayUnion(vid) }, { merge: true }); } catch (err) { toast(mensajeError(err), "error"); }
+  // Mismo selector que el desmontaje (tira + patente); queda abierto para agregar varios
+  $("#f-add", view).onclick = () => {
+    const s = openSheet({ title: "Agregar vehículo", wide: true, body: `<div class="stack">
+        <label class="search">${icon("search")}<input type="search" id="dv-q" placeholder="Patente o modelo" autocomplete="off" autocapitalize="characters"></label>
+        <div class="dv-tira" id="dv-lista"></div></div>` });
+    const lista = $("#dv-lista", s.el), q = $("#dv-q", s.el);
+    const pintarTira = () => {
+      const f = norm(q.value);
+      const vs = activos().filter(v => !vids.includes(v.id) && (!f || norm(v.patente).includes(f) || norm(v.modelo).includes(f))).slice(0, 60);
+      lista.innerHTML = vs.length ? vs.map(v => `<button type="button" class="dv-item" data-id="${esc(v.id)}">
+          ${v.fotos?.length ? `<img src="${esc(thumb(v.fotos[0].url, 160, v.fotos[0].rot))}" alt="">` : `<span class="dv-sin">${icon("car")}</span>`}
+          <strong>${esc(v.modelo || "Sin modelo")}</strong>${plate(v.patente)}</button>`).join("")
+        : `<p class="muted center">No hay vehículos con esa patente.</p>`;
+    };
+    pintarTira(); q.focus();
+    q.addEventListener("input", pintarTira);
+    lista.addEventListener("click", async e => {
+      const b = e.target.closest("[data-id]"); if (!b) return;
+      vids = [...vids, b.dataset.id]; pintarTira(); q.select();
+      try { await setDoc(ref, { vids: arrayUnion(b.dataset.id) }, { merge: true }); toast("Vehículo agregado", "success"); } catch (err) { toast(mensajeError(err), "error"); }
+    });
   };
   $("#f-q", view).oninput = e => { F.q = e.target.value; pintar(); };
   $("#f-body", view).onclick = async e => {

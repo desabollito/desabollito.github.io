@@ -2,7 +2,7 @@
 // Subí el número de versión en cada publicación para forzar la actualización.
 // En /tester/ los cachés llevan prefijo propio para no borrarse con los de producción.
 const PRE = location.pathname.startsWith("/tester/") ? "tester-" : "";
-const VERSION = PRE + "desabollito-v3.1.40";
+const VERSION = PRE + "desabollito-v3.1.41";
 const SHELL = [
   "./", "./index.html", "./manifest.json", "./css/app.css",
   "./js/app.js", "./js/config.js", "./js/firebase.js", "./js/data.js", "./js/domain.js", "./js/ui.js",
