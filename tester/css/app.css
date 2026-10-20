@@ -1703,8 +1703,8 @@ a.g-bar-fijo { text-decoration: none; color: inherit; }
 .fo .fo-op, .fo .fo-switch, .fo .fo-pie .btn { height: 44px; min-height: 44px; box-sizing: border-box; }
 .fo .fo-op { overflow: hidden; }
 /* Compañías: los mismos botones que "Ordenar por", de a 4 por fila */
-.fo-seg.fo-cias { grid-auto-columns: minmax(84px, max-content); overflow-x: auto; scroll-snap-type: x proximity; overscroll-behavior-x: contain; }   /* una fila que se desliza al costado */
-.fo-seg.fo-cias .fo-op { padding-inline: 10px; white-space: nowrap; }
+.fo-seg.fo-cias { grid-auto-columns: max-content; overflow-x: auto; scroll-snap-type: x proximity; overscroll-behavior-x: contain; }   /* una fila que se desliza al costado */
+.fo-seg.fo-cias .fo-op { padding-inline: 10px; white-space: nowrap; min-width: 84px; }   /* columna del ancho del nombre: con minmax se quedaban en 84px y se pisaban */
 .fo .fo-switch { padding-block: 0; }
 
 /* ── Transiciones entre pantallas ── */
