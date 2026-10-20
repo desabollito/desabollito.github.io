@@ -741,6 +741,7 @@ export async function panelCreador() {
       <details class="adm-toggles adm-accesos" ${accAbierto ? "open" : ""}>
         <summary><b>Quién ve las planillas</b> <small class="muted">Vehículos · Técnicos · Gastos · Fijos · Facturación</small></summary>
         ${(() => { const op = opAcc(); if (!op) return `<small class="muted">No hay operativos.</small>`;
+        if (!("accesosOp" in (datos.config || {}))) return `<small class="muted">Falta publicar el bot nuevo para elegir por operativo.</small>`;   // el bot viejo pisaría las tildes de los demás
         return `<label class="field"><span>Operativo</span><select id="adm-acc-op">${operativos.map(o => `<option value="${esc(o.id)}" ${o.id === op.id ? "selected" : ""}>${esc(o.name)}</option>`).join("")}</select></label>
         <div class="adm-acc-head"><span></span><small>Vehíc.</small><small>Técnicos</small><small>Gastos</small><small>Fijos</small><small>Factura</small></div>
         ${op.miembros.filter(m => usuarios.find(u => u.uid === m.uid)?.username !== "gzmatte").map(m => { const a = accesoDe(op, m), u = usuarios.find(x => x.uid === m.uid);

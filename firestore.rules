@@ -14,7 +14,10 @@ service cloud.firestore {
     // Acceso a cada planilla: lo elige el creador por operativo en config/app.accesosOp[cid][uid][seccion]; sin elegir, vale el de siempre
     function acceso(cid, sec) {
       let p = /databases/$(database)/documents/config/app;
-      return exists(p) ? get(p).data.get('accesosOp', {}).get(cid, {}).get(uid(), {}).get(sec, null) : null;
+      // Hasta que el bot copie los accesos viejos (globales) a Paraná, valen esos
+      return !exists(p) ? null : get(p).data.get('accesosOp', null) == null
+        ? get(p).data.get('accesos', {}).get(uid(), {}).get(sec, null)
+        : get(p).data.accesosOp.get(cid, {}).get(uid(), {}).get(sec, null);
     }
     function puede(cid, sec, porDefecto) { let v = acceso(cid, sec); return isMember(cid) && (v == true || (v == null && porDefecto)); }
     function esDesmontaje(cid) { return isMember(cid) && company(cid).roles.get(uid(), '') == 'desmontaje'; }

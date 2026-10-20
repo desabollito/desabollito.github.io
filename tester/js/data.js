@@ -749,7 +749,8 @@ export const soyCreador = () => S.profile?.username === "gzmatte";
 export const puedeVer = sec => {
   if (S.invitado) return S.invitado.tecnicos ? sec === "tecnicos" : sec === "planilla";
   if (soyCreador()) return true;
-  const v = S.config?.accesosOp?.[S.company?.id]?.[S.user?.uid]?.[sec];
+  // Hasta que el bot copie los accesos viejos (globales) a Paraná, valen esos
+  const v = (S.config?.accesosOp ? S.config.accesosOp[S.company?.id] : S.config?.accesos)?.[S.user?.uid]?.[sec];
   // Sacabollos: Vehículos (sin precios), Técnicos y Fijos; no Gastos
   return typeof v === "boolean" ? v : soySacabollos() ? ["planilla", "tecnicos", "fijos"].includes(sec) : ["gastos", "planilla"].includes(sec) || soyAdmin();
 };
@@ -800,13 +801,13 @@ export async function responderPedidoUnion(p, cid, rol = "tecnico") {
 }
 
 // ── Configuración general de la app (config/app) ─────────────────
-S.config = { avisoReparado: true, documentos: true, fechaVista: true, mensajeWa: "", accesosOp: {}, sonidoAuto: "deportivo" };
+S.config = { avisoReparado: true, documentos: true, fechaVista: true, mensajeWa: "", accesosOp: null, accesos: {}, sonidoAuto: "deportivo" };
 let unsubConfig = null;
 export function escucharConfig() {
   if (unsubConfig) return;
   unsubConfig = onSnapshot(doc(db, "config", "app"), d => {
     const antes = JSON.stringify(S.config);
-    S.config = { avisoReparado: d.data()?.avisoReparado !== false, documentos: d.data()?.documentos !== false, fechaVista: d.data()?.fechaVista !== false, mensajeWa: d.data()?.mensajeWa || "", accesosOp: d.data()?.accesosOp || {}, sonidoAuto: d.data()?.sonidoAuto || "deportivo" };
+    S.config = { avisoReparado: d.data()?.avisoReparado !== false, documentos: d.data()?.documentos !== false, fechaVista: d.data()?.fechaVista !== false, mensajeWa: d.data()?.mensajeWa || "", accesosOp: d.data()?.accesosOp || null, accesos: d.data()?.accesos || {}, sonidoAuto: d.data()?.sonidoAuto || "deportivo" };
     if (JSON.stringify(S.config) !== antes) {
       // Si cambió el permiso de gastos, prender o apagar la escucha
       if (S.company && puedeVer("gastos") !== !!unsubGastos) escucharGastos();
