@@ -750,8 +750,8 @@ export const puedeVer = sec => {
   if (S.invitado) return S.invitado.tecnicos ? sec === "tecnicos" : sec === "planilla";
   if (soyCreador()) return true;
   const v = S.config?.accesos?.[S.user?.uid]?.[sec];
-  // Sacabollos: solo Técnicos y Fijos (ni planilla de vehículos ni gastos)
-  return typeof v === "boolean" ? v : soySacabollos() ? ["tecnicos", "fijos"].includes(sec) : ["gastos", "planilla"].includes(sec) || soyAdmin();
+  // Sacabollos: Vehículos (sin precios), Técnicos y Fijos; no Gastos
+  return typeof v === "boolean" ? v : soySacabollos() ? ["planilla", "tecnicos", "fijos"].includes(sec) : ["gastos", "planilla"].includes(sec) || soyAdmin();
 };
 export async function llamarAdmin(ruta, datos = {}) {
   const idToken = await S.user.getIdToken();

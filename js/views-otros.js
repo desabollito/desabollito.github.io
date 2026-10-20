@@ -66,7 +66,7 @@ export function vistaPlanilla(view) {
 
     <!-- Tablet y escritorio: tabla completa -->
     <div class="table-wrap p-desktop"><table class="tbl">
-      <thead><tr>${COLS.map(([k, t]) => `<th data-k="${k}" class="${k === "precio" ? "num" : ""}" aria-sort="${P.orden === k ? (P.dir > 0 ? "ascending" : "descending") : "none"}">
+      <thead><tr>${COLS.filter(([k]) => k !== "precio" || !soloVer()).map(([k, t]) => `<th data-k="${k}" class="${k === "precio" ? "num" : ""}" aria-sort="${P.orden === k ? (P.dir > 0 ? "ascending" : "descending") : "none"}">
         <button>${t}${P.orden === k ? (P.dir > 0 ? " ↑" : " ↓") : ""}</button></th>`).join("")}</tr></thead>
       <tbody id="tb"></tbody><tfoot id="tf"></tfoot></table></div>
 
@@ -91,7 +91,7 @@ export function vistaPlanilla(view) {
           <small>${esc([fechaCorta(v.fechas?.peritado), v.compania].filter(Boolean).join(" · "))}</small>
         </span>
         <span class="p-r">
-          <strong>${money(v.precio) || "—"}</strong>
+          ${soloVer() ? "" : `<strong>${money(v.precio) || "—"}</strong>`}
           <small><i class="p-dot"></i>${ESTADO[estadoActual(v)].label}</small>
         </span>
       </a>`).join("") : `<div class="empty small"><p>Sin resultados.</p></div>`;
@@ -102,9 +102,9 @@ export function vistaPlanilla(view) {
         <td>${plate(v.patente, "sm")}</td><td><strong>${esc(v.modelo || "—")}</strong></td>
         <td>${fechaCorta(v.fechas?.peritado)}</td>
         <td>${esc(v.compania || "—")}</td><td>${esc(v.localidad || "—")}</td>
-        <td>${estadoPill(v)}</td><td class="num">${money(v.precio) || "—"}</td></tr>`).join("")
+        <td>${estadoPill(v)}</td>${soloVer() ? "" : `<td class="num">${money(v.precio) || "—"}</td>`}</tr>`).join("")
       : `<tr><td colspan="7" class="empty-cell">Sin resultados.</td></tr>`;
-    $("#tf", view).innerHTML = `<tr><td colspan="6">${filas.length} ${filas.length === 1 ? "vehículo" : "vehículos"}</td><td class="num">${soloVer() ? "" : money(total) || "$0"}</td></tr>`;
+    $("#tf", view).innerHTML = `<tr><td colspan="6">${filas.length} ${filas.length === 1 ? "vehículo" : "vehículos"}</td>${soloVer() ? "" : `<td class="num">${money(total) || "$0"}</td>`}</tr>`;
   };
   pintar();
 
@@ -147,7 +147,7 @@ export function vistaPlanilla(view) {
         { titulo: "Fecha de turno", ancho: 15, tipo: "fecha", valor: v => v.fechas?.turnado },
         { titulo: "Fecha de reparación", ancho: 19, tipo: "fecha", valor: v => v.fechas?.reparado },
         { titulo: "Fecha de facturación", ancho: 20, tipo: "fecha", valor: v => v.fechas?.facturado },
-        { titulo: "Precio", ancho: 14, tipo: "moneda", valor: v => v.precio },
+        ...(soloVer() ? [] : [{ titulo: "Precio", ancho: 14, tipo: "moneda", valor: v => v.precio }]),
         { titulo: "Cargado por", ancho: 18, valor: v => v.createdByName }
       ],
       filas,
@@ -704,9 +704,9 @@ export async function panelCreador() {
   // Acceso efectivo de cada usuario (lo elegido o, si no, lo de siempre)
   const esAdminEnAlguno = uid => datos.operativos.some(o => o.miembros.some(m => m.uid === uid && ["admin", "owner"].includes(m.rol)));
   const accesoDe = uid => { const e = datos.config?.accesos?.[uid] || {}, adm = esAdminEnAlguno(uid);
-    // Igual que puedeVer: Sacabollos (rol técnico) ve Técnicos y Fijos, no Vehículos ni Gastos
+    // Igual que puedeVer: Sacabollos (rol técnico) ve Vehículos, Técnicos y Fijos, no Gastos
     const sac = !adm && datos.operativos.some(o => o.miembros.some(m => m.uid === uid && ["", "tecnico"].includes(m.rol)));
-    return { planilla: e.planilla ?? !sac, tecnicos: e.tecnicos ?? (adm || sac), gastos: e.gastos ?? !sac, fijos: e.fijos ?? (adm || sac), facturacion: e.facturacion ?? adm }; };
+    return { planilla: e.planilla ?? true, tecnicos: e.tecnicos ?? (adm || sac), gastos: e.gastos ?? !sac, fijos: e.fijos ?? (adm || sac), facturacion: e.facturacion ?? adm }; };
   const nVeh = n => n === null || n === undefined ? "" : `${n} ${n === 1 ? "vehículo" : "vehículos"}`;
   const pintar = () => {
     const { operativos, usuarios } = datos;
@@ -744,7 +744,7 @@ export async function panelCreador() {
         ${usuarios.filter(u => u.username !== "gzmatte" && u.aprobado !== false && !u.rechazado).map(u => { const a = accesoDe(u.uid);
           return `<div class="adm-acc-fila" data-acc="${esc(u.uid)}"><span><b>${esc(u.name || "Sin nombre")}</b> <small class="muted">@${esc(u.username)}</small></span>
             ${["planilla", "tecnicos", "gastos", "fijos", "facturacion"].map(k => `<input type="checkbox" data-acc-sec="${k}" ${a[k] ? "checked" : ""} aria-label="${k}">`).join("")}</div>`; }).join("")}
-        <small class="muted">Sin tocar: Técnicos, Fijos y Facturación los ven los administradores; Vehículos y Gastos todos menos Sacabollos (que ve Técnicos y Fijos). Vos siempre ves todo.</small>
+        <small class="muted">Sin tocar: Técnicos, Fijos y Facturación los ven los administradores; Vehículos todos; Gastos todos menos Sacabollos (que ve Técnicos y Fijos). Vos siempre ves todo.</small>
       </details>
       <div class="seg seg-sm adm-tabs">
         <button type="button" class="seg-btn ${tab === "operativos" ? "on" : ""}" data-tab="operativos">Operativos <small>${operativos.length}</small></button>
