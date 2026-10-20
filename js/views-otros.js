@@ -704,7 +704,9 @@ export async function panelCreador() {
   // Acceso efectivo de cada usuario (lo elegido o, si no, lo de siempre)
   const esAdminEnAlguno = uid => datos.operativos.some(o => o.miembros.some(m => m.uid === uid && ["admin", "owner"].includes(m.rol)));
   const accesoDe = uid => { const e = datos.config?.accesos?.[uid] || {}, adm = esAdminEnAlguno(uid);
-    return { tecnicos: e.tecnicos ?? adm, gastos: e.gastos ?? true, fijos: e.fijos ?? adm }; };
+    // Igual que puedeVer: Sacabollos (rol técnico) ve Técnicos y Fijos, no Vehículos ni Gastos
+    const sac = !adm && datos.operativos.some(o => o.miembros.some(m => m.uid === uid && ["", "tecnico"].includes(m.rol)));
+    return { planilla: e.planilla ?? !sac, tecnicos: e.tecnicos ?? (adm || sac), gastos: e.gastos ?? !sac, fijos: e.fijos ?? (adm || sac), facturacion: e.facturacion ?? adm }; };
   const nVeh = n => n === null || n === undefined ? "" : `${n} ${n === 1 ? "vehículo" : "vehículos"}`;
   const pintar = () => {
     const { operativos, usuarios } = datos;
@@ -737,12 +739,12 @@ export async function panelCreador() {
         </span>
       </div>
       <details class="adm-toggles adm-accesos" ${accAbierto ? "open" : ""}>
-        <summary><b>Quién ve las planillas</b> <small class="muted">Técnicos · Gastos · Fijos</small></summary>
-        <div class="adm-acc-head"><span></span><small>Técnicos</small><small>Gastos</small><small>Fijos</small></div>
+        <summary><b>Quién ve las planillas</b> <small class="muted">Vehículos · Técnicos · Gastos · Fijos · Facturación</small></summary>
+        <div class="adm-acc-head"><span></span><small>Vehíc.</small><small>Técnicos</small><small>Gastos</small><small>Fijos</small><small>Factura</small></div>
         ${usuarios.filter(u => u.username !== "gzmatte" && u.aprobado !== false && !u.rechazado).map(u => { const a = accesoDe(u.uid);
           return `<div class="adm-acc-fila" data-acc="${esc(u.uid)}"><span><b>${esc(u.name || "Sin nombre")}</b> <small class="muted">@${esc(u.username)}</small></span>
-            ${["tecnicos", "gastos", "fijos"].map(k => `<input type="checkbox" data-acc-sec="${k}" ${a[k] ? "checked" : ""} aria-label="${k}">`).join("")}</div>`; }).join("")}
-        <small class="muted">Sin tocar: Técnicos y Fijos los ven los administradores y Gastos todos. Vos siempre ves todo.</small>
+            ${["planilla", "tecnicos", "gastos", "fijos", "facturacion"].map(k => `<input type="checkbox" data-acc-sec="${k}" ${a[k] ? "checked" : ""} aria-label="${k}">`).join("")}</div>`; }).join("")}
+        <small class="muted">Sin tocar: Técnicos, Fijos y Facturación los ven los administradores; Vehículos y Gastos todos menos Sacabollos (que ve Técnicos y Fijos). Vos siempre ves todo.</small>
       </details>
       <div class="seg seg-sm adm-tabs">
         <button type="button" class="seg-btn ${tab === "operativos" ? "on" : ""}" data-tab="operativos">Operativos <small>${operativos.length}</small></button>

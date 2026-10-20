@@ -1513,7 +1513,7 @@ a.g-bar-fijo { text-decoration: none; color: inherit; }
 .tec-aparte .tec-linea b { text-decoration: none; }
 .adm-accesos summary { cursor: pointer; list-style: none; }
 .adm-accesos summary::-webkit-details-marker { display: none; }
-.adm-acc-head, .adm-acc-fila { display: grid; grid-template-columns: 1fr 62px 62px 50px; align-items: center; gap: 4px; }
+.adm-acc-head, .adm-acc-fila { display: grid; grid-template-columns: 1fr repeat(5, 54px); align-items: center; gap: 4px; }
 .adm-acc-head { margin-top: 10px; color: var(--ink-2); font-weight: 700; text-align: center; }
 .adm-acc-fila { padding: 7px 0; border-top: 1px solid var(--line); }
 .adm-acc-fila > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
