@@ -1957,6 +1957,7 @@ html.lenis, html.lenis body { height: auto; }
 .d-contacto > .btn[aria-expanded="true"] { background: var(--primary-soft); color: var(--primary); }
 .d-contacto > .btn[aria-expanded="true"] .ic { animation: tel-suena .5s ease-in-out; }
 @keyframes tel-suena { 0%, 100% { transform: none; } 20%, 60% { transform: rotate(-14deg); } 40%, 80% { transform: rotate(14deg); } }
+.negado .ic { animation: tel-suena .5s ease-in-out; }
 .d-menu:not([hidden]) { transform-origin: top center; animation: menu-abre .32s cubic-bezier(.34, 1.4, .64, 1) both; }
 .d-menu:not([hidden]) a { animation: menu-item .3s var(--ease) both; }
 .d-menu:not([hidden]) a:nth-child(2) { animation-delay: .06s; }
@@ -1969,7 +1970,7 @@ html.lenis, html.lenis body { height: auto; }
 @keyframes menu-cierra { to { opacity: 0; transform: translateY(-6px) scale(.95); filter: blur(3px); } }
 @keyframes menu-item { from { opacity: 0; transform: translateY(-6px); } }
 @keyframes velo-in { from { opacity: 0; } }
-@media (prefers-reduced-motion: reduce) { .d-menu, .d-menu a, .menu-velo, .d-contacto .ic { animation: none !important; } }
+@media (prefers-reduced-motion: reduce) { .d-menu, .d-menu a, .menu-velo, .d-contacto .ic, .negado .ic { animation: none !important; } }
 /* Botón +: mismo vidrio que el dock (fondo, desenfoque, borde, radio, sombra y alto), con el brillo azul difuminado adentro */
 .fab { width: 62px; height: 62px; border-radius: 22px; overflow: hidden; color: var(--primary); border: 1px solid var(--edge);
   background: color-mix(in srgb, var(--surface) 64%, transparent); -webkit-backdrop-filter: blur(18px) saturate(140%); backdrop-filter: blur(18px) saturate(140%);

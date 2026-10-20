@@ -648,6 +648,12 @@ ${[...PASO_REP, "facturado"].includes(est) && !soyLector() && (soyAdmin() || soy
     const et = t.closest(".etapa-item");
     if (et) return elegirEtapa(v, et.dataset.tipo, et.dataset.item);
     const act = t.closest("[data-act]")?.dataset.act;
+    if (act === "pdf" && soySacabollos()) {
+      // Sin permiso: el ícono se sacude como el de Contactar y vibra, sin abrir nada
+      const b = t.closest("[data-act]"); b.classList.remove("negado"); void b.offsetWidth; b.classList.add("negado");
+      navigator.vibrate?.([30, 40, 30]);
+      return;
+    }
     if (act === "pdf") return compartir(v);
     if (act === "galeria") return visor(v.fotos, 0, v);
     if (act === "firma") return firmar(v);
