@@ -2925,13 +2925,19 @@ async function adminConfig(env, body) {
   const cambios = Object.fromEntries(CONFIG_CLAVES.filter(k => typeof body[k] === "boolean").map(k => [k, body[k]]));
   if (typeof body.mensajeWa === "string") cambios.mensajeWa = body.mensajeWa.slice(0, 2000);
   if (["deportivo", "turbo", "v8"].includes(body.sonidoAuto)) cambios.sonidoAuto = body.sonidoAuto;   // sonido al actualizar la app
-  // Quién ve cada planilla: { uid: { planilla, tecnicos, gastos, fijos, facturacion } } (solo booleanos)
-  if (body.accesos && typeof body.accesos === "object") cambios.accesos = Object.fromEntries(Object.entries(body.accesos)
-    .filter(([u, a]) => idValido(u) && a && typeof a === "object")
-    .map(([u, a]) => [u, Object.fromEntries(["planilla", "tecnicos", "gastos", "fijos", "facturacion"].filter(k => typeof a[k] === "boolean").map(k => [k, a[k]]))]));
-  if (Object.keys(cambios).length) await fsMerge(env, "config/app", cambios);
-  const c = await fsGet(env, "config/app");
-  return json({ ok: true, config: { ...Object.fromEntries(CONFIG_CLAVES.map(k => [k, c?.[k] !== false])), padronN: c?.padronN || 0, mensajeWa: c?.mensajeWa || "", accesos: c?.accesos || {}, sonidoAuto: c?.sonidoAuto || "deportivo" } });
+  // Quién ve cada planilla, por operativo: accesosOp[cid] = { uid: { planilla, tecnicos, gastos, fijos, facturacion } } (solo booleanos)
+  let c = await fsGet(env, "config/app");
+  if (c?.accesos && !c.accesosOp) {
+    // shortcut: los accesos viejos (globales) eran del operativo Paraná; se copian una vez a ese operativo. Borrar cuando todos tengan accesosOp
+    const parana = (await fsList(env, "companies")).find(o => /paran/i.test(o.name || ""));
+    if (parana) cambios.accesosOp = { [parana.__id]: c.accesos };
+  }
+  if (idValido(body.cid) && body.accesos && typeof body.accesos === "object")
+    cambios.accesosOp = { ...(cambios.accesosOp || c?.accesosOp), [body.cid]: Object.fromEntries(Object.entries(body.accesos)
+      .filter(([u, a]) => idValido(u) && a && typeof a === "object")
+      .map(([u, a]) => [u, Object.fromEntries(["planilla", "tecnicos", "gastos", "fijos", "facturacion"].filter(k => typeof a[k] === "boolean").map(k => [k, a[k]]))])) };
+  if (Object.keys(cambios).length) { await fsMerge(env, "config/app", cambios); c = await fsGet(env, "config/app"); }
+  return json({ ok: true, config: { ...Object.fromEntries(CONFIG_CLAVES.map(k => [k, c?.[k] !== false])), padronN: c?.padronN || 0, mensajeWa: c?.mensajeWa || "", accesosOp: c?.accesosOp || {}, sonidoAuto: c?.sonidoAuto || "deportivo" } });
 }
 
 // Elimina un usuario de la app: cuenta de acceso, perfil, nombre de usuario, WhatsApp y membresías

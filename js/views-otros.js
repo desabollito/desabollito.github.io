@@ -700,12 +700,12 @@ export function vistaPapelera(view) {
 export async function panelCreador() {
   const s = openSheet({ title: "Administración", wide: true, body: `<div class="adm"><div class="skeleton" style="height:160px"></div></div>` });
   const caja = $(".adm", s.el);
-  let tab = "operativos", datos = null, accAbierto = false;
+  let tab = "operativos", datos = null, accAbierto = false, accOp = null;   // accOp: operativo elegido en "Quién ve las planillas"
   // Acceso efectivo de cada usuario (lo elegido o, si no, lo de siempre)
-  const esAdminEnAlguno = uid => datos.operativos.some(o => o.miembros.some(m => m.uid === uid && ["admin", "owner"].includes(m.rol)));
-  const accesoDe = uid => { const e = datos.config?.accesos?.[uid] || {}, adm = esAdminEnAlguno(uid);
+  const opAcc = () => datos.operativos.find(o => o.id === accOp) || datos.operativos.find(o => /paran/i.test(o.name)) || datos.operativos[0];
+  const accesoDe = (op, m) => { const e = datos.config?.accesosOp?.[op.id]?.[m.uid] || {}, adm = ["admin", "owner"].includes(m.rol);
     // Igual que puedeVer: Sacabollos (rol técnico) ve Vehículos, Técnicos y Fijos, no Gastos
-    const sac = !adm && datos.operativos.some(o => o.miembros.some(m => m.uid === uid && ["", "tecnico"].includes(m.rol)));
+    const sac = ["", "tecnico"].includes(m.rol);
     return { planilla: e.planilla ?? true, tecnicos: e.tecnicos ?? (adm || sac), gastos: e.gastos ?? !sac, fijos: e.fijos ?? (adm || sac), facturacion: e.facturacion ?? adm }; };
   const nVeh = n => n === null || n === undefined ? "" : `${n} ${n === 1 ? "vehículo" : "vehículos"}`;
   const pintar = () => {
@@ -740,11 +740,13 @@ export async function panelCreador() {
       </div>
       <details class="adm-toggles adm-accesos" ${accAbierto ? "open" : ""}>
         <summary><b>Quién ve las planillas</b> <small class="muted">Vehículos · Técnicos · Gastos · Fijos · Facturación</small></summary>
+        ${(() => { const op = opAcc(); if (!op) return `<small class="muted">No hay operativos.</small>`;
+        return `<label class="field"><span>Operativo</span><select id="adm-acc-op">${operativos.map(o => `<option value="${esc(o.id)}" ${o.id === op.id ? "selected" : ""}>${esc(o.name)}</option>`).join("")}</select></label>
         <div class="adm-acc-head"><span></span><small>Vehíc.</small><small>Técnicos</small><small>Gastos</small><small>Fijos</small><small>Factura</small></div>
-        ${usuarios.filter(u => u.username !== "gzmatte" && u.aprobado !== false && !u.rechazado).map(u => { const a = accesoDe(u.uid);
-          return `<div class="adm-acc-fila" data-acc="${esc(u.uid)}"><span><b>${esc(u.name || "Sin nombre")}</b> <small class="muted">@${esc(u.username)}</small></span>
-            ${["planilla", "tecnicos", "gastos", "fijos", "facturacion"].map(k => `<input type="checkbox" data-acc-sec="${k}" ${a[k] ? "checked" : ""} aria-label="${k}">`).join("")}</div>`; }).join("")}
-        <small class="muted">Sin tocar: Técnicos, Fijos y Facturación los ven los administradores; Vehículos todos; Gastos todos menos Sacabollos (que ve Técnicos y Fijos). Vos siempre ves todo.</small>
+        ${op.miembros.filter(m => usuarios.find(u => u.uid === m.uid)?.username !== "gzmatte").map(m => { const a = accesoDe(op, m), u = usuarios.find(x => x.uid === m.uid);
+          return `<div class="adm-acc-fila" data-acc="${esc(m.uid)}"><span><b>${esc(u?.name || "Sin nombre")}</b> <small class="muted">${esc(u ? "@" + u.username : m.quien)}</small></span>
+            ${["planilla", "tecnicos", "gastos", "fijos", "facturacion"].map(k => `<input type="checkbox" data-acc-sec="${k}" ${a[k] ? "checked" : ""} aria-label="${k}">`).join("")}</div>`; }).join("")}`; })()}
+        <small class="muted">Sin tocar: Técnicos, Fijos y Facturación los ven los administradores; Vehículos todos; Gastos todos menos Sacabollos (que ve Técnicos y Fijos). Vale solo para este operativo. Vos siempre ves todo.</small>
       </details>
       <div class="seg seg-sm adm-tabs">
         <button type="button" class="seg-btn ${tab === "operativos" ? "on" : ""}" data-tab="operativos">Operativos <small>${operativos.length}</small></button>
@@ -787,14 +789,15 @@ export async function panelCreador() {
       catch (err) { toast(err.message, "error"); }
       return;
     }
+    if (e.target.id === "adm-acc-op") { accOp = e.target.value; pintar(); return; }
     const sec = e.target.dataset.accSec;
     if (sec) {
-      const uid = e.target.closest("[data-acc]").dataset.acc, on = e.target.checked;
-      // Se guarda todo lo que se ve (así queda explícito para cada uno)
-      const accesos = Object.fromEntries(datos.usuarios.filter(u => u.username !== "gzmatte").map(u => [u.uid, accesoDe(u.uid)]));
+      const uid = e.target.closest("[data-acc]").dataset.acc, on = e.target.checked, op = opAcc();
+      // Se guarda solo lo que se tocó: el resto sigue con lo de su rol en este operativo
+      const accesos = { ...datos.config?.accesosOp?.[op.id] };
       accesos[uid] = { ...accesos[uid], [sec]: on };
       e.target.disabled = true;
-      try { const r = await llamarAdmin("config", { accesos }); datos.config = r.config; S.config = { ...S.config, accesos: r.config.accesos || {} }; toast("Acceso guardado", "success"); }
+      try { const r = await llamarAdmin("config", { cid: op.id, accesos }); datos.config = r.config; S.config = { ...S.config, accesosOp: r.config.accesosOp || {} }; toast("Acceso guardado", "success"); }
       catch (err) { e.target.checked = !on; toast(err.message, "error"); }
       e.target.disabled = false;
       return;

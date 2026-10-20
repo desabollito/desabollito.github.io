@@ -744,12 +744,12 @@ export const borrarGasto = id => deleteDoc(doc(colGastos(), id));
 
 // ── Panel del creador (@gzmatte): todos los operativos y usuarios ─────
 export const soyCreador = () => S.profile?.username === "gzmatte";
-// Quién ve Técnicos, Gastos y Gastos fijos: lo elige el creador (config/app.accesos[uid][seccion]).
+// Quién ve cada planilla: lo elige el creador por operativo (config/app.accesosOp[cid][uid][seccion]).
 // Sin elegir: Técnicos y Gastos fijos los ven los administradores; Gastos, todos los miembros. Las reglas de Firestore piden lo mismo.
 export const puedeVer = sec => {
   if (S.invitado) return S.invitado.tecnicos ? sec === "tecnicos" : sec === "planilla";
   if (soyCreador()) return true;
-  const v = S.config?.accesos?.[S.user?.uid]?.[sec];
+  const v = S.config?.accesosOp?.[S.company?.id]?.[S.user?.uid]?.[sec];
   // Sacabollos: Vehículos (sin precios), Técnicos y Fijos; no Gastos
   return typeof v === "boolean" ? v : soySacabollos() ? ["planilla", "tecnicos", "fijos"].includes(sec) : ["gastos", "planilla"].includes(sec) || soyAdmin();
 };
@@ -800,13 +800,13 @@ export async function responderPedidoUnion(p, cid, rol = "tecnico") {
 }
 
 // ── Configuración general de la app (config/app) ─────────────────
-S.config = { avisoReparado: true, documentos: true, fechaVista: true, mensajeWa: "", accesos: {}, sonidoAuto: "deportivo" };
+S.config = { avisoReparado: true, documentos: true, fechaVista: true, mensajeWa: "", accesosOp: {}, sonidoAuto: "deportivo" };
 let unsubConfig = null;
 export function escucharConfig() {
   if (unsubConfig) return;
   unsubConfig = onSnapshot(doc(db, "config", "app"), d => {
     const antes = JSON.stringify(S.config);
-    S.config = { avisoReparado: d.data()?.avisoReparado !== false, documentos: d.data()?.documentos !== false, fechaVista: d.data()?.fechaVista !== false, mensajeWa: d.data()?.mensajeWa || "", accesos: d.data()?.accesos || {}, sonidoAuto: d.data()?.sonidoAuto || "deportivo" };
+    S.config = { avisoReparado: d.data()?.avisoReparado !== false, documentos: d.data()?.documentos !== false, fechaVista: d.data()?.fechaVista !== false, mensajeWa: d.data()?.mensajeWa || "", accesosOp: d.data()?.accesosOp || {}, sonidoAuto: d.data()?.sonidoAuto || "deportivo" };
     if (JSON.stringify(S.config) !== antes) {
       // Si cambió el permiso de gastos, prender o apagar la escucha
       if (S.company && puedeVer("gastos") !== !!unsubGastos) escucharGastos();

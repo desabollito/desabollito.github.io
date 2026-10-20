@@ -11,12 +11,12 @@ service cloud.firestore {
     function isMember(cid) { return signedIn() && uid() in company(cid).members; }
     function isAdmin(cid) { return isMember(cid) && company(cid).roles[uid()] in ['owner', 'admin']; }
     // Rol Desmontaje: solo ve los vehículos y carga desmontajes (fotos, notas y desmontador)
-    // Acceso a Técnicos / Gastos / Gastos fijos: lo elige el creador en config/app.accesos[uid][seccion]; sin elegir, vale el de siempre
-    function acceso(sec) {
+    // Acceso a cada planilla: lo elige el creador por operativo en config/app.accesosOp[cid][uid][seccion]; sin elegir, vale el de siempre
+    function acceso(cid, sec) {
       let p = /databases/$(database)/documents/config/app;
-      return exists(p) ? get(p).data.get('accesos', {}).get(uid(), {}).get(sec, null) : null;
+      return exists(p) ? get(p).data.get('accesosOp', {}).get(cid, {}).get(uid(), {}).get(sec, null) : null;
     }
-    function puede(cid, sec, porDefecto) { let v = acceso(sec); return isMember(cid) && (v == true || (v == null && porDefecto)); }
+    function puede(cid, sec, porDefecto) { let v = acceso(cid, sec); return isMember(cid) && (v == true || (v == null && porDefecto)); }
     function esDesmontaje(cid) { return isMember(cid) && company(cid).roles.get(uid(), '') == 'desmontaje'; }
     // Sacabollos (el rol por defecto): por ahora solo mira; lee Técnicos y Fijos, no escribe nada
     function esSacabollos(cid) { return isMember(cid) && company(cid).roles.get(uid(), 'tecnico') == 'tecnico'; }
