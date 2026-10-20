@@ -184,6 +184,8 @@ button { cursor: pointer; }
 .login-card > form, .login-card > .seg, .login-card > .btn, .login-card > .login-or { width: 100%; }
 .login-card .field > span { text-align: center; }
 .login-card .field input { text-align: center; }
+.motivo-paso:not([hidden]) { animation: motivo-abre .3s ease-out; }
+@keyframes motivo-abre { from { opacity: 0; transform: translateY(-10px); } }
 .login-logo { width: 64px; height: 64px; object-fit: contain; }
 .login-card h1 { font-size: 30px; font-weight: 800; font-stretch: 112%; letter-spacing: -.02em; }
 .login-sub { color: var(--muted); margin-top: -8px; max-width: 34ch; font-size: 16px; }

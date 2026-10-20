@@ -313,6 +313,7 @@ $$(".seg-btn[data-modo]").forEach(b => b.addEventListener("click", () => {
   modo = b.dataset.modo;
   $$(".seg-btn[data-modo]").forEach(x => { x.classList.toggle("on", x === b); x.setAttribute("aria-selected", x === b); });
   $$(".only-crear").forEach(el => el.hidden = modo !== "crear");
+  $("#motivo-paso").hidden = true;
   $("#olvide").hidden = modo === "crear";
   $("#login-submit").textContent = modo === "crear" ? "Crear cuenta" : "Ingresar";
   $("#login-form").pass.autocomplete = modo === "crear" ? "new-password" : "current-password";
@@ -324,8 +325,14 @@ $("#login-form").addEventListener("submit", async e => {
   const usuario = f.usuario.value.trim(), pass = f.pass.value;
   if (!usuario) return toast("Escribí tu usuario", "warning");
   if (!/^[a-zA-Z0-9._-]+$/.test(usuario)) return toast("El usuario solo lleva letras, números, punto o guion", "warning");
-  if (modo === "crear" && !f.motivo.value.trim()) return toast("Contanos el motivo de registro", "warning");
   if (pass.length < 6) return toast("La contraseña tiene al menos 6 caracteres", "warning");
+  // El motivo aparece recién al apretar Crear cuenta (la tarjeta se extiende) y es obligatorio
+  if (modo === "crear" && !f.motivo.value.trim()) {
+    const m = $("#motivo-paso");
+    if (!m.hidden) toast("Contanos por qué querés crear la cuenta", "warning");
+    m.hidden = false; f.motivo.focus();
+    return;
+  }
   busy(btn, true, modo === "crear" ? "Creando cuenta…" : "Ingresando…");
   try {
     if (modo === "crear") await crearCuenta(usuario, pass, f.nombre.value.trim(), f.motivo.value.trim());
