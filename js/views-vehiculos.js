@@ -1215,7 +1215,7 @@ function visor(fotos = [], inicio = 0, v = null, campo = "fotos") {   // campo: 
         <div class="vw-centro"><span id="vw-n"></span></div>
         <button class="icon-btn" data-n aria-label="Siguiente" ${fotos.length > 1 ? "" : "disabled"}>${icon("next")}</button>
       </div>
-      ${v ? `<div class="viewer-add"><div class="viewer-add-fila">${campo === "fotos" && puedoEditar(v) ? `<button type="button" class="icon-btn viewer-pint-fila" id="vw-pint" aria-label="Asignar foto a pintura o repuestos" title="Asignar a…">${ASIGNAR}</button>` : ""}${campo === "fotos" ? `<button type="button" class="btn btn-ghost btn-block" id="vw-mas">${icon("plus")}Añadir más fotos</button>` : ""}
+      ${v ? `<div class="viewer-add"><div class="viewer-add-fila">${(campo === "fotos" || FOTOS_SEC[campo]) && puedoEditar(v) ? `<button type="button" class="icon-btn viewer-pint-fila" id="vw-pint" aria-label="Mover foto a otra sección" title="Asignar a…">${ASIGNAR}</button>` : ""}${campo === "fotos" ? `<button type="button" class="btn btn-ghost btn-block" id="vw-mas">${icon("plus")}Añadir más fotos</button>` : ""}
         ${borrable ? `<button type="button" class="hold-del" id="vw-del" aria-label="Mantené apretado para borrar esta foto" title="Mantené apretado para borrar">
           <svg class="anillo" viewBox="0 0 36 36" aria-hidden="true"><circle class="base" cx="18" cy="18" r="16" pathLength="100"/><circle cx="18" cy="18" r="16" pathLength="100"/></svg>${icon("trash")}</button>` : ""}</div>
         <div class="viewer-mas" id="vw-mas-op" hidden>${botonesFotos({ id: "vw-add" })}</div></div>` : ""}
@@ -1416,18 +1416,18 @@ function visor(fotos = [], inicio = 0, v = null, campo = "fotos") {   // campo: 
     show();
     actualizarVehiculo(v.id, { fotos: lista }).catch(e => toast(mensajeError(e), "error"));
   });
-  // Asignar: pasa esta foto a la sección de fotos de pintura o de repuestos del vehículo
+  // Asignar: mueve esta foto entre las principales, las de pintura y las de repuestos del vehículo
   $("#vw-pint", s.el)?.addEventListener("click", () => {
     const f = fotos[i];
-    const h = openSheet({ title: "Asignar foto a…", body: `<div class="dl-opts">
-      <button class="dl-opt" data-sec="fotosPintura"><span class="dl-ico pdf">${GOTA}</span><strong>Pintura</strong></button>
-      <button class="dl-opt" data-sec="fotosRepuestos"><span class="dl-ico xls">${icon("tool")}</span><strong>Repuestos</strong></button></div>` });
+    const ops = [["fotos", "Principal", icon("image"), "var(--primary)"], ["fotosPintura", "Pintura", GOTA, "#d93a40"], ["fotosRepuestos", "Repuestos", icon("tool"), "#1f7a4c"]].filter(o => o[0] !== campo);
+    const h = openSheet({ title: "Mover foto a…", body: `<div class="dl-opts">${ops.map(([c, l, ic, col]) =>
+      `<button class="dl-opt" data-sec="${c}"><span class="dl-ico" style="background:${col}">${ic}</span><strong>${l}</strong></button>`).join("")}</div>` });
     h.body.addEventListener("click", e => {
       const campoDest = e.target.closest("[data-sec]")?.dataset.sec; if (!campoDest) return;
       h.close();
-      const act = getVehiculo(v.id) || v, nom = FOTOS_SEC[campoDest];
-      if (!(act.fotos || []).some(x => x.url === f.url)) return;
-      actualizarVehiculo(v.id, { fotos: act.fotos.filter(x => x.url !== f.url), [campoDest]: [...(act[campoDest] || []), f] }, `Pasó una foto a ${nom}`)
+      const act = getVehiculo(v.id) || v, nom = FOTOS_SEC[campoDest] || "principales";
+      if (!(act[campo] || []).some(x => x.url === f.url)) return;
+      actualizarVehiculo(v.id, { [campo]: act[campo].filter(x => x.url !== f.url), [campoDest]: [...(act[campoDest] || []), f] }, `Pasó una foto a ${nom}`)
         .then(() => toast(`Foto pasada a ${nom}`, "success")).catch(e => toast(mensajeError(e), "error"));
       const k = fotos.indexOf(f); if (k >= 0) fotos.splice(k, 1);
       if (!fotos.length) return s.close();
