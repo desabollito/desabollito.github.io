@@ -382,12 +382,15 @@ const CAMPO_ETAPAS = { repuestos: "etapasRepuestos", pintura: "etapasPintura" };
 const claveItem = x => sinTildesJS(x).toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "").slice(0, 60) || "item";
 const sinTildesJS = t => String(t).normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 const etapaItem = (v, tipo, x) => ETAPAS[tipo].find(e => e[0] === v[CAMPO_ETAPAS[tipo]]?.[claveItem(x)]) || ETAPAS[tipo][0];
-const chipsSec = (titulo, v, tipo) => {
-  const items = itemsTexto(v[tipo]);
-  if (!items.length) return "";
-  return `<section class="d-sec"><h3>${titulo}</h3>
-  <ul class="piezas-list pintura-list etapas">${items.map(x => { const [, label, color] = etapaItem(v, tipo, x);
-    return `<li><button type="button" class="etapa-item" data-tipo="${tipo}" data-item="${esc(x)}" style="--c:${color}"><span>${esc(x)}</span><small>${label}</small></button></li>`; }).join("")}</ul></section>`;
+// Con las fotos de esa sección (fotosRepuestos / fotosPintura) abajo de los ítems
+const chipsSec = (titulo, v, tipo, soloVer) => {
+  const items = itemsTexto(v[tipo]), campo = tipo === "pintura" ? "fotosPintura" : "fotosRepuestos", fotos = v[campo] || [];
+  if (!items.length && !fotos.length) return "";
+  return `<section class="d-sec"><div class="sec-head"><h3>${titulo}${fotos.length ? ` <small>${fotos.length} ${fotos.length === 1 ? "foto" : "fotos"}</small>` : ""}</h3>
+    ${soloVer || !fotos.length ? "" : `<button type="button" class="btn btn-ghost btn-sm" data-fsec="${campo}">${icon("plus")}Fotos</button>`}</div>
+  ${items.length ? `<ul class="piezas-list pintura-list etapas">${items.map(x => { const [, label, color] = etapaItem(v, tipo, x);
+    return `<li><button type="button" class="etapa-item" data-tipo="${tipo}" data-item="${esc(x)}" style="--c:${color}"><span>${esc(x)}</span><small>${label}</small></button></li>`; }).join("")}</ul>` : ""}
+  ${fotos.length ? `<div class="desm-fotos">${fotos.map(f => `<button type="button" data-pfoto="${esc(f.url)}" data-campo="${campo}"><img src="${esc(thumb(f.url, 200))}" alt="" loading="lazy"></button>`).join("")}</div>` : ""}</section>`;
 };
 
 function elegirEtapa(v, tipo, item) {
@@ -499,11 +502,8 @@ ${[...PASO_REP, "facturado"].includes(est) && !soyLector() && (soyAdmin() || soy
     </section>`}
 
     ${v.observaciones ? `<section class="d-sec"><h3>Observaciones</h3><p class="prose">${esc(v.observaciones)}</p></section>` : ""}
-    ${chipsSec("Repuestos", v, "repuestos")}
-    ${chipsSec("Pintura", v, "pintura")}
-    ${Object.entries(FOTOS_SEC).map(([campo, nom]) => v[campo]?.length ? `<section class="d-sec"><div class="sec-head"><h3>Fotos de ${nom} <small>${v[campo].length}</small></h3>
-      ${soloVer ? "" : `<button type="button" class="btn btn-ghost btn-sm" data-fsec="${campo}">${icon("plus")}Cargar</button>`}</div>
-      <div class="desm-fotos">${v[campo].map(f => `<button type="button" data-pfoto="${esc(f.url)}" data-campo="${campo}"><img src="${esc(thumb(f.url, 200))}" alt="" loading="lazy"></button>`).join("")}</div></section>` : "").join("")}
+    ${chipsSec("Repuestos", v, "repuestos", soloVer)}
+    ${chipsSec("Pintura", v, "pintura", soloVer)}
 
     ${(() => {
       // Adicionales: con una sola cosa (ej. la firma) va directo, sin desplegable
