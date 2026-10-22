@@ -13,7 +13,7 @@ import {
 import { carMapSVG, montarMapa, pulsar } from "./carmap.js";
 import { contar } from "./efectos.js";
 import { subir, comprimir, borrarConToken, thumb, grande, cloudinaryListo, esVideo, videoURL } from "./media.js";
-import { presupuestoPDF, nombreArchivo } from "./pdf.js";
+import { presupuestoPDF, nombreArchivo, tablaPDF } from "./pdf.js";
 import { armarZip } from "./zip.js";
 import { setTopbar, go, esAncho } from "./shell.js";
 
@@ -81,6 +81,27 @@ function filtrar(lista) {
       ? (q.length < 2 || cargadoPor(v).toLowerCase().startsWith(q) || ("@" + String(v.createdByName || "").toLowerCase().replace(/\s+/g, "")).startsWith(q.replace(/\s+/g, "")))
       : [v.modelo, v.patente, v.asegurado, v.compania, v.localidad, v.telefono]
         .some(x => (x || "").toLowerCase().includes(q)))));
+}
+
+// PDF de la lista filtrada: una fila por repuesto / paño (el vehículo va solo en la primera)
+function exportarPDF() {
+  const lista = ordenar(filtrar(activos()));
+  // Si hay fases marcadas en el filtro, solo esos ítems
+  const items = (v, tipo) => itemsTexto(v[tipo]).map(x => [x, etapaItem(v, tipo, x)]).filter(([, e]) => !F[tipo].size || F[tipo].has(e[0])).map(([x, e]) => `${x} — ${e[1]}`);
+  const OPS = [["Vehículos con repuestos", ["repuestos"]], ["Vehículos con pintura", ["pintura"]], ["Con repuestos o pintura", ["repuestos", "pintura"]]];
+  const conItems = tipos => lista.filter(v => tipos.some(t => items(v, t).length));
+  const s = openSheet({ title: "¿Qué vehículos exportás?", body: `<div class="stack">${OPS.map(([t, tipos], i) =>
+    `<button type="button" class="btn btn-ghost btn-block" data-pdf="${i}">${t} (${conItems(tipos).length})</button>`).join("")}</div>` });
+  s.el.addEventListener("click", e => {
+    const b = e.target.closest("[data-pdf]"); if (!b) return;
+    const [t, tipos] = OPS[+b.dataset.pdf], vs = conItems(tipos);
+    if (!vs.length) return toast("No hay vehículos para exportar");
+    const filas = vs.flatMap(v => { const cols = tipos.map(tp => items(v, tp)), n = Math.max(...cols.map(c => c.length));
+      return Array.from({ length: n }, (_, i) => [i ? "" : v.modelo || "", i ? "" : v.patente || "", ...cols.map(c => c[i] || "")]); });
+    tablaPDF(S.company, t, [{ titulo: "Vehículo", ancho: 60 }, { titulo: "Patente", ancho: 28 }, ...tipos.map(tp => ({ titulo: tp === "pintura" ? "Pintura" : "Repuestos", ancho: 90 }))], filas)
+      .save(`${t.replace(/\s+/g, "_")}_${hoyISO()}.pdf`);
+    s.close();
+  });
 }
 
 // Historial del vehículo (lo más nuevo arriba). Los vehículos viejos arrancan con la carga.
@@ -253,6 +274,7 @@ export function vistaVehiculos(view, selId = null) {
       ${lector ? "" : `<section class="fo-sec"><h3>Cargado</h3><div class="fo-seg" id="fo-cargado"></div></section>`}
       <div class="fo-switches">${lector ? "" : `<label class="fo-switch"><span>Cargados por mí</span><input type="checkbox" id="fo-mios" ${F.mios ? "checked" : ""}></label>`}
         <label class="fo-switch"><span>Ocultar anulados</span><input type="checkbox" id="fo-anul" ${F.sinAnul ? "checked" : ""}></label></div>
+      <button type="button" class="btn btn-ghost btn-block" data-close id="fo-pdf">${icon("file")}Exportar PDF</button>
       <div class="fo-pie"><button type="button" class="btn btn-ghost" data-close id="fo-reset">Limpiar</button><button type="button" class="btn btn-primary" data-close id="fo-ver"></button></div>
     </div>` });
     const el = id => $(id, hoja.el);
@@ -288,6 +310,7 @@ export function vistaVehiculos(view, selId = null) {
       if (c) { const k = c.dataset.cia; F.cias.has(k) ? F.cias.delete(k) : F.cias.add(k); return aplicar(); }
       if (e.target.closest("#fo-reset")) { F.mios = false; F.sinAnul = false; F.cargado = null; F.grado = null; F.repuestos.clear(); F.pintura.clear(); F.turno = null; F.cliente = null; F.cias.clear(); F.orden = "fecha"; F.dir = -1;
         if (el("#fo-mios")) el("#fo-mios").checked = false; el("#fo-anul").checked = false; return aplicar(); }
+      if (e.target.closest("#fo-pdf")) return exportarPDF();
       const b = e.target.closest("[data-g]"); if (!b) return;
       const g = b.dataset.g, v = b.dataset.v;
       if (g === "orden") { if (F.orden === v) F.dir *= -1; else { F.orden = v; F.dir = v === "fecha" ? -1 : 1; } }
