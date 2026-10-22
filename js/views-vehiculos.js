@@ -55,7 +55,8 @@ const tokensBorrado = new Map(); // publicId → delete_token (válido 10 min)
 const docsOn = () => S.config?.documentos !== false;   // el creador puede apagar los documentos
 // Filtro "Cargado": con fotos o notas de desmontaje, o con algo en el check in / out
 const CARGADO = { desm: v => !!(v.desFotos?.length || v.desNotas?.length), check: v => [v.checkIn, v.checkOut].some(c => c && Object.keys(c).length) };
-const tieneEtapa = (v, tipo, fase) => itemsTexto(v[tipo]).some(x => etapaItem(v, tipo, x)[0] === fase);
+// fase "todos": cualquier vehículo con al menos un repuesto / paño cargado
+const tieneEtapa = (v, tipo, fase) => fase === "todos" ? itemsTexto(v[tipo]).length > 0 : itemsTexto(v[tipo]).some(x => etapaItem(v, tipo, x)[0] === fase);
 // "Ocultar anulados": los anulados no se cuentan ni se listan
 const visibles = () => activos().filter(v => !F.sinAnul || !esAnulado(v));
 // Compañías (filtro múltiple): ninguna o todas marcadas = se ven todas
@@ -268,13 +269,13 @@ export function vistaVehiculos(view, selId = null) {
       const gr = [[0, "–"], [1, "G1"], [2, "G2"], [3, "G3"], [4, "G4"]].filter(([g]) => !(g === 4 && lector) && (g !== 0 || n(v => !v.grado) || F.grado === 0));
       el("#fo-grado").innerHTML = gr.map(([g, t]) => op("grado", g, t, n(v => (v.grado || 0) === g), F.grado === g)).join("");
       degrade("#fo-turno", ["#e0a526", "#22b07d"]);
-      ["pintura", "repuestos"].forEach(tipo => degrade(`#fo-${tipo}`, ETAPAS[tipo].map(e => e[2])));
+      ["pintura", "repuestos"].forEach(tipo => degrade(`#fo-${tipo}`, ["#8a8f98", ...ETAPAS[tipo].map(e => e[2])]));
       el("#fo-turno").innerHTML = [["no", "Sin confirmar", "#e0a526", false], ["si", "Confirmados", "#22b07d", true]].map(([k, t, c, si]) =>
           op("turno", k, t, n(v => estadoActual(v) === "turnado" && (v.turnoConfirmado === true) === si), F.turno === k, c)).join("");
       el("#fo-cliente").innerHTML = Object.entries(CARAS).map(([k, [t, c]]) => op("cliente", k, t, n(v => v.conformidad === k), F.cliente === k, c)).join("");
       if (el("#fo-cargado")) el("#fo-cargado").innerHTML = [["desm", "Desmontaje"], ["check", "Check in / out"]].map(([k, t]) => op("cargado", k, t, n(CARGADO[k]), F.cargado === k)).join("");
       ["pintura", "repuestos"].forEach(tipo => {
-        el(`#fo-${tipo}`).innerHTML = ETAPAS[tipo].map(([k, t, c]) => op(tipo, k, t, n(v => tieneEtapa(v, tipo, k)), F[tipo] === k, c)).join("");
+        el(`#fo-${tipo}`).innerHTML = [["todos", "Todos", "#8a8f98"], ...ETAPAS[tipo]].map(([k, t, c]) => op(tipo, k, t, n(v => tieneEtapa(v, tipo, k)), F[tipo] === k, c)).join("");
       });
       if (el("#fo-cias")) el("#fo-cias").innerHTML = ciasDisponibles().map(([c, k]) => `<button type="button" class="fo-op ${F.cias.has(c) ? "on" : ""}" data-cia="${esc(c)}"><span class="fo-txt">${esc(c)}</span><b>${k}</b></button>`).join("")
         || `<span class="muted small">Sin vehículos</span>`;
