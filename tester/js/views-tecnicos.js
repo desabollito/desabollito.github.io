@@ -201,21 +201,26 @@ export function vistaTecnicos(view) {
   // En el cierre cuenta el monto completo si cae en el período elegido; los fijos cuentan una vez por mes.
   const masMes = (iso, n) => { const [y, m, d] = iso.split("-").map(Number); const f = new Date(y, m - 1 + n, 1), ult = new Date(f.getFullYear(), f.getMonth() + 1, 0).getDate();
     return `${f.getFullYear()}-${String(f.getMonth() + 1).padStart(2, "0")}-${String(Math.min(d, ult)).padStart(2, "0")}`; };
-  const vecesSueldo = m => {
-    const desde = m.desde || m.fecha || "", hasta = m.hasta || desde;
-    if (!desde) return 0;
-    if (!m.fijo) return (!T.hasta || desde <= T.hasta) && (!T.desde || hasta >= T.desde) ? 1 : 0;
-    const tope = [m.hasta, T.hasta, hoyISO()].filter(Boolean).sort()[0];
-    let n = 0;
-    for (let k = 0, f = desde; f <= tope && k < 240; f = masMes(desde, ++k)) if (!T.desde || f >= T.desde) n++;
-    return n;
+  // Fechas del sueldo que caen en el período. Cada mes nuevo de un fijo se suma recién al día siguiente (el día del cierre todavía no)
+  const fechasSueldo = m => {
+    const desde = m.desde || m.fecha || "", hasta = m.hasta || desde, hoy = hoyISO();
+    if (!desde) return [];
+    if (!m.fijo) return (!T.hasta || desde <= T.hasta) && (!T.desde || hasta >= T.desde) ? [desde] : [];
+    const tope = [m.hasta, T.hasta, hoy].filter(Boolean).sort()[0], out = [];
+    for (let k = 0, f = desde; f <= tope && k < 240; f = masMes(desde, ++k)) if ((!k || f < hoy) && (!T.desde || f >= T.desde)) out.push(f);
+    return out;
   };
+  const vecesSueldo = m => fechasSueldo(m).length;
   const sueldosDe = id => (cfg.movs || []).filter(m => m.tec === id && m.tipo === "sueldo");
   const totalSueldo = id => sueldosDe(id).reduce((a, m) => a + (Number(m.monto) || 0) * vecesSueldo(m), 0);
-  const listaSueldos = id => sueldosDe(id).map(m => { const v = vecesSueldo(m), d = m.desde || m.fecha;
-    return `<li class="${v ? "" : "muted"}"><span>${m.fijo ? `Fijo mensual desde ${fechaCorta(d)}${m.hasta ? ` hasta ${fechaCorta(m.hasta)}` : ""}${v > 1 ? ` · ×${v}` : ""}`
-      : `${fechaCorta(d)}${m.hasta && m.hasta !== d ? ` al ${fechaCorta(m.hasta)}` : ""}`}${m.nota ? " · " + esc(m.nota) : ""}</span><b>${pesos(m.monto)}</b>
-      ${T.editando ? `<button type="button" class="icon-btn sm" data-del-mov="${esc(m.id)}" aria-label="Quitar">${icon("x")}</button>` : ""}</li>`; }).join("") ||
+  // Una tira por sueldo (los fijos, una por mes) con su botón "Pagado"
+  const tiraSueldo = (m, f) => { const ok = !!m.pagados?.[f];
+    return `<li class="tec-tira ${ok ? "pagado" : ""}"><span>${fechaCorta(f)}${m.fijo ? "" : m.hasta && m.hasta !== f ? ` al ${fechaCorta(m.hasta)}` : ""}${!m.fijo && m.nota ? " · " + esc(m.nota) : ""}</span><b>${pesos(m.monto)}</b>
+      <button type="button" class="btn btn-sm ${ok ? "btn-primary" : "btn-ghost"}" data-pagado="${esc(m.id)}" data-f="${f}" aria-pressed="${ok}" ${S.invitado ? "disabled" : ""}>${ok ? icon("check") : ""}Pagado</button></li>`; };
+  const quitarSueldo = m => T.editando ? `<button type="button" class="icon-btn sm" data-del-mov="${esc(m.id)}" aria-label="Quitar">${icon("x")}</button>` : "";
+  const listaSueldos = id => sueldosDe(id).map(m => { const fs = fechasSueldo(m), d = m.desde || m.fecha;
+    if (m.fijo) return `<li class="${fs.length ? "" : "muted"}"><span>Fijo mensual desde ${fechaCorta(d)}${m.hasta ? ` hasta ${fechaCorta(m.hasta)}` : ""}${m.nota ? " · " + esc(m.nota) : ""}</span>${quitarSueldo(m)}</li>${fs.map(f => tiraSueldo(m, f)).join("")}`;
+    return fs.length ? tiraSueldo(m, d).replace("</li>", `${quitarSueldo(m)}</li>`) : `<li class="muted"><span>${fechaCorta(d)}${m.nota ? " · " + esc(m.nota) : ""}</span><b>${pesos(m.monto)}</b>${quitarSueldo(m)}</li>`; }).join("") ||
     `<li class="muted small">Sin sueldos cargados</li>`;
   const listaMovs = (l, vacio) => l.map(m => `<li><span>${fechaCorta(m.fecha)}${m.nota ? " · " + esc(m.nota) : ""}</span><b>${m.tipo === "sueldo" ? "" : "-"}${pesos(m.monto)}</b>
       ${T.editando ? `<button type="button" class="icon-btn sm" data-del-mov="${esc(m.id)}" aria-label="Quitar">${icon("x")}</button>` : ""}</li>`).join("") ||
@@ -294,6 +299,9 @@ export function vistaTecnicos(view) {
       if (!(await confirmar({ title: "¿Quitar esta persona?", ok: "Quitar", danger: true }))) return;
       return guardarCfg({ personas: (cfg.personas || []).filter(p => p.id !== dp.dataset.delPersona) });
     }
+    const pag = t.closest("[data-pagado]");
+    if (pag && !S.invitado) { const { pagado: id, f } = pag.dataset;
+      return guardarCfg({ movs: (cfg.movs || []).map(m => { if (m.id !== id) return m; const p = { ...(m.pagados || {}) }; if (p[f]) delete p[f]; else p[f] = true; return { ...m, pagados: p }; }) }); }
     const res = t.closest("[data-res]");
     if (res) { T.resumen = res.dataset.res; return pintar(); }
     const fila = t.closest("[data-vid]");
