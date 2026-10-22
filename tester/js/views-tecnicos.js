@@ -214,8 +214,8 @@ export function vistaTecnicos(view) {
   const sueldosDe = id => (cfg.movs || []).filter(m => m.tec === id && m.tipo === "sueldo");
   const totalSueldo = id => sueldosDe(id).reduce((a, m) => a + (Number(m.monto) || 0) * vecesSueldo(m), 0);
   // Una tira por sueldo (los fijos, una por mes) con su botón "Pagar". Los fijos muestran la fecha de cierre de ese mes (desde 22/09 → 22/10)
-  const tiraSueldo = (m, f) => { const ok = !!m.pagados?.[f];
-    return `<li class="tec-tira ${ok ? "pagado" : ""}"><span>${fechaCorta(m.fijo ? masMes(f, 1) : f)}${!m.fijo && m.hasta && m.hasta !== f ? ` al ${fechaCorta(m.hasta)}` : ""}${m.nota ? " · " + esc(m.nota) : ""}</span><b>${pesos(m.monto)}</b>
+  const tiraSueldo = (m, f) => { const ok = !!m.pagados?.[f], vence = m.fijo ? masMes(f, 1) : m.hasta || f;   // sin pagar y ya vencido (o vence hoy): rosa
+    return `<li class="tec-tira ${ok ? "pagado" : vence <= hoyISO() ? "vencido" : ""}"><span>${fechaCorta(m.fijo ? masMes(f, 1) : f)}${!m.fijo && m.hasta && m.hasta !== f ? ` al ${fechaCorta(m.hasta)}` : ""}${m.nota ? " · " + esc(m.nota) : ""}</span><b>${pesos(m.monto)}</b>
       <button type="button" class="btn btn-sm ${ok ? "btn-primary" : "btn-ghost"}" data-pagado="${esc(m.id)}" data-f="${f}" aria-pressed="${ok}" ${S.invitado ? "disabled" : ""}>${ok ? `${icon("check")}Pagado` : "Pagar"}</button></li>`; };
   const quitarSueldo = m => T.editando ? `<button type="button" class="icon-btn sm" data-del-mov="${esc(m.id)}" aria-label="Quitar">${icon("x")}</button>` : "";
   const listaSueldos = id => sueldosDe(id).map(m => { const fs = fechasSueldo(m), d = m.desde || m.fecha;
