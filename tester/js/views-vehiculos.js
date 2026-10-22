@@ -88,13 +88,13 @@ function exportarPDF() {
   const lista = ordenar(filtrar(activos()));
   // Si hay fases marcadas en el filtro, solo esos ítems
   const items = (v, tipo) => itemsTexto(v[tipo]).map(x => [x, etapaItem(v, tipo, x)]).filter(([, e]) => !F[tipo].size || F[tipo].has(e[0])).map(([x, e]) => `${x} — ${e[1]}`);
-  const OPS = [["Vehículos con repuestos", ["repuestos"]], ["Vehículos con pintura", ["pintura"]], ["Con repuestos o pintura", ["repuestos", "pintura"]]];
+  const OPS = [["Vehículos con repuestos", ["repuestos"]], ["Vehículos con pintura", ["pintura"]], ["Ambos", ["repuestos", "pintura"], "Vehículos con repuestos o pintura"]];
   const conItems = tipos => lista.filter(v => tipos.some(t => items(v, t).length));
   const s = openSheet({ title: "¿Qué vehículos exportás?", body: `<div class="stack">${OPS.map(([t, tipos], i) =>
     `<button type="button" class="btn btn-ghost btn-block" data-pdf="${i}">${t} (${conItems(tipos).length})</button>`).join("")}</div>` });
   s.el.addEventListener("click", e => {
     const b = e.target.closest("[data-pdf]"); if (!b) return;
-    const [t, tipos] = OPS[+b.dataset.pdf], vs = conItems(tipos);
+    const [nom, tipos, t = nom] = OPS[+b.dataset.pdf], vs = conItems(tipos);   // "Ambos" lleva un título más claro en el PDF
     if (!vs.length) return toast("No hay vehículos para exportar");
     const filas = vs.flatMap(v => { const cols = tipos.map(tp => items(v, tp)), n = Math.max(...cols.map(c => c.length));
       return Array.from({ length: n }, (_, i) => [i ? "" : v.modelo || "", i ? "" : v.patente || "", ...cols.map(c => c[i] || "")]); });
