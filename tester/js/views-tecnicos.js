@@ -213,6 +213,8 @@ export function vistaTecnicos(view) {
   const vecesSueldo = m => fechasSueldo(m).length;
   const sueldosDe = id => (cfg.movs || []).filter(m => m.tec === id && m.tipo === "sueldo");
   const totalSueldo = id => sueldosDe(id).reduce((a, m) => a + (Number(m.monto) || 0) * vecesSueldo(m), 0);
+  // Lo que falta pagar (pestaña Sueldos); el cierre sigue usando el total
+  const sueldoPendiente = id => sueldosDe(id).reduce((a, m) => a + (Number(m.monto) || 0) * fechasSueldo(m).filter(f => !m.pagados?.[f]).length, 0);
   // Una tira por sueldo (los fijos, una por mes) con su botón "Pagar". Los fijos muestran la fecha de cierre de ese mes (desde 22/09 → 22/10)
   const tiraSueldo = (m, f) => { const ok = !!m.pagados?.[f], vence = m.fijo ? masMes(f, 1) : m.hasta || f;   // sin pagar y ya vencido (o vence hoy): rosa
     return `<li class="tec-tira ${ok ? "pagado" : vence <= hoyISO() ? "vencido" : ""}"><span>${fechaCorta(m.fijo ? masMes(f, 1) : f)}${!m.fijo && m.hasta && m.hasta !== f ? ` al ${fechaCorta(m.hasta)}` : ""}${m.nota ? " · " + esc(m.nota) : ""}</span><b>${pesos(m.monto)}</b>
@@ -231,7 +233,7 @@ export function vistaTecnicos(view) {
     return `${ps.length ? `<div class="tec-cierre-grid">${ps.map(p => {
       return `<section class="tec-cierre" data-tecid="${esc(p.id)}">
         <h3 class="tec-cierre-nombre">${esc(p.nombre)}${p.manual && T.editando ? ` <button type="button" class="link-btn small" data-del-persona="${esc(p.id)}">Quitar</button>` : ""}</h3>
-        <div class="tec-linea"><span>Sueldo</span><b>${pesos(totalSueldo(p.id))}</b>${T.editando ? `<button type="button" class="link-btn small" data-add-mov="sueldo">+ Sueldo</button>` : ""}</div>
+        <div class="tec-linea"><span>Sueldo</span><b>${pesos(sueldoPendiente(p.id))}</b>${T.editando ? `<button type="button" class="link-btn small" data-add-mov="sueldo">+ Sueldo</button>` : ""}</div>
         <ul class="tec-movs">${listaSueldos(p.id)}</ul>
       </section>`; }).join("")}</div>`
       : `<div class="empty small"><p>No hay técnicos a sueldo. Aparecen solos los que están en viandas o alquiler y no son sacabollos, o agregalos acá.</p></div>`}
