@@ -18,7 +18,7 @@ const visto = () => {
 
 // Solo se avisan cambios a los datos del vehículo y fotos nuevas: no la carga, ni los estados,
 // ni las etapas de repuestos y pintura (Pedido, Recibido, Pintado…)
-const ETAPAS_TXT = /: (Sin pedir|Pedido|Recibido|Colocado|Sin pintar|Turnado|Pintado)$/;
+const ETAPAS_TXT = /: (Sin cargar|Sin pedir|Pedido|Recibido|Colocado|Sin pintar|Turnado|Pintado)$/;
 const avisable = txt => !!txt && !/^(Pasó a|Volvió a|Carg[óo] el veh)/.test(txt) && !ETAPAS_TXT.test(txt);
 const MIN_CARGA = 30 * 60_000;   // fotos de los primeros 30 min = las de la carga, no se avisan
 export function listaNotifs() {

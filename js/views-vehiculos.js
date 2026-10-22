@@ -399,8 +399,8 @@ const itemsTexto = t => String(t || "").split(/\n|,/).map(prolijo).filter(Boolea
 
 // Estado de cada repuesto y de cada paño de pintura: se toca el ítem y se elige
 const ETAPAS = {
-  repuestos: [["sinpedir", "Sin pedir", "#e5484d"], ["pedido", "Pedido", "#e0a526"], ["recibido", "Recibido", "#4f8ff7"], ["colocado", "Colocado", "#22b07d"]],
-  pintura: [["pendiente", "Sin pintar", "#e5484d"], ["pedido", "Pedido", "#e0a526"], ["turnado", "Turnado", "#4f8ff7"], ["pintado", "Pintado", "#22b07d"]]
+  repuestos: [["sinpedir", "Sin cargar", "#e5484d"], ["pedido", "Pedido", "#e0a526"], ["recibido", "Recibido", "#4f8ff7"], ["colocado", "Colocado", "#22b07d"]],
+  pintura: [["pendiente", "Sin cargar", "#e5484d"], ["pedido", "Pedido", "#e0a526"], ["turnado", "Turnado", "#4f8ff7"], ["pintado", "Pintado", "#22b07d"]]
 };
 const CAMPO_ETAPAS = { repuestos: "etapasRepuestos", pintura: "etapasPintura" };
 const claveItem = x => sinTildesJS(x).toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "").slice(0, 60) || "item";
