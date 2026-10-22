@@ -18,7 +18,7 @@ import { armarZip } from "./zip.js";
 import { setTopbar, go, esAncho } from "./shell.js";
 
 // Filtros de la lista (se conservan al navegar)
-const F = { estado: "todos", q: "", mios: false, sinAnul: false, orden: "fecha", dir: -1, grado: null, repuestos: null, pintura: null, turno: null, cliente: null, cargado: null, cias: new Set() }; // grado: null = todos, 0 = sin grado
+const F = { estado: "todos", q: "", mios: false, sinAnul: false, orden: "fecha", dir: -1, grado: null, repuestos: new Set(), pintura: new Set(), turno: null, cliente: null, cargado: null, cias: new Set() }; // grado: null = todos, 0 = sin grado
 
 // Conformidad del cliente al entregar: carita y color de cada opción
 const CARAS = { conforme: ["Conforme", "#22b07d", "M8 14.5c1 1.4 2.4 2 4 2s3-.6 4-2"], regular: ["Regular", "#e0a526", "M8.5 15.5h7"], desconforme: ["Desconforme", "#e0486e", "M8 16.5c1-1.4 2.4-2 4-2s3 .6 4 2"] };
@@ -55,8 +55,7 @@ const tokensBorrado = new Map(); // publicId → delete_token (válido 10 min)
 const docsOn = () => S.config?.documentos !== false;   // el creador puede apagar los documentos
 // Filtro "Cargado": con fotos o notas de desmontaje, o con algo en el check in / out
 const CARGADO = { desm: v => !!(v.desFotos?.length || v.desNotas?.length), check: v => [v.checkIn, v.checkOut].some(c => c && Object.keys(c).length) };
-// fase "todos": cualquier vehículo con al menos un repuesto / paño cargado
-const tieneEtapa = (v, tipo, fase) => fase === "todos" ? itemsTexto(v[tipo]).length > 0 : itemsTexto(v[tipo]).some(x => etapaItem(v, tipo, x)[0] === fase);
+const tieneEtapa = (v, tipo, fase) => itemsTexto(v[tipo]).some(x => etapaItem(v, tipo, x)[0] === fase);
 // "Ocultar anulados": los anulados no se cuentan ni se listan
 const visibles = () => activos().filter(v => !F.sinAnul || !esAnulado(v));
 // Compañías (filtro múltiple): ninguna o todas marcadas = se ven todas
@@ -71,8 +70,8 @@ function filtrar(lista) {
     (!F.mios || esMioV(v)) &&
     (!F.sinAnul || q || !esAnulado(v)) &&   // buscando, los anulados aparecen igual
     (F.grado === null || (v.grado || 0) === F.grado) &&
-    (!F.repuestos || tieneEtapa(v, "repuestos", F.repuestos)) &&
-    (!F.pintura || tieneEtapa(v, "pintura", F.pintura)) &&
+    (!F.repuestos.size || [...F.repuestos].some(f => tieneEtapa(v, "repuestos", f))) &&   // varias fases = cualquiera de ellas
+    (!F.pintura.size || [...F.pintura].some(f => tieneEtapa(v, "pintura", f))) &&
     (!F.turno || (estadoActual(v) === "turnado" && (F.turno === "si") === (v.turnoConfirmado === true))) &&
     (!F.cliente || v.conformidad === F.cliente) &&
     (!F.cargado || CARGADO[F.cargado](v)) &&
@@ -167,7 +166,7 @@ export function vistaVehiculos(view, selId = null) {
   if (selId && !ancho) return vistaDetalle(view, selId);
 
   // Cuántos filtros/órdenes distintos de lo normal hay puestos (se ve en el botón)
-  const cuantosActivos = () => [F.mios, F.sinAnul, F.grado !== null, F.repuestos, F.pintura, F.turno, F.cliente, F.cargado, F.cias.size > 0, F.orden !== "fecha" || F.dir !== -1].filter(Boolean).length;
+  const cuantosActivos = () => [F.mios, F.sinAnul, F.grado !== null, F.repuestos.size > 0, F.pintura.size > 0, F.turno, F.cliente, F.cargado, F.cias.size > 0, F.orden !== "fecha" || F.dir !== -1].filter(Boolean).length;
   const marcarBoton = () => { const b = $("#tb-filtros"); if (!b) return; const k = cuantosActivos();
     b.classList.toggle("activo", k > 0); const n = $(".fo-badge", b); if (n) { n.textContent = k; n.hidden = !k; } };
   setTopbar({
@@ -225,7 +224,7 @@ export function vistaVehiculos(view, selId = null) {
          <button class="btn btn-ghost" id="limpiar">Limpiar filtros</button></div>`;
     box.classList.toggle("lista-anim", animar);
     if (animar) [...box.children].forEach((c, i) => c.style.setProperty("--i", i));
-    $("#limpiar", box)?.addEventListener("click", () => { F.q = ""; F.estado = "todos"; F.mios = false; F.sinAnul = false; F.cias.clear(); F.grado = null; F.repuestos = null; F.pintura = null; F.turno = null; F.cliente = null; F.cargado = null; marcarBoton(); $("#q").value = ""; pintar(); });
+    $("#limpiar", box)?.addEventListener("click", () => { F.q = ""; F.estado = "todos"; F.mios = false; F.sinAnul = false; F.cias.clear(); F.grado = null; F.repuestos.clear(); F.pintura.clear(); F.turno = null; F.cliente = null; F.cargado = null; marcarBoton(); $("#q").value = ""; pintar(); });
   };
 
   // Computadora: tocar de nuevo el vehículo marcado lo desmarca y cierra el detalle
@@ -269,13 +268,13 @@ export function vistaVehiculos(view, selId = null) {
       const gr = [[0, "–"], [1, "G1"], [2, "G2"], [3, "G3"], [4, "G4"]].filter(([g]) => !(g === 4 && lector) && (g !== 0 || n(v => !v.grado) || F.grado === 0));
       el("#fo-grado").innerHTML = gr.map(([g, t]) => op("grado", g, t, n(v => (v.grado || 0) === g), F.grado === g)).join("");
       degrade("#fo-turno", ["#e0a526", "#22b07d"]);
-      ["pintura", "repuestos"].forEach(tipo => degrade(`#fo-${tipo}`, ["#8a8f98", ...ETAPAS[tipo].map(e => e[2])]));
+      ["pintura", "repuestos"].forEach(tipo => degrade(`#fo-${tipo}`, ETAPAS[tipo].map(e => e[2])));
       el("#fo-turno").innerHTML = [["no", "Sin confirmar", "#e0a526", false], ["si", "Confirmados", "#22b07d", true]].map(([k, t, c, si]) =>
           op("turno", k, t, n(v => estadoActual(v) === "turnado" && (v.turnoConfirmado === true) === si), F.turno === k, c)).join("");
       el("#fo-cliente").innerHTML = Object.entries(CARAS).map(([k, [t, c]]) => op("cliente", k, t, n(v => v.conformidad === k), F.cliente === k, c)).join("");
       if (el("#fo-cargado")) el("#fo-cargado").innerHTML = [["desm", "Desmontaje"], ["check", "Check in / out"]].map(([k, t]) => op("cargado", k, t, n(CARGADO[k]), F.cargado === k)).join("");
       ["pintura", "repuestos"].forEach(tipo => {
-        el(`#fo-${tipo}`).innerHTML = [["todos", "Todos", "#8a8f98"], ...ETAPAS[tipo]].map(([k, t, c]) => op(tipo, k, t, n(v => tieneEtapa(v, tipo, k)), F[tipo] === k, c)).join("");
+        el(`#fo-${tipo}`).innerHTML = ETAPAS[tipo].map(([k, t, c]) => op(tipo, k, t, n(v => tieneEtapa(v, tipo, k)), F[tipo].has(k), c)).join("");
       });
       if (el("#fo-cias")) el("#fo-cias").innerHTML = ciasDisponibles().map(([c, k]) => `<button type="button" class="fo-op ${F.cias.has(c) ? "on" : ""}" data-cia="${esc(c)}"><span class="fo-txt">${esc(c)}</span><b>${k}</b></button>`).join("")
         || `<span class="muted small">Sin vehículos</span>`;
@@ -287,14 +286,15 @@ export function vistaVehiculos(view, selId = null) {
     hoja.el.addEventListener("click", e => {
       const c = e.target.closest("[data-cia]");
       if (c) { const k = c.dataset.cia; F.cias.has(k) ? F.cias.delete(k) : F.cias.add(k); return aplicar(); }
-      if (e.target.closest("#fo-reset")) { F.mios = false; F.sinAnul = false; F.cargado = null; F.grado = null; F.repuestos = null; F.pintura = null; F.turno = null; F.cliente = null; F.cias.clear(); F.orden = "fecha"; F.dir = -1;
+      if (e.target.closest("#fo-reset")) { F.mios = false; F.sinAnul = false; F.cargado = null; F.grado = null; F.repuestos.clear(); F.pintura.clear(); F.turno = null; F.cliente = null; F.cias.clear(); F.orden = "fecha"; F.dir = -1;
         if (el("#fo-mios")) el("#fo-mios").checked = false; el("#fo-anul").checked = false; return aplicar(); }
       const b = e.target.closest("[data-g]"); if (!b) return;
       const g = b.dataset.g, v = b.dataset.v;
       if (g === "orden") { if (F.orden === v) F.dir *= -1; else { F.orden = v; F.dir = v === "fecha" ? -1 : 1; } }
       // Sin "Todos": tocar la opción elegida la quita (ninguna elegida = todos)
       else if (g === "grado") F.grado = F.grado === Number(v) ? null : Number(v);
-      else F[g] = F[g] === v ? null : v;   // turno, cliente, cargado, pintura, repuestos
+      else if (g === "pintura" || g === "repuestos") F[g].has(v) ? F[g].delete(v) : F[g].add(v);   // se pueden marcar varias
+      else F[g] = F[g] === v ? null : v;   // turno, cliente, cargado
       aplicar();
     });
     el("#fo-mios")?.addEventListener("change", e => { F.mios = e.target.checked; aplicar(); });
