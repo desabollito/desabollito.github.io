@@ -216,7 +216,7 @@ export function vistaTecnicos(view) {
   // Una tira por sueldo (los fijos, una por mes) con su botón "Pagado"
   const tiraSueldo = (m, f) => { const ok = !!m.pagados?.[f];
     return `<li class="tec-tira ${ok ? "pagado" : ""}"><span>${fechaCorta(f)}${m.fijo ? "" : m.hasta && m.hasta !== f ? ` al ${fechaCorta(m.hasta)}` : ""}${!m.fijo && m.nota ? " · " + esc(m.nota) : ""}</span><b>${pesos(m.monto)}</b>
-      <button type="button" class="btn btn-sm ${ok ? "btn-primary" : "btn-ghost"}" data-pagado="${esc(m.id)}" data-f="${f}" aria-pressed="${ok}" ${S.invitado ? "disabled" : ""}>${ok ? icon("check") : ""}Pagado</button></li>`; };
+      <button type="button" class="btn btn-sm ${ok ? "btn-primary" : "btn-ghost"}" data-pagado="${esc(m.id)}" data-f="${f}" aria-pressed="${ok}" ${S.invitado ? "disabled" : ""}>${ok ? `${icon("check")}Pagado` : "Pagar"}</button></li>`; };
   const quitarSueldo = m => T.editando ? `<button type="button" class="icon-btn sm" data-del-mov="${esc(m.id)}" aria-label="Quitar">${icon("x")}</button>` : "";
   const listaSueldos = id => sueldosDe(id).map(m => { const fs = fechasSueldo(m), d = m.desde || m.fecha;
     if (m.fijo) return `<li class="${fs.length ? "" : "muted"}"><span>Fijo mensual desde ${fechaCorta(d)}${m.hasta ? ` hasta ${fechaCorta(m.hasta)}` : ""}${m.nota ? " · " + esc(m.nota) : ""}</span>${quitarSueldo(m)}</li>${fs.map(f => tiraSueldo(m, f)).join("")}`;
