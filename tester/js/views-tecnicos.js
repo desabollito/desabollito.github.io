@@ -213,14 +213,14 @@ export function vistaTecnicos(view) {
   const vecesSueldo = m => fechasSueldo(m).length;
   const sueldosDe = id => (cfg.movs || []).filter(m => m.tec === id && m.tipo === "sueldo");
   const totalSueldo = id => sueldosDe(id).reduce((a, m) => a + (Number(m.monto) || 0) * vecesSueldo(m), 0);
-  // Una tira por sueldo (los fijos, una por mes) con su botón "Pagado"
+  // Una tira por sueldo (los fijos, una por mes) con su botón "Pagar". Los fijos muestran la fecha de cierre de ese mes (desde 22/09 → 22/10)
   const tiraSueldo = (m, f) => { const ok = !!m.pagados?.[f];
-    return `<li class="tec-tira ${ok ? "pagado" : ""}"><span>${fechaCorta(f)}${m.fijo ? "" : m.hasta && m.hasta !== f ? ` al ${fechaCorta(m.hasta)}` : ""}${!m.fijo && m.nota ? " · " + esc(m.nota) : ""}</span><b>${pesos(m.monto)}</b>
+    return `<li class="tec-tira ${ok ? "pagado" : ""}"><span>${fechaCorta(m.fijo ? masMes(f, 1) : f)}${!m.fijo && m.hasta && m.hasta !== f ? ` al ${fechaCorta(m.hasta)}` : ""}${m.nota ? " · " + esc(m.nota) : ""}</span><b>${pesos(m.monto)}</b>
       <button type="button" class="btn btn-sm ${ok ? "btn-primary" : "btn-ghost"}" data-pagado="${esc(m.id)}" data-f="${f}" aria-pressed="${ok}" ${S.invitado ? "disabled" : ""}>${ok ? `${icon("check")}Pagado` : "Pagar"}</button></li>`; };
   const quitarSueldo = m => T.editando ? `<button type="button" class="icon-btn sm" data-del-mov="${esc(m.id)}" aria-label="Quitar">${icon("x")}</button>` : "";
   const listaSueldos = id => sueldosDe(id).map(m => { const fs = fechasSueldo(m), d = m.desde || m.fecha;
-    if (m.fijo) return `<li class="${fs.length ? "" : "muted"}"><span>Fijo mensual desde ${fechaCorta(d)}${m.hasta ? ` hasta ${fechaCorta(m.hasta)}` : ""}${m.nota ? " · " + esc(m.nota) : ""}</span>${quitarSueldo(m)}</li>${fs.map(f => tiraSueldo(m, f)).join("")}`;
-    return fs.length ? tiraSueldo(m, d).replace("</li>", `${quitarSueldo(m)}</li>`) : `<li class="muted"><span>${fechaCorta(d)}${m.nota ? " · " + esc(m.nota) : ""}</span><b>${pesos(m.monto)}</b>${quitarSueldo(m)}</li>`; }).join("") ||
+    if (fs.length) return fs.map((f, i) => i ? tiraSueldo(m, f) : tiraSueldo(m, f).replace("</li>", `${quitarSueldo(m)}</li>`)).join("");
+    return `<li class="muted"><span>${fechaCorta(d)}${m.nota ? " · " + esc(m.nota) : ""}</span><b>${pesos(m.monto)}</b>${quitarSueldo(m)}</li>`; }).join("") ||
     `<li class="muted small">Sin sueldos cargados</li>`;
   const listaMovs = (l, vacio) => l.map(m => `<li><span>${fechaCorta(m.fecha)}${m.nota ? " · " + esc(m.nota) : ""}</span><b>${m.tipo === "sueldo" ? "" : "-"}${pesos(m.monto)}</b>
       ${T.editando ? `<button type="button" class="icon-btn sm" data-del-mov="${esc(m.id)}" aria-label="Quitar">${icon("x")}</button>` : ""}</li>`).join("") ||
