@@ -2357,6 +2357,9 @@ async function comandoAdmin(env, m, texto) {
   if (tk) { await comandoTracking(env, m, tk[1]); return true; }
   const inf = t.match(/^informe\s+@?([a-z0-9._-]{3,64})$/);
   if (inf) { await enviarInforme(env, m, inf[1], false); return true; }
+  // "vincular @juan 5491122334455" le asigna ese WhatsApp; "restablecer @juan [numero]" le manda el código (vinculando antes si va número)
+  const vi = t.match(/^(vincular|restablecer)\s+@?([a-z0-9._-]{3,64})(?:\s+([\d+ -]{8,20}))?$/);
+  if (vi && (vi[3] || vi[1] === "restablecer")) { await comandoCuentaWa(env, m, vi[1], vi[2], vi[3]); return true; }
   if (t === "pendientes") {
     const pend = await fsList(env, "bot_pendientes");
     await responder(env, dest(m), pend.length ? "📋 Cuentas esperando aprobación:\n\n" + pend.map(p => `• ${p.name || ""} (@${p.username})`).join("\n") + "\n\nRespondé *SI usuario* o *NO usuario*."
@@ -2990,7 +2993,9 @@ async function recuperarApi(env, { usuario }) {
     // Sin WhatsApp vinculado: se avisa al administrador para que lo ayude
     await fsSet(env, `bot_recuperar/${u}`, { t: Date.now() });
     await enviar(env, destinoNumero(env, numeroAdmin(env)), { type: "text", text: { body:
-      `🔑 *@${u}* (${perfil?.name || "sin nombre"}) pidió restablecer su contraseña, pero no tiene WhatsApp vinculado.` } }).catch(() => {});
+      `🔑 *@${u}* (${perfil?.name || "sin nombre"}) pidió restablecer su contraseña, pero no tiene WhatsApp vinculado.\n\n` +
+      `Para mandarle el código a su WhatsApp (y dejarlo vinculado al bot) respondé:\n*restablecer ${u} 54911XXXXXXXX*\n\n` +
+      `Solo vincularlo, sin código:\n*vincular ${u} 54911XXXXXXXX*` } }).catch(() => {});
     return json({ ok: false, sinWhatsapp: true, error: "Tu cuenta no tiene WhatsApp vinculado. Ya le avisamos al administrador para que te ayude." });
   }
   const codigo = String(100000 + (crypto.getRandomValues(new Uint32Array(1))[0] % 900000));
@@ -2998,6 +3003,30 @@ async function recuperarApi(env, { usuario }) {
   await enviar(env, destinoNumero(env, perfil.whatsapp), { type: "text", text: { body:
     `🔑 Tu código para restablecer la contraseña de Desabollito es:\n\n*${codigo}*\n\nVence en 15 minutos. Si no lo pediste vos, ignorá este mensaje.` } });
   return json({ ok: true, wa: "…" + String(perfil.whatsapp).slice(-4) });
+}
+async function comandoCuentaWa(env, m, accion, usuario, numeroTxt) {
+  const u = limpiarU(usuario);
+  const reg = await fsGet(env, `usernames/${u}`).catch(() => null);
+  if (!reg?.uid) return responder(env, dest(m), `No existe el usuario *@${u}*.`);
+  if (numeroTxt) {
+    const numero = normalizarNumero(numeroTxt);
+    if (!/^549\d{10}$/.test(numero)) return responder(env, dest(m), `El número *${numeroTxt.trim()}* no parece un celular argentino. Escribilo así: 5491122334455`);
+    const otro = await fsGet(env, `bot_numeros/${numero}`).catch(() => null);
+    if (otro?.uid && otro.uid !== reg.uid) return responder(env, dest(m), `🔒 Ese WhatsApp ya está vinculado a *@${otro.username}*. Desvinculalo primero desde la app.`);
+    const perfil = await fsGet(env, `users/${reg.uid}`).catch(() => null);
+    if (perfil?.whatsapp && perfil.whatsapp !== numero) await fsDelete(env, `bot_numeros/${perfil.whatsapp}`).catch(() => {});
+    await fsSet(env, `bot_numeros/${numero}`, { uid: reg.uid, username: u, name: perfil?.name || u, ts: Date.now() });
+    await fsMerge(env, `users/${reg.uid}`, { whatsapp: numero });
+    if (accion === "vincular") {
+      await responder(env, destinoNumero(env, numero), `✅ El administrador vinculó este WhatsApp a tu usuario *@${u}* de Desabollito.\n\n` + INSTRUCCIONES).catch(() => {});
+      return responder(env, dest(m), `✅ *@${u}* quedó vinculado al WhatsApp ${numero}.`);
+    }
+  } else if (!(await fsGet(env, `users/${reg.uid}`).catch(() => null))?.whatsapp) {
+    return responder(env, dest(m), `*@${u}* no tiene WhatsApp vinculado. Respondé *restablecer ${u} 54911XXXXXXXX* con su número.`);
+  }
+  await fsDelete(env, `bot_recuperar/${u}`).catch(() => {});   // el admin no espera el minuto entre códigos
+  const r = await (await recuperarApi(env, { usuario: u })).json();
+  return responder(env, dest(m), r.ok ? `🔑 Le mandé a *@${u}* el código para restablecer la contraseña (WhatsApp ${r.wa}). Vence en 15 minutos.` : `❌ ${r.error}`);
 }
 async function restablecerApi(env, { usuario, codigo, pass }) {
   const u = limpiarU(usuario);
