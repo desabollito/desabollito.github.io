@@ -886,10 +886,10 @@ async function alRecibirTexto(env, m, quien, texto) {
     }
   }
 
-  // "xlsx" → formulario de la planilla Mercantil; la respuesta completa → el .xlsx
+  // "excel" → formulario de la planilla Mercantil; la respuesta completa → el .xlsx
   if (s?.xlsxForm?.t && Date.now() - s.xlsxForm.t < VENTANA_XLSX && esFormXlsx(texto))
     return completarFormXlsx(env, m, quien, texto, s.xlsxForm);
-  if (/(^|\s)\.?xlsx\b/i.test(sinMencion)) return pedirFormXlsx(env, m, quien, sinMencion);
+  if (/(^|\s)excel\b/i.test(sinMencion)) return pedirFormXlsx(env, m, quien, sinMencion);
 
   // "Turnos hoy", "¿Qué viene hoy?", "Autos hoy"… → turnos de hoy, un auto por línea
   // En grupos solo si le hablan al bot (@desabollito o "bot")
@@ -2608,11 +2608,11 @@ const PANOS_MERCANTIL = { C10: "CAPOT", C11: "TECHO", C12: "BAUL",
   C14: "GUARDABARROS DEL. IZQ", C15: "PUERTA DEL. IZQ", C16: "PUERTA TRAS. IZQ", C17: "GUARDABARROS TRAS. IZQ", C18: "PARANTE IZQ",
   C20: "GUARDABARROS DEL. DER", C21: "PUERTA DEL. DER", C22: "PUERTA TRAS. DER", C23: "GUARDABARROS TRAS. DER", C24: "PARANTE DER" };
 const numDe = t => { const d = String(t || "").replace(/\D/g, ""); return d ? (d.length <= 15 ? Number(d) : d) : null; };
-const CAMPOS_XLSX = [["patente", "Patente"], ["modelo", "Modelo"], ["siniestro", "Siniestro"], ["km", "KM"], ["grado", "Grado"], ["asegurado", "Asegurado"], ["telefono", "Teléfono"]];
+const CAMPOS_XLSX = [["patente", "Patente"], ["modelo", "Modelo"], ["siniestro", "Siniestro"], ["km", "KM"], ["grado", "Grado"], ["asegurado", "Asegurado"], ["telefono", "Teléfono"], ["repuestos", "Repuestos"], ["pintura", "Pintura"]];
 const VENTANA_XLSX = 30 * 60_000;
-const esFormXlsx = t => String(t || "").split(/\n/).filter(l => /^\s*[1-7]\s*[.)\-:]/.test(l)).length >= 3;
+const esFormXlsx = t => String(t || "").split(/\n/).filter(l => /^\s*[1-9]\s*[.)\-:]/.test(l)).length >= 3;
 
-// "xlsx" (con o sin patente) → formulario para completar. Si la patente está cargada, viene con los datos de la app.
+// "excel" (con o sin patente) → formulario para completar. Si la patente está cargada, viene con los datos de la app.
 async function pedirFormXlsx(env, m, quien, texto) {
   const p = buscarPatenteEnTexto(texto);
   let d = { patente: p?.patente || "" }, ref = null;
@@ -2624,7 +2624,7 @@ async function pedirFormXlsx(env, m, quien, texto) {
     if (v && !v.deleted) { d = { ...v, patente: v.patente || p.patente }; ref = { cid: e.cid, vid: e.vid }; }
   }
   await fsMerge(env, `bot_sesiones/${quien.numero}`, { xlsxForm: { t: Date.now(), ...(ref || {}) }, ts: Date.now() });
-  const val = k => k === "grado" ? (d.grado ? String(d.grado) : "") : String(d[k] || "");
+  const val = k => k === "grado" ? (d.grado ? String(d.grado) : "") : k === "repuestos" || k === "pintura" ? itemsRep(d[k]).join(", ") : String(d[k] || "");
   return responder(env, dest(m), `📄 *Planilla Mercantil*\nCopiá, completá y mandá:\n\n` + CAMPOS_XLSX.map(([k, l], i) => `${i + 1}. ${l}: ${val(k)}`).join("\n"));
 }
 
@@ -2632,7 +2632,7 @@ async function pedirFormXlsx(env, m, quien, texto) {
 async function completarFormXlsx(env, m, quien, texto, form) {
   const d = {};
   for (const l of String(texto).split(/\n/)) {
-    const mm = l.match(/^\s*([1-7])\s*[.)\-:]\s*(?:[a-záéíóúñ ]+:)?\s*(.*)$/i);
+    const mm = l.match(/^\s*([1-9])\s*[.)\-:]\s*(?:[a-záéíóúñ ]+:)?\s*(.*)$/i);
     if (mm) d[CAMPOS_XLSX[mm[1] - 1][0]] = mm[2].trim();
   }
   const pat = buscarPatenteEnTexto(d.patente || "")?.patente || String(d.patente || "").toUpperCase().replace(/\s+/g, "");
@@ -2662,6 +2662,10 @@ async function completarFormXlsx(env, m, quien, texto, form) {
     H6: String(d.modelo || "").toUpperCase(), H7: { v: numDe(d.km), s: 112 }, B10: { v: grado ? `GRADO ${grado}` : "", s: 111 }, ...PANOS_MERCANTIL,   // estilo 111: Arial 10 (agregado a la plantilla)
     J40: TOTAL_MERCANTIL[grado] || null
   };
+  // Repuestos (C: cambiar) y pintura (R) en las filas libres 25-30; si no entran, el resto va junto en la última
+  const piezas = [...itemsRep(d.repuestos).map(x => ["C", x]), ...itemsRep(d.pintura).map(x => ["R", x])];
+  if (piezas.length > 6) piezas.splice(5, Infinity, [piezas[5][0], piezas.slice(5).map(x => x[1]).join(", ")]);
+  piezas.forEach(([t, x], i) => { celdas[`B${25 + i}`] = t; celdas[`C${25 + i}`] = x.toUpperCase(); });
   const xlsx = await completarXlsx(MERCANTIL, celdas);
   await enviarDocumento(env, dest(m), xlsx, `Mercantil_${pat}.xlsx`, "");
 }
