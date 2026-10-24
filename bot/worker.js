@@ -2662,10 +2662,12 @@ async function completarFormXlsx(env, m, quien, texto, form) {
     H6: String(d.modelo || "").toUpperCase(), H7: { v: numDe(d.km), s: 112 }, B10: { v: grado ? `GRADO ${grado}` : "", s: 111 }, ...PANOS_MERCANTIL,   // estilo 111: Arial 10 (agregado a la plantilla)
     J40: TOTAL_MERCANTIL[grado] || null
   };
-  // Repuestos (C: cambiar) y pintura (R) en las filas libres 25-30; si no entran, el resto va junto en la última
-  const piezas = [...itemsRep(d.repuestos).map(x => ["C", x]), ...itemsRep(d.pintura).map(x => ["R", x])];
-  if (piezas.length > 6) piezas.splice(5, Infinity, [piezas[5][0], piezas.slice(5).map(x => x[1]).join(", ")]);
-  piezas.forEach(([t, x], i) => { celdas[`B${25 + i}`] = t; celdas[`C${25 + i}`] = x.toUpperCase(); });
+  // Repuestos en la columna J y pintura en la H, desde la fila 10; lo que no entra hasta la 30 va junto en la última
+  for (const [col, t] of [["J", d.repuestos], ["H", d.pintura]]) {
+    const xs = itemsRep(t);
+    if (xs.length > 21) xs.splice(20, Infinity, xs.slice(20).join(", "));
+    xs.forEach((x, i) => { celdas[`${col}${10 + i}`] = x.toUpperCase(); });
+  }
   const xlsx = await completarXlsx(MERCANTIL, celdas);
   await enviarDocumento(env, dest(m), xlsx, `Mercantil_${pat}.xlsx`, "");
 }
