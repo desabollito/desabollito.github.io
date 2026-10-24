@@ -32,8 +32,10 @@ export function vistaFacturacion(view) {
   let docs = {}, vids = [], estados = {}, vidSubir = null;
   // Sin elegir: Firmado si ya tiene la orden subida, si no Impreso (con orden subida nunca es Impreso)
   const estadoDe = vid => (docs[vid] && estados[vid] === "impreso" ? "" : estados[vid]) || (docs[vid] ? "firmado" : "impreso");
-  // Firmados y facturados en el orden de la lista: su posición es el número de línea (y el nombre de la descarga)
-  const firmados = () => activos().filter(v => vids.includes(v.id) && estadoDe(v.id) !== "impreso");
+  // Firmados y facturados en el orden de vids: su posición es el número de línea (y el nombre de la descarga)
+  const firmados = () => vids.map(id => activos().find(v => v.id === id)).filter(v => v && estadoDe(v.id) !== "impreso");
+  // Al firmarse pasa al final de vids: toma el último número
+  const alFinal = vid => estadoDe(vid) === "impreso" ? { vids: [...vids.filter(x => x !== vid), vid] } : {};
   view.innerHTML = `<div class="tec-page">
     <label class="search">${icon("search")}<input type="search" id="f-q" placeholder="Buscar patente o modelo" value="${esc(F.q)}" autocomplete="off" autocapitalize="characters"></label>
     <button type="button" class="btn btn-primary" id="f-add">${icon("plus")}Agregar vehículo</button>
@@ -99,7 +101,7 @@ export function vistaFacturacion(view) {
       // Con la orden ya subida no puede volver a Impreso
       return glideMenu(b, docs[vid] ? ESTADOS_F.filter(([k]) => k !== "impreso") : ESTADOS_F, estadoDe(vid), async est => {
         try {
-          await setDoc(ref, { estados: { [vid]: est } }, { merge: true });
+          await setDoc(ref, { estados: { [vid]: est }, ...(est !== "impreso" ? alFinal(vid) : {}) }, { merge: true });
           // Facturado acá también marca Facturado en el vehículo
           const v = activos().find(x => x.id === vid);
           if (est === "facturado" && v && estadoActual(v) !== "facturado") { await cambiarEstado(v, "facturado"); toast("Vehículo marcado Facturado", "success"); }
@@ -126,7 +128,7 @@ export function vistaFacturacion(view) {
     try {
       const r = await subir(file, `${S.company.id}/${vid}/factura`, { tipo: "auto", nombre: file.name });
       await setDoc(ref, { docs: { [vid]: { url: r.url, publicId: r.publicId, name: file.name, bytes: r.bytes, at: Date.now() } },
-        ...(estadoDe(vid) === "impreso" ? { estados: { [vid]: "firmado" } } : {}) }, { merge: true });   // subir la orden la pasa a Firmado
+        ...(estadoDe(vid) === "impreso" ? { estados: { [vid]: "firmado" }, ...alFinal(vid) } : {}) }, { merge: true });   // subir la orden la pasa a Firmado
       toast("Documento guardado", "success");
     } catch (err) { toast(mensajeError(err), "error"); }
   };
