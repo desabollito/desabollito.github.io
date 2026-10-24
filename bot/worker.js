@@ -2662,11 +2662,12 @@ async function completarFormXlsx(env, m, quien, texto, form) {
     H6: String(d.modelo || "").toUpperCase(), H7: { v: numDe(d.km), s: 112 }, B10: { v: grado ? `GRADO ${grado}` : "", s: 111 }, ...PANOS_MERCANTIL,   // estilo 111: Arial 10 (agregado a la plantilla)
     J40: TOTAL_MERCANTIL[grado] || null
   };
-  // Repuestos en la columna J y pintura en la H, desde la fila 10; lo que no entra hasta la 30 va junto en la última
+  // Repuestos en la columna J y pintura en la H, desde la fila 10; lo que no entra hasta la 30 va junto en la última.
+  // Estilos 113-115: los de la columna alineados a la izquierda, para que el texto se extienda a la derecha sin cortarse
   for (const [col, t] of [["J", d.repuestos], ["H", d.pintura]]) {
     const xs = itemsRep(t);
     if (xs.length > 21) xs.splice(20, Infinity, xs.slice(20).join(", "));
-    xs.forEach((x, i) => { celdas[`${col}${10 + i}`] = x.toUpperCase(); });
+    xs.forEach((x, i) => { celdas[`${col}${10 + i}`] = { v: x.toUpperCase(), s: col === "J" ? 114 : i === 20 ? 115 : 113 }; });
   }
   const xlsx = await completarXlsx(MERCANTIL, celdas);
   await enviarDocumento(env, dest(m), xlsx, `Mercantil_${pat}.xlsx`, "");
