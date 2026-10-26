@@ -1528,7 +1528,7 @@ async function alRecibirArchivo(env, m, quien) {
   // Pie de foto con patente en un grupo de desmontaje
   const rDesm = datos?.patente && !(abierta(sesion) && sesion.patente === datos.patente && sesion.desm)
     ? await abrirModoDesm(env, numero, quien, quitarMencion(caption), datos, hora) : null;
-  if (rDesm?.msg) return avisarUnaVez(env, m, numero, "desm", rDesm.msg);
+  if (rDesm?.msg) return avisarUnaVez(env, { ...m, _grupo: false }, numero, "desm", rDesm.msg);
   const rPint = datos?.patente && !rDesm?.ok && !(abierta(sesion) && sesion.patente === datos.patente && sesion.pint)
     ? await abrirModoPintura(env, numero, quien, quitarMencion(caption), datos, hora) : null;
   if (rPint) await avisarUnaVez(env, m, numero, "pint", rPint.msg);

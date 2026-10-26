@@ -1110,7 +1110,7 @@ async function subirAdjuntos(v, files, tipo, root) {
         if (tipo === "foto") {
           const r = await subirMedia(file, carpeta);
           if (r.deleteToken) tokensBorrado.set(r.publicId, r.deleteToken);
-          nuevos.push({ url: r.url, publicId: r.publicId, w: r.w, h: r.h, at: Date.now(), by: S.user.uid, n, ...(r.tipo ? { tipo: r.tipo } : {}) });
+          nuevos.push({ url: r.url, publicId: r.publicId, w: r.w, h: r.h, at: Date.now(), by: S.user.uid, byName: S.profile?.name || "", n, ...(r.tipo ? { tipo: r.tipo } : {}) });
         } else {
           if (file.size > 10 * 1024 * 1024) throw new Error(`${file.name}: supera 10 MB`);
           const r = await subir(file, carpeta, { tipo: "auto", nombre: file.name });

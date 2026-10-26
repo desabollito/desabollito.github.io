@@ -37,7 +37,7 @@ export function listaNotifs() {
     for (const f of v.fotos || []) {
       const t = f.at || 0; if (!t || t < desde || f.by === yo || (tc && t - tc < MIN_CARGA)) continue;
       const quien = f.byName || f.by || f.byWhatsApp || "?", k = quien + "|" + Math.floor(t / 600_000);
-      const x = tandas.get(k) || { ...base, t: 0, t0: Infinity, por: f.byName || "Alguien", n: 0, video: 0 };
+      const x = tandas.get(k) || { ...base, t: 0, t0: Infinity, por: f.byName || S.company?.memberNames?.[f.by] || "Alguien", n: 0, video: 0 };
       x.t = Math.max(x.t, t); x.n++; if (f.tipo === "video") x.video++;
       if (t < x.t0) { x.t0 = t; x.foto = f.url; }   // al tocar, abre la primera foto de esa tanda
       tandas.set(k, x);
