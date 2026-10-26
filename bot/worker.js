@@ -107,7 +107,6 @@ export default {
   async scheduled(ev, env, ctx) {
     // 23:00 UTC = 20:00 Argentina: resumen diario
     if (ev.cron === "0 23 * * *") return ctx.waitUntil(enviarResumenesDiarios(env).catch(e => console.error("resumen", e?.stack || e)));
-    if (ev.cron === "*/10 * * * *") return ctx.waitUntil(vigilarBot(env).catch(e => console.error("vigia", e?.stack || e)));
     ctx.waitUntil(vaciarPapelera(env).catch(e => console.error("papelera", e?.stack || e)));
     // Respaldo: si a las 20 no salió el resumen, sale en la pasada siguiente (hasta las 23)
     const horaAR = new Date(Date.now() - 3 * 3600 * 1000).getUTCHours();
@@ -3126,21 +3125,6 @@ async function estadoEvolution(env, inst) {
     const j = await r.json().catch(() => ({}));
     return j?.instance?.state || j?.state || `error ${r.status}`;
   } catch { return null; }
-}
-// Cada 10 minutos: si se cae la conexión del bot, avisa al administrador desde el número de la empresa (una vez, y otra al volver)
-// shortcut: si se cae el servidor de Evolution entero, el número de la empresa tampoco puede avisar
-async function vigilarBot(env) {
-  if (!env.EVOLUTION_URL) return;
-  const est = await estadoEvolution(env, env.EVOLUTION_INSTANCE || "desabollito");
-  const caido = est !== "open", antes = (await fsGet(env, "bot_estado/vigia").catch(() => null))?.caido || false;
-  if (caido === antes) return;
-  const base = String(env.EVOLUTION_URL).replace(/\/+$/, "");
-  const texto = caido ? `⚠️ El bot de Desabollito se desconectó de WhatsApp (estado: ${est || "sin respuesta"}). Mientras tanto no recibe mensajes ni fotos.
-
-Volvé a escanear el QR en ${base}/manager`
-    : "✅ El bot de Desabollito volvió a conectarse a WhatsApp.";
-  const r = await enviarEvolution(env, `evo:${numeroAdmin(env)}`, { type: "text", text: { body: texto }, _inst: instanciaClientes(env) });
-  if (r?.ok) await fsMerge(env, "bot_estado/vigia", { caido, est: est || "", t: Date.now() });
 }
 
 // Cancela la carga abierta: si el bot recién creó el vehículo, lo borra (sin fotos) o lo manda a
