@@ -88,15 +88,16 @@ function exportarPDF() {
   const lista = ordenar(filtrar(activos()));
   // Si hay fases marcadas en el filtro, solo esos ítems
   const items = (v, tipo) => itemsTexto(v[tipo]).map(x => [x, etapaItem(v, tipo, x)]).filter(([, e]) => !F[tipo].size || F[tipo].has(e[0])).map(([x, e]) => `${x} — ${e[1]}`);
-  const OPS = [["Vehículos con repuestos", ["repuestos"]], ["Vehículos con pintura", ["pintura"]], ["Ambos", ["repuestos", "pintura"], "Vehículos con repuestos o pintura"]];
-  const conItems = tipos => lista.filter(v => tipos.some(t => items(v, t).length));
-  const s = openSheet({ title: "¿Qué vehículos exportás?", body: `<div class="stack">${OPS.map(([t, tipos], i) =>
-    `<button type="button" class="btn btn-ghost btn-block" data-pdf="${i}">${t} (${conItems(tipos).length})</button>`).join("")}</div>` });
+  const OPS = [["Vehículos con repuestos", ["repuestos"]], ["Vehículos con pintura", ["pintura"]], ["Ambos", ["repuestos", "pintura"], "Vehículos con repuestos o pintura"], ["Todos", ["repuestos", "pintura"], "Todos los vehículos", true]];
+  const conItems = (tipos, todos) => todos ? lista : lista.filter(v => tipos.some(t => items(v, t).length));
+  const s = openSheet({ title: "¿Qué vehículos exportás?", body: `<div class="stack">${OPS.map(([t, tipos, , todos], i) =>
+    `<button type="button" class="btn btn-ghost btn-block" data-pdf="${i}">${t} (${conItems(tipos, todos).length})</button>`).join("")}</div>` });
   s.el.addEventListener("click", e => {
     const b = e.target.closest("[data-pdf]"); if (!b) return;
-    const [nom, tipos, t = nom] = OPS[+b.dataset.pdf], vs = conItems(tipos);   // "Ambos" lleva un título más claro en el PDF
+    const [nom, tipos, t = nom, todos] = OPS[+b.dataset.pdf], vs = conItems(tipos, todos);   // "Ambos" y "Todos" llevan un título más claro en el PDF
     if (!vs.length) return toast("No hay vehículos para exportar");
-    const filas = vs.flatMap(v => { const cols = tipos.map(tp => items(v, tp)), n = Math.max(...cols.map(c => c.length));
+    // Math.max con 1: en "Todos" un vehículo sin ítems igual lleva su fila
+    const filas = vs.flatMap(v => { const cols = tipos.map(tp => items(v, tp)), n = Math.max(1, ...cols.map(c => c.length));
       return Array.from({ length: n }, (_, i) => [i ? "" : v.modelo || "", i ? "" : v.patente || "", ...cols.map(c => c[i] || "")]); });
     tablaPDF(S.company, t, [{ titulo: "Vehículo", ancho: 60 }, { titulo: "Patente", ancho: 28 }, ...tipos.map(tp => ({ titulo: tp === "pintura" ? "Pintura" : "Repuestos", ancho: 90 }))], filas)
       .save(`${t.replace(/\s+/g, "_")}_${hoyISO()}.pdf`);
