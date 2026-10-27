@@ -89,14 +89,14 @@ function exportarPDF() {
   const todosV = ordenar(filtrar(activos(), true)), GRUPOS = [todosV.filter(v => !esAnulado(v)), todosV.filter(esAnulado)];
   // Si hay fases marcadas en el filtro, solo esos ítems
   const items = (v, tipo) => itemsTexto(v[tipo]).map(x => [x, etapaItem(v, tipo, x)]).filter(([, e]) => !F[tipo].size || F[tipo].has(e[0])).map(([x, e]) => `${x} — ${e[1]}`);
-  const OPS = [["Vehículos con repuestos", ["repuestos"]], ["Vehículos con pintura", ["pintura"]], ["Ambos", ["repuestos", "pintura"], "Vehículos con repuestos o pintura"], ["Todos", ["repuestos", "pintura"], "Todos los vehículos", true]];
+  const OPS = [["Vehículos con repuestos", ["repuestos"]], ["Vehículos con pintura", ["pintura"]], ["Vehículos con repuestos y pintura", ["repuestos", "pintura"]], ["Todos", ["repuestos", "pintura"], "Todos los vehículos", true]];
   const conItems = (lista, tipos, todos) => todos ? lista : lista.filter(v => tipos.some(t => items(v, t).length));
   const botones = g => `<div class="stack">${OPS.map(([t, tipos, , todos], i) =>
     `<button type="button" class="btn btn-ghost btn-block" data-pdf="${i}" data-grupo="${g}">${t} (${conItems(GRUPOS[g], tipos, todos).length})</button>`).join("")}</div>`;
   const s = openSheet({ title: "¿Qué vehículos exportás?", body: `${botones(0)}<section class="fo-sec"><h3>Anulados</h3>${botones(1)}</section>` });
   s.el.addEventListener("click", e => {
     const b = e.target.closest("[data-pdf]"); if (!b) return;
-    const g = +b.dataset.grupo, [nom, tipos, t0 = nom, todos] = OPS[+b.dataset.pdf], vs = conItems(GRUPOS[g], tipos, todos);   // "Ambos" y "Todos" llevan un título más claro en el PDF
+    const g = +b.dataset.grupo, [nom, tipos, t0 = nom, todos] = OPS[+b.dataset.pdf], vs = conItems(GRUPOS[g], tipos, todos);   // "Todos" lleva un título más claro en el PDF
     const t = g ? `${t0} (anulados)` : t0;
     if (!vs.length) return toast("No hay vehículos para exportar");
     // Math.max con 1: en "Todos" un vehículo sin ítems igual lleva su fila
