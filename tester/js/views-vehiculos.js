@@ -61,14 +61,14 @@ const visibles = () => activos().filter(v => !F.sinAnul || !esAnulado(v));
 // Compañías (filtro múltiple): ninguna o todas marcadas = se ven todas
 const ciaDe = v => String(v.compania || "").trim() || "Sin compañía";
 const ciasDisponibles = () => { const n = new Map(); visibles().forEach(v => n.set(ciaDe(v), (n.get(ciaDe(v)) || 0) + 1)); return [...n].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])); };
-function filtrar(lista) {
+function filtrar(lista, conAnul) {
   const todas = ciasDisponibles().map(([c]) => c);
   if (F.cias.size && todas.every(c => F.cias.has(c))) F.cias.clear();
   const q = F.q.trim().toLowerCase();
   return lista.filter(v =>
     (F.estado === "todos" || estadoActual(v) === F.estado) &&
     (!F.mios || esMioV(v)) &&
-    (!F.sinAnul || q || !esAnulado(v)) &&   // buscando, los anulados aparecen igual
+    (conAnul || !F.sinAnul || q || !esAnulado(v)) &&   // buscando, los anulados aparecen igual
     (F.grado === null || (v.grado || 0) === F.grado) &&
     (!F.repuestos.size || [...F.repuestos].some(f => tieneEtapa(v, "repuestos", f))) &&   // varias fases = cualquiera de ellas
     (!F.pintura.size || [...F.pintura].some(f => tieneEtapa(v, "pintura", f))) &&
@@ -85,16 +85,19 @@ function filtrar(lista) {
 
 // PDF de la lista filtrada: una fila por repuesto / paño (el vehículo va solo en la primera)
 function exportarPDF() {
-  const lista = ordenar(filtrar(activos()));
+  // Los anulados van en su propia sección (por eso no se ocultan acá aunque el filtro lo pida)
+  const todosV = ordenar(filtrar(activos(), true)), GRUPOS = [todosV.filter(v => !esAnulado(v)), todosV.filter(esAnulado)];
   // Si hay fases marcadas en el filtro, solo esos ítems
   const items = (v, tipo) => itemsTexto(v[tipo]).map(x => [x, etapaItem(v, tipo, x)]).filter(([, e]) => !F[tipo].size || F[tipo].has(e[0])).map(([x, e]) => `${x} — ${e[1]}`);
   const OPS = [["Vehículos con repuestos", ["repuestos"]], ["Vehículos con pintura", ["pintura"]], ["Ambos", ["repuestos", "pintura"], "Vehículos con repuestos o pintura"], ["Todos", ["repuestos", "pintura"], "Todos los vehículos", true]];
-  const conItems = (tipos, todos) => todos ? lista : lista.filter(v => tipos.some(t => items(v, t).length));
-  const s = openSheet({ title: "¿Qué vehículos exportás?", body: `<div class="stack">${OPS.map(([t, tipos, , todos], i) =>
-    `<button type="button" class="btn btn-ghost btn-block" data-pdf="${i}">${t} (${conItems(tipos, todos).length})</button>`).join("")}</div>` });
+  const conItems = (lista, tipos, todos) => todos ? lista : lista.filter(v => tipos.some(t => items(v, t).length));
+  const botones = g => `<div class="stack">${OPS.map(([t, tipos, , todos], i) =>
+    `<button type="button" class="btn btn-ghost btn-block" data-pdf="${i}" data-grupo="${g}">${t} (${conItems(GRUPOS[g], tipos, todos).length})</button>`).join("")}</div>`;
+  const s = openSheet({ title: "¿Qué vehículos exportás?", body: `${botones(0)}<section class="fo-sec"><h3>Anulados</h3>${botones(1)}</section>` });
   s.el.addEventListener("click", e => {
     const b = e.target.closest("[data-pdf]"); if (!b) return;
-    const [nom, tipos, t = nom, todos] = OPS[+b.dataset.pdf], vs = conItems(tipos, todos);   // "Ambos" y "Todos" llevan un título más claro en el PDF
+    const g = +b.dataset.grupo, [nom, tipos, t0 = nom, todos] = OPS[+b.dataset.pdf], vs = conItems(GRUPOS[g], tipos, todos);   // "Ambos" y "Todos" llevan un título más claro en el PDF
+    const t = g ? `${t0} (anulados)` : t0;
     if (!vs.length) return toast("No hay vehículos para exportar");
     // Math.max con 1: en "Todos" un vehículo sin ítems igual lleva su fila
     const filas = vs.flatMap(v => { const cols = tipos.map(tp => items(v, tp)), n = Math.max(1, ...cols.map(c => c.length));
