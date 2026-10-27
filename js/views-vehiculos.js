@@ -91,10 +91,13 @@ function exportarPDF() {
   const items = (v, tipo) => itemsTexto(v[tipo]).map(x => [x, etapaItem(v, tipo, x)]).filter(([, e]) => !F[tipo].size || F[tipo].has(e[0])).map(([x, e]) => `${x} — ${e[1]}`);
   const OPS = [["Vehículos con repuestos", ["repuestos"]], ["Vehículos con pintura", ["pintura"]], ["Vehículos con repuestos y pintura", ["repuestos", "pintura"]], ["Todos", ["repuestos", "pintura"], "Todos los vehículos", true]];
   const conItems = (lista, tipos, todos) => todos ? lista : lista.filter(v => tipos.some(t => items(v, t).length));
-  const botones = g => `<div class="stack">${OPS.map(([t, tipos, , todos], i) =>
+  const botones = g => `<div class="stack" data-panel="${g}" ${g ? "hidden" : ""}>${OPS.map(([t, tipos, , todos], i) =>
     `<button type="button" class="btn btn-ghost btn-block" data-pdf="${i}" data-grupo="${g}">${t} (${conItems(GRUPOS[g], tipos, todos).length})</button>`).join("")}</div>`;
-  const s = openSheet({ title: "¿Qué vehículos exportás?", body: `${botones(0)}<section class="fo-sec"><h3>Anulados</h3>${botones(1)}</section>` });
+  const s = openSheet({ title: "¿Qué vehículos exportás?", body: `<div class="stack"><div class="seg seg-sm" role="tablist">${["Todos", "Anulados"].map((t, g) =>
+    `<button type="button" role="tab" class="seg-btn ${g ? "" : "on"}" aria-selected="${!g}" data-tab="${g}">${t}</button>`).join("")}</div>${botones(0)}${botones(1)}</div>` });
   s.el.addEventListener("click", e => {
+    const tab = e.target.closest("[data-tab]");
+    if (tab) return s.el.querySelectorAll("[data-tab]").forEach(x => { const on = x === tab; x.classList.toggle("on", on); x.setAttribute("aria-selected", on); s.el.querySelector(`[data-panel="${x.dataset.tab}"]`).hidden = !on; });
     const b = e.target.closest("[data-pdf]"); if (!b) return;
     const g = +b.dataset.grupo, [nom, tipos, t0 = nom, todos] = OPS[+b.dataset.pdf], vs = conItems(GRUPOS[g], tipos, todos);   // "Todos" lleva un título más claro en el PDF
     const t = g ? `${t0} (anulados)` : t0;
