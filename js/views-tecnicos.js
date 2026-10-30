@@ -49,11 +49,11 @@ export function vistaTecnicos(view) {
   view.innerHTML = `<div class="skeleton tall"></div>`;
   if (!S.company) return;   // F5: el operativo todavía no llegó; se repinta solo cuando llega
   const cid = S.company.id, col = collection(db, "companies", cid, "planTec");
-  let cfg = null, filas = {}, fijos = {}, creando = false, gestionando = false;
+  let cfg = null, filas = {}, fijos = {}, creando = false, gestionando = false, deCache = false;
   unsub?.();
   const cargar = snap => {
     filas = {}; cfg = null;
-    fijos = {};
+    fijos = {}; deCache = !!snap.metadata?.fromCache;
     snap.docs.forEach(d => { if (d.id === "_config") cfg = d.data(); else if (d.id === "_fijos") fijos = d.data(); else if (!d.id.startsWith("_")) filas[d.id] = d.data(); });
     cfg = { tecnicos: [], valorDefault: 450000, movs: [], ...(cfg || {}) };
     if (!document.body.contains(view) || location.hash !== "#/tecnicos") { unsub?.(); unsub = null; return; }
@@ -63,7 +63,7 @@ export function vistaTecnicos(view) {
   // Link compartido: los datos vienen del bot (S.planTec), no de Firestore
   const cargarInvitado = () => cargar({ docs: (S.planTec || []).map(x => ({ id: x.id, data: () => x.d })) });
   if (S.invitado) setTimeout(cargarInvitado);
-  else unsub = onSnapshot(col, cargar, e => { view.innerHTML = `<div class="empty"><p>${esc(mensajeError(e))}</p></div>`; });
+  else unsub = onSnapshot(col, { includeMetadataChanges: true }, cargar, e => { view.innerHTML = `<div class="empty"><p>${esc(mensajeError(e))}</p></div>`; });
 
   const guardarCfg = cambios => setDoc(doc(col, "_config"), cambios, { merge: true }).catch(e => toast(mensajeError(e), "error"));
   const guardarFila = (vid, cambios) => setDoc(doc(col, vid), cambios, { merge: true }).catch(e => toast(mensajeError(e), "error"));
@@ -71,6 +71,8 @@ export function vistaTecnicos(view) {
   // Autos reparados (de la app) que todavía no están en la planilla: se agregan con el valor y los técnicos activos
   const asegurarFilas = () => {
     if (S.invitado || creando || gestionando || !cfg.tecnicos.length) return;   // se arma cuando ya están los técnicos   // sin técnicos todavía no se arma nada
+    // Con datos viejos del equipo (sin señal o sin sincronizar) una fila existente parece faltar y se pisaría con técnicos viejos
+    if (deCache) return;
     const faltan = activos().filter(v => entregado(v) && fechaRep(v) && !filas[v.id]);
     if (!faltan.length) return;
     creando = true;
