@@ -7,7 +7,7 @@ import { db, collection, doc, onSnapshot, writeBatch } from "./firebase.js";
 import { S, activos, puedeVer, mensajeError, soyAdmin, linkTecnicos } from "./data.js";
 import { $, $$, esc, icon, toast, openSheet, confirmar, pedirTexto, fechaCorta, hoyISO, busy } from "./ui.js";
 import { setTopbar } from "./shell.js";
-import { estadoActual } from "./domain.js";
+import { estadoActual, tocarTec, cambiarGrupo } from "./domain.js";
 import { viandasPorTec, repartoAlquiler } from "./views-fijos.js";
 import { descargarTabla } from "./excel.js";
 import { crearVersiones, botonesVersion } from "./versiones.js";
@@ -36,6 +36,7 @@ const entregado = v => ["enreparacion", "reparado", "llamado", "entregado", "fac
 // El día del auto en la planilla es el de la reparación (no el de la entrega)
 const fechaRep = v => v.fechas?.reparado || v.fechas?.enreparacion || v.fechas?.llamado || v.fechas?.entregado || v.fechas?.facturado || "";
 const nuevoId = () => Math.random().toString(36).slice(2, 9);
+const COLORES_GRUPO = ["#4f8ff7", "#e0a526", "#22b07d", "#9b7bf2", "#f0743e", "#e0486e"];
 
 const T = { tab: "autos", resumen: "dia", desde: "", hasta: "", q: "", editando: false };   // desde/hasta quedan vacíos: se sacó el filtro de fechas
 let unsub = null;
@@ -110,6 +111,9 @@ export function vistaTecnicos(view) {
       $$("#t-tabs .seg-btn", view).forEach(x => x.classList.toggle("on", x === b)); pintar(); };
     $("#t-body", view).addEventListener("click", clic);
     $("#t-body", view).addEventListener("change", cambio);
+    $("#t-body", view).addEventListener("pointerdown", apretar);
+    ["pointerup", "pointerout", "pointercancel"].forEach(ev => $("#t-body", view).addEventListener(ev, () => clearTimeout(relojTec)));
+    $("#t-body", view).addEventListener("contextmenu", e => { if (e.target.closest("[data-tec]")) e.preventDefault(); });
   };
 
   const nombreTec = id => cfg.tecnicos.find(t => t.id === id)?.nombre || (fijos.tecnicos || []).find(t => t.id === id)?.nombre || (cfg.personas || []).find(t => t.id === id)?.nombre || "?";
@@ -144,20 +148,19 @@ export function vistaTecnicos(view) {
     if (!rows.length) return `<div class="empty small"><p>${T.q ? "No hay autos con esa patente." : "Todavía no hay autos en reparación ni entregados."}</p></div>`;
     const ed = T.editando, tecs = cfg.tecnicos, nc = 4 + tecs.length + (ed ? 1 : 0), w = anchos();
     // Entre Importe y los técnicos va una columna vacía de separación
-    const grupos = ed ? cfg.grupos || [] : [];   // al editar, la columna de separación pasa a ser el selector de grupo
-    const cols = [["veh", "VEHÍCULO", 120], ["pat", "PATENTE", 90], ["imp", "IMPORTE", 100], grupos.length ? ["grp", "GRUPO", 110] : ["sep", "", 16], ...tecs.map(t => [t.id, t.nombre, ed ? 60 : 95])];
-    const th = ([k, txt], i) => k === "sep" ? `<th class="tec-sepcol" data-col="sep"><span class="col-res" aria-hidden="true"></span></th>` : `<th class="${i >= 2 ? "num" : ""} ${k === "imp" ? "col-imp" : ""} ${i >= 4 ? "tec-col" : ""}" data-col="${esc(k)}">${esc(txt)}<span class="col-res" aria-hidden="true"></span></th>`;
+    // shortcut: el ancho del nombre se estima por letra, si una fuente nueva no entra subir el 10
+    const cols = [["veh", "VEHÍCULO", 120], ["pat", "PATENTE", 90], ["imp", "IMPORTE", 100], ["sep", "", 16], ...tecs.map(t => { const min = t.nombre.length * 10 + 24; return [t.id, t.nombre, Math.max(ed ? 60 : 95, min), min]; })];
+    const th = ([k, txt], i) => { const c = ed && i >= 4 ? colorGrupo(k) : "";
+      return k === "sep" ? `<th class="tec-sepcol" data-col="sep"><span class="col-res" aria-hidden="true"></span></th>` : `<th class="${i >= 2 ? "num" : ""} ${k === "imp" ? "col-imp" : ""} ${i >= 4 ? "tec-col" : ""} ${c ? "tec-gr" : ""}" ${c ? `style="--grupo:${c}"` : ""} data-col="${esc(k)}">${ed && i >= 4 ? `<button type="button" data-tec-grupo="${esc(k)}" aria-label="Grupo de ${esc(txt)}">${esc(txt)}</button>` : esc(txt)}<span class="col-res" aria-hidden="true"></span></th>`; };
     const semanas = [...new Set(rows.map(r => lunesDe(r.fecha)))];
-    const selGrupo = r => { const g = grupoDe(r);
-      return `<td><select data-grupo aria-label="Grupo de ${esc(r.v.patente || "este auto")}"><option value="" disabled ${g ? "" : "selected"}>—</option>${grupos.map(x => `<option value="${esc(x.id)}" ${x === g ? "selected" : ""}>${esc(x.nombre)}</option>`).join("")}</select></td>`; };
     const fila = r => `<tr data-vid="${esc(r.v.id)}">
       <td>${esc((r.v.modelo || "—").toUpperCase())}</td><td>${esc(r.v.patente || "")}</td>
-      <td class="num col-imp">${ed ? `<input type="number" inputmode="numeric" min="0" step="1000" data-campo="valor" value="${r.valor}">` : pesos(r.valor)}</td>${grupos.length ? selGrupo(r) : `<td class="tec-sepcol"></td>`}
+      <td class="num col-imp">${ed ? `<input type="number" inputmode="numeric" min="0" step="1000" data-campo="valor" value="${r.valor}">` : pesos(r.valor)}</td><td class="tec-sepcol"></td>
       ${tecs.map(t => { const si = r.tecs.includes(t.id);
         return `<td class="num tec-col ${si ? "" : "tec-no"}">${ed ? `<button type="button" class="tec-celda ${si ? "on" : ""}" data-tec="${esc(t.id)}" role="checkbox" aria-checked="${si}" aria-label="${esc(t.nombre)}">${si ? icon("check") : ""}</button>` : si ? pesos(r.parte) : "⨯"}</td>`; }).join("")}
       ${ed ? `<td><button type="button" class="icon-btn sm" data-act="fila" aria-label="Opciones">${icon("edit")}</button></td>` : ""}</tr>`;
     return `<div class="table-wrap"><table class="tbl tec-excel ${ed ? "editando" : ""}">
-      <colgroup>${cols.map(([k, , def]) => `<col data-col="${esc(k)}" style="width:${Number(w[k]) || def}px">`).join("")}${ed ? `<col style="width:44px">` : ""}</colgroup>
+      <colgroup>${cols.map(([k, , def, min = 40]) => `<col data-col="${esc(k)}" data-min="${min}" style="width:${Math.max(Number(w[k]) || def, k === "sep" ? 0 : min)}px">`).join("")}${ed ? `<col style="width:44px">` : ""}</colgroup>
       <thead><tr>${cols.map(th).join("")}${ed ? "<th></th>" : ""}</tr></thead>
       <tbody>${semanas.map(l => {
         const rsS = rows.filter(r => lunesDe(r.fecha) === l), s = sumaPorTec(rsS);
@@ -168,11 +171,15 @@ export function vistaTecnicos(view) {
             ${tecs.map(t => ed ? `<td class="tec-col"></td>` : s[t.id] ? `<td class="num tec-col">${pesos(s[t.id])}</td>` : `<td class="tec-no tec-col">⨯</td>`).join("")}${ed ? "<td></td>" : ""}</tr>
           <tr class="tec-sep"><td colspan="${nc}"></td></tr>`;
       }).join("")}</tbody></table></div>
-      ${ed ? `<p class="muted small">Tocá el cuadrado de un técnico para sumarlo o sacarlo de ese auto. ${grupos.length ? "Elegir un grupo marca a los suyos y desmarca al resto; después podés tocar cualquiera a mano. " : ""}El importe se reparte solo.</p>` : ""}`;
+      ${ed ? `<p class="muted small">Tocá un cuadrado para marcar al técnico con su grupo (el resto se desmarca); mantenelo apretado (o Mayús + clic) para sumar solo a él. Tocá un nombre de arriba para armar su grupo. El importe se reparte solo.</p>` : ""}`;
   };
-  const tecsGrupo = g => (g.tecs || []).filter(id => cfg.tecnicos.some(t => t.id === id));   // sin los técnicos ya quitados
-  // El grupo que coincide justo con los marcados; si se tocó uno a mano y ya no coincide, ninguno
-  const grupoDe = r => (cfg.grupos || []).find(g => { const l = tecsGrupo(g); return l.length === r.tecs.length && l.every(id => r.tecs.includes(id)); });
+  // Compañeros de grupo de un técnico (él incluido), sin los técnicos ya quitados
+  const grupoTec = id => ((cfg.grupos || []).find(g => g.tecs?.includes(id))?.tecs || []).filter(x => cfg.tecnicos.some(t => t.id === x));
+  const colorGrupo = id => { if (grupoTec(id).length < 2) return ""; const i = (cfg.grupos || []).findIndex(g => g.tecs?.includes(id)); return COLORES_GRUPO[i % COLORES_GRUPO.length]; };
+  const marcarTec = (vid, id, solo) => {
+    const antes = filas[vid]?.tecs || [], g = grupoTec(id), tecs = tocarTec(antes, id, g, solo);
+    return guardarFila(vid, { tecs }, antes.includes(id) ? `sacó a ${nombreTec(id)}` : tecs === g ? `marcó a ${g.map(nombreTec).join(" + ")}` : `sumó a ${nombreTec(id)}`);
+  };
   // Arrastrar el borde derecho del título de una columna cambia su ancho
   // El ancho de la tabla es la suma de sus columnas (así se pueden achicar, no solo agrandar)
   const ajustarTabla = body => $$(".tec-excel", body).forEach(t => {
@@ -183,7 +190,7 @@ export function vistaTecnicos(view) {
       e.preventDefault(); e.stopPropagation();
       const k = h.parentElement.dataset.col, col = $(`col[data-col="${CSS.escape(k)}"]`, body);
       const x0 = e.clientX, w0 = col.getBoundingClientRect().width || parseInt(col.style.width) || 100;
-      const mover = ev => { col.style.width = Math.max(k === "sep" ? 4 : 40, Math.round(w0 + ev.clientX - x0)) + "px"; ajustarTabla(body); };
+      const mover = ev => { col.style.width = Math.max(k === "sep" ? 4 : +col.dataset.min, Math.round(w0 + ev.clientX - x0)) + "px"; ajustarTabla(body); };
       const soltar = () => { removeEventListener("pointermove", mover); removeEventListener("pointerup", soltar);
         const w = anchos(); w[k] = parseInt(col.style.width); try { localStorage.setItem("tecCols", JSON.stringify(w)); } catch { /* sin almacenamiento */ } };
       addEventListener("pointermove", mover); addEventListener("pointerup", soltar);
@@ -326,12 +333,10 @@ export function vistaTecnicos(view) {
     const res = t.closest("[data-res]");
     if (res) { T.resumen = res.dataset.res; return pintar(); }
     const fila = t.closest("[data-vid]");
+    const gr = t.closest("[data-tec-grupo]");
+    if (gr && T.editando) return armarGrupo(gr.dataset.tecGrupo);
     const chip = t.closest("[data-tec]");
-    if (chip && fila && T.editando) {
-      const f = filas[fila.dataset.vid] || {}, id = chip.dataset.tec;
-      const tecs = (f.tecs || []).includes(id) ? f.tecs.filter(x => x !== id) : [...(f.tecs || []), id];
-      return guardarFila(fila.dataset.vid, { tecs }, `${tecs.includes(id) ? "sumó a" : "sacó a"} ${nombreTec(id)}`);
-    }
+    if (chip && fila && T.editando) { if (!largo) marcarTec(fila.dataset.vid, chip.dataset.tec, e.shiftKey); largo = false; return; }
     if (t.closest("[data-act=fila]") && fila && T.editando) return opcionesFila(fila.dataset.vid);
     if (fila && !T.editando && !S.invitado) { T.volver = { y: scrollY, x: $(".table-wrap", view)?.scrollLeft || 0, t: $(".table-wrap", view)?.scrollTop || 0 }; location.hash = `#/v/${fila.dataset.vid}`; return; }
     const add = t.closest("[data-add-mov]");
@@ -350,8 +355,29 @@ export function vistaTecnicos(view) {
     const inp = e.target.closest("[data-campo=valor]"), fila = e.target.closest("[data-vid]");
     if (inp && fila) { const valor = Math.max(0, Number(inp.value) || 0);
       guardarFila(fila.dataset.vid, { valor, valorManual: true }, `importe de ${pesos(filas[fila.dataset.vid]?.valor)} a ${pesos(valor)}`); }
-    const sel = e.target.closest("[data-grupo]"), g = sel && (cfg.grupos || []).find(x => x.id === sel.value);
-    if (g && fila) guardarFila(fila.dataset.vid, { tecs: tecsGrupo(g) }, `eligió el grupo ${g.nombre}`);
+  }
+  // Mantener apretado un cuadrado: suma o saca solo a ese técnico. Si el dedo se va (deslizar la tabla) se cancela
+  let relojTec = null, largo = false;
+  function apretar(e) {
+    const chip = e.target.closest("[data-tec]"), fila = e.target.closest("[data-vid]"); largo = false;
+    if (!chip || !fila || !T.editando || V.viendo()) return;
+    relojTec = setTimeout(() => { largo = true; navigator.vibrate?.(15); marcarTec(fila.dataset.vid, chip.dataset.tec, true); }, 550);
+  }
+
+  // Tocar un nombre del título: con quién está en grupo ese técnico
+  function armarGrupo(id) {
+    const s = openSheet({ title: `Grupo de ${nombreTec(id)}`, body: `<div class="stack">
+      <p class="muted small">Elegí con quién trabaja. Cada técnico está en un solo grupo; los del mismo grupo llevan el mismo color en el título.</p>
+      <div class="p-chips tg" id="tg"></div></div>` });
+    const pintarG = () => { const l = grupoTec(id); $("#tg", s.el).innerHTML = cfg.tecnicos.filter(t => t.id !== id).map(t => { const si = l.includes(t.id);
+      return `<button type="button" class="p-chip ${si ? "on" : ""}" data-gt="${esc(t.id)}" aria-pressed="${si}">${esc(t.nombre)}</button>`; }).join(""); };
+    pintarG();
+    $("#tg", s.el).onclick = e => {
+      const otro = e.target.closest("[data-gt]")?.dataset.gt; if (!otro) return;
+      const sale = grupoTec(id).includes(otro);
+      cfg.grupos = cambiarGrupo(cfg.grupos || [], id, otro, nuevoId()); pintarG();
+      guardarCfg({ grupos: cfg.grupos }, `Grupos: ${sale ? `sacó a ${nombreTec(otro)} del grupo de` : `juntó a ${nombreTec(otro)} con`} ${nombreTec(id)}`);
+    };
   }
 
   function nuevoMov(tecid, tipo) {
@@ -402,9 +428,6 @@ export function vistaTecnicos(view) {
       <p class="muted small">Solo nombres para esta planilla. <b>Marcado por defecto</b>: <b>Sí</b> = aparece marcado solo en cada auto nuevo; <b>No</b> = queda sin marcar y lo marcás vos en los autos que corresponda.</p>
       <ul class="tec-lista" id="tl"></ul>
       <button type="button" class="btn btn-ghost btn-block" id="tl-add">${icon("plus")}Agregar técnico</button>
-      <p class="muted small"><b>Grupos</b>: al editar, elegir un grupo en un auto marca a sus técnicos y desmarca al resto.</p>
-      <ul class="tec-lista" id="tg"></ul>
-      <button type="button" class="btn btn-ghost btn-block" id="tg-add">${icon("plus")}Agregar grupo</button>
       <label class="field"><span>Valor del auto por defecto</span><input type="number" inputmode="numeric" id="tl-valor" value="${Number(cfg.valorDefault) || 0}"></label>
       <button type="button" class="btn btn-ghost btn-block" id="tl-reset">Reiniciar importes</button>
     </div>` });
@@ -418,27 +441,9 @@ export function vistaTecnicos(view) {
       <small class="tl-def">Por defecto</small><button type="button" class="switch ${t.activo !== false ? "on" : ""}" data-sw role="switch" aria-checked="${t.activo !== false}" aria-label="Marcado por defecto"><span class="sw-txt sw-si">Sí</span><span class="sw-txt sw-no">No</span><i class="sw-bola"></i></button>
       <span class="tl-nombre">${esc(t.nombre)}</span>
       <button type="button" class="icon-btn sm" data-ren aria-label="Renombrar">${icon("edit")}</button>
-      <button type="button" class="icon-btn sm danger" data-del aria-label="Quitar">${icon("trash")}</button></li>`).join("") || `<li class="muted small">Sin técnicos</li>`;
-      $("#tg", s.el).innerHTML = (cfg.grupos || []).map(g => `<li class="tg" data-g="${esc(g.id)}">
-        <span class="tg-nombre">${esc(g.nombre)}</span>
-        <button type="button" class="icon-btn sm danger" data-gdel aria-label="Quitar grupo ${esc(g.nombre)}">${icon("trash")}</button>
-        <div class="p-chips">${cfg.tecnicos.map(t => { const si = (g.tecs || []).includes(t.id); return `<button type="button" class="p-chip ${si ? "on" : ""}" data-gt="${esc(t.id)}" aria-pressed="${si}">${esc(t.nombre)}</button>`; }).join("")}</div></li>`).join(""); };
+      <button type="button" class="icon-btn sm danger" data-del aria-label="Quitar">${icon("trash")}</button></li>`).join("") || `<li class="muted small">Sin técnicos</li>`; };
     pintarL();
     const guardarTecs = (tecnicos, txt) => { cfg.tecnicos = tecnicos; pintarL(); return guardarCfg({ tecnicos }, txt); };
-    const guardarGrupos = (grupos, txt) => { cfg.grupos = grupos; pintarL(); return guardarCfg({ grupos }, txt); };
-    $("#tg-add", s.el).onclick = async () => {
-      const n = await pedirTexto({ title: "Nuevo grupo", label: "Nombre", placeholder: "Ej: Grupo A", ok: "Agregar" });
-      if (n?.trim()) guardarGrupos([...(cfg.grupos || []), { id: nuevoId(), nombre: n.trim().toUpperCase(), tecs: [] }], `Creó el grupo ${n.trim().toUpperCase()}`);
-    };
-    $("#tg", s.el).onclick = async e => {
-      const id = e.target.closest("[data-g]")?.dataset.g, g = (cfg.grupos || []).find(x => x.id === id); if (!g) return;
-      const chip = e.target.closest("[data-gt]");
-      if (chip) { const t = chip.dataset.gt, l = g.tecs || [];
-        return guardarGrupos(cfg.grupos.map(x => x.id === id ? { ...x, tecs: l.includes(t) ? l.filter(y => y !== t) : [...l, t] } : x), `Grupo ${g.nombre}: ${l.includes(t) ? "sacó a" : "sumó a"} ${nombreTec(t)}`); }
-      // Los autos ya asignados quedan como están
-      if (e.target.closest("[data-gdel]") && await confirmar({ title: `¿Quitar ${g.nombre}?`, message: "Los autos quedan con los técnicos que ya tienen.", ok: "Quitar", danger: true }))
-        guardarGrupos(cfg.grupos.filter(x => x.id !== id), `Quitó el grupo ${g.nombre}`);
-    };
     $("#tl-add", s.el).onclick = async () => {
       const n = await pedirTexto({ title: "Nuevo técnico", label: "Nombre", placeholder: "Ej: Juan", ok: "Agregar" });
       if (n?.trim()) guardarTecs([...cfg.tecnicos, { id: nuevoId(), nombre: n.trim().toUpperCase(), activo: true }], `Agregó al técnico ${n.trim().toUpperCase()}`);

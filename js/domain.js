@@ -17,6 +17,20 @@ export function valoresVianda(cambios, fecha, vianda, envio, id) {
   return siguen.some(x => x.fecha === fecha) ? siguen : [...siguen, { id, fecha, tecs: c?.tecs || [], vianda, envio }];
 }
 
+// Tocar a un técnico en un auto: si estaba marcado sale solo él. Si no, queda su grupo y nadie más (grupo: él y sus compañeros);
+// sin grupo, o con solo = true (mantener apretado), se suma él a los que ya estaban.
+export function tocarTec(tecs, id, grupo, solo) {
+  if (tecs.includes(id)) return tecs.filter(x => x !== id);
+  return solo || grupo.length < 2 ? [...tecs, id] : grupo;
+}
+// Junta a b en el grupo de a, o lo saca si ya estaban juntos. Cada técnico en un solo grupo; un grupo de uno deja de existir
+export function cambiarGrupo(grupos, a, b, id) {
+  const g = grupos.find(x => x.tecs?.includes(a)), juntos = g?.tecs.includes(b);
+  const resto = grupos.map(x => ({ ...x, tecs: (x.tecs || []).filter(t => t !== b) }));
+  if (!juntos) { if (g) resto.find(x => x.id === g.id).tecs.push(b); else resto.push({ id, tecs: [a, b] }); }
+  return resto.filter(x => x.tecs.length > 1);
+}
+
 // Estados del trabajo, en orden. "anulado" queda fuera de la secuencia.
 // El paso de reparación avanza con cada toque: Reparando → Revisión → Contactado → Entregado
 // ("reparado" es la Revisión final; se mantiene la clave para no perder los datos cargados)

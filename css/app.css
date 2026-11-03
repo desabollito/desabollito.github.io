@@ -1370,10 +1370,10 @@ body[data-rol="desmontaje"] a[href^="#/editar"] { display: none !important; }
 .tec-celda { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; padding: 0; border: 2px solid var(--line-2); background: none; color: #fff; border-radius: 6px; cursor: pointer; vertical-align: middle; }
 .tec-celda.on { border-color: var(--primary); background: var(--primary); }
 .tec-celda svg { width: 18px; height: 18px; }
-.tec-excel select { width: 100%; min-width: 0; padding: 4px 6px; border-radius: 6px; border: 1px solid var(--line); background: var(--surface-2); color: var(--ink); font: inherit; }
-.tec-lista li.tg { flex-wrap: wrap; }
-.tg-nombre { flex: 1; font-weight: 700; }
-.tg .p-chips { flex-basis: 100%; flex-wrap: wrap; }
+.tec-celda { touch-action: manipulation; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }   /* mantener apretado no selecciona ni abre menú */
+.p-chips.tg { flex-wrap: wrap; }
+.tbl.tec-excel th button { padding: 0; font: inherit; color: inherit; text-align: center; cursor: pointer; }
+.tbl.tec-excel thead th.tec-gr { background: color-mix(in srgb, var(--grupo) 22%, var(--surface-2)); box-shadow: inset 0 -4px 0 var(--grupo); }
 .tec-excel { table-layout: fixed; width: 0; min-width: 0; }
 .tec-excel th, .tec-excel td { min-width: 0; }
 .tec-excel input { width: 100%; min-width: 0; max-width: 100%; box-sizing: border-box; }
