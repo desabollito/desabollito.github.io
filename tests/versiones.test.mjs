@@ -1,6 +1,6 @@
 // node tests/versiones.test.mjs
 import assert from "node:assert/strict";
-import { estadoEn, marcarVianda, valoresVianda, tocarTec, cambiarGrupo, grupoSolo } from "../tester/js/domain.js";
+import { estadoEn, marcarVianda, valoresVianda, fechaRep, tocarTec, cambiarGrupo, grupoSolo } from "../tester/js/domain.js";
 
 // Más nueva primero: c cambió B, b borró A... cada una guarda cómo estaba antes
 const actual = { cfg: { v: 3 }, fila: { t: ["x"] } };
@@ -55,4 +55,9 @@ assert.deepEqual(cambiarGrupo(g, "p", "r", "x"), [{ id: "g2", tecs: ["e"] }], "q
 assert.deepEqual(grupoSolo(g, "e", "x"), [{ id: "g1", tecs: ["p", "r"] }], "Solo otra vez: sin grupo");
 assert.deepEqual(grupoSolo(g, "p", "g3"), [{ id: "g2", tecs: ["e"] }, { id: "g3", tecs: ["p"] }], "pasar a Solo disuelve el grupo de a dos");
 assert.deepEqual(cambiarGrupo(g, "e", "p", "x"), [{ id: "g2", tecs: ["e", "p"] }], "un solo que suma compañero deja de ser solo");
+
+// El día en la planilla de técnicos es el de Reparando, aunque ya haya pasado a Revisión o Entregado
+assert.equal(fechaRep({ fechas: { enreparacion: "2026-10-19", reparado: "2026-10-22", entregado: "2026-10-25" } }), "2026-10-19");
+assert.equal(fechaRep({ fechas: { reparado: "2026-10-22", entregado: "2026-10-25" } }), "2026-10-22", "sin Reparando: el primer paso que tenga");
+assert.equal(fechaRep({}), "");
 console.log("ok");

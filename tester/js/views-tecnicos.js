@@ -7,7 +7,7 @@ import { db, collection, doc, onSnapshot, writeBatch } from "./firebase.js";
 import { S, activos, puedeVer, mensajeError, soyAdmin, linkTecnicos } from "./data.js";
 import { $, $$, esc, icon, toast, openSheet, confirmar, pedirTexto, fechaCorta, hoyISO, busy } from "./ui.js";
 import { setTopbar } from "./shell.js";
-import { estadoActual, tocarTec, cambiarGrupo, grupoSolo } from "./domain.js";
+import { estadoActual, fechaRep, tocarTec, cambiarGrupo, grupoSolo } from "./domain.js";
 import { viandasPorTec, repartoAlquiler } from "./views-fijos.js";
 import { descargarTabla } from "./excel.js";
 import { crearVersiones, botonesVersion } from "./versiones.js";
@@ -30,11 +30,8 @@ const lunesDe = iso => { const [y, m, d] = iso.split("-").map(Number); const f =
   return `${f.getFullYear()}-${String(f.getMonth() + 1).padStart(2, "0")}-${String(f.getDate()).padStart(2, "0")}`; };
 const masDias = (iso, n) => { const [y, m, d] = iso.split("-").map(Number); const f = new Date(y, m - 1, d + n);
   return `${f.getFullYear()}-${String(f.getMonth() + 1).padStart(2, "0")}-${String(f.getDate()).padStart(2, "0")}`; };
-// Fecha de la reparación (Revisión en adelante)
 // Cuentan los autos desde que entran a reparar (Reparando, Revisión, Contactado, Entregado o Facturado)
 const entregado = v => ["enreparacion", "reparado", "llamado", "entregado", "facturado"].includes(estadoActual(v));
-// El día del auto en la planilla es el de la reparación (no el de la entrega)
-const fechaRep = v => v.fechas?.reparado || v.fechas?.enreparacion || v.fechas?.llamado || v.fechas?.entregado || v.fechas?.facturado || "";
 const nuevoId = () => Math.random().toString(36).slice(2, 9);
 const COLORES_GRUPO = ["#4f8ff7", "#e0a526", "#22b07d", "#9b7bf2", "#f0743e", "#e0486e"];
 
@@ -83,12 +80,15 @@ export function vistaTecnicos(view) {
     if (S.invitado || V.viendo() || creando || gestionando || !cfg.tecnicos.length) return;   // se arma cuando ya están los técnicos   // sin técnicos todavía no se arma nada
     // Con datos viejos del equipo (sin señal o sin sincronizar) una fila existente parece faltar y se pisaría con técnicos viejos
     if (deCache) return;
-    const faltan = activos().filter(v => entregado(v) && fechaRep(v) && !filas[v.id]);
-    if (!faltan.length) return;
+    const faltan = activos().filter(v => entregado(v) && fechaRep(v) && !filas[v.id]).slice(0, 400);
+    // La fecha queda guardada en la fila: el auto no se mueve aunque después cambie de estado. Las filas de antes la reciben una vez
+    const sinFecha = soyAdmin() ? activos().filter(v => filas[v.id] && !filas[v.id].fecha && fechaRep(v)).slice(0, 400 - faltan.length) : [];
+    if (!faltan.length && !sinFecha.length) return;
     creando = true;
     const activosTec = cfg.tecnicos.filter(t => t.activo !== false).map(t => t.id);
     const b = writeBatch(db);
-    faltan.slice(0, 400).forEach(v => b.set(doc(col, v.id), { valor: Number(cfg.valorDefault) || 0, tecs: activosTec, creado: Date.now() }));
+    faltan.forEach(v => b.set(doc(col, v.id), { valor: Number(cfg.valorDefault) || 0, tecs: activosTec, creado: Date.now(), fecha: fechaRep(v) }));
+    sinFecha.forEach(v => b.update(doc(col, v.id), { fecha: fechaRep(v) }));
     b.commit().catch(e => toast(mensajeError(e), "error")).finally(() => { creando = false; });
   };
 

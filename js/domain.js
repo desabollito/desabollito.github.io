@@ -17,6 +17,8 @@ export function valoresVianda(cambios, fecha, vianda, envio, id) {
   return siguen.some(x => x.fecha === fecha) ? siguen : [...siguen, { id, fecha, tecs: c?.tecs || [], vianda, envio }];
 }
 
+// Día del auto en la planilla de técnicos: el primero que lo hizo entrar (Reparando), no los pasos siguientes
+export const fechaRep = v => v.fechas?.enreparacion || v.fechas?.reparado || v.fechas?.llamado || v.fechas?.entregado || v.fechas?.facturado || "";
 // Tocar a un técnico en un auto: si estaba marcado sale solo él. Si no, queda su grupo y nadie más (grupo: él y sus compañeros);
 // grupo de uno: queda él solo. Sin grupo, o con solo = true (mantener apretado), se suma él a los que ya estaban.
 export function tocarTec(tecs, id, grupo, solo) {
