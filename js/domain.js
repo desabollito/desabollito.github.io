@@ -17,6 +17,18 @@ export function valoresVianda(cambios, fecha, vianda, envio, id) {
   return siguen.some(x => x.fecha === fecha) ? siguen : [...siguen, { id, fecha, tecs: c?.tecs || [], vianda, envio }];
 }
 
+export const masMes = (iso, n) => { const [y, m, d] = iso.split("-").map(Number); const f = new Date(y, m - 1 + n, 1), ult = new Date(f.getFullYear(), f.getMonth() + 1, 0).getDate();
+  return `${f.getFullYear()}-${String(f.getMonth() + 1).padStart(2, "0")}-${String(Math.min(d, ult)).padStart(2, "0")}`; };
+// Fechas de un sueldo dentro del período (pDesde/pHasta, pueden ir vacías). Aparece recién el día que cierra:
+// el fijo un mes después de cada fecha (desde 27/10 → cierra 27/11), el otro en su "hasta" o, sin "hasta", en su "desde"
+export function fechasDeSueldo(m, hoy, pDesde, pHasta) {
+  const desde = m.desde || m.fecha || "", hasta = m.hasta || desde;
+  if (!desde) return [];
+  if (!m.fijo) return hasta <= hoy && (!pHasta || desde <= pHasta) && (!pDesde || hasta >= pDesde) ? [desde] : [];
+  const tope = [m.hasta, pHasta, hoy].filter(Boolean).sort()[0], out = [];
+  for (let k = 0, f = desde; f <= tope && k < 240; f = masMes(desde, ++k)) if (masMes(f, 1) <= hoy && (!pDesde || f >= pDesde)) out.push(f);
+  return out;
+}
 // Día del auto en la planilla de técnicos: el primero que lo hizo entrar (Reparando), no los pasos siguientes
 export const fechaRep = v => v.fechas?.enreparacion || v.fechas?.reparado || v.fechas?.llamado || v.fechas?.entregado || v.fechas?.facturado || "";
 // Tocar a un técnico en un auto: si estaba marcado sale solo él. Si no, queda su grupo y nadie más (grupo: él y sus compañeros);

@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "3.1.90", items: ["Sueldos: cada sueldo aparece y se suma recién el día que cierra."] },
   { v: "3.1.89", items: ["Planilla de técnicos: cada auto queda fijo en el día que entró a Reparando, aunque después cambie de estado."] },
   { v: "3.1.88", items: ["Planilla de técnicos: en el grupo de un técnico se puede elegir «Solo»: al marcarlo se desmarcan los demás."] },
   { v: "3.1.86", items: ["Planilla de técnicos: los nombres entran enteros al editar. Grupos desde el título: tocá un nombre para elegir con quién trabaja; al marcarlo en un auto se marca su grupo y se desmarca el resto (mantené apretado para sumar solo a él)."] },

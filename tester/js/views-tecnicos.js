@@ -7,7 +7,7 @@ import { db, collection, doc, onSnapshot, writeBatch } from "./firebase.js";
 import { S, activos, puedeVer, mensajeError, soyAdmin, linkTecnicos } from "./data.js";
 import { $, $$, esc, icon, toast, openSheet, confirmar, pedirTexto, fechaCorta, hoyISO, busy } from "./ui.js";
 import { setTopbar } from "./shell.js";
-import { estadoActual, fechaRep, tocarTec, cambiarGrupo, grupoSolo } from "./domain.js";
+import { estadoActual, fechaRep, tocarTec, cambiarGrupo, grupoSolo, masMes, fechasDeSueldo } from "./domain.js";
 import { viandasPorTec, repartoAlquiler } from "./views-fijos.js";
 import { descargarTabla } from "./excel.js";
 import { crearVersiones, botonesVersion } from "./versiones.js";
@@ -224,25 +224,15 @@ export function vistaTecnicos(view) {
   };
   // Sueldos: cada uno con su rango (desde/hasta). "Fijo" se repite todos los meses desde "desde" (hasta "hasta" si tiene).
   // En el cierre cuenta el monto completo si cae en el período elegido; los fijos cuentan una vez por mes.
-  const masMes = (iso, n) => { const [y, m, d] = iso.split("-").map(Number); const f = new Date(y, m - 1 + n, 1), ult = new Date(f.getFullYear(), f.getMonth() + 1, 0).getDate();
-    return `${f.getFullYear()}-${String(f.getMonth() + 1).padStart(2, "0")}-${String(Math.min(d, ult)).padStart(2, "0")}`; };
-  // Fechas del sueldo que caen en el período. Cada mes nuevo de un fijo se suma recién al día siguiente (el día del cierre todavía no)
-  const fechasSueldo = m => {
-    const desde = m.desde || m.fecha || "", hasta = m.hasta || desde, hoy = hoyISO();
-    if (!desde) return [];
-    if (!m.fijo) return (!T.hasta || desde <= T.hasta) && (!T.desde || hasta >= T.desde) ? [desde] : [];
-    const tope = [m.hasta, T.hasta, hoy].filter(Boolean).sort()[0], out = [];
-    for (let k = 0, f = desde; f <= tope && k < 240; f = masMes(desde, ++k)) if ((!k || f < hoy) && (!T.desde || f >= T.desde)) out.push(f);
-    return out;
-  };
+  const fechasSueldo = m => fechasDeSueldo(m, hoyISO(), T.desde, T.hasta);
   const vecesSueldo = m => fechasSueldo(m).length;
   const sueldosDe = id => (cfg.movs || []).filter(m => m.tec === id && m.tipo === "sueldo");
   const totalSueldo = id => sueldosDe(id).reduce((a, m) => a + (Number(m.monto) || 0) * vecesSueldo(m), 0);
   // Lo que falta pagar (pestaña Sueldos); el cierre sigue usando el total
   const sueldoPendiente = id => sueldosDe(id).reduce((a, m) => a + (Number(m.monto) || 0) * fechasSueldo(m).filter(f => !m.pagados?.[f]).length, 0);
   // Una tira por sueldo (los fijos, una por mes) con su botón "Pagar". Los fijos muestran la fecha de cierre de ese mes (desde 22/09 → 22/10)
-  const tiraSueldo = (m, f) => { const ok = !!m.pagados?.[f], vence = m.fijo ? masMes(f, 1) : m.hasta || f;   // sin pagar y ya vencido (o vence hoy): rosa
-    return `<li class="tec-tira ${ok ? "pagado" : vence <= hoyISO() ? "vencido" : ""}"><span>${fechaCorta(m.fijo ? masMes(f, 1) : f)}${!m.fijo && m.hasta && m.hasta !== f ? ` al ${fechaCorta(m.hasta)}` : ""}${m.nota ? " · " + esc(m.nota) : ""}</span><b>${pesos(m.monto)}</b>
+  const tiraSueldo = (m, f) => { const ok = !!m.pagados?.[f];   // solo aparecen los ya cerrados: sin pagar, rosa
+    return `<li class="tec-tira ${ok ? "pagado" : "vencido"}"><span>${fechaCorta(m.fijo ? masMes(f, 1) : f)}${!m.fijo && m.hasta && m.hasta !== f ? ` al ${fechaCorta(m.hasta)}` : ""}${m.nota ? " · " + esc(m.nota) : ""}</span><b>${pesos(m.monto)}</b>
       <button type="button" class="btn btn-sm ${ok ? "btn-primary" : "btn-ghost"}" data-pagado="${esc(m.id)}" data-f="${f}" aria-pressed="${ok}" ${S.invitado ? "disabled" : ""}>${ok ? `${icon("check")}Pagado` : "Pagar"}</button></li>`; };
   const quitarSueldo = m => T.editando ? `<button type="button" class="icon-btn sm" data-del-mov="${esc(m.id)}" aria-label="Quitar">${icon("x")}</button>` : "";
   const listaSueldos = id => sueldosDe(id).map(m => { const fs = fechasSueldo(m), d = m.desde || m.fecha;

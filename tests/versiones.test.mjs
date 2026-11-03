@@ -1,6 +1,6 @@
 // node tests/versiones.test.mjs
 import assert from "node:assert/strict";
-import { estadoEn, marcarVianda, valoresVianda, fechaRep, tocarTec, cambiarGrupo, grupoSolo } from "../tester/js/domain.js";
+import { estadoEn, marcarVianda, valoresVianda, fechaRep, tocarTec, cambiarGrupo, grupoSolo, fechasDeSueldo } from "../tester/js/domain.js";
 
 // Más nueva primero: c cambió B, b borró A... cada una guarda cómo estaba antes
 const actual = { cfg: { v: 3 }, fila: { t: ["x"] } };
@@ -60,4 +60,15 @@ assert.deepEqual(cambiarGrupo(g, "e", "p", "x"), [{ id: "g2", tecs: ["e", "p"] }
 assert.equal(fechaRep({ fechas: { enreparacion: "2026-10-19", reparado: "2026-10-22", entregado: "2026-10-25" } }), "2026-10-19");
 assert.equal(fechaRep({ fechas: { reparado: "2026-10-22", entregado: "2026-10-25" } }), "2026-10-22", "sin Reparando: el primer paso que tenga");
 assert.equal(fechaRep({}), "");
+
+// Sueldos: el 03/11 se ve el que cerró el 27/10; el que cierra el 27/11 aparece ese mismo día
+const fijo = { fijo: true, desde: "2026-09-27" };
+assert.deepEqual(fechasDeSueldo(fijo, "2026-11-03"), ["2026-09-27"]);
+assert.deepEqual(fechasDeSueldo(fijo, "2026-11-26"), ["2026-09-27"]);
+assert.deepEqual(fechasDeSueldo(fijo, "2026-11-27"), ["2026-09-27", "2026-10-27"]);
+assert.deepEqual(fechasDeSueldo({ fijo: true, desde: "2026-10-30" }, "2026-11-03"), [], "todavía no cerró ninguno");
+assert.deepEqual(fechasDeSueldo({ fijo: true, desde: "2026-09-27", hasta: "2026-10-15" }, "2026-12-30"), ["2026-09-27"], "fijo con hasta: no sigue después");
+assert.deepEqual(fechasDeSueldo({ desde: "2026-11-01", hasta: "2026-11-30" }, "2026-11-03"), [], "con hasta: aparece al llegar");
+assert.deepEqual(fechasDeSueldo({ desde: "2026-11-01", hasta: "2026-11-30" }, "2026-11-30"), ["2026-11-01"]);
+assert.deepEqual(fechasDeSueldo({ desde: "2026-11-03" }, "2026-11-03"), ["2026-11-03"], "sin hasta: el mismo día");
 console.log("ok");
