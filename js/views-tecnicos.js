@@ -523,7 +523,11 @@ export function vistaTecnicos(view) {
     T.editando = !T.editando; V.editando(T.editando);
     const b = $("#t-edit"); b.className = `btn btn-sm ${T.editando ? "btn-primary" : "btn-ghost"}`;
     b.innerHTML = `${icon(T.editando ? "check" : "edit")}${T.editando ? "<span>Listo</span>" : ""}`;
+    // Al editar las filas son más altas: la que estaba arriba sigue arriba, no el mismo scroll
+    const trs = () => $$(".tec-excel tbody tr", view), y = tr => tr.getBoundingClientRect().top - $(".table-wrap", view).getBoundingClientRect().top;
+    const i = trs().findIndex(tr => y(tr) + tr.offsetHeight > $(".tec-excel thead", view).offsetHeight), y0 = i >= 0 ? y(trs()[i]) : 0;
     if (cfg) pintar();
+    if (i >= 0) $(".table-wrap", view).scrollTop += y(trs()[i]) - y0;
   };
   $("#t-edit")?.addEventListener("click", () => { if (!V.viendo()) alternarEdicion(); });
   // Compartir: link de solo lectura de esta planilla (con o sin Sueldos)
