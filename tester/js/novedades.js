@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "3.1.88", items: ["Planilla de técnicos: en el grupo de un técnico se puede elegir «Solo»: al marcarlo se desmarcan los demás."] },
   { v: "3.1.86", items: ["Planilla de técnicos: los nombres entran enteros al editar. Grupos desde el título: tocá un nombre para elegir con quién trabaja; al marcarlo en un auto se marca su grupo y se desmarca el resto (mantené apretado para sumar solo a él)."] },
   { v: "2.51.1", items: ["Sacabollos: puede compartir el vehículo (PDF, con fotos y link «Vehículo en App»)."] },
   { v: "2.51.0", items: ["Planilla de técnicos: tocar un auto lo abre y al volver quedás donde estabas; títulos fijos al bajar; días en gris y semanas numeradas; técnicos se ordenan arrastrando.", "Descargar la planilla de técnicos (con hoja de cierre) y la de Fijos en Excel o PDF; el PDF sale en una sola hoja larga.", "Sueldos: adelantos y gastos se descuentan siempre; «Descontar gastos» decide viandas y alquiler. Gastos totales a la vista.", "«Gastos fijos» ahora se llama «Fijos». Menú lateral: Planillas queda plegado salvo que lo despliegues.", "Sacabollos: por ahora solo mira (sin editar, contactar ni ver precios) y puede ver Técnicos y Fijos."] },

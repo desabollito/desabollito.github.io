@@ -1,6 +1,6 @@
 // node tests/versiones.test.mjs
 import assert from "node:assert/strict";
-import { estadoEn, marcarVianda, valoresVianda, tocarTec, cambiarGrupo } from "../tester/js/domain.js";
+import { estadoEn, marcarVianda, valoresVianda, tocarTec, cambiarGrupo, grupoSolo } from "../tester/js/domain.js";
 
 // Más nueva primero: c cambió B, b borró A... cada una guarda cómo estaba antes
 const actual = { cfg: { v: 3 }, fila: { t: ["x"] } };
@@ -44,4 +44,15 @@ assert.deepEqual(g, [{ id: "g1", tecs: ["p", "r", "n"] }], "n se mudó y el grup
 g = cambiarGrupo(g, "p", "n", "x");
 g = cambiarGrupo(g, "p", "r", "x");
 assert.deepEqual(g, [], "sacar al último compañero borra el grupo");
+
+// "Solo": grupo de uno que al marcarlo desmarca al resto y no se pierde al tocar otros grupos
+assert.deepEqual(tocarTec(["s", "n"], "e", ["e"]), ["e"]);
+assert.deepEqual(tocarTec(["s", "n"], "e", ["e"], true), ["s", "n", "e"]);
+g = grupoSolo([{ id: "g1", tecs: ["p", "r"] }], "e", "g2");
+assert.deepEqual(g, [{ id: "g1", tecs: ["p", "r"] }, { id: "g2", tecs: ["e"] }]);
+assert.deepEqual(cambiarGrupo(g, "p", "n", "x"), [{ id: "g1", tecs: ["p", "r", "n"] }, { id: "g2", tecs: ["e"] }], "otro grupo no borra al solo");
+assert.deepEqual(cambiarGrupo(g, "p", "r", "x"), [{ id: "g2", tecs: ["e"] }], "quedar sin compañero no es elegir Solo");
+assert.deepEqual(grupoSolo(g, "e", "x"), [{ id: "g1", tecs: ["p", "r"] }], "Solo otra vez: sin grupo");
+assert.deepEqual(grupoSolo(g, "p", "g3"), [{ id: "g2", tecs: ["e"] }, { id: "g3", tecs: ["p"] }], "pasar a Solo disuelve el grupo de a dos");
+assert.deepEqual(cambiarGrupo(g, "e", "p", "x"), [{ id: "g2", tecs: ["e", "p"] }], "un solo que suma compañero deja de ser solo");
 console.log("ok");

@@ -18,17 +18,24 @@ export function valoresVianda(cambios, fecha, vianda, envio, id) {
 }
 
 // Tocar a un técnico en un auto: si estaba marcado sale solo él. Si no, queda su grupo y nadie más (grupo: él y sus compañeros);
-// sin grupo, o con solo = true (mantener apretado), se suma él a los que ya estaban.
+// grupo de uno: queda él solo. Sin grupo, o con solo = true (mantener apretado), se suma él a los que ya estaban.
 export function tocarTec(tecs, id, grupo, solo) {
   if (tecs.includes(id)) return tecs.filter(x => x !== id);
-  return solo || grupo.length < 2 ? [...tecs, id] : grupo;
+  return solo || !grupo.length ? [...tecs, id] : grupo;
 }
-// Junta a b en el grupo de a, o lo saca si ya estaban juntos. Cada técnico en un solo grupo; un grupo de uno deja de existir
+// Saca a un técnico de los grupos. Si a un grupo le queda uno solo, se disuelve; los que ya eran de uno (elegidos "Solo") siguen
+const sacarDeGrupos = (grupos, t) => grupos.map(x => ({ ...x, tecs: (x.tecs || []).filter(y => y !== t) }))
+  .filter((x, i) => x.tecs.length > 1 || (x.tecs.length && x.tecs.length === grupos[i].tecs?.length));
+// Junta a b en el grupo de a, o lo saca si ya estaban juntos. Cada técnico en un solo grupo
 export function cambiarGrupo(grupos, a, b, id) {
-  const g = grupos.find(x => x.tecs?.includes(a)), juntos = g?.tecs.includes(b);
-  const resto = grupos.map(x => ({ ...x, tecs: (x.tecs || []).filter(t => t !== b) }));
+  const g = grupos.find(x => x.tecs?.includes(a)), juntos = g?.tecs.includes(b), resto = sacarDeGrupos(grupos, b);
   if (!juntos) { if (g) resto.find(x => x.id === g.id).tecs.push(b); else resto.push({ id, tecs: [a, b] }); }
-  return resto.filter(x => x.tecs.length > 1);
+  return resto;
+}
+// "Solo": a queda en un grupo de uno (al marcarlo se desmarcan los demás); otra vez, sin grupo
+export function grupoSolo(grupos, a, id) {
+  const yaSolo = grupos.some(x => x.tecs?.length === 1 && x.tecs[0] === a), resto = sacarDeGrupos(grupos, a);
+  return yaSolo ? resto : [...resto, { id, tecs: [a] }];
 }
 
 // Estados del trabajo, en orden. "anulado" queda fuera de la secuencia.

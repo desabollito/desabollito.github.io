@@ -7,7 +7,7 @@ import { db, collection, doc, onSnapshot, writeBatch } from "./firebase.js";
 import { S, activos, puedeVer, mensajeError, soyAdmin, linkTecnicos } from "./data.js";
 import { $, $$, esc, icon, toast, openSheet, confirmar, pedirTexto, fechaCorta, hoyISO, busy } from "./ui.js";
 import { setTopbar } from "./shell.js";
-import { estadoActual, tocarTec, cambiarGrupo } from "./domain.js";
+import { estadoActual, tocarTec, cambiarGrupo, grupoSolo } from "./domain.js";
 import { viandasPorTec, repartoAlquiler } from "./views-fijos.js";
 import { descargarTabla } from "./excel.js";
 import { crearVersiones, botonesVersion } from "./versiones.js";
@@ -174,8 +174,9 @@ export function vistaTecnicos(view) {
       ${ed ? `<p class="muted small">Tocá un cuadrado para marcar al técnico con su grupo (el resto se desmarca); mantenelo apretado (o Mayús + clic) para sumar solo a él. Tocá un nombre de arriba para armar su grupo. El importe se reparte solo.</p>` : ""}`;
   };
   // Compañeros de grupo de un técnico (él incluido), sin los técnicos ya quitados
-  const grupoTec = id => ((cfg.grupos || []).find(g => g.tecs?.includes(id))?.tecs || []).filter(x => cfg.tecnicos.some(t => t.id === x));
-  const colorGrupo = id => { if (grupoTec(id).length < 2) return ""; const i = (cfg.grupos || []).findIndex(g => g.tecs?.includes(id)); return COLORES_GRUPO[i % COLORES_GRUPO.length]; };
+  // Uno solo cuenta como grupo si se eligió "Solo", no si se quitó a su compañero de la planilla
+  const grupoTec = id => { const g = (cfg.grupos || []).find(x => x.tecs?.includes(id))?.tecs || [], l = g.filter(x => cfg.tecnicos.some(t => t.id === x)); return l.length > 1 || g.length === 1 ? l : []; };
+  const colorGrupo = id => { if (!grupoTec(id).length) return ""; const i = (cfg.grupos || []).findIndex(g => g.tecs?.includes(id)); return COLORES_GRUPO[i % COLORES_GRUPO.length]; };
   const marcarTec = (vid, id, solo) => {
     const antes = filas[vid]?.tecs || [], g = grupoTec(id), tecs = tocarTec(antes, id, g, solo);
     return guardarFila(vid, { tecs }, antes.includes(id) ? `sacó a ${nombreTec(id)}` : tecs === g ? `marcó a ${g.map(nombreTec).join(" + ")}` : `sumó a ${nombreTec(id)}`);
@@ -367,12 +368,15 @@ export function vistaTecnicos(view) {
   // Tocar un nombre del título: con quién está en grupo ese técnico
   function armarGrupo(id) {
     const s = openSheet({ title: `Grupo de ${nombreTec(id)}`, body: `<div class="stack">
-      <p class="muted small">Elegí con quién trabaja. Cada técnico está en un solo grupo; los del mismo grupo llevan el mismo color en el título.</p>
+      <p class="muted small">Elegí con quién trabaja, o <b>Solo</b> para que al marcarlo se desmarquen los demás. Cada técnico está en un solo grupo; los del mismo grupo llevan el mismo color en el título.</p>
       <div class="p-chips tg" id="tg"></div></div>` });
-    const pintarG = () => { const l = grupoTec(id); $("#tg", s.el).innerHTML = cfg.tecnicos.filter(t => t.id !== id).map(t => { const si = l.includes(t.id);
+    const pintarG = () => { const l = grupoTec(id), solo = l.length === 1; $("#tg", s.el).innerHTML = `<button type="button" class="p-chip ${solo ? "on" : ""}" data-gsolo aria-pressed="${solo}">Solo</button>` + cfg.tecnicos.filter(t => t.id !== id).map(t => { const si = l.includes(t.id);
       return `<button type="button" class="p-chip ${si ? "on" : ""}" data-gt="${esc(t.id)}" aria-pressed="${si}">${esc(t.nombre)}</button>`; }).join(""); };
     pintarG();
     $("#tg", s.el).onclick = e => {
+      if (e.target.closest("[data-gsolo]")) { const era = grupoTec(id).length === 1;
+        cfg.grupos = grupoSolo(cfg.grupos || [], id, nuevoId()); pintarG();
+        return guardarCfg({ grupos: cfg.grupos }, `Grupos: ${nombreTec(id)} ${era ? "ya no va solo" : "va solo"}`); }
       const otro = e.target.closest("[data-gt]")?.dataset.gt; if (!otro) return;
       const sale = grupoTec(id).includes(otro);
       cfg.grupos = cambiarGrupo(cfg.grupos || [], id, otro, nuevoId()); pintarG();
