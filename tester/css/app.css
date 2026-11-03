@@ -2087,11 +2087,26 @@ body[data-ruta="checkform"] .main { padding-bottom: calc(90px + var(--safe-b)); 
 /* Sacabollos (por ahora): solo mira, como el link de perito, pero con planillas y ajustes */
 body[data-solo-ver="1"] :is(.fab, a[href="#/nuevo"], a[href^="#/editar"], .viewer-add, .viewer-add-fila .btn, #vw-rot, .viewer-pint,
   [data-act="anular"], [data-act="borrar"], [data-act="mover"], [data-act="firma"],
-  [data-del-foto], [data-del-doc], #t-edit, #t-tec, #f-edit, #f-tec, #g-nuevo, [data-act="persona"], [data-act="cambio"], [data-act="tecnicos"],
+  [data-del-foto], [data-del-doc], #t-edit, #t-tec, #f-edit, #f-tec, #v-undo, #v-hist, #p-cambios, #g-nuevo, [data-act="persona"], [data-act="cambio"], [data-act="tecnicos"],
   [data-descontar], .side-new, #desm-add, #desm-tec, .chk-form .vform-bar .btn-primary, .chk-form #chk-op) { display: none !important; }
 /* Sacabollos ve el check in / out y el desmontaje, sin poder cambiarlos */
 body[data-solo-ver="1"] .chk-form :is(.chk-tog, input, textarea) { pointer-events: none; }
 body[data-solo-ver="1"] :is(.step, .etapa-item) { pointer-events: none; }
+/* Historial de planillas: lista de cambios y barra para moverse en el tiempo */
+.ver-lista { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.ver-item { all: unset; box-sizing: border-box; cursor: pointer; display: flex; justify-content: space-between; gap: 12px; width: 100%; padding: 10px; border-radius: 10px; font-size: 14px; }
+.ver-item:hover, .ver-item:focus-visible { background: var(--surface-2); }
+.ver-item time { flex-shrink: 0; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.ver-item-acc { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.ver-barra { position: fixed; z-index: 60; left: 12px; right: 12px; bottom: calc(var(--tab) + var(--safe-b, 0px) + 12px); max-width: 720px; margin: 0 auto; display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 14px; background: var(--surface); border: 2px solid var(--primary); box-shadow: 0 8px 28px rgba(0, 0, 0, .28); }
+@media (min-width: 900px) { .ver-barra { bottom: 16px; } }
+.ver-info { display: flex; flex-direction: column; gap: 2px; font-size: 13px; color: var(--ink-2); max-height: 64px; overflow: auto; }
+.ver-info b { color: var(--ink); font-size: 14px; }
+.ver-tiempo { display: flex; align-items: center; gap: 8px; }
+.ver-tiempo input { flex: 1; min-width: 0; accent-color: var(--primary); }
+.ver-acc { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
+/* Celular: al editar quedan solo Deshacer y Listo, para que entren en la barra */
+@media (max-width: 899px) { :has(> #v-undo:not([hidden])) > :not(#v-undo, #t-edit, #f-edit) { display: none; } }
 .aj-fila { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .aj-version { margin: 8px 0 24px; }
 .viewer-add-fila .viewer-pint-fila { flex: 0 0 auto; width: 44px; height: 44px; }

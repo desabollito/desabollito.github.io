@@ -504,16 +504,16 @@ function revertir(ahora, antes, despues) {
 // Cambios que se pueden deshacer (que no se hayan deshecho ya), el más nuevo primero
 export function deshaciblesDe(v) {
   const h = v?.historial || [], hechos = new Set(h.filter(e => e.deshace).map(e => e.deshace));
-  return [...h].sort((a, b) => (b.t || 0) - (a.t || 0)).filter(e => e.antes && !e.deshace && !hechos.has(e.t));
+  return [...h].sort((a, b) => (b.t || 0) - (a.t || 0)).filter(e => e.antes && !hechos.has(e.t));   // un "Deshizo" nuevo guarda su "antes": también se puede revertir
 }
 export async function deshacerCambio(v, e) {
-  const campos = {}, ahora = getVehiculo(v.id) || v;
+  const campos = {}, valores = {}, ahora = getVehiculo(v.id) || v;
   for (const [k, a] of Object.entries(e.antes || {})) {
     const ruta = k.replace(/\|/g, "."), val = e.despues && k in e.despues ? revertir(valorEn(ahora, ruta), a, e.despues[k]) : a;   // entradas viejas: sin "después"
-    campos[ruta] = val == null ? deleteField() : val;
+    valores[ruta] = val; campos[ruta] = val == null ? deleteField() : val;
   }
   await updateDoc(doc(colVehiculos(), v.id), { ...campos,
-    historial: arrayUnion({ ...entrada(`Deshizo: ${e.txt}`), deshace: e.t }), updatedAt: serverTimestamp(), updatedBy: S.user.uid });
+    historial: arrayUnion({ ...entrada(`Deshizo: ${e.txt}`, antesDe(ahora, valores)), deshace: e.t }), updatedAt: serverTimestamp(), updatedBy: S.user.uid });
 }
 const plata = n => "$" + Number(n || 0).toLocaleString("es-AR");
 const CAMPOS_HIST = { modelo: "el modelo", patente: "la patente", asegurado: "el asegurado", telefono: "el teléfono",

@@ -2,13 +2,14 @@
 //  FACTURACIÓN: el documento firmado de cada vehículo. Solo figura en esta planilla (no en el vehículo).
 //  Se guarda en companies/{cid}/factura/docs (antes planTec/_factura, se migra solo): { vids: [vid elegidos], estados: { [vid]: impreso|firmado|facturado }, docs: { [vid]: { url, publicId, name, bytes, at } } }
 // ═════════════════════════════════════════════════════════════
-import { db, doc, getDoc, onSnapshot, setDoc, deleteDoc, arrayUnion, arrayRemove } from "./firebase.js";
+import { db, collection, doc, getDoc, onSnapshot, setDoc, deleteDoc, arrayUnion, arrayRemove } from "./firebase.js";
 import { S, activos, puedeVer, mensajeError, cambiarEstado } from "./data.js";
 import { $, esc, icon, toast, plate, openSheet, glideMenu } from "./ui.js";
 import { estadoActual } from "./domain.js";
 import { setTopbar } from "./shell.js";
 import { subir, cloudinaryListo, thumb } from "./media.js";
 import { armarZip } from "./zip.js";
+import { crearVersiones, botonesVersion } from "./versiones.js";
 
 const F = { q: "", editando: false, volver: null };
 const ESTADOS_F = [["impreso", "Impreso"], ["firmado", "Firmado"], ["facturado", "Facturado"]];
@@ -25,11 +26,16 @@ const traer = async d => { const r = await fetch(d.url); if (!r.ok) throw new Er
 export function vistaFacturacion(view) {
   setTopbar({ title: "Facturación", sub: S.company?.name, back: "#/planillas",
     actions: `<button class="btn btn-ghost btn-sm" id="f-todos">${icon("download")}<span class="hide-sm">Descargar todos</span></button>
-      <button class="btn btn-sm ${F.editando ? "btn-primary" : "btn-ghost"}" id="f-edit" aria-label="Editar">${icon(F.editando ? "check" : "edit")}${F.editando ? "<span>Listo</span>" : ""}</button>` });
+      ${botonesVersion(F.editando)}<button class="btn btn-sm ${F.editando ? "btn-primary" : "btn-ghost"}" id="f-edit" aria-label="Editar">${icon(F.editando ? "check" : "edit")}${F.editando ? "<span>Listo</span>" : ""}</button>` });
   if (!puedeVer("facturacion")) { view.innerHTML = `<div class="empty"><p>No tenés acceso a esta planilla.</p></div>`; return; }
   if (!S.company) { view.innerHTML = `<div class="skeleton tall"></div>`; return; }
   const ref = doc(db, "companies", S.company.id, "factura", "docs"), viejo = doc(db, "companies", S.company.id, "planTec", "_factura");
-  let docs = {}, vids = [], estados = {}, vidSubir = null;
+  let docs = {}, vids = [], estados = {}, vidSubir = null, real = {};
+  const cargar = d => { docs = d.docs || {}; vids = d.vids || []; estados = d.estados || {}; };
+  const V = crearVersiones({ planilla: "facturacion", col: collection(db, "companies", S.company.id, "factura"), view, crudo: id => id === "docs" ? real : undefined, todos: () => ({ docs: real }),
+    ver: estado => { if (estado && F.editando) alternarEdicion(); cargar(estado ? estado.docs || {} : real); pintar(); } });
+  const guardar = (datos, txt) => V.escribir(txt, [{ id: "docs", datos, merge: true }]);
+  const patenteDe = vid => activos().find(v => v.id === vid)?.patente || "Vehículo";
   // Sin elegir: Firmado si ya tiene la orden subida, si no Impreso (con orden subida nunca es Impreso)
   const estadoDe = vid => (docs[vid] && estados[vid] === "impreso" ? "" : estados[vid]) || (docs[vid] ? "firmado" : "impreso");
   // Firmados y facturados en el orden de vids: su posición es el número de línea (y el nombre de la descarga)
@@ -61,7 +67,9 @@ export function vistaFacturacion(view) {
   unsub?.();
   unsub = onSnapshot(ref, d => {
     if (!document.body.contains(view) || location.hash !== "#/facturacion") { unsub?.(); unsub = null; return; }
-    docs = d.data()?.docs || {}; vids = d.data()?.vids || []; estados = d.data()?.estados || {}; pintar();
+    real = d.data() || {};
+    if (V.viendo()) return;   // mirando una versión anterior, lo nuevo se pinta al salir
+    cargar(real); pintar();
     // Volviendo de un vehículo: la planilla queda donde estaba
     if (F.volver) { const tw = $(".table-wrap", view); if (tw) tw.scrollTop = F.volver.t; scrollTo(0, F.volver.y); F.volver = null; }
     // shortcut: migración única desde planTec/_factura, borrar cuando ya no quede ninguno
@@ -70,6 +78,7 @@ export function vistaFacturacion(view) {
 
   // Mismo selector que el desmontaje (tira + patente); queda abierto para agregar varios
   $("#f-add", view).onclick = () => {
+    if (V.viendo()) return;
     const s = openSheet({ title: "Agregar vehículo", wide: true, body: `<div class="stack">
         <label class="search">${icon("search")}<input type="search" id="dv-q" placeholder="Patente o modelo" autocomplete="off" autocapitalize="characters"></label>
         <div class="dv-tira" id="dv-lista"></div></div>` });
@@ -89,19 +98,20 @@ export function vistaFacturacion(view) {
     lista.addEventListener("click", async e => {
       const b = e.target.closest("[data-id]"); if (!b) return;
       vids = [...vids, b.dataset.id]; pintarTira(); q.select();
-      try { await setDoc(ref, { vids: arrayUnion(b.dataset.id) }, { merge: true }); toast("Vehículo agregado", "success"); } catch (err) { toast(mensajeError(err), "error"); }
+      if (await guardar({ vids: arrayUnion(b.dataset.id) }, `Agregó ${patenteDe(b.dataset.id)}`)) toast("Vehículo agregado", "success");
     });
   };
   $("#f-q", view).oninput = e => { F.q = e.target.value; pintar(); };
   $("#f-body", view).onclick = async e => {
     const b = e.target.closest("[data-act]"), vid = e.target.closest("[data-vid]")?.dataset.vid; if (!vid) return;
+    if (V.viendo()) { e.preventDefault(); return; }
     // Tocar la fila (fuera de los botones) abre el vehículo; al volver queda en el mismo lugar
     if (!b) { F.volver = { y: scrollY, t: $(".table-wrap", view)?.scrollTop || 0 }; location.hash = `#/v/${vid}`; return; }
     if (b.dataset.act === "estado") {
       // Con la orden ya subida no puede volver a Impreso
       return glideMenu(b, docs[vid] ? ESTADOS_F.filter(([k]) => k !== "impreso") : ESTADOS_F, estadoDe(vid), async est => {
         try {
-          await setDoc(ref, { estados: { [vid]: est }, ...(est !== "impreso" ? alFinal(vid) : {}) }, { merge: true });
+          if (!(await guardar({ estados: { [vid]: est }, ...(est !== "impreso" ? alFinal(vid) : {}) }, `${patenteDe(vid)}: pasó a ${ESTADOS_F.find(([k]) => k === est)[1]}`))) return;
           // Facturado acá también marca Facturado en el vehículo
           const v = activos().find(x => x.id === vid);
           if (est === "facturado" && v && estadoActual(v) !== "facturado") { await cambiarEstado(v, "facturado"); toast("Vehículo marcado Facturado", "success"); }
@@ -114,7 +124,7 @@ export function vistaFacturacion(view) {
       vidSubir = vid;
     } else if (b.dataset.act === "quitar") {
       // el documento subido queda guardado: si se vuelve a agregar, reaparece
-      try { await setDoc(ref, { vids: arrayRemove(vid) }, { merge: true }); } catch (err) { toast(mensajeError(err), "error"); }
+      guardar({ vids: arrayRemove(vid) }, `Quitó ${patenteDe(vid)} de la lista`);
     } else {
       const v = activos().find(x => x.id === vid);
       try { guardarBlob(await traer(docs[vid]), nombreArchivo(v, docs[vid], firmados().indexOf(v) + 1)); } catch (err) { toast(err.message, "error"); }
@@ -127,9 +137,9 @@ export function vistaFacturacion(view) {
     toast("Subiendo documento…");
     try {
       const r = await subir(file, `${S.company.id}/${vid}/factura`, { tipo: "auto", nombre: file.name });
-      await setDoc(ref, { docs: { [vid]: { url: r.url, publicId: r.publicId, name: file.name, bytes: r.bytes, at: Date.now() } },
-        ...(estadoDe(vid) === "impreso" ? { estados: { [vid]: "firmado" }, ...alFinal(vid) } : {}) }, { merge: true });   // subir la orden la pasa a Firmado
-      toast("Documento guardado", "success");
+      const ok = await guardar({ docs: { [vid]: { url: r.url, publicId: r.publicId, name: file.name, bytes: r.bytes, at: Date.now() } },
+        ...(estadoDe(vid) === "impreso" ? { estados: { [vid]: "firmado" }, ...alFinal(vid) } : {}) }, `${patenteDe(vid)}: subió la orden firmada`);   // subir la orden la pasa a Firmado
+      if (ok) toast("Documento guardado", "success");
     } catch (err) { toast(mensajeError(err), "error"); }
   };
   $("#f-todos").onclick = async () => {
@@ -143,12 +153,13 @@ export function vistaFacturacion(view) {
       toast("ZIP descargado", "success");
     } catch (err) { toast(err.message || "No se pudo descargar", "error"); }
   };
-  $("#f-edit").onclick = () => {
-    F.editando = !F.editando;
+  const alternarEdicion = () => {
+    F.editando = !F.editando; V.editando(F.editando);
     const b = $("#f-edit"); b.className = `btn btn-sm ${F.editando ? "btn-primary" : "btn-ghost"}`;
     b.innerHTML = `${icon(F.editando ? "check" : "edit")}${F.editando ? "<span>Listo</span>" : ""}`;
     pintar();
   };
+  $("#f-edit").onclick = () => { if (!V.viendo()) alternarEdicion(); };
   // Si cambian los vehículos solo se repinta la tabla: rearmar la página perdería el archivo elegido al volver del selector
   return { soloLista: pintar };
 }

@@ -3,13 +3,14 @@
 //  La planilla de técnicos es propia: el valor del auto, los técnicos y quiénes trabajaron
 //  cada auto se guardan aparte (companies/{cid}/planTec) y no cambian nada del vehículo.
 // ═════════════════════════════════════════════════════════════
-import { db, collection, doc, onSnapshot, setDoc, writeBatch } from "./firebase.js";
+import { db, collection, doc, onSnapshot, writeBatch } from "./firebase.js";
 import { S, activos, puedeVer, mensajeError, soyAdmin, linkTecnicos } from "./data.js";
 import { $, $$, esc, icon, toast, openSheet, confirmar, pedirTexto, fechaCorta, hoyISO, busy } from "./ui.js";
 import { setTopbar } from "./shell.js";
 import { estadoActual } from "./domain.js";
 import { viandasPorTec, repartoAlquiler } from "./views-fijos.js";
 import { descargarTabla } from "./excel.js";
+import { crearVersiones, botonesVersion } from "./versiones.js";
 
 export function vistaPlanillas(view) {
   setTopbar({ title: "Planillas", sub: S.company?.name });
@@ -42,14 +43,18 @@ let unsub = null;
 export function vistaTecnicos(view) {
   setTopbar({ title: "Planilla de técnicos", sub: S.company?.name, back: "#/planillas",
     actions: `<button class="btn btn-ghost btn-sm" id="t-dl" aria-label="Descargar">${icon("download")}<span class="hide-sm">Descargar</span></button>${S.invitado ? "" : `${soyAdmin() ? `<button class="btn btn-ghost btn-sm" id="t-share" aria-label="Compartir">${icon("share")}<span class="hide-sm">Compartir</span></button>` : ""}<button class="btn btn-ghost btn-sm" id="t-tec">${icon("team")}<span class="hide-sm">Técnicos</span></button>
-      <button class="btn btn-sm ${T.editando ? "btn-primary" : "btn-ghost"}" id="t-edit">${icon(T.editando ? "check" : "edit")}${T.editando ? "<span>Listo</span>" : ""}</button>`}` });
+      ${botonesVersion(T.editando)}<button class="btn btn-sm ${T.editando ? "btn-primary" : "btn-ghost"}" id="t-edit">${icon(T.editando ? "check" : "edit")}${T.editando ? "<span>Listo</span>" : ""}</button>`}` });
   if (S.invitado) T.editando = false;
   const sinSueldos = !!S.invitado && !S.invitado.tecnicos?.sueldos;   // link compartido sin la sección Sueldos
   if (!puedeVer("tecnicos")) { view.innerHTML = `<div class="empty"><p>No tenés acceso a esta planilla.</p></div>`; return; }
   view.innerHTML = `<div class="skeleton tall"></div>`;
   if (!S.company) return;   // F5: el operativo todavía no llegó; se repinta solo cuando llega
   const cid = S.company.id, col = collection(db, "companies", cid, "planTec");
-  let cfg = null, filas = {}, fijos = {}, creando = false, gestionando = false, deCache = false;
+  let cfg = null, filas = {}, fijos = {}, creando = false, gestionando = false, deCache = false, ultimo = null, reales = {};
+  // Historial: se guarda el documento real (cfg lleva valores por defecto y se toca antes de guardar)
+  const V = crearVersiones({ planilla: "tecnicos", col, view, avisa: true, crudo: id => reales[id], todos: () => reales,
+    ver: estado => { if (estado && T.editando) alternarEdicion();
+      const snap = estado ? { docs: Object.entries(estado).map(([id, d]) => ({ id, data: () => d })) } : ultimo; if (snap) cargar(snap); } });
   unsub?.();
   const cargar = snap => {
     filas = {}; cfg = null;
@@ -63,14 +68,18 @@ export function vistaTecnicos(view) {
   // Link compartido: los datos vienen del bot (S.planTec), no de Firestore
   const cargarInvitado = () => cargar({ docs: (S.planTec || []).map(x => ({ id: x.id, data: () => x.d })) });
   if (S.invitado) setTimeout(cargarInvitado);
-  else unsub = onSnapshot(col, { includeMetadataChanges: true }, cargar, e => { view.innerHTML = `<div class="empty"><p>${esc(mensajeError(e))}</p></div>`; });
+  else unsub = onSnapshot(col, { includeMetadataChanges: true }, snap => {
+    ultimo = snap; reales = Object.fromEntries(snap.docs.map(d => [d.id, d.data()]));
+    if (!V.viendo()) cargar(snap);   // mirando una versión anterior, lo nuevo se pinta al salir
+  }, e => { view.innerHTML = `<div class="empty"><p>${esc(mensajeError(e))}</p></div>`; });
 
-  const guardarCfg = cambios => setDoc(doc(col, "_config"), cambios, { merge: true }).catch(e => toast(mensajeError(e), "error"));
-  const guardarFila = (vid, cambios) => setDoc(doc(col, vid), cambios, { merge: true }).catch(e => toast(mensajeError(e), "error"));
+  const guardarCfg = (cambios, txt) => V.escribir(txt, [{ id: "_config", datos: cambios, merge: true }]);
+  const guardarFila = (vid, cambios, txt) => V.escribir(`${patenteDe(vid)}: ${txt}`, [{ id: vid, datos: cambios, merge: true }]);
+  const patenteDe = vid => activos().find(x => x.id === vid)?.patente || "Auto";
 
   // Autos reparados (de la app) que todavía no están en la planilla: se agregan con el valor y los técnicos activos
   const asegurarFilas = () => {
-    if (S.invitado || creando || gestionando || !cfg.tecnicos.length) return;   // se arma cuando ya están los técnicos   // sin técnicos todavía no se arma nada
+    if (S.invitado || V.viendo() || creando || gestionando || !cfg.tecnicos.length) return;   // se arma cuando ya están los técnicos   // sin técnicos todavía no se arma nada
     // Con datos viejos del equipo (sin señal o sin sincronizar) una fila existente parece faltar y se pisaría con técnicos viejos
     if (deCache) return;
     const faltan = activos().filter(v => entregado(v) && fechaRep(v) && !filas[v.id]);
@@ -296,22 +305,24 @@ export function vistaTecnicos(view) {
   // ── Acciones ──
   async function clic(e) {
     const t = e.target;
+    if (V.viendo()) return;
     if (t.closest("[data-act=tecnicos]")) return gestionarTecnicos();
     const dsw = t.closest("[data-descontar]");
-    if (dsw && !S.invitado) { const id = dsw.closest("[data-tecid]").dataset.tecid; return guardarCfg({ descontar: { ...(cfg.descontar || {}), [id]: !cfg.descontar?.[id] } }); }
+    if (dsw && !S.invitado) { const id = dsw.closest("[data-tecid]").dataset.tecid; return guardarCfg({ descontar: { ...(cfg.descontar || {}), [id]: !cfg.descontar?.[id] } }, `${nombreTec(id)}: ${cfg.descontar?.[id] ? "no descontar" : "descontar"} gastos`); }
     if (t.closest("[data-act=persona]")) {
       const nombre = (await pedirTexto({ title: "Técnico a sueldo", label: "Nombre", ok: "Agregar" }))?.trim();
-      if (nombre) guardarCfg({ personas: [...(cfg.personas || []), { id: nuevoId(), nombre: nombre.toUpperCase() }] });
+      if (nombre) guardarCfg({ personas: [...(cfg.personas || []), { id: nuevoId(), nombre: nombre.toUpperCase() }] }, `Agregó el técnico a sueldo ${nombre.toUpperCase()}`);
       return;
     }
     const dp = t.closest("[data-del-persona]");
     if (dp && T.editando) {
       if (!(await confirmar({ title: "¿Quitar esta persona?", ok: "Quitar", danger: true }))) return;
-      return guardarCfg({ personas: (cfg.personas || []).filter(p => p.id !== dp.dataset.delPersona) });
+      return guardarCfg({ personas: (cfg.personas || []).filter(p => p.id !== dp.dataset.delPersona) }, `Quitó al técnico a sueldo ${nombreTec(dp.dataset.delPersona)}`);
     }
     const pag = t.closest("[data-pagado]");
-    if (pag && !S.invitado) { const { pagado: id, f } = pag.dataset;
-      return guardarCfg({ movs: (cfg.movs || []).map(m => { if (m.id !== id) return m; const p = { ...(m.pagados || {}) }; if (p[f]) delete p[f]; else p[f] = true; return { ...m, pagados: p }; }) }); }
+    if (pag && !S.invitado) { const { pagado: id, f } = pag.dataset, mv = (cfg.movs || []).find(m => m.id === id);
+      return guardarCfg({ movs: (cfg.movs || []).map(m => { if (m.id !== id) return m; const p = { ...(m.pagados || {}) }; if (p[f]) delete p[f]; else p[f] = true; return { ...m, pagados: p }; }) },
+        `${nombreTec(mv?.tec)}: ${mv?.pagados?.[f] ? "desmarcó el pago" : "marcó pagado"} el sueldo de ${pesos(mv?.monto)} (${fechaCorta(f)})`); }
     const res = t.closest("[data-res]");
     if (res) { T.resumen = res.dataset.res; return pintar(); }
     const fila = t.closest("[data-vid]");
@@ -319,7 +330,7 @@ export function vistaTecnicos(view) {
     if (chip && fila && T.editando) {
       const f = filas[fila.dataset.vid] || {}, id = chip.dataset.tec;
       const tecs = (f.tecs || []).includes(id) ? f.tecs.filter(x => x !== id) : [...(f.tecs || []), id];
-      return guardarFila(fila.dataset.vid, { tecs });
+      return guardarFila(fila.dataset.vid, { tecs }, `${tecs.includes(id) ? "sumó a" : "sacó a"} ${nombreTec(id)}`);
     }
     if (t.closest("[data-act=fila]") && fila && T.editando) return opcionesFila(fila.dataset.vid);
     if (fila && !T.editando && !S.invitado) { T.volver = { y: scrollY, x: $(".table-wrap", view)?.scrollLeft || 0, t: $(".table-wrap", view)?.scrollTop || 0 }; location.hash = `#/v/${fila.dataset.vid}`; return; }
@@ -331,14 +342,16 @@ export function vistaTecnicos(view) {
     const del = t.closest("[data-del-mov]");
     if (del && T.editando) {
       if (!(await confirmar({ title: "¿Quitar este movimiento?", ok: "Quitar", danger: true }))) return;
-      return guardarCfg({ movs: (cfg.movs || []).filter(m => m.id !== del.dataset.delMov) });
+      const mv = (cfg.movs || []).find(m => m.id === del.dataset.delMov);
+      return guardarCfg({ movs: (cfg.movs || []).filter(m => m.id !== del.dataset.delMov) }, `Quitó ${mv?.tipo || "movimiento"} de ${nombreTec(mv?.tec)} (${pesos(mv?.monto)})`);
     }
   }
   function cambio(e) {
     const inp = e.target.closest("[data-campo=valor]"), fila = e.target.closest("[data-vid]");
-    if (inp && fila) guardarFila(fila.dataset.vid, { valor: Math.max(0, Number(inp.value) || 0), valorManual: true });
+    if (inp && fila) { const valor = Math.max(0, Number(inp.value) || 0);
+      guardarFila(fila.dataset.vid, { valor, valorManual: true }, `importe de ${pesos(filas[fila.dataset.vid]?.valor)} a ${pesos(valor)}`); }
     const sel = e.target.closest("[data-grupo]"), g = sel && (cfg.grupos || []).find(x => x.id === sel.value);
-    if (g && fila) guardarFila(fila.dataset.vid, { tecs: tecsGrupo(g) });
+    if (g && fila) guardarFila(fila.dataset.vid, { tecs: tecsGrupo(g) }, `eligió el grupo ${g.nombre}`);
   }
 
   function nuevoMov(tecid, tipo) {
@@ -351,7 +364,7 @@ export function vistaTecnicos(view) {
     $("form", s.el).onsubmit = ev => {
       ev.preventDefault();
       const f = ev.target, m = { id: nuevoId(), tec: tecid, tipo, monto: Number(f.monto.value) || 0, fecha: f.fecha.value, nota: f.nota.value.trim() };
-      guardarCfg({ movs: [...(cfg.movs || []), m] }); s.close();
+      guardarCfg({ movs: [...(cfg.movs || []), m] }, `Agregó ${tipo} a ${nombreTec(tecid)}: ${pesos(m.monto)}${m.nota ? ` (${m.nota})` : ""}`); s.close();
     };
   }
 
@@ -367,7 +380,7 @@ export function vistaTecnicos(view) {
       ev.preventDefault();
       const f = ev.target, desde = f.desde.value, hasta = f.hasta.value && f.hasta.value >= desde ? f.hasta.value : "";
       const m = { id: nuevoId(), tec: tecid, tipo: "sueldo", monto: Number(f.monto.value) || 0, desde, fecha: desde, hasta, fijo: f.fijo.checked, nota: f.nota.value.trim() };
-      guardarCfg({ movs: [...(cfg.movs || []), m] }); s.close();
+      guardarCfg({ movs: [...(cfg.movs || []), m] }, `Agregó sueldo a ${nombreTec(tecid)}: ${pesos(m.monto)}${m.fijo ? " fijo" : ""}`); s.close();
     };
   }
 
@@ -377,10 +390,10 @@ export function vistaTecnicos(view) {
       <label class="field"><span>Fecha en la planilla</span><input name="fecha" type="date" value="${esc(f.fecha || fechaRep(v || {}))}"></label>
       <button class="btn btn-primary btn-block">Guardar</button>
       <button type="button" class="btn btn-ghost btn-block danger" data-ocultar>Quitar de la planilla</button></form>` });
-    $("form", s.el).onsubmit = ev => { ev.preventDefault(); guardarFila(vid, { fecha: ev.target.fecha.value || "" }); s.close(); };
+    $("form", s.el).onsubmit = ev => { ev.preventDefault(); guardarFila(vid, { fecha: ev.target.fecha.value || "" }, `cambió la fecha a ${fechaCorta(ev.target.fecha.value)}`); s.close(); };
     $("[data-ocultar]", s.el).onclick = async () => { s.close();
       if (await confirmar({ title: "¿Quitar de la planilla de técnicos?", message: "El vehículo sigue en la app; solo deja de contar acá.", ok: "Quitar", danger: true }))
-        guardarFila(vid, { oculto: true }); };
+        guardarFila(vid, { oculto: true }, "lo quitó de la planilla"); };
   }
 
   function gestionarTecnicos() {
@@ -399,12 +412,7 @@ export function vistaTecnicos(view) {
     $("#tl-reset", s.el).onclick = async () => {
       const v = Number(cfg.valorDefault) || 0, ids = Object.keys(filas);
       if (!ids.length || !(await confirmar({ title: "¿Reiniciar importes?", message: `Los ${ids.length} autos de la planilla quedan en ${pesos(v)}, también los que se cambiaron a mano. No se puede deshacer.`, ok: "Reiniciar", danger: true }))) return;
-      for (let i = 0; i < ids.length; i += 400) {
-        const b = writeBatch(db);
-        ids.slice(i, i + 400).forEach(id => b.set(doc(col, id), { valor: v, valorManual: false }, { merge: true }));
-        await b.commit().catch(err => toast(mensajeError(err), "error"));
-      }
-      toast("Importes reiniciados");
+      if (await V.escribir(`Reinició los importes de ${ids.length} autos a ${pesos(v)}`, ids.map(id => ({ id, datos: { valor: v, valorManual: false }, merge: true })))) toast("Importes reiniciados");
     };
     const pintarL = () => { $("#tl", s.el).innerHTML = cfg.tecnicos.map(t => `<li data-id="${esc(t.id)}">
       <small class="tl-def">Por defecto</small><button type="button" class="switch ${t.activo !== false ? "on" : ""}" data-sw role="switch" aria-checked="${t.activo !== false}" aria-label="Marcado por defecto"><span class="sw-txt sw-si">Sí</span><span class="sw-txt sw-no">No</span><i class="sw-bola"></i></button>
@@ -416,24 +424,24 @@ export function vistaTecnicos(view) {
         <button type="button" class="icon-btn sm danger" data-gdel aria-label="Quitar grupo ${esc(g.nombre)}">${icon("trash")}</button>
         <div class="p-chips">${cfg.tecnicos.map(t => { const si = (g.tecs || []).includes(t.id); return `<button type="button" class="p-chip ${si ? "on" : ""}" data-gt="${esc(t.id)}" aria-pressed="${si}">${esc(t.nombre)}</button>`; }).join("")}</div></li>`).join(""); };
     pintarL();
-    const guardarTecs = tecnicos => { cfg.tecnicos = tecnicos; pintarL(); return guardarCfg({ tecnicos }); };
-    const guardarGrupos = grupos => { cfg.grupos = grupos; pintarL(); return guardarCfg({ grupos }); };
+    const guardarTecs = (tecnicos, txt) => { cfg.tecnicos = tecnicos; pintarL(); return guardarCfg({ tecnicos }, txt); };
+    const guardarGrupos = (grupos, txt) => { cfg.grupos = grupos; pintarL(); return guardarCfg({ grupos }, txt); };
     $("#tg-add", s.el).onclick = async () => {
       const n = await pedirTexto({ title: "Nuevo grupo", label: "Nombre", placeholder: "Ej: Grupo A", ok: "Agregar" });
-      if (n?.trim()) guardarGrupos([...(cfg.grupos || []), { id: nuevoId(), nombre: n.trim().toUpperCase(), tecs: [] }]);
+      if (n?.trim()) guardarGrupos([...(cfg.grupos || []), { id: nuevoId(), nombre: n.trim().toUpperCase(), tecs: [] }], `Creó el grupo ${n.trim().toUpperCase()}`);
     };
     $("#tg", s.el).onclick = async e => {
       const id = e.target.closest("[data-g]")?.dataset.g, g = (cfg.grupos || []).find(x => x.id === id); if (!g) return;
       const chip = e.target.closest("[data-gt]");
       if (chip) { const t = chip.dataset.gt, l = g.tecs || [];
-        return guardarGrupos(cfg.grupos.map(x => x.id === id ? { ...x, tecs: l.includes(t) ? l.filter(y => y !== t) : [...l, t] } : x)); }
+        return guardarGrupos(cfg.grupos.map(x => x.id === id ? { ...x, tecs: l.includes(t) ? l.filter(y => y !== t) : [...l, t] } : x), `Grupo ${g.nombre}: ${l.includes(t) ? "sacó a" : "sumó a"} ${nombreTec(t)}`); }
       // Los autos ya asignados quedan como están
       if (e.target.closest("[data-gdel]") && await confirmar({ title: `¿Quitar ${g.nombre}?`, message: "Los autos quedan con los técnicos que ya tienen.", ok: "Quitar", danger: true }))
-        guardarGrupos(cfg.grupos.filter(x => x.id !== id));
+        guardarGrupos(cfg.grupos.filter(x => x.id !== id), `Quitó el grupo ${g.nombre}`);
     };
     $("#tl-add", s.el).onclick = async () => {
       const n = await pedirTexto({ title: "Nuevo técnico", label: "Nombre", placeholder: "Ej: Juan", ok: "Agregar" });
-      if (n?.trim()) guardarTecs([...cfg.tecnicos, { id: nuevoId(), nombre: n.trim().toUpperCase(), activo: true }]);
+      if (n?.trim()) guardarTecs([...cfg.tecnicos, { id: nuevoId(), nombre: n.trim().toUpperCase(), activo: true }], `Agregó al técnico ${n.trim().toUpperCase()}`);
     };
     // Arrastrar el nombre para arriba o abajo cambia el orden (el de las columnas)
     $("#tl", s.el).addEventListener("pointerdown", e => {
@@ -447,36 +455,32 @@ export function vistaTecnicos(view) {
         removeEventListener("pointermove", mover); removeEventListener("pointerup", soltar); removeEventListener("pointercancel", soltar);
         li.classList.remove("arrastrando");
         const orden = $$("#tl > li[data-id]", s.el).map(x => x.dataset.id);
-        if (orden.join() !== cfg.tecnicos.map(t => t.id).join()) guardarTecs(orden.map(id => cfg.tecnicos.find(t => t.id === id)));
+        if (orden.join() !== cfg.tecnicos.map(t => t.id).join()) guardarTecs(orden.map(id => cfg.tecnicos.find(t => t.id === id)), "Cambió el orden de los técnicos");
       };
       addEventListener("pointermove", mover); addEventListener("pointerup", soltar); addEventListener("pointercancel", soltar);
     });
     // Cambiar el valor por defecto también cambia los autos que lo tenían y nadie tocó a mano
     $("#tl-valor", s.el).onchange = e => {
       const viejo = Number(cfg.valorDefault) || 0, nuevo = Math.max(0, Number(e.target.value) || 0);
-      guardarCfg({ valorDefault: nuevo });
       const ids = Object.keys(filas).filter(id => !filas[id].valorManual && (Number(filas[id].valor) || 0) === viejo);
-      for (let i = 0; i < ids.length; i += 400) {
-        const b = writeBatch(db);
-        ids.slice(i, i + 400).forEach(id => b.set(doc(col, id), { valor: nuevo }, { merge: true }));
-        b.commit().catch(err => toast(mensajeError(err), "error"));
-      }
+      V.escribir(`Cambió el valor por defecto de ${pesos(viejo)} a ${pesos(nuevo)} (${ids.length} autos)`,
+        [{ id: "_config", datos: { valorDefault: nuevo }, merge: true }, ...ids.map(id => ({ id, datos: { valor: nuevo }, merge: true }))]);
     };
     $("#tl", s.el).onclick = async e => {
       const li = e.target.closest("[data-id]"); if (!li) return;
       const id = li.dataset.id, t = cfg.tecnicos.find(x => x.id === id);
-      if (e.target.closest("[data-sw]")) return guardarTecs(cfg.tecnicos.map(x => x.id === id ? { ...x, activo: x.activo === false } : x));
+      if (e.target.closest("[data-sw]")) return guardarTecs(cfg.tecnicos.map(x => x.id === id ? { ...x, activo: x.activo === false } : x), `${t.nombre}: marcado por defecto ${t.activo === false ? "sí" : "no"}`);
       if (e.target.closest("[data-ren]")) {
         const n = await pedirTexto({ title: "Renombrar", label: "Nombre", value: t.nombre });
-        if (n?.trim()) guardarTecs(cfg.tecnicos.map(x => x.id === id ? { ...x, nombre: n.trim().toUpperCase() } : x));
+        if (n?.trim()) guardarTecs(cfg.tecnicos.map(x => x.id === id ? { ...x, nombre: n.trim().toUpperCase() } : x), `Renombró a ${t.nombre} como ${n.trim().toUpperCase()}`);
         return;
       }
       if (e.target.closest("[data-del]") && await confirmar({ title: `¿Quitar a ${t.nombre}?`, message: "Deja de figurar en la planilla y en los repartos.", ok: "Quitar", danger: true }))
-        guardarTecs(cfg.tecnicos.filter(x => x.id !== id));
+        guardarTecs(cfg.tecnicos.filter(x => x.id !== id), `Quitó al técnico ${t.nombre}`);
     };
   }
 
-  $("#t-tec")?.addEventListener("click", () => cfg && gestionarTecnicos());
+  $("#t-tec")?.addEventListener("click", () => cfg && !V.viendo() && gestionarTecnicos());
   // Descargar: los autos del período, con el total de cada semana y el total general
   $("#t-dl")?.addEventListener("click", () => {
     if (!cfg) return;
@@ -510,12 +514,13 @@ export function vistaTecnicos(view) {
     return { titulo: "Cierre", filas, cols: [{ titulo: "", ancho: 33.5, negrita: true }, { titulo: "TOTAL", ancho: 23.5, tipo: "moneda", centro: true, negrita: true }, { titulo: "", ancho: 8 },
       ...l.map(x => ({ titulo: x.t.nombre, ancho: 21, tipo: "moneda", centro: true }))] };
   };
-  $("#t-edit")?.addEventListener("click", () => {
-    T.editando = !T.editando;
+  const alternarEdicion = () => {
+    T.editando = !T.editando; V.editando(T.editando);
     const b = $("#t-edit"); b.className = `btn btn-sm ${T.editando ? "btn-primary" : "btn-ghost"}`;
     b.innerHTML = `${icon(T.editando ? "check" : "edit")}${T.editando ? "<span>Listo</span>" : ""}`;
     if (cfg) pintar();
-  });
+  };
+  $("#t-edit")?.addEventListener("click", () => { if (!V.viendo()) alternarEdicion(); });
   // Compartir: link de solo lectura de esta planilla (con o sin Sueldos)
   $("#t-share")?.addEventListener("click", () => {
     const s = openSheet({ title: "Compartir planilla de técnicos", body: `<div class="stack">

@@ -13,6 +13,7 @@ App de gestión de granizo/PDR del usuario (@gzmatte, el "creador"). Respuestas 
 ## Datos (Firestore)
 
 - `companies/{cid}` = operativo (members, roles owner/admin/tecnico/desmontaje). Sub: `vehicles`, `gastos`, `planTec` (`_config` técnicos/sueldos/movs, `_fijos` viandas/alquiler), `solicitudes`.
+- `companies/{cid}/planHist/{tecnicos|fijos|facturacion}/cambios/{id}` = historial de las planillas, solo se agrega (`js/versiones.js`): autor, hora del servidor, detalle y cómo estaban antes los documentos. Toda escritura de esas planillas pasa por `V.escribir`; el bot avisa al creador con `/aviso-planilla`.
 - `users/{uid}` (perfil, `notifVisto`), `usernames/{u}`, `config/app` (switches del creador, `accesos`, `sonidoAuto`).
 - Bot: `bot_sesiones/{numero}`, `bot_operativo`, `bot_grupos`, `bot_grupo_op` (grupo→operativo), `bot_resumen`, `bot_borrados`, `bot_meta/deploy`.
 - `compartidos/{token}` = links de perito (también se generan páginas `/<token>/` por el workflow `links-cortos.yml`).

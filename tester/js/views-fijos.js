@@ -5,10 +5,12 @@
 //             Cada cambio vale desde su fecha en adelante; "dias" son los ajustes de un día puntual.
 //   alquiler: { casas: [{ id, nombre, inicio, pagos: [{ id, monto, desde, hasta }], estadias: { idTec: [{ id, llegada, salida }] } }] }
 // ═════════════════════════════════════════════════════════════
-import { db, collection, doc, onSnapshot, setDoc } from "./firebase.js";
+import { db, collection, doc, onSnapshot, deleteField } from "./firebase.js";
 import { S, puedeVer, mensajeError } from "./data.js";
 import { $, $$, esc, icon, toast, openSheet, confirmar, pedirTexto, fechaCorta, hoyISO } from "./ui.js";
 import { setTopbar } from "./shell.js";
+import { marcarVianda, valoresVianda } from "./domain.js";
+import { crearVersiones, botonesVersion } from "./versiones.js";
 
 const pesos = n => "$" + Math.round(Number(n) || 0).toLocaleString("es-AR");
 const DIAS = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
@@ -98,13 +100,13 @@ let unsub = null;
 
 export function vistaFijos(view) {
   setTopbar({ title: "Fijos", sub: S.company?.name, back: "#/planillas",
-    actions: `<button class="btn btn-ghost btn-sm" id="f-tec">${icon("team")}<span class="hide-sm">Técnicos</span></button><button class="btn btn-sm ${F.editando ? "btn-primary" : "btn-ghost"}" id="f-edit">${icon(F.editando ? "check" : "edit")}${F.editando ? "<span>Listo</span>" : ""}</button>` });
+    actions: `<button class="btn btn-ghost btn-sm" id="f-tec">${icon("team")}<span class="hide-sm">Técnicos</span></button>${botonesVersion(F.editando)}<button class="btn btn-sm ${F.editando ? "btn-primary" : "btn-ghost"}" id="f-edit">${icon(F.editando ? "check" : "edit")}${F.editando ? "<span>Listo</span>" : ""}</button>` });
   if (!puedeVer("fijos")) { view.innerHTML = `<div class="empty"><p>No tenés acceso a esta planilla.</p></div>`; return; }
   view.innerHTML = `<div class="skeleton tall"></div>`;
   if (!S.company) return;   // F5: el operativo todavía no llegó; se repinta solo cuando llega
   const col = collection(db, "companies", S.company.id, "planTec");
   // Los técnicos de gastos fijos son propios (no los de la planilla de técnicos)
-  let fijos = {};
+  let fijos = {}, real = {};
   // Orden de ingreso: el primer día en que cada técnico aparece en las viandas (si no, el día que llegó a la casa);
   // los que entraron el mismo día quedan en el orden en que se cargaron. Así un técnico nuevo nunca se mete entre los anteriores.
   const cfg = { get tecnicos() {
@@ -115,14 +117,18 @@ export function vistaFijos(view) {
     Object.entries(fijos.viandas?.dias || {}).forEach(([d, ids]) => (ids || []).forEach(id => { if (!primero[id] || d < primero[id]) primero[id] = d; }));
     return l.map((t, i) => ({ t, i, f: primero[t.id] || llegadas(t.id)[0] || "9999" })).sort((a, b) => a.f.localeCompare(b.f) || a.i - b.i).map(x => x.t);
   } };
+  const V = crearVersiones({ planilla: "fijos", col, view, avisa: true, crudo: id => id === "_fijos" ? real : undefined, todos: () => ({ _fijos: real }),
+    ver: estado => { if (estado && F.editando) alternarEdicion(); fijos = estado ? estado._fijos || {} : real; pintar(); } });
   unsub?.();
   unsub = onSnapshot(doc(col, "_fijos"), d => {
-    fijos = d.data() || {};
+    real = d.data() || {};
+    if (V.viendo()) return;   // mirando una versión anterior, lo nuevo se pinta al salir
+    fijos = real;
     if (!document.body.contains(view) || location.hash !== "#/fijos") { unsub?.(); unsub = null; return; }
     if (!$(".fijos-page", view)) estructura();
     pintar();
   }, e => { view.innerHTML = `<div class="empty"><p>${esc(mensajeError(e))}</p></div>`; });
-  const guardar = cambios => setDoc(doc(col, "_fijos"), cambios, { merge: true }).catch(e => toast(mensajeError(e), "error"));
+  const guardar = (cambios, txt) => V.escribir(txt, [{ id: "_fijos", datos: cambios, merge: true }]);
   const nombre = id => cfg.tecnicos.find(t => t.id === id)?.nombre || "?";
 
   const estructura = () => {
@@ -158,7 +164,7 @@ export function vistaFijos(view) {
         ${ult ? `<div class="fijos-kv"><span>Vianda por técnico</span><b>${pesos(ult.vianda)}</b></div>
           <div class="fijos-kv"><span>Envío por día (se reparte)</span><b>${pesos(ult.envio)}</b></div>`
           : `<p class="muted">Todavía no empezaste. Elegí los técnicos que están ahora y los valores: se repite solo todos los días.</p>`}
-        ${!ult || ed ? `<button type="button" class="btn ${ult ? "btn-ghost" : "btn-primary"} btn-block" data-act="cambio">${icon(ult ? "edit" : "plus")}${ult ? "Cambiar técnicos o valores" : "Empezar"}</button>` : ""}
+        ${!ult || ed ? `<button type="button" class="btn ${ult ? "btn-ghost" : "btn-primary"} btn-block" data-act="cambio">${icon(ult ? "edit" : "plus")}${ult ? "Cambiar valores" : "Empezar"}</button>` : ""}
       </section>
       ${dias.length ? `<details class="card plegable fijos-tot">
           <summary><span>Total por técnico <small class="muted">${dias.length} ${dias.length === 1 ? "día" : "días"} · ${pesos(Object.values(tot).reduce((a, b) => a + b, 0))}</small></span>${icon("next")}</summary>
@@ -166,7 +172,7 @@ export function vistaFijos(view) {
           ${tecs.map(t => `<div class="fijos-kv"><span>${esc(t.nombre)}</span><b>${pesos(tot[t.id])}</b></div>`).join("")}
           <div class="fijos-kv fijos-kv-total"><span>Total</span><b>${pesos(Object.values(tot).reduce((a, b) => a + b, 0))}</b></div>
           </div></details>
-        ${ed ? `<p class="muted small">Tocá un técnico en un día para sacarlo o sumarlo solo ese día. El envío se reparte entre los que estén.</p>` : ""}
+        ${ed ? `<p class="muted small">Tocá un técnico en un día para sacarlo o sumarlo desde ese día en adelante; los días siguientes siguen igual, hasta el próximo cambio. El envío se reparte entre los que estén.</p>` : ""}
         <div class="vdias">${dias.map(d => {
           const totalDia = d.vianda * d.tecs.length + (d.tecs.length ? d.envio : 0);
           const chips = tecs.filter(t => ed || d.tecs.includes(t.id)).map(t => { const si = d.tecs.includes(t.id);
@@ -180,30 +186,30 @@ export function vistaFijos(view) {
     const v = fijos.viandas || {}, cambios = v.cambios || [];
     const ult = [...cambios].sort((a, b) => a.fecha.localeCompare(b.fecha)).pop();
     const marcados = new Set(ult?.tecs || cfg.tecnicos.map(t => t.id));
-    const s = openSheet({ title: ult ? "Cambiar viandas" : "Empezar viandas", body: `<form class="stack">
+    const s = openSheet({ title: ult ? "Cambiar valores" : "Empezar viandas", body: `<form class="stack">
       <label class="field"><span>Desde el día</span><input type="date" name="fecha" value="${hoyISO()}" required></label>
       <label class="field"><span>Valor de la vianda (por técnico, por día)</span><input type="number" inputmode="numeric" name="vianda" min="0" value="${Number(ult?.vianda) || ""}" required></label>
       <label class="field"><span>Envío por día (se reparte entre todos)</span><input type="number" inputmode="numeric" name="envio" min="0" value="${Number(ult?.envio) || 0}"></label>
-      <div class="field"><span>Técnicos que están</span><div class="p-chips" id="fc-tecs">${cfg.tecnicos.map(t =>
-        `<button type="button" class="p-chip ${marcados.has(t.id) ? "on" : ""}" data-t="${esc(t.id)}">${esc(t.nombre)}</button>`).join("")}</div></div>
+      ${ult ? "" : `<div class="field"><span>Técnicos que están</span><div class="p-chips" id="fc-tecs">${cfg.tecnicos.map(t =>
+        `<button type="button" class="p-chip ${marcados.has(t.id) ? "on" : ""}" data-t="${esc(t.id)}">${esc(t.nombre)}</button>`).join("")}</div></div>`}
       <button class="btn btn-primary btn-block">Guardar</button></form>` });
-    $("#fc-tecs", s.el).onclick = e => { const b = e.target.closest("[data-t]"); if (!b) return;
+    if (!ult) $("#fc-tecs", s.el).onclick = e => { const b = e.target.closest("[data-t]"); if (!b) return;
       marcados.has(b.dataset.t) ? marcados.delete(b.dataset.t) : marcados.add(b.dataset.t); b.classList.toggle("on"); };
     $("form", s.el).onsubmit = e => {
       e.preventDefault();
       const f = e.target, fecha = f.fecha.value;
-      const nuevo = { id: nuevoId(), fecha, tecs: cfg.tecnicos.map(t => t.id).filter(id => marcados.has(id)), vianda: Number(f.vianda.value) || 0, envio: Number(f.envio.value) || 0 };
-      // Un cambio por día; los ajustes de días desde esa fecha en adelante se reemplazan por el cambio nuevo
-      const dias = Object.fromEntries(Object.entries(v.dias || {}).filter(([d]) => d < fecha));
-      guardar({ viandas: { cambios: [...cambios.filter(c => c.fecha !== fecha), nuevo], dias } });
+      const vianda = Number(f.vianda.value) || 0, envio = Number(f.envio.value) || 0;
+      guardar({ viandas: { cambios: ult ? valoresVianda(cambios, fecha, vianda, envio, nuevoId())
+        : [{ id: nuevoId(), fecha, tecs: cfg.tecnicos.map(t => t.id).filter(id => marcados.has(id)), vianda, envio }] } },
+        ult ? `Viandas: desde ${fechaCorta(fecha)} vianda ${pesos(vianda)} y envío ${pesos(envio)}` : `Empezó las viandas desde ${fechaCorta(fecha)}: vianda ${pesos(vianda)}, envío ${pesos(envio)}`);
       s.close(); toast("Guardado", "success");
     };
   };
 
   // ── Alquiler: varias casas, cada una con su nombre, pagos y estadías ──
   const casas = () => casasDe(fijos);
-  const guardarCasas = l => guardar({ alquiler: { casas: l } });
-  const updCasa = (cid, fn) => guardarCasas(casas().map(c => c.id === cid ? fn({ ...c }) : c));
+  const guardarCasas = (l, txt) => guardar({ alquiler: { casas: l } }, txt);
+  const updCasa = (cid, fn, txt) => guardarCasas(casas().map(c => c.id === cid ? fn({ ...c }) : c), `${casas().find(c => c.id === cid)?.nombre || "Casa"}: ${txt}`);
   const tablaReparto = (r, titulo) => `<div class="table-wrap"><table class="tbl tbl-reparto"><thead><tr><th>${titulo}</th><th class="num">Noches</th><th class="num">Corresponde</th></tr></thead><tbody>
       ${cfg.tecnicos.filter(t => r.diasTec[t.id] || r.porTec[t.id] > 0.5).map(t => `<tr><td>${esc(t.nombre)}</td><td class="num">${r.diasTec[t.id] || 0}</td><td class="num">${pesos(r.porTec[t.id])}</td></tr>`).join("")}
       ${r.sinAsignar > 0.5 ? `<tr><td class="muted">Noches sin nadie</td><td></td><td class="num muted">${pesos(r.sinAsignar)}</td></tr>` : ""}
@@ -263,7 +269,7 @@ export function vistaFijos(view) {
       e.preventDefault(); const f = e.target;
       if (f.hasta.value <= f.desde.value) return toast("La fecha de fin tiene que ser después del inicio", "warning");
       const p = { id: nuevoId(), monto: Number(f.monto.value) || 0, desde: f.desde.value, hasta: f.hasta.value };
-      updCasa(cid, x => ({ ...x, inicio: x.inicio || p.desde, pagos: [...(x.pagos || []), p] })); s.close();
+      updCasa(cid, x => ({ ...x, inicio: x.inicio || p.desde, pagos: [...(x.pagos || []), p] }), `agregó un pago de ${pesos(p.monto)} (${fechaCorta(p.desde)} al ${fechaCorta(p.hasta)})`); s.close();
     };
   };
   const nuevaCasa = async () => {
@@ -271,11 +277,12 @@ export function vistaFijos(view) {
     if (!n?.trim()) return;
     const id = nuevoId(); (F.abiertas ||= new Set()).add(id);
     if (!F.editando) $("#f-edit")?.click();
-    guardarCasas([...casas(), { id, nombre: n.trim(), inicio: "", pagos: [], estadias: {} }]);
+    guardarCasas([...casas(), { id, nombre: n.trim(), inicio: "", pagos: [], estadias: {} }], `Agregó la casa ${n.trim()}`);
   };
 
   async function clic(e) {
     const t = e.target;
+    if (V.viendo()) return;
     if (t.closest("[data-act=cambio]")) return sheetCambio();
     if (t.closest("[data-act=tecnicos]")) return gestionarTecnicos();
     const casaEl = t.closest("[data-casa]"), cid = casaEl?.dataset.casa;
@@ -284,24 +291,23 @@ export function vistaFijos(view) {
     if (t.closest("[data-ren-casa]") && cid) {
       const c = casas().find(x => x.id === cid);
       const n = await pedirTexto({ title: "Nombre de la casa", label: "Nombre", value: c?.nombre || "" });
-      if (n?.trim()) updCasa(cid, x => ({ ...x, nombre: n.trim() }));
+      if (n?.trim()) updCasa(cid, x => ({ ...x, nombre: n.trim() }), `cambió el nombre a ${n.trim()}`);
       return;
     }
     if (t.closest("[data-del-casa]") && cid && await confirmar({ title: "¿Quitar esta casa?", message: "Se borran sus pagos y estadías.", ok: "Quitar", danger: true }))
-      return guardarCasas(casas().filter(x => x.id !== cid));
+      return guardarCasas(casas().filter(x => x.id !== cid), `Quitó la casa ${casas().find(x => x.id === cid)?.nombre || ""}`);
     const dia = t.closest("[data-dia]"), cel = t.closest("[data-tec]");
     if (dia && cel && F.editando) {
       const d = diasViandas(fijos).find(x => x.fecha === dia.dataset.dia); if (!d) return;
       const id = cel.dataset.tec, tecs = d.tecs.includes(id) ? d.tecs.filter(x => x !== id) : [...d.tecs, id];
-      return guardar({ viandas: { ...(fijos.viandas || {}), dias: { ...(fijos.viandas?.dias || {}), [d.fecha]: tecs } } });
+      // Vale desde ese día en adelante; si ese día tenía un ajuste viejo de un solo día, deja de hacer falta
+      return guardar({ viandas: { cambios: marcarVianda(fijos.viandas?.cambios || [], d.fecha, tecs, nuevoId()), dias: { [d.fecha]: deleteField() } } },
+        `Viandas desde ${fechaCorta(d.fecha)}: ${tecs.includes(id) ? "sumó a" : "sacó a"} ${nombre(id)}`);
     }
-    const dc = t.closest("[data-del-cambio]");
-    if (dc && await confirmar({ title: "¿Borrar este cambio?", ok: "Borrar", danger: true }))
-      return guardar({ viandas: { ...(fijos.viandas || {}), cambios: (fijos.viandas?.cambios || []).filter(c => c.id !== dc.dataset.delCambio) } });
     const tecEl = t.closest("[data-tecid]");
     if (t.closest("[data-add-est]") && tecEl && cid && F.editando) {
       const id = tecEl.dataset.tecid;
-      return updCasa(cid, c => ({ ...c, estadias: { ...(c.estadias || {}), [id]: [...estadiasDe(c.estadias, id), { id: nuevoId(), llegada: hoyISO(), salida: "" }] } }));
+      return updCasa(cid, c => ({ ...c, estadias: { ...(c.estadias || {}), [id]: [...estadiasDe(c.estadias, id), { id: nuevoId(), llegada: hoyISO(), salida: "" }] } }), `agregó una estadía de ${nombre(id)} desde ${fechaCorta(hoyISO())}`);
     }
     // Copiar y pegar las fechas de un técnico a otro (también entre casas)
     if (t.closest("[data-copiar-est]") && tecEl && cid) {
@@ -311,23 +317,25 @@ export function vistaFijos(view) {
     }
     if (t.closest("[data-pegar-est]") && tecEl && cid && F.copiaEst) {
       const id = tecEl.dataset.tecid;
-      return updCasa(cid, c => ({ ...c, estadias: { ...(c.estadias || {}), [id]: F.copiaEst.map(e => ({ id: nuevoId(), ...e })) } }));
+      return updCasa(cid, c => ({ ...c, estadias: { ...(c.estadias || {}), [id]: F.copiaEst.map(e => ({ id: nuevoId(), ...e })) } }), `pegó las fechas de estadía a ${nombre(id)}`);
     }
     const de = t.closest("[data-del-est]");
     if (de && tecEl && cid && F.editando && await confirmar({ title: "¿Quitar esta estadía?", ok: "Quitar", danger: true })) {
       const id = tecEl.dataset.tecid, eid = de.closest("[data-est]").dataset.est;
-      return updCasa(cid, c => ({ ...c, estadias: { ...(c.estadias || {}), [id]: estadiasDe(c.estadias, id).filter(e => e.id !== eid) } }));
+      return updCasa(cid, c => ({ ...c, estadias: { ...(c.estadias || {}), [id]: estadiasDe(c.estadias, id).filter(e => e.id !== eid) } }), `quitó una estadía de ${nombre(id)}`);
     }
     const dp = t.closest("[data-del-pago]");
-    if (dp && cid && await confirmar({ title: "¿Quitar este pago?", ok: "Quitar", danger: true }))
-      return updCasa(cid, c => ({ ...c, pagos: (c.pagos || []).filter(p => p.id !== dp.dataset.delPago) }));
+    if (dp && cid && await confirmar({ title: "¿Quitar este pago?", ok: "Quitar", danger: true })) {
+      const pg = (casas().find(c => c.id === cid)?.pagos || []).find(p => p.id === dp.dataset.delPago);
+      return updCasa(cid, c => ({ ...c, pagos: (c.pagos || []).filter(p => p.id !== dp.dataset.delPago) }), `quitó un pago de ${pesos(pg?.monto)}`);
+    }
   }
   function cambio(e) {
     const inp = e.target.closest("[data-campo]"); if (!inp || !F.editando) return;
     const cid = inp.closest("[data-casa]")?.dataset.casa; if (!cid) return;
-    if (inp.dataset.campo === "inicio") return updCasa(cid, c => ({ ...c, inicio: inp.value }));
+    if (inp.dataset.campo === "inicio") return updCasa(cid, c => ({ ...c, inicio: inp.value }), `empezamos a alquilar el ${fechaCorta(inp.value)}`);
     const tec = inp.closest("[data-tecid]")?.dataset.tecid, eid = inp.closest("[data-est]")?.dataset.est; if (!tec || !eid) return;
-    updCasa(cid, c => ({ ...c, estadias: { ...(c.estadias || {}), [tec]: estadiasDe(c.estadias, tec).map(e => e.id === eid ? { ...e, [inp.dataset.campo]: inp.value } : e) } }));
+    updCasa(cid, c => ({ ...c, estadias: { ...(c.estadias || {}), [tec]: estadiasDe(c.estadias, tec).map(e => e.id === eid ? { ...e, [inp.dataset.campo]: inp.value } : e) } }), `${nombre(tec)}: ${inp.dataset.campo === "llegada" ? "llegó" : "se fue"} el ${fechaCorta(inp.value)}`);
   }
 
   // Técnicos propios de gastos fijos: agregar, renombrar, quitar
@@ -340,28 +348,29 @@ export function vistaFijos(view) {
       <button type="button" class="icon-btn sm" data-ren aria-label="Renombrar">${icon("edit")}</button>
       <button type="button" class="icon-btn sm danger" data-del aria-label="Quitar">${icon("trash")}</button></li>`).join("") || `<li class="muted small">Sin técnicos</li>`; };
     pintarL();
-    const guardarTecs = tecnicos => { fijos = { ...fijos, tecnicos }; pintarL(); return guardar({ tecnicos }); };
+    const guardarTecs = (tecnicos, txt) => { fijos = { ...fijos, tecnicos }; pintarL(); return guardar({ tecnicos }, txt); };
     $("#ftl-add", s.el).onclick = async () => {
       const n = await pedirTexto({ title: "Nuevo técnico", label: "Nombre", placeholder: "Ej: Juan", ok: "Agregar" });
-      if (n?.trim()) guardarTecs([...cfg.tecnicos, { id: nuevoId(), nombre: n.trim().toUpperCase() }]);
+      if (n?.trim()) guardarTecs([...cfg.tecnicos, { id: nuevoId(), nombre: n.trim().toUpperCase() }], `Agregó al técnico ${n.trim().toUpperCase()}`);
     };
     $("#ftl", s.el).onclick = async e => {
       const li = e.target.closest("[data-id]"); if (!li) return;
       const t = cfg.tecnicos.find(x => x.id === li.dataset.id);
       if (e.target.closest("[data-ren]")) {
         const n = await pedirTexto({ title: "Renombrar", label: "Nombre", value: t.nombre });
-        if (n?.trim()) guardarTecs(cfg.tecnicos.map(x => x.id === t.id ? { ...x, nombre: n.trim().toUpperCase() } : x));
+        if (n?.trim()) guardarTecs(cfg.tecnicos.map(x => x.id === t.id ? { ...x, nombre: n.trim().toUpperCase() } : x), `Renombró a ${t.nombre} como ${n.trim().toUpperCase()}`);
       }
       if (e.target.closest("[data-del]") && await confirmar({ title: `¿Quitar a ${t.nombre}?`, ok: "Quitar", danger: true }))
-        guardarTecs(cfg.tecnicos.filter(x => x.id !== t.id));
+        guardarTecs(cfg.tecnicos.filter(x => x.id !== t.id), `Quitó al técnico ${t.nombre}`);
     };
   }
-  $("#f-tec")?.addEventListener("click", gestionarTecnicos);
+  $("#f-tec")?.addEventListener("click", () => { if (!V.viendo()) gestionarTecnicos(); });
 
-  $("#f-edit")?.addEventListener("click", () => {
-    F.editando = !F.editando;
+  const alternarEdicion = () => {
+    F.editando = !F.editando; V.editando(F.editando);
     const b = $("#f-edit"); b.className = `btn btn-sm ${F.editando ? "btn-primary" : "btn-ghost"}`;
     b.innerHTML = `${icon(F.editando ? "check" : "edit")}${F.editando ? "<span>Listo</span>" : ""}`;
     pintar();
-  });
+  };
+  $("#f-edit")?.addEventListener("click", () => { if (!V.viendo()) alternarEdicion(); });
 }

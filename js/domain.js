@@ -1,3 +1,22 @@
+// Cómo estaban los documentos de una planilla después del cambio k (entradas: la más nueva primero; k = 0 es ahora):
+// se deshacen en orden las más nuevas que esa, con lo que cada una guardó de antes (null = el documento no existía)
+export function estadoEn(actual, entradas, k) {
+  const out = { ...actual };
+  entradas.slice(0, k).forEach(e => Object.entries(e.antes).forEach(([id, d]) => { if (d == null) delete out[id]; else out[id] = d; }));
+  return out;
+}
+// Marcar o sacar un técnico de las viandas un día: vale desde ese día en adelante, hasta el próximo cambio
+export function marcarVianda(cambios, fecha, tecs, id) {
+  const c = [...cambios].sort((a, b) => a.fecha.localeCompare(b.fecha)).filter(x => x.fecha <= fecha).pop();
+  return [...cambios.filter(x => x.fecha !== fecha), { id, fecha, tecs, vianda: c?.vianda || 0, envio: c?.envio || 0 }];
+}
+// Cambiar los valores de las viandas: valen desde ese día en adelante, sin tocar qué técnicos estaban
+export function valoresVianda(cambios, fecha, vianda, envio, id) {
+  const c = [...cambios].sort((a, b) => a.fecha.localeCompare(b.fecha)).filter(x => x.fecha <= fecha).pop() || [...cambios].sort((a, b) => a.fecha.localeCompare(b.fecha))[0];
+  const siguen = cambios.map(x => x.fecha >= fecha ? { ...x, vianda, envio } : x);
+  return siguen.some(x => x.fecha === fecha) ? siguen : [...siguen, { id, fecha, tecs: c?.tecs || [], vianda, envio }];
+}
+
 // Estados del trabajo, en orden. "anulado" queda fuera de la secuencia.
 // El paso de reparación avanza con cada toque: Reparando → Revisión → Contactado → Entregado
 // ("reparado" es la Revisión final; se mantiene la clave para no perder los datos cargados)

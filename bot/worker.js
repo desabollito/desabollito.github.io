@@ -46,7 +46,7 @@ export default {
     const API = { "/registro": nuevoRegistro, "/avisar": avisarCliente, "/solicitud": avisarSolicitud, "/agregado": avisarAgregado, "/pedido-union": avisarPedidoUnion,
       "/admin/datos": adminDatos, "/admin/borrar-usuario": adminBorrarUsuario, "/admin/config": adminConfig, "/admin/padron": adminPadron, "/mover-vehiculo": moverVehiculo,
       "/borrar-media": borrarMediaApi, "/eliminar-vehiculo": eliminarVehiculoApi,
-      "/compartir": compartirApi, "/compartido": compartidoApi,
+      "/compartir": compartirApi, "/compartido": compartidoApi, "/aviso-planilla": avisoPlanilla,
       "/aviso-version": avisoVersion, "/pedir-borrar-operativo": pedirBorrarOperativo,
       "/recuperar": recuperarApi, "/restablecer": restablecerApi, "/usuarios-app": usuariosAppApi,
       "/admin/resumen-ahora": async (env, { idToken, forzar }) => (await soloCreador(env, idToken)) ? json({ ok: true, enviados: await enviarResumenesDiarios(env, forzar) }) : json({ ok: false }, 403) };
@@ -3084,6 +3084,24 @@ async function avisarSolicitud(env, { cid, sid }) {
   return json({ ok: !!r?.ok });
 }
 
+// Cambios de otra persona en Técnicos o Fijos: aviso al creador con el detalle (sus propios cambios no se avisan).
+// El texto sale del historial, no del pedido, y cada entrada tiene que ser de quien avisa.
+async function avisoPlanilla(env, { idToken, cid, planilla, ids }) {
+  const nombre = { tecnicos: "Planilla de técnicos", fijos: "Fijos" }[planilla], m = await miembroDe(env, idToken, cid);
+  if (!m || !nombre || !Array.isArray(ids)) return json({ ok: false, error: "No autorizado" }, 403);
+  const creador = await fsGet(env, `usernames/${CREADOR}`);
+  if (m.uid === creador?.uid) return json({ ok: true });
+  const rutas = ids.filter(idValido).slice(0, 30).map(id => `companies/${cid}/planHist/${planilla}/cambios/${id}`);
+  const entradas = (await Promise.all(rutas.map(async ruta => ({ ruta, e: await fsGet(env, ruta) })))).filter(x => x.e?.uid === m.uid && !x.e.avisado);
+  if (!entradas.length) return json({ ok: true });
+  const yo = creador?.uid ? await fsGet(env, `users/${creador.uid}`) : null, e0 = entradas[0].e;
+  const quien = e0.usuario ? `@${e0.usuario}` : e0.por || "Alguien";
+  const r = await enviar(env, destinoNumero(env, yo?.whatsapp || numeroAdmin(env)), { type: "text", text: { preview_url: false, body:
+    `✏️ *${nombre}* · ${m.c.name || ""}\n${quien} hizo ${entradas.length === 1 ? "un cambio" : `${entradas.length} cambios`}:\n\n${entradas.map(x => `• ${String(x.e.txt || "").slice(0, 300)}`).join("\n")}\n\nHistorial: ${APP_URL}/#/${planilla}` } });
+  await Promise.all(entradas.map(x => fsMerge(env, x.ruta, { avisado: true }).catch(() => {})));
+  return json({ ok: !!r?.ok });
+}
+
 // Alguien fue sumado a un operativo: se le avisa por WhatsApp si tiene el número vinculado (una sola vez)
 async function avisarAgregado(env, { cid, uid }) {
   if (!idValido(cid) || !idValido(uid)) return json({ ok: false, error: "Datos inválidos" }, 400);
@@ -3207,7 +3225,7 @@ async function confirmarBorrado(env, m, codigo, confirmar) {
 async function borrarOperativoCompleto(env, cid) {
   const commit = writes => fs(env, `${base(env)}:commit`, { method: "POST", body: JSON.stringify({ writes }) });
   const media = new Map(); let nVeh = 0;
-  for (const sub of ["vehicles", "gastos", "planTec", "solicitudes"]) {
+  for (const sub of ["vehicles", "gastos", "planTec", "solicitudes", "planHist/tecnicos/cambios", "planHist/fijos/cambios", "planHist/facturacion/cambios"]) {
     const docs = await fsList(env, `companies/${cid}/${sub}`).catch(() => []);
     if (sub === "vehicles") { nVeh = docs.length; docs.forEach(v => mediaDe(v, media)); }
     for (let i = 0; i < docs.length; i += 400) await commit(docs.slice(i, i + 400).map(d => ({ delete: nombreDoc(env, d.__ruta) })));

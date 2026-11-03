@@ -1,5 +1,5 @@
 import {
-  S, activos, papelera, restaurar, eliminarDefinitivo, soyAdmin, miRol, renombrarEmpresa, guardarSello,
+  S, activos, papelera, restaurar, eliminarDefinitivo, soyAdmin, miRol, renombrarEmpresa, guardarSello, deshaciblesDe, deshacerCambio, soyDesmontaje,
   agregarMiembro, cambiarRol, quitarMiembro, guardarEtiquetas, resolverSolicitud, desvincularWhatsApp, salirDeEmpresa, eliminarEmpresa, crearEmpresa, elegirEmpresa,
   actualizarPerfil, salir, mensajeError, llamarAdmin, soloDesmontaje, pedirUnion, linksCompartidos, getVehiculo, soloVer, soySacabollos
 } from "./data.js";
@@ -46,7 +46,7 @@ function filasPlanilla() {
 export function vistaPlanilla(view) {
   setTopbar({
     title: "Planilla de vehículos", sub: S.invitado ? S.invitado.compania : S.company?.name, back: S.invitado ? "" : "#/planillas",
-    actions: `<button class="btn btn-ghost btn-sm" id="dl" aria-label="Descargar">${icon("download")}<span class="hide-sm">Descargar</span></button>`
+    actions: `<button class="btn btn-ghost btn-sm" id="dl" aria-label="Descargar">${icon("download")}<span class="hide-sm">Descargar</span></button>${S.invitado || soloVer() ? "" : `<button class="btn btn-ghost btn-sm" id="p-cambios" aria-label="Cambios recientes" title="Cambios recientes">${icon("clock")}<span class="hide-sm">Cambios</span></button>`}`
   });
   const ordenes = [["fecha", "Fecha"], ["patente", "Patente"], ["modelo", "Modelo"], ["estado", "Estado"]];
   if (matchMedia("(max-width: 899px)").matches && !ordenes.some(([k]) => k === P.orden)) { P.orden = "fecha"; P.dir = -1; }
@@ -154,6 +154,22 @@ export function vistaPlanilla(view) {
       total: soloVer() ? [] : [{ etiqueta: "Total", valor: filas.reduce((s, v) => s + (esAnulado(v) ? 0 : Number(v.precio || 0)), 0) }]
     });
   };
+  // Todos los cambios recientes de todos los vehículos, con quién los hizo; cada uno se puede revertir (y revertir la reversión)
+  $("#p-cambios")?.addEventListener("click", () => {
+    const l = activos().flatMap(v => (v.historial || []).map(e => ({ v, e }))).sort((a, b) => (b.e.t || 0) - (a.e.t || 0)).slice(0, 200);
+    const s = openSheet({ title: "Cambios recientes", wide: true, body: l.length ? `<p class="muted small">Últimos ${l.length} cambios de la planilla, de todos los vehículos.</p><ul class="ver-lista">${l.map(({ v, e }, i) =>
+      `<li><div class="ver-item"><span class="hist-txt"><strong>${esc(e.por || "Alguien")}</strong> ${esc(v.patente || v.modelo || "")}: ${esc(String(e.txt || "").replace(/Pasó a /g, ""))}</span>
+        <span class="ver-item-acc"><time>${e.t ? new Date(e.t).toLocaleString("es-AR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : ""}</time>
+        ${deshaciblesDe(v).includes(e) && !soyDesmontaje() ? `<button type="button" class="btn btn-ghost btn-sm" data-i="${i}">Revertir</button>` : ""}</span></div></li>`).join("")}</ul>`
+      : `<div class="empty small"><p>Todavía no hay cambios.</p></div>` });
+    s.el.addEventListener("click", async ev => {
+      const b = ev.target.closest("[data-i]"); if (!b) return;
+      const { v, e } = l[+b.dataset.i];
+      if (!(await confirmar({ title: "¿Revertir este cambio?", message: `${v.patente || v.modelo || ""}: ${e.txt}. Queda registrado y se puede volver a aplicar desde esta misma lista.`, ok: "Revertir", danger: true }))) return;
+      s.close();
+      deshacerCambio(v, e).then(() => toast("Cambio revertido", "success")).catch(err => toast(mensajeError(err), "error"));
+    });
+  });
   $("#dl").onclick = () => {
     if (!filasPlanilla().length) return toast("No hay vehículos para descargar", "warning");
     elegirDescarga("Planilla de vehículos", { excel, pdf });

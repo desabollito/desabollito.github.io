@@ -158,7 +158,17 @@ service cloud.firestore {
         // La lectura no puede depender de {d} en primer lugar: la planilla escucha la colección entera
         // shortcut: _factura viejo sigue legible para Técnicos hasta que Facturación lo migre a /factura, sacar esa parte después
         allow read: if puede(cid, 'tecnicos', isAdmin(cid) || esSacabollos(cid)) || (d == '_fijos' && puede(cid, 'fijos', isAdmin(cid) || esSacabollos(cid))) || (d == '_factura' && puede(cid, 'facturacion', isAdmin(cid)));
-        allow write: if d == '_fijos' ? puede(cid, 'fijos', isAdmin(cid)) : d == '_factura' ? puede(cid, 'facturacion', isAdmin(cid)) : puede(cid, 'tecnicos', isAdmin(cid));
+        function escribe() { return d == '_fijos' ? puede(cid, 'fijos', isAdmin(cid)) : d == '_factura' ? puede(cid, 'facturacion', isAdmin(cid)) : puede(cid, 'tecnicos', isAdmin(cid)); }
+        allow create, delete: if escribe();
+        // "creado" de una fila no cambia nunca: así un equipo con datos viejos no puede volver a crear encima de una fila existente
+        allow update: if escribe() && (d.matches('_.*') || request.resource.data.get('creado', null) == resource.data.get('creado', null));
+      }
+
+      // ── Historial de las planillas: lo agrega cada uno a su nombre, con la hora del servidor; nadie lo cambia ni lo borra ──
+      match /planHist/{p}/cambios/{id} {
+        function accede() { return (p == 'fijos' || p == 'tecnicos' || p == 'facturacion') && puede(cid, p, isAdmin(cid)); }
+        allow read: if accede();
+        allow create: if accede() && request.resource.data.uid == uid() && request.resource.data.at == request.time && request.resource.data.txt is string;
       }
 
       // ── Facturación (documentos firmados por vehículo): solo administradores, Sacabollos no lo ve ──
