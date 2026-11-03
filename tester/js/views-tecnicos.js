@@ -490,9 +490,7 @@ export function vistaTecnicos(view) {
     const filas = [];
     [...new Set(rows.map(r => lunesDe(r.fecha)))].forEach((l, i) => {
       const rs = rows.filter(r => lunesDe(r.fecha) === l);
-      rs.forEach((r, j) => { filas.push(Object.assign([r.fecha, (r.v.modelo || "").toUpperCase(), r.v.patente || "", r.valor, "", ...tecs.map(t => r.tecs.includes(t.id) ? r.parte : "")], { cab: j === 0 }));
-        // Al terminar cada día, su total (lista viene ordenada por fecha)
-        if (rs[j + 1]?.fecha !== r.fecha) filas.push(Object.assign(total(`TOTAL ${diaLabel(r.fecha).toUpperCase()}`, rs.filter(x => x.fecha === r.fecha)), { soloPdf: true })); });
+      rs.forEach((r, j) => filas.push(Object.assign([r.fecha, (r.v.modelo || "").toUpperCase(), r.v.patente || "", r.valor, "", ...tecs.map(t => r.tecs.includes(t.id) ? r.parte : "")], { cab: j === 0 })));
       filas.push(total(`SEMANA ${i + 1}`, rs));
     });
     filas.push(total("TOTAL", rows));

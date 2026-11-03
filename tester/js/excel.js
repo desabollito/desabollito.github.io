@@ -112,7 +112,7 @@ export async function exportarExcel({ archivo, hoja, titulo, columnas, filas, to
 export function descargarTabla({ archivo, titulo, cols, filas, mas = [] }) {
   const xl = (t, c) => ({ hoja: t.slice(0, 31), titulo: `${S.company?.name || "Desabollito"} · ${t}`, columnas: c.map((x, i) => ({ ...x, valor: f => f[i] })) });
   elegirDescarga(titulo, {
-    excel: () => exportarExcel({ archivo: archivo + ".xlsx", ...xl(titulo, cols), filas: filas.filter(f => !f.soloPdf), mas: mas.map(m => ({ ...xl(m.titulo, m.cols), filas: m.filas })) }),
+    excel: () => exportarExcel({ archivo: archivo + ".xlsx", ...xl(titulo, cols), filas, mas: mas.map(m => ({ ...xl(m.titulo, m.cols), filas: m.filas })) }),
     pdf: async () => { const l = [{ titulo, cols, filas }, ...mas];   // el pie (con "Página x de n") va una sola vez, al final
       l.reduce((doc, m, i) => tablaPDF(S.company, m.titulo, m.cols, m.filas, { doc0: doc, pieTxt: i === l.length - 1 ? titulo : null }), null).save(archivo + ".pdf"); }
   });
