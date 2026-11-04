@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "3.1.95", items: ["Filtros: en Cargado se suma «Firmados», los vehículos con firma digital del cliente."] },
   { v: "3.1.94", items: ["PDF del vehículo: ya no muestra la fecha de reparación."] },
   { v: "3.1.91", items: ["Planilla de técnicos (PDF y Excel): el cierre lleva solo a los técnicos y la gente a sueldo va en su propia hoja, «Cierre de sueldos»."] },
   { v: "3.1.90", items: ["Sueldos: cada sueldo aparece y se suma recién el día que cierra."] },

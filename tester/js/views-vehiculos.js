@@ -53,8 +53,8 @@ const tokensBorrado = new Map(); // publicId → delete_token (válido 10 min)
 // ═════════════════════════════════════════════════════════════
 // ¿Algún repuesto / paño de pintura del vehículo está en esa fase?
 const docsOn = () => S.config?.documentos !== false;   // el creador puede apagar los documentos
-// Filtro "Cargado": con fotos o notas de desmontaje, o con algo en el check in / out
-const CARGADO = { desm: v => !!(v.desFotos?.length || v.desNotas?.length), check: v => [v.checkIn, v.checkOut].some(c => c && Object.keys(c).length) };
+// Filtro "Cargado": con fotos o notas de desmontaje, con algo en el check in / out, o con firma digital del cliente
+const CARGADO = { desm: v => !!(v.desFotos?.length || v.desNotas?.length), check: v => [v.checkIn, v.checkOut].some(c => c && Object.keys(c).length), firma: v => !!v.firma };
 const tieneEtapa = (v, tipo, fase) => itemsTexto(v[tipo]).some(x => etapaItem(v, tipo, x)[0] === fase);
 // "Ocultar anulados": los anulados no se cuentan ni se listan
 const visibles = () => activos().filter(v => !F.sinAnul || !esAnulado(v));
@@ -301,7 +301,7 @@ export function vistaVehiculos(view, selId = null) {
       el("#fo-turno").innerHTML = [["no", "Sin confirmar", "#e0a526", false], ["si", "Confirmados", "#22b07d", true]].map(([k, t, c, si]) =>
           op("turno", k, t, n(v => estadoActual(v) === "turnado" && (v.turnoConfirmado === true) === si), F.turno === k, c)).join("");
       el("#fo-cliente").innerHTML = Object.entries(CARAS).map(([k, [t, c]]) => op("cliente", k, t, n(v => v.conformidad === k), F.cliente === k, c)).join("");
-      if (el("#fo-cargado")) el("#fo-cargado").innerHTML = [["desm", "Desmontaje"], ["check", "Check in / out"]].map(([k, t]) => op("cargado", k, t, n(CARGADO[k]), F.cargado === k)).join("");
+      if (el("#fo-cargado")) el("#fo-cargado").innerHTML = [["desm", "Desmontaje"], ["check", "Check in / out"], ["firma", "Firmados"]].map(([k, t]) => op("cargado", k, t, n(CARGADO[k]), F.cargado === k)).join("");
       ["pintura", "repuestos"].forEach(tipo => {
         el(`#fo-${tipo}`).innerHTML = ETAPAS[tipo].map(([k, t, c]) => op(tipo, k, t, n(v => tieneEtapa(v, tipo, k)), F[tipo].has(k), c)).join("");
       });
