@@ -9,7 +9,7 @@ let unsubFijos = null;
 
 export const CATEGORIAS = [
   { key: "herramientas", label: "Herramientas", color: "#4f8ff7" },
-  { key: "repuestos", label: "Repuestos", color: "#9b7bf2" },
+  { key: "repuestos", label: "Repuestos", color: "#b9794a" },
   { key: "alojamiento", label: "Estadía", color: "#ef7d57" },
   { key: "comida", label: "Comida", color: "#d9559b" },
   { key: "sueldos", label: "Sueldos", color: "#0ea5a4" },
@@ -23,7 +23,7 @@ const ANTERIORES = [
 // Etiquetas propias del operativo (se crean desde el formulario del gasto)
 const propias = () => S.company?.gastoCats || [];
 const catMap = () => Object.fromEntries([...CATEGORIAS, ...ANTERIORES, ...propias()].map(c => [c.key, c]));
-const COLORES_ETQ = ["#e5484d", "#22b07d", "#e0a526", "#4f8ff7", "#9b7bf2", "#0ea5a4", "#d9559b", "#ef7d57", "#5f6b7a", "#84cc16"];
+const COLORES_ETQ = ["#e5484d", "#22b07d", "#e0a526", "#4f8ff7", "#b9794a", "#0ea5a4", "#d9559b", "#ef7d57", "#5f6b7a", "#84cc16"];
 const METODOS = ["Efectivo", "Transferencia", "Tarjeta", "Dólares"];
 const esUSD = g => g.moneda === "USD";
 export const montoTxt = g => esUSD(g) ? "US$ " + Number(g.monto || 0).toLocaleString("es-AR") : (money(g.monto) || "$0");
