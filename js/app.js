@@ -385,10 +385,7 @@ if (FIREBASE.apiKey.startsWith("TU_")) {
   throw new Error("Firebase sin configurar (js/config.js)");
 }
 // shortcut: link temporal del invitado con la clave en la URL, sacar al borrar esa cuenta
-const entrada = location.hash.match(/^#entrar=([^:]+):(.+)$/);
-if (entrada) history.replaceState(null, "", location.pathname);   // que la clave no quede en la barra ni en el historial
-// Con la app ya abierta, cambiar solo el # no recarga la página
-addEventListener("hashchange", () => { if (location.hash.startsWith("#entrar=")) location.reload(); });
+const entrada = location.search.match(/^\?entrar=([^:&]+):([^&]+)/);   // va en ?, no en #: el # lo usan las rutas y así la dirección queda fija
 const tokenVer = new URLSearchParams(location.search).get("ver");
 const alEntrar = (logueado, error) => {
   cerrarSplash();
@@ -471,7 +468,7 @@ function animacionActualizar() {
   $(".intro-sub", sp).textContent = "Actualizando";
   return new Promise(r => setTimeout(r, 1300));   // que se alcance a ver la intro antes de recargar
 }
-if (/[?&]act=\d+/.test(location.search)) history.replaceState(null, "", location.pathname + location.hash);
+if (/[?&]act=\d+/.test(location.search)) history.replaceState(null, "", location.pathname + (entrada?.[0] || "") + location.hash);
 addEventListener("forzar-actualizacion", async () => {
   await animacionActualizar();
   try {
@@ -480,7 +477,7 @@ addEventListener("forzar-actualizacion", async () => {
     const regs = await navigator.serviceWorker?.getRegistrations() || [];
     await Promise.all(regs.map(r => r.unregister()));
   } catch (e) { console.warn("actualizar", e); }
-  location.replace(location.pathname + "?act=" + Date.now() + location.hash);
+  location.replace(location.pathname + (entrada ? entrada[0] + "&" : "?") + "act=" + Date.now() + location.hash);
 });
 
 // Si se publica una versión nueva mientras la app está abierta, aparece un aviso.
