@@ -1688,7 +1688,7 @@ a.g-bar-fijo { text-decoration: none; color: inherit; }
 /* Computadora: detalle más compacto para que entre sin desplazar */
 @media (min-width: 1100px) {
   :is(.split-on, .cal-page) .pane-detail .detail { gap: 9px; padding-bottom: 8px; }
-  :is(.split-on, .cal-page) .pane-detail .d-sec { padding: 12px 0; gap: 9px; }
+  :is(.split-on, .cal-page) .pane-detail .d-sec { padding: 12px 14px; gap: 9px; }
   :is(.split-on, .cal-page) .pane-detail .d-cover { width: 112px; height: 112px; }
   :is(.split-on, .cal-page) .pane-detail .d-head { padding: 2px 2px 0; }
   :is(.split-on, .cal-page) .pane-detail .d-piezas .carmap-sm { max-width: 92px; }
@@ -1808,8 +1808,7 @@ h3 { letter-spacing: -.015em; }
 @media (min-width: 900px) { .topbar { background: color-mix(in srgb, var(--bg) 55%, transparent); } }
 @media (display-mode: standalone) { .topbar { background: var(--bg); -webkit-backdrop-filter: none; backdrop-filter: none; } }
 /* shortcut: tarjetas sin backdrop-filter (con cientos en la lista el celular se traba); sumarlo si se ve pobre */
-.card, .vcard { background-color: var(--card-bg); border-color: var(--edge); }
-.d-sec { background: none; border: 0; border-top: 1px solid var(--line); border-radius: 0; padding: 16px 0; }
+.card, .d-sec, .vcard { background-color: var(--card-bg); border-color: var(--edge); }
 .sheet-backdrop { -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); }
 .sheet { transition-timing-function: var(--ease); }
 
