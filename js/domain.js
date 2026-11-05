@@ -62,7 +62,7 @@ export const ESTADOS = [
   { key: "reparado",  label: "Revisión",  color: "#22b07d" },
   { key: "llamado",   label: "Contactado", color: "#14b8a6" },
   { key: "entregado", label: "Entregado", color: "#16a34a" },
-  { key: "facturado", label: "Facturado", color: "#b9794a" },
+  { key: "facturado", label: "Facturado", color: "#9b7bf2" },
   { key: "anular",    label: "Anular",    color: "#f0743e" },   // primer toque de "Anular"; el segundo lo deja Anulado
   { key: "anulado",   label: "Anulado",   color: "#e5484d" },
   { key: "ausente",   label: "Ausente",   color: "#5f6b7a" }    // turnado que no vino (mantener apretado "Turnado")

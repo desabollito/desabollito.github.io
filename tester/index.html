@@ -17,7 +17,7 @@
       // La barra del sistema (hora, batería, isla) toma el color de fondo del tema: sin contenido ni desenfoque debajo
       var pintarBarra = function () {
         var m = document.querySelector('meta[name="theme-color"]');
-        if (m) m.setAttribute("content", document.documentElement.getAttribute("data-theme") === "light" ? "#eef1f5" : "#10161d");
+        if (m) m.setAttribute("content", document.documentElement.getAttribute("data-theme") === "light" ? "#eef1f5" : "#0e0e10");
       };
       new MutationObserver(pintarBarra).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
       document.addEventListener("DOMContentLoaded", pintarBarra);
@@ -54,7 +54,7 @@
   <link rel="manifest" href="manifest.json">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@600;700;800&family=Hanken+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/app.css">
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>

@@ -33,7 +33,7 @@ const masDias = (iso, n) => { const [y, m, d] = iso.split("-").map(Number); cons
 // Cuentan los autos desde que entran a reparar (Reparando, Revisión, Contactado, Entregado o Facturado)
 const entregado = v => ["enreparacion", "reparado", "llamado", "entregado", "facturado"].includes(estadoActual(v));
 const nuevoId = () => Math.random().toString(36).slice(2, 9);
-const COLORES_GRUPO = ["#4f8ff7", "#e0a526", "#22b07d", "#b9794a", "#f0743e", "#e0486e"];
+const COLORES_GRUPO = ["#4f8ff7", "#e0a526", "#22b07d", "#9b7bf2", "#f0743e", "#e0486e"];
 
 const T = { tab: "autos", resumen: "dia", desde: "", hasta: "", q: "", editando: false };   // desde/hasta quedan vacíos: se sacó el filtro de fechas
 let unsub = null;
