@@ -384,6 +384,12 @@ if (FIREBASE.apiKey.startsWith("TU_")) {
     <p>Completá las claves del proyecto nuevo en <code>js/config.js</code> y volvé a publicar.</p></div>`;
   throw new Error("Firebase sin configurar (js/config.js)");
 }
+// shortcut: link temporal del invitado con la clave en la URL, sacar al borrar esa cuenta
+const entrada = location.hash.match(/^#entrar=([^:]+):(.+)$/);
+if (entrada) {
+  history.replaceState(null, "", location.pathname);   // que la clave no quede en la barra ni en el historial
+  ingresar(entrada[1], entrada[2]).catch(err => toast(mensajeError(err), "error"));
+}
 const tokenVer = new URLSearchParams(location.search).get("ver");
 const alEntrar = (logueado, error) => {
   cerrarSplash();
