@@ -386,10 +386,9 @@ if (FIREBASE.apiKey.startsWith("TU_")) {
 }
 // shortcut: link temporal del invitado con la clave en la URL, sacar al borrar esa cuenta
 const entrada = location.hash.match(/^#entrar=([^:]+):(.+)$/);
-if (entrada) {
-  history.replaceState(null, "", location.pathname);   // que la clave no quede en la barra ni en el historial
-  ingresar(entrada[1], entrada[2]).catch(err => toast(mensajeError(err), "error"));
-}
+if (entrada) history.replaceState(null, "", location.pathname);   // que la clave no quede en la barra ni en el historial
+// Con la app ya abierta, cambiar solo el # no recarga la página
+addEventListener("hashchange", () => { if (location.hash.startsWith("#entrar=")) location.reload(); });
 const tokenVer = new URLSearchParams(location.search).get("ver");
 const alEntrar = (logueado, error) => {
   cerrarSplash();
@@ -428,6 +427,9 @@ if (tokenVer) {
     document.title = v1 ? `${[v1.modelo, v1.patente].filter(Boolean).join(" ")} · Desabollito` : `${S.invitado?.tecnicos ? "Planilla de técnicos" : S.invitado?.compania || "Vehículos"} · Desabollito`;
     pintarLateral(); render();
   });
+} else if (entrada) {
+  // Se espera al ingreso para que no aparezca la pantalla de login en el medio
+  ingresar(entrada[1], entrada[2]).catch(err => toast(mensajeError(err), "error")).then(() => iniciarSesion(alEntrar));
 } else iniciarSesion(alEntrar);
 
 // Cuenta nueva sin aprobar: pantalla de espera (se desbloquea sola al aprobarla)
