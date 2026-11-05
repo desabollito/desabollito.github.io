@@ -202,7 +202,7 @@ const MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "
 // Computadora: con selId, el vehículo tocado en la lista del día reemplaza al calendario (como en Vehículos)
 export function vistaCalendario(view, selId = null) {
   const sel = selId ? getVehiculo(selId) : null;
-  setTopbar({ title: "Calendario", sub: S.company?.name, back: sel ? "#/calendario" : null });
+  setTopbar({ title: "Calendario", sinTitulo: true, sub: S.company?.name, back: sel ? "#/calendario" : null });
   if (C.auto && !S.loadingVehicles) { C.auto = false; elegirDiaAuto(); }
   const iso = d => `${C.y}-${String(C.m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
   const sinConf = v => estadoActual(v) === "turnado" && !v.turnoConfirmado;

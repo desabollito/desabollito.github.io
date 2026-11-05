@@ -198,7 +198,7 @@ export function vistaVehiculos(view, selId = null) {
   const marcarBoton = () => { const b = $("#tb-filtros"); if (!b) return; const k = cuantosActivos();
     b.classList.toggle("activo", k > 0); const n = $(".fo-badge", b); if (n) { n.textContent = k; n.hidden = !k; } };
   setTopbar({
-    title: "Vehículos",
+    title: "Vehículos", sinTitulo: true,
     sub: S.company?.name, back: S.volverA || null,   // abierto desde la planilla de técnicos: volver a la planilla
     actions: `<button class="icon-btn filtro-btn ${cuantosActivos() ? "activo" : ""}" id="tb-filtros" aria-label="Filtrar y ordenar" title="Filtrar y ordenar">${icon("filter")}<span class="fo-badge" ${cuantosActivos() ? "" : "hidden"}>${cuantosActivos()}</span></button>`
   });

@@ -7,8 +7,8 @@ import { pintarCampana } from "./notificaciones.js";
 export const go = hash => { if (location.hash !== hash) location.hash = hash; };
 export const esAncho = () => matchMedia("(min-width: 1100px)").matches;
 
-// title: texto; back: hash o true (history.back); actions: HTML de botones
-export function setTopbar({ title = "", back = null, actions = "", sub = "" } = {}) {
+// title: texto; back: hash o true (history.back); actions: HTML de botones; sinTitulo: el título queda solo para lectores de pantalla
+export function setTopbar({ title = "", back = null, actions = "", sub = "", sinTitulo = false } = {}) {
   const tb = $("#topbar");
   const backBtn = back
     ? `<button class="icon-btn" id="tb-back" aria-label="Volver">${icon("back")}</button>`
@@ -16,7 +16,7 @@ export function setTopbar({ title = "", back = null, actions = "", sub = "" } = 
          ${logoOperativo("sm")}</button>`;
   tb.innerHTML = `
     ${backBtn}
-    <div class="tb-title"><h1>${esc(title)}</h1>${sub ? `<small>${esc(sub)}</small>` : ""}</div>
+    <div class="tb-title"><h1 ${sinTitulo ? 'class="oculto"' : ""}>${esc(title)}</h1>${sub ? `<small>${esc(sub)}</small>` : ""}</div>
     <div class="tb-actions">${actions}${S.invitado ? `<button class="icon-btn only-sm" data-tema-lector aria-label="Modo claro / oscuro" title="Modo claro / oscuro">${ICONO_TEMA}</button>`
       : S.company ? `<button class="icon-btn notif-btn" id="tb-notif" aria-label="Notificaciones" title="Notificaciones">${icon("bell")}<span class="notif-dot" hidden></span></button>` : ""}</div>`;
   pintarCampana();
