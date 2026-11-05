@@ -384,8 +384,6 @@ if (FIREBASE.apiKey.startsWith("TU_")) {
     <p>Completá las claves del proyecto nuevo en <code>js/config.js</code> y volvé a publicar.</p></div>`;
   throw new Error("Firebase sin configurar (js/config.js)");
 }
-// shortcut: link temporal del invitado con la clave en la URL, sacar al borrar esa cuenta
-const entrada = location.search.match(/^\?entrar=([^:&]+):([^&]+)/);   // va en ?, no en #: el # lo usan las rutas y así la dirección queda fija
 const tokenVer = new URLSearchParams(location.search).get("ver");
 const alEntrar = (logueado, error) => {
   cerrarSplash();
@@ -424,9 +422,6 @@ if (tokenVer) {
     document.title = v1 ? `${[v1.modelo, v1.patente].filter(Boolean).join(" ")} · Desabollito` : `${S.invitado?.tecnicos ? "Planilla de técnicos" : S.invitado?.compania || "Vehículos"} · Desabollito`;
     pintarLateral(); render();
   });
-} else if (entrada) {
-  // Se espera al ingreso para que no aparezca la pantalla de login en el medio
-  ingresar(entrada[1], entrada[2]).catch(err => toast(mensajeError(err), "error")).then(() => iniciarSesion(alEntrar));
 } else iniciarSesion(alEntrar);
 
 // Cuenta nueva sin aprobar: pantalla de espera (se desbloquea sola al aprobarla)
@@ -468,7 +463,7 @@ function animacionActualizar() {
   $(".intro-sub", sp).textContent = "Actualizando";
   return new Promise(r => setTimeout(r, 1300));   // que se alcance a ver la intro antes de recargar
 }
-if (/[?&]act=\d+/.test(location.search)) history.replaceState(null, "", location.pathname + (entrada?.[0] || "") + location.hash);
+if (/[?&]act=\d+/.test(location.search)) history.replaceState(null, "", location.pathname + location.hash);
 addEventListener("forzar-actualizacion", async () => {
   await animacionActualizar();
   try {
@@ -477,7 +472,7 @@ addEventListener("forzar-actualizacion", async () => {
     const regs = await navigator.serviceWorker?.getRegistrations() || [];
     await Promise.all(regs.map(r => r.unregister()));
   } catch (e) { console.warn("actualizar", e); }
-  location.replace(location.pathname + (entrada ? entrada[0] + "&" : "?") + "act=" + Date.now() + location.hash);
+  location.replace(location.pathname + "?act=" + Date.now() + location.hash);
 });
 
 // Si se publica una versión nueva mientras la app está abierta, aparece un aviso.
