@@ -1547,7 +1547,7 @@ function compartir(v) {
     const conFotos = $("#con-fotos", s.el)?.checked || false;
     const mio = ++turno;
     listo = null; error = null;
-    preparando = presupuestoPDF(v, S.company, { conFotos })
+    preparando = presupuestoPDF(v, S.company, { conFotos, etapa: S.config?.etapasPdf ? (tipo, x) => etapaItem(v, tipo, x) : null })
       .then(doc => {
         if (mio !== turno) return;
         const blob = doc.output("blob");

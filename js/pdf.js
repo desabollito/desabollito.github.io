@@ -138,7 +138,7 @@ function titulo(doc, txt, x, y, w) {
   doc.setDrawColor(...LINEA); doc.setLineWidth(0.3); doc.line(x, y + 1.8, x + w, y + 1.8);   // línea finita gris
 }
 
-export async function presupuestoPDF(v, empresa, { conFotos = false, onProgreso } = {}) {
+export async function presupuestoPDF(v, empresa, { conFotos = false, onProgreso, etapa = null } = {}) {
   acento(empresa);
   const doc = nuevoDoc();
   const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), M = 16, CW = W - M * 2;
@@ -218,7 +218,12 @@ export async function presupuestoPDF(v, empresa, { conFotos = false, onProgreso 
           if (i && i % 2 === 0) iy += 6.5;
           const ix = LX + (i % 2) * 62;
           doc.setFillColor(...C_PUNTOS); doc.circle(ix + 1.1, iy - 1.2, 1.1, "F");
-          doc.text(doc.splitTextToSize(item, 56)[0], ix + 4, iy);
+          // Con el estado (Recibido, Pintado…) a la derecha si el dueño lo activó en Ajustes
+          const [, est, color] = etapa ? etapa(t.toLowerCase(), item) : [];
+          const ancho = est ? doc.getTextWidth(" · " + est) : 0;
+          const nombre = doc.splitTextToSize(item, 56 - ancho)[0];
+          doc.text(nombre, ix + 4, iy);
+          if (est) { doc.setTextColor(color); doc.text(" · " + est, ix + 4 + doc.getTextWidth(nombre), iy); doc.setTextColor(40, 52, 70); }
         });
         y = iy + 7;
         sep();

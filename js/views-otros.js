@@ -734,6 +734,8 @@ export async function panelCreador() {
           <span>Documentos en los vehículos</span></label>
         <label class="toggle"><input type="checkbox" data-config="fechaVista" ${datos.config?.fechaVista !== false ? "checked" : ""}>
           <span>Elegir en Ajustes la fecha que se muestra en la lista</span></label>
+        <label class="toggle"><input type="checkbox" data-config="etapasPdf" ${datos.config?.etapasPdf ? "checked" : ""}>
+          <span>Estado de repuestos y pintura en los PDF</span></label>
       </div>
       <div class="adm-toggles adm-sonido">
         <span><b>Sonido al actualizar la app</b> <small class="muted">(lo escuchan todos)</small></span>
@@ -826,7 +828,7 @@ export async function panelCreador() {
     try {
       const r = await llamarAdmin("config", { [clave]: on });
       datos.config = r.config; S.config = { ...S.config, ...r.config };
-      toast(`${{ documentos: "Documentos", fechaVista: "Elegir fecha" }[clave] || "Aviso al cliente"} ${on ? "activado" : "desactivado"}`, "success");
+      toast(`${{ documentos: "Documentos", fechaVista: "Elegir fecha", etapasPdf: "Estado en los PDF" }[clave] || "Aviso al cliente"} ${on ? "activado" : "desactivado"}`, "success");
     } catch (err) { e.target.checked = !on; toast(err.message, "error"); }
     e.target.disabled = false;
   });
