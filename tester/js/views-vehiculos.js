@@ -362,7 +362,8 @@ export function vistaDetalle(view, id) {
   renderDetalle($(".detail-page", view), v, false);
 }
 
-let adicAbierto = false, pzTocada = null;   // pzTocada: paño elegido en el detalle (sobrevive al redibujo)
+let adicCerrado = null, pzTocada = null;   // adicCerrado: id del vehículo donde se cerró Adicionales (arranca abierto)
+let _x;   // pzTocada: paño elegido en el detalle (sobrevive al redibujo)
 
 // Mensaje configurable desde el panel del dueño: {Vehiculo}, {Patente}, {Asegurado}… se completan con el vehículo
 const VARS_WA = {
@@ -552,7 +553,7 @@ ${[...PASO_REP, "facturado"].includes(est) && !soyLector() && (soyAdmin() || soy
     </section>` : ""].filter(Boolean);
       if (!partes.length) return "";
       if (partes.length === 1) return partes[0].replace('class="d-sub"', 'class="d-sec"');
-      return `<details class="d-sec d-adic" ${adicAbierto ? "open" : ""}><summary><h3>Adicionales</h3></summary>${partes.join("")}</details>`;
+      return `<details class="d-sec d-adic" ${adicCerrado !== v.id ? "open" : ""}><summary><h3>Adicionales</h3></summary>${partes.join("")}</details>`;
     })()}
 
     <footer class="d-foot">
@@ -563,7 +564,7 @@ ${[...PASO_REP, "facturado"].includes(est) && !soyLector() && (soyAdmin() || soy
     </footer>
   </article>`;
 
-  $(".d-adic", root)?.addEventListener("toggle", e => { adicAbierto = e.target.open; });
+  $(".d-adic", root)?.addEventListener("toggle", e => { adicCerrado = e.target.open ? null : v.id; });
   // Adicionales post-reparación: una línea que crece sola; se guarda al dejar de escribir
   const post = $(".post-rep", root);
   if (post) {
