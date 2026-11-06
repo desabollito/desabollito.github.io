@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.0.7", items: ["Cierre de sueldos: «Descontar gastos» tiene Sí (todos), Solo fijos (viandas y alquiler) y No (ninguno)."] },
   { v: "4.0.2", items: ["Esquinas más prolijas."] },
   { v: "3.1.95", items: ["Filtros: en Cargado se suma «Firmados», los vehículos con firma digital del cliente."] },
   { v: "3.1.94", items: ["PDF del vehículo: ya no muestra la fecha de reparación."] },

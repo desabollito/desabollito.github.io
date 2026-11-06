@@ -263,10 +263,11 @@ export function vistaTecnicos(view) {
       const v = ids.reduce((a, id) => a + (vi[id] || 0), 0), a = ids.reduce((x, id) => x + (al[id] || 0), 0);
       const ganado = sueldo ? totalSueldo(t.id) : s[t.id] || 0;
       const ad = movsDe(t.id, "adelanto"), ga = movsDe(t.id, "gasto");
-      // Adelantos y gastos se descuentan siempre; viandas y alquiler, a los de sueldo solo con "Descontar gastos" activado
-      const desc = !sueldo || !!cfg.descontar?.[t.id];
-      return { t, sueldo, autos: rows.filter(r => r.tecs.includes(t.id)).length, ganado, ad, ga, v, a, desc,
-        gastos: suma(ga) + v + a, fin: ganado - suma(ad) - suma(ga) - (desc ? v + a : 0) };
+      // Adelantos se descuentan siempre. A los de sueldo, "Descontar gastos": si = todos, fijos = solo viandas y alquiler, no = ninguno (true viejo = si)
+      const d = cfg.descontar?.[t.id], modo = !sueldo || d === true ? "si" : d || "no";
+      const descG = modo === "si", descF = modo !== "no";
+      return { t, sueldo, autos: rows.filter(r => r.tecs.includes(t.id)).length, ganado, ad, ga, v, a, modo, descG, descF,
+        gastos: suma(ga) + v + a, fin: ganado - suma(ad) - (descG ? suma(ga) : 0) - (descF ? v + a : 0) };
     };
     return [...cfg.tecnicos.map(t => item(t, de[t.id] || [], false)),
       ...(sinSueldos ? [] : personasSueldo(sueltos)).map(p => item(p, sueltos.filter(f => norm(f.nombre) === norm(p.nombre)).map(f => f.id), true))];
@@ -274,16 +275,17 @@ export function vistaTecnicos(view) {
   const pintarCierre = rows => {
     const total = rows.reduce((a, r) => a + r.valor, 0);
     const hayFijos = !!(fijos.viandas?.cambios?.length || fijos.alquiler?.pagos?.length || fijos.alquiler?.casas?.length);
-    const tarjeta = ({ t, sueldo, autos, ganado, ad, ga, v, a, desc, gastos, fin }) => {
-      const sw = sueldo ? `<div class="tec-linea tec-desc"><span>Descontar gastos</span><button type="button" class="switch ${desc ? "on" : ""}" data-descontar role="switch" aria-checked="${desc}" aria-label="Descontar gastos"><span class="sw-txt sw-si">Sí</span><span class="sw-txt sw-no">No</span><i class="sw-bola"></i></button></div>` : "";
+    const tarjeta = ({ t, sueldo, autos, ganado, ad, ga, v, a, modo, descG, descF, gastos, fin }) => {
+      const sw = sueldo ? `<div class="tec-linea tec-desc"><span>Descontar gastos</span><div class="seg seg-sm" role="radiogroup" aria-label="Descontar gastos">${[["si", "Sí"], ["fijos", "Solo fijos"], ["no", "No"]].map(([k, txt]) =>
+        `<button type="button" class="seg-btn ${modo === k ? "on" : ""}" data-descontar="${k}" role="radio" aria-checked="${modo === k}" ${S.invitado ? "disabled" : ""}>${txt}</button>`).join("")}</div></div>` : "";
       return `<section class="tec-cierre" data-tecid="${esc(t.id)}">
         <h3 class="tec-cierre-nombre">${esc(t.nombre)}${sueldo ? "" : ` <small>${autos} autos</small>`}</h3>
         <div class="tec-linea"><span>${sueldo ? "Sueldo" : "Total ganado"}</span><b>${pesos(ganado)}</b></div>
         <div class="tec-linea"><span>Adelantos</span><b>-${pesos(suma(ad))}</b>${T.editando ? `<button type="button" class="link-btn small" data-add-mov="adelanto">+ Adelanto</button>` : ""}</div>
         <ul class="tec-movs">${listaMovs(ad, "Sin adelantos")}</ul>
-        <div class="tec-linea"><span>Gastos</span><b>-${pesos(suma(ga))}</b>${T.editando ? `<button type="button" class="link-btn small" data-add-mov="gasto">+ Gasto</button>` : ""}</div>
-        <ul class="tec-movs">${listaMovs(ga, "Sin gastos")}</ul>
-        ${hayFijos ? `<div class="${desc ? "" : "tec-aparte"}"><div class="tec-linea"><span>Viandas</span><b>-${pesos(v)}</b></div>
+        <div class="${descG ? "" : "tec-aparte"}"><div class="tec-linea"><span>Gastos</span><b>-${pesos(suma(ga))}</b>${T.editando ? `<button type="button" class="link-btn small" data-add-mov="gasto">+ Gasto</button>` : ""}</div>
+        <ul class="tec-movs">${listaMovs(ga, "Sin gastos")}</ul></div>
+        ${hayFijos ? `<div class="${descF ? "" : "tec-aparte"}"><div class="tec-linea"><span>Viandas</span><b>-${pesos(v)}</b></div>
         <div class="tec-linea"><span>Alquiler</span><b>-${pesos(a)}</b></div></div>` : ""}
         ${sw}<div class="tec-linea tec-gtot"><span>Gastos totales</span><b>${pesos(gastos)}</b></div>
         <div class="tec-linea tec-final"><span>Final a pagar</span><b>${pesos(fin)}</b></div>
@@ -306,7 +308,8 @@ export function vistaTecnicos(view) {
     if (V.viendo()) return;
     if (t.closest("[data-act=tecnicos]")) return gestionarTecnicos();
     const dsw = t.closest("[data-descontar]");
-    if (dsw && !S.invitado) { const id = dsw.closest("[data-tecid]").dataset.tecid; return guardarCfg({ descontar: { ...(cfg.descontar || {}), [id]: !cfg.descontar?.[id] } }, `${nombreTec(id)}: ${cfg.descontar?.[id] ? "no descontar" : "descontar"} gastos`); }
+    if (dsw && !S.invitado) { const id = dsw.closest("[data-tecid]").dataset.tecid, k = dsw.dataset.descontar;
+      return guardarCfg({ descontar: { ...(cfg.descontar || {}), [id]: k } }, `${nombreTec(id)}: descontar gastos ${{ si: "todos", fijos: "solo fijos", no: "ninguno" }[k]}`); }
     if (t.closest("[data-act=persona]")) {
       const nombre = (await pedirTexto({ title: "Técnico a sueldo", label: "Nombre", ok: "Agregar" }))?.trim();
       if (nombre) guardarCfg({ personas: [...(cfg.personas || []), { id: nuevoId(), nombre: nombre.toUpperCase() }] }, `Agregó el técnico a sueldo ${nombre.toUpperCase()}`);
@@ -508,7 +511,7 @@ export function vistaTecnicos(view) {
       const rojo = r => Object.assign(r, { rojo: true });
       const filas = [...arriba(fila),
         rojo(fila("ADELANTOS", x => suma(x.ad))), rojo(fila("GASTOS", x => suma(x.ga))),
-        rojo(fila("VIANDAS", x => x.v)), rojo(fila("ALQUILER", x => x.a)),   // se muestran siempre; FINAL solo los resta con x.desc
+        rojo(fila("VIANDAS", x => x.v)), rojo(fila("ALQUILER", x => x.a)),   // se muestran siempre; FINAL los resta según x.descG / x.descF
         Object.assign(fila("FINAL A PAGAR", x => x.fin), { negrita: true })];
       return { titulo, filas, cols: [{ titulo: "", ancho: 33.5, negrita: true }, { titulo: "TOTAL", ancho: 23.5, tipo: "moneda", centro: true, negrita: true }, { titulo: "", ancho: 8 },
         ...gente.map(x => ({ titulo: x.t.nombre, ancho: 21, tipo: "moneda", centro: true }))] };
