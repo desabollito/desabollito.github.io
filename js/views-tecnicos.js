@@ -288,7 +288,7 @@ export function vistaTecnicos(view) {
         ${hayFijos ? `<div class="${descF ? "" : "tec-aparte"}"><div class="tec-linea"><span>Viandas</span><b>-${pesos(v)}</b></div>
         <div class="tec-linea"><span>Alquiler</span><b>-${pesos(a)}</b></div></div>` : ""}
         ${sw}<div class="tec-linea tec-gtot"><span>Gastos totales</span><b>${pesos(gastos)}</b></div>
-        <div class="tec-linea tec-final"><span>Final a pagar</span><b>${pesos(fin)}</b></div>
+        <div class="tec-linea tec-final"><span>Final a pagar</span><b>${pesos(fin)}</b>${(ok => `<button type="button" class="btn btn-sm ${ok ? "btn-primary" : "btn-ghost"}" data-cierre-pagado aria-pressed="${ok}" ${S.invitado ? "disabled" : ""}>${ok ? `${icon("check")}Pagado` : "Pagar"}</button>`)(!!cfg.pagado?.[t.id])}</div>
       </section>`;
     };
     const l = datosCierre(rows), ps = l.filter(x => x.sueldo);
@@ -310,6 +310,8 @@ export function vistaTecnicos(view) {
     const dsw = t.closest("[data-descontar]");
     if (dsw && !S.invitado) { const id = dsw.closest("[data-tecid]").dataset.tecid, k = dsw.dataset.descontar;
       return guardarCfg({ descontar: { ...(cfg.descontar || {}), [id]: k } }, `${nombreTec(id)}: descontar gastos ${{ si: "todos", fijos: "solo fijos", no: "ninguno" }[k]}`); }
+    if (t.closest("[data-cierre-pagado]") && !S.invitado) { const id = t.closest("[data-tecid]").dataset.tecid, ok = !!cfg.pagado?.[id];
+      return guardarCfg({ pagado: { ...(cfg.pagado || {}), [id]: !ok } }, `${nombreTec(id)}: ${ok ? "desmarcó el pago" : "marcó pagado"} el cierre`); }
     if (t.closest("[data-act=persona]")) {
       const nombre = (await pedirTexto({ title: "Técnico a sueldo", label: "Nombre", ok: "Agregar" }))?.trim();
       if (nombre) guardarCfg({ personas: [...(cfg.personas || []), { id: nuevoId(), nombre: nombre.toUpperCase() }] }, `Agregó el técnico a sueldo ${nombre.toUpperCase()}`);
