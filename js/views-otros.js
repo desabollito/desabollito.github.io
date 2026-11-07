@@ -223,8 +223,8 @@ export function vistaCalendario(view, selId = null) {
     C.dia = conAlgo.includes(hoy) ? hoy : (conAlgo[0] || (hoy.startsWith(mesActual) ? hoy : null));
   }
 
-  // Celular: siempre la cantidad por día. Computadora: patentes o cantidad, con el botón "Ver cantidad"
-  const txt = C.vista === "txt" || !matchMedia("(min-width: 900px)").matches;
+  // "Ver cantidad" solo en computadora; en celular van puntitos y "+N"
+  const txt = C.vista === "txt" && matchMedia("(min-width: 900px)").matches;
   let celdas = "";
   for (let i = 0; i < primero; i++) celdas += `<div class="cd out"></div>`;
   for (let d = 1; d <= dias; d++) {

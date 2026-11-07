@@ -2152,8 +2152,14 @@ body[data-solo-ver="1"] :is(.step, .etapa-item) { pointer-events: none; }
 .cd-ev i.more { position: absolute; top: 4px; right: 4px; margin: 0; }
 /* Calendario en modo cantidad: "3 turnos" por día */
 .cd-txt { font-size: 12px; font-weight: 700; color: var(--primary); line-height: 1.2; }
-/* Celular: solo el número, grande (arriba ya dice Turnos / Peritajes) */
-@media (max-width: 899px) { .cd-pal { display: none; } .cd-txt { font-size: 17px; font-weight: 800; text-align: center; margin-top: 2px; } }
+/* Celular: número del día centrado y abajo una fila de puntitos (hasta 3) con "+N" al lado */
+@media (max-width: 600px) {
+  .cd { align-items: center; justify-content: space-between; padding: 6px 2px 7px; text-align: center; }
+  .cd-n { font-size: 14px; }
+  .cd-ev { flex-wrap: nowrap; justify-content: center; align-items: center; gap: 3px; min-height: 9px; }
+  .cd-ev i { width: 6px; height: 6px; flex: none; }
+  .cd-ev i.more { position: static; padding: 0; margin: 0 0 0 1px; background: none; color: var(--muted); font-size: 9.5px; font-weight: 700; line-height: 1; }
+}
 /* Foto grande: "Volver" es una flechita flotante arriba a la izquierda (no tapa la foto) */
 .zoom-foto .zoom-x { top: calc(12px + var(--safe-t, 0px)); left: 12px; right: auto; width: 44px; height: 44px; padding: 0; border-radius: 50%;
   border: 1px solid color-mix(in srgb, var(--line) 60%, transparent); }
