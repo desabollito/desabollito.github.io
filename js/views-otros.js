@@ -223,8 +223,8 @@ export function vistaCalendario(view, selId = null) {
     C.dia = conAlgo.includes(hoy) ? hoy : (conAlgo[0] || (hoy.startsWith(mesActual) ? hoy : null));
   }
 
-  // "Ver cantidad" solo en computadora (en celular el botón no entra en la fila)
-  const txt = C.vista === "txt" && matchMedia("(min-width: 900px)").matches;
+  // Celular: siempre la cantidad por día. Computadora: patentes o cantidad, con el botón "Ver cantidad"
+  const txt = C.vista === "txt" || !matchMedia("(min-width: 900px)").matches;
   let celdas = "";
   for (let i = 0; i < primero; i++) celdas += `<div class="cd out"></div>`;
   for (let d = 1; d <= dias; d++) {
@@ -232,7 +232,7 @@ export function vistaCalendario(view, selId = null) {
     celdas += `<button class="cd ${f === hoy ? "today" : ""} ${f === C.dia ? "sel" : ""} ${lst.length ? "has" : ""}" data-d="${f}"
       aria-label="${d} de ${MESES[C.m]}: ${lst.length} vehículos">
       <span class="cd-n">${d}</span>
-      ${txt ? (lst.length ? `<span class="cd-txt">${lst.length} ${C.campo === "turnado" ? (lst.length === 1 ? "turno" : "turnos") : (lst.length === 1 ? "peritaje" : "peritajes")}</span>` : "") + "</button>" : `<span class="cd-ev">${lst.slice(0, 3).map(v => `<i style="--c:${sinConf(v) ? "#e5484d" : ESTADO[estadoActual(v)].color}">${esc(v.patente || v.modelo || "•")}</i>`).join("")}
+      ${txt ? (lst.length ? `<span class="cd-txt"><b>${lst.length}</b> <span class="cd-pal">${C.campo === "turnado" ? (lst.length === 1 ? "turno" : "turnos") : (lst.length === 1 ? "peritaje" : "peritajes")}</span></span>` : "") + "</button>" : `<span class="cd-ev">${lst.slice(0, 3).map(v => `<i style="--c:${sinConf(v) ? "#e5484d" : ESTADO[estadoActual(v)].color}">${esc(v.patente || v.modelo || "•")}</i>`).join("")}
       ${lst.length > 3 ? `<i class="more">+${lst.length - 3}</i>` : ""}</span></button>`}`;
   }
   // Turnos sin confirmar primero

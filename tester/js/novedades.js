@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.0.16", items: ["Calendario en celular: cada día muestra solo la cantidad de turnos (o peritajes), en grande."] },
   { v: "4.0.15", items: ["Celular: el buscador de vehículos va arriba, al lado del operativo.", "Calendario en celular arreglado (el botón «Ver cantidad» queda solo en computadora)."] },
   { v: "4.0.12", items: ["Computadora: en el panel izquierdo cada planilla tiene su ícono, con línea guía y la elegida resaltada."] },
   { v: "4.0.11", items: ["Foto grande: flechas flotantes también en celular; botones de vidrio claro con ícono blanco, bien visibles."] },

@@ -2152,7 +2152,8 @@ body[data-solo-ver="1"] :is(.step, .etapa-item) { pointer-events: none; }
 .cd-ev i.more { position: absolute; top: 4px; right: 4px; margin: 0; }
 /* Calendario en modo cantidad: "3 turnos" por día */
 .cd-txt { font-size: 12px; font-weight: 700; color: var(--primary); line-height: 1.2; }
-@media (max-width: 600px) { .cd-txt { font-size: 10px; } }
+/* Celular: solo el número, grande (arriba ya dice Turnos / Peritajes) */
+@media (max-width: 899px) { .cd-pal { display: none; } .cd-txt { font-size: 17px; font-weight: 800; text-align: center; margin-top: 2px; } }
 /* Foto grande: "Volver" es una flechita flotante arriba a la izquierda (no tapa la foto) */
 .zoom-foto .zoom-x { top: calc(12px + var(--safe-t, 0px)); left: 12px; right: auto; width: 44px; height: 44px; padding: 0; border-radius: 50%;
   border: 1px solid color-mix(in srgb, var(--line) 60%, transparent); }
