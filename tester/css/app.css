@@ -2157,8 +2157,10 @@ body[data-solo-ver="1"] :is(.step, .etapa-item) { pointer-events: none; }
 .zoom-foto .zoom-x { top: calc(12px + var(--safe-t, 0px)); left: 12px; right: auto; width: 44px; height: 44px; padding: 0; border-radius: 50%;
   border: 1px solid color-mix(in srgb, var(--line) 60%, transparent); }
 .zoom-foto .zoom-x .ic { position: static; transform: none; }
-/* Computadora: dos flechas flotantes juntas, abajo al centro. Celular: se pasa deslizando */
+/* Dos flechas flotantes juntas, abajo al centro (en celular también se puede deslizar) */
 .zoom-foto .zoom-bar { position: absolute; left: 50%; bottom: calc(20px + var(--safe-b, 0px)); transform: translateX(-50%); z-index: 1; display: flex; gap: 12px; }
-.zoom-foto .zoom-bar .icon-btn { width: 48px; height: 48px; border-radius: 50%; color: var(--ink); background: rgb(20 30 45 / .5);
-  -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px); border: 1px solid color-mix(in srgb, var(--line) 60%, transparent); }
-@media (pointer: coarse) { .zoom-foto .zoom-bar { display: none; } }
+.zoom-foto .zoom-bar .icon-btn { width: 48px; height: 48px; border-radius: 50%; }
+/* Vidrio claro con ícono blanco, igual en tema claro y oscuro (el fondo de la foto grande siempre es oscuro) */
+.zoom-foto .zoom-x, .zoom-foto .zoom-bar .icon-btn { color: #fff; background: rgb(255 255 255 / .16); border: 1px solid rgb(255 255 255 / .28);
+  -webkit-backdrop-filter: blur(16px) saturate(160%); backdrop-filter: blur(16px) saturate(160%); box-shadow: 0 4px 18px rgb(0 0 0 / .3); }
+.zoom-foto .zoom-x:hover, .zoom-foto .zoom-bar .icon-btn:hover { background: rgb(255 255 255 / .26); }

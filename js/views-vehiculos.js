@@ -1173,7 +1173,7 @@ async function quitarAdjunto(v, campo, idx, confirmado = false) {
 
 // Foto a pantalla completa: pellizcar o doble toque para hacer zoom, arrastrar para mover
 // mover(d): pasa a la foto anterior (-1) o siguiente (1) del visor y devuelve { url, previa }.
-// Computadora: dos flechas flotantes abajo; celular: deslizando (sin zoom).
+// Dos flechas flotantes abajo; en celular también deslizando (sin zoom).
 function zoomFoto(url, previa, mover = null) {
   const el = document.createElement("div");
   el.className = "zoom-foto";
