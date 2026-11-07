@@ -2171,5 +2171,7 @@ body[data-solo-ver="1"] :is(.step, .etapa-item) { pointer-events: none; }
   .side-nav .side-sub a .ic { width: 17px; height: 17px; color: var(--primary); opacity: .75; flex: none; }
   .side-nav .side-sub a:hover .ic, .side-nav .side-sub a.on .ic { opacity: 1; }
   .side-nav .side-sub a.on { background: var(--primary-soft); color: var(--primary); box-shadow: inset 2px 0 0 var(--primary); }
-  .side-grupo.abierto > a[data-nav="planillas"] { color: var(--ink); }
+  /* Desplegado: el título queda gris como sin elegir (se resalta la planilla de abajo); azul solo si está cerrado */
+  .side-grupo.abierto > a[data-nav="planillas"] { background: none; color: var(--ink-2); }
+  .side-grupo.abierto > a[data-nav="planillas"]:hover { background: var(--surface-2); color: var(--ink); }
 }
