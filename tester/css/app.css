@@ -2146,3 +2146,15 @@ body[data-solo-ver="1"] :is(.step, .etapa-item) { pointer-events: none; }
 .topbar:has(> .search) .tb-title { flex: 0 0 auto; }
 .topbar > .search:focus-within { border-color: color-mix(in srgb, var(--primary) 55%, var(--edge)); box-shadow: 0 0 24px -4px color-mix(in srgb, var(--primary) 45%, transparent); }
 .topbar > .search:focus-within .ic { color: var(--primary); filter: drop-shadow(0 0 8px color-mix(in srgb, var(--primary) 60%, transparent)); }
+
+/* Calendario: el "+N" va arriba a la derecha, junto al número del día, así no lo recorta la celda */
+.cd { position: relative; }
+.cd-ev i.more { position: absolute; top: 4px; right: 4px; margin: 0; }
+/* Calendario en modo cantidad: "3 turnos" por día */
+.cd-txt { font-size: 12px; font-weight: 700; color: var(--primary); line-height: 1.2; }
+@media (max-width: 600px) { .cd-txt { font-size: 10px; } }
+/* Foto grande: barra de abajo para pasar a la anterior / siguiente */
+.zoom-foto .zoom-bar { position: absolute; left: 0; right: 0; bottom: 0; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 10px 16px calc(10px + var(--safe-b, 0px)); background: rgb(20 30 45 / .5); color: var(--ink); font-weight: 700;
+  -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px); border-top: 1px solid color-mix(in srgb, var(--line) 60%, transparent); }
+.zoom-foto .zoom-bar .zoom-n { flex: 1; text-align: center; }

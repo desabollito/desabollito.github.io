@@ -1172,14 +1172,25 @@ async function quitarAdjunto(v, campo, idx, confirmado = false) {
 }
 
 // Foto a pantalla completa: pellizcar o doble toque para hacer zoom, arrastrar para mover
-function zoomFoto(url, previa) {
+// mover(d): pasa a la foto anterior (-1) o siguiente (1) del visor y devuelve { url, previa, n }
+function zoomFoto(url, previa, mover = null, n = "") {
   const el = document.createElement("div");
   el.className = "zoom-foto";
-  el.innerHTML = `<img alt="" src="${esc(previa || url)}"><button class="zoom-x" aria-label="Volver"><span>${icon("back")}Volver</span></button>`;
+  el.innerHTML = `<img alt=""><button class="zoom-x" aria-label="Volver"><span>${icon("back")}Volver</span></button>
+    ${mover ? `<div class="zoom-bar"><button class="icon-btn" data-zd="-1" aria-label="Foto anterior">${icon("back")}</button><span class="zoom-n"></span><button class="icon-btn" data-zd="1" aria-label="Foto siguiente">${icon("next")}</button></div>` : ""}`;
   document.body.appendChild(el);
   const im = $("img", el);
-  if (previa && previa !== url) { const hd = new Image(); hd.onload = () => { im.src = url; }; hd.src = url; }
-  let esc_ = 1, tx = 0, ty = 0;
+  let esc_ = 1, tx = 0, ty = 0, hd = null;
+  const cargar = (url, previa, n) => {
+    esc_ = 1; tx = 0; ty = 0; im.style.transform = "";
+    im.src = previa || url;
+    if (hd) hd.onload = null;   // la HD de la foto anterior no pisa a la nueva
+    if (previa && previa !== url) { hd = new Image(); hd.onload = () => { im.src = url; }; hd.src = url; }
+    if (mover) $(".zoom-n", el).textContent = n;
+  };
+  const pasar = d => { const f = mover(d); cargar(f.url, f.previa, f.n); };
+  cargar(url, previa, n);
+  if (mover) $(".zoom-bar", el).onclick = e => { const b = e.target.closest("[data-zd]"); if (b) pasar(+b.dataset.zd); };
   const pintar = () => { im.style.transform = `translate(${tx}px, ${ty}px) scale(${esc_})`; };
   const limitar = () => {
     if (esc_ <= 1) { esc_ = 1; tx = 0; ty = 0; return; }
@@ -1187,13 +1198,16 @@ function zoomFoto(url, previa) {
     tx = Math.max(-mx, Math.min(mx, tx)); ty = Math.max(-my, Math.min(my, ty));
   };
   const cerrar = () => { el.remove(); removeEventListener("keydown", tecla, true); };
-  const tecla = e => { if (e.key === "Escape") { e.stopPropagation(); cerrar(); } };
+  const tecla = e => {
+    if (e.key === "Escape") { e.stopPropagation(); cerrar(); }
+    else if (mover && (e.key === "ArrowLeft" || e.key === "ArrowRight")) { e.stopPropagation(); e.preventDefault(); pasar(e.key === "ArrowRight" ? 1 : -1); }
+  };
   addEventListener("keydown", tecla, true);
   $(".zoom-x", el).onclick = cerrar;
   const ptrs = new Map();
   let d0 = 0, e0 = 1, p0 = null, ultimoToque = 0, movio = false;
   el.addEventListener("pointerdown", e => {
-    if (e.target.closest(".zoom-x")) return;
+    if (e.target.closest(".zoom-x, .zoom-bar")) return;
     el.setPointerCapture?.(e.pointerId);
     ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY }); movio = false;
     if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; d0 = Math.hypot(a.x - b.x, a.y - b.y); e0 = esc_; }
@@ -1429,7 +1443,9 @@ function visor(fotos = [], inicio = 0, v = null, campo = "fotos") {   // campo: 
     del.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); borrarActual(false); } });
   }
   // Tocar la foto: se abre a pantalla completa con zoom
-  img.addEventListener("click", () => { if (!deslizo) zoomFoto(grande(fotos[i].url, 2400, fotos[i].rot), img.src); deslizo = false; });
+  // shortcut: un video en la foto grande se ve como imagen fija; para reproducirlo se vuelve al visor
+  const actual = () => ({ url: grande(fotos[i].url, 2400, fotos[i].rot), previa: grande(fotos[i].url, 1600, fotos[i].rot), n: `${i + 1} de ${fotos.length}` });
+  img.addEventListener("click", () => { if (!deslizo) zoomFoto(actual().url, img.src, fotos.length > 1 ? d => { ir(d); return actual(); } : null, actual().n); deslizo = false; });
   const vwAdd = $("#vw-add", s.el);
   if (vwAdd) conectarFotos(vwAdd, files => {
     if (!files.length) return;

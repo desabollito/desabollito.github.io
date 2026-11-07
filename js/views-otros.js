@@ -182,6 +182,8 @@ export function vistaPlanilla(view) {
 // ═════════════════════════════════════════════════════════════
 const C = { y: new Date().getFullYear(), m: new Date().getMonth(), campo: "turnado", dia: null, auto: true };
 if (!["peritado", "turnado"].includes(C.campo)) C.campo = "turnado";
+// Celdas: patentes ("pat") o solo la cantidad del día ("txt"); se recuerda en este navegador
+try { C.vista = localStorage.getItem("calVista") === "txt" ? "txt" : "pat"; } catch { C.vista = "pat"; }
 
 // Al entrar: hoy si tiene vehículos; si no, el próximo día con vehículos; si no hay
 // ninguno adelante, el último día anterior que tenga.
@@ -228,8 +230,8 @@ export function vistaCalendario(view, selId = null) {
     celdas += `<button class="cd ${f === hoy ? "today" : ""} ${f === C.dia ? "sel" : ""} ${lst.length ? "has" : ""}" data-d="${f}"
       aria-label="${d} de ${MESES[C.m]}: ${lst.length} vehículos">
       <span class="cd-n">${d}</span>
-      <span class="cd-ev">${lst.slice(0, 3).map(v => `<i style="--c:${sinConf(v) ? "#e5484d" : ESTADO[estadoActual(v)].color}">${esc(v.patente || v.modelo || "•")}</i>`).join("")}
-      ${lst.length > 3 ? `<i class="more">+${lst.length - 3}</i>` : ""}</span></button>`;
+      ${C.vista === "txt" ? (lst.length ? `<span class="cd-txt">${lst.length} ${C.campo === "turnado" ? (lst.length === 1 ? "turno" : "turnos") : (lst.length === 1 ? "peritaje" : "peritajes")}</span>` : "") + "</button>" : `<span class="cd-ev">${lst.slice(0, 3).map(v => `<i style="--c:${sinConf(v) ? "#e5484d" : ESTADO[estadoActual(v)].color}">${esc(v.patente || v.modelo || "•")}</i>`).join("")}
+      ${lst.length > 3 ? `<i class="more">+${lst.length - 3}</i>` : ""}</span></button>`}`;
   }
   // Turnos sin confirmar primero
   const delDia = (C.dia ? (porDia[C.dia] || []) : []).slice().sort((a, b) => sinConf(b) - sinConf(a));
@@ -244,6 +246,7 @@ export function vistaCalendario(view, selId = null) {
         <h2>${MESES[C.m]} ${C.y}</h2>
         <button class="icon-btn" id="next" aria-label="Mes siguiente">${icon("next")}</button>
         <button class="btn btn-ghost btn-sm" id="hoy">Hoy</button>
+        <button class="btn btn-ghost btn-sm" id="vista" aria-label="Cambiar cómo se ven los días">${C.vista === "txt" ? "Ver patentes" : "Ver cantidad"}</button>
       </div>
       <div class="seg seg-sm" id="campo">
         ${[["peritado", "Peritajes"], ["turnado", "Turnos"]].map(([k, t]) =>
@@ -269,6 +272,7 @@ export function vistaCalendario(view, selId = null) {
   $("#prev", view).onclick = () => { if (--C.m < 0) { C.m = 11; C.y--; } C.dia = null; vistaCalendario(view); };
   $("#next", view).onclick = () => { if (++C.m > 11) { C.m = 0; C.y++; } C.dia = null; vistaCalendario(view); };
   $("#hoy", view).onclick = () => { const d = new Date(); C.y = d.getFullYear(); C.m = d.getMonth(); C.dia = hoyISO(); vistaCalendario(view); };
+  $("#vista", view).onclick = () => { C.vista = C.vista === "txt" ? "pat" : "txt"; try { localStorage.setItem("calVista", C.vista); } catch {} vistaCalendario(view); };
   $("#campo", view).onclick = e => { const b = e.target.closest("[data-c]"); if (b) { C.campo = b.dataset.c; C.auto = true; vistaCalendario(view); } };
   $(".cal-grid", view).onclick = e => { const b = e.target.closest("[data-d]"); if (b) { C.dia = b.dataset.d; vistaCalendario(view); } };
 }

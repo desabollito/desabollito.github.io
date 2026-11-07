@@ -640,12 +640,13 @@ const PALABRAS_CIERRE = ["ok", "oka", "okey", "okay", "okk", "listo", "lista", "
   "cerrar", "chau", "gracias", "dale", "perfecto", "joya", "bien", "👍", "👌", "✅"];
 const limpio = t => t.toLowerCase().trim().replace(/[!.¡¿?\s]+$/g, "").replace(/^[¡¿\s]+/, "");
 const esCierre = t => PALABRAS_CIERRE.includes(limpio(t));
-const esSaludo = t => /^(hola+|buenas|buen d[ií]a|buenas tardes|buenas noches|hey|hi|start|inicio)$/.test(limpio(t));
+const esSaludo = t => /^(hola+|buenas|buen d[ií]a|buenos d[ií]as|buenas tardes|buenas noches|hey|hi|start|inicio)$/.test(limpio(t));
 const esAyuda = t => /^(ayuda|help|\?|menu|menú|comandos|info)$/.test(limpio(t));
 const esLocalizar = t => /^(localiz|ubic|encontr|busc|d[oó]nde\s+est|mostr|pas[aá]me\s+el\s+link|link)/i.test(limpio(t));
-// Menciones al bot en grupos: "desabollito", "@desabollito" o la palabra "bot"
-const mencionaBot = t => /desabollito|\bbot\b/i.test(sinTildes(String(t || "")));
-const quitarMencion = t => String(t || "").replace(/@?desabollito|\bbot\b/gi, " ").replace(/\s+/g, " ").trim();
+// Menciones al bot en grupos: "@desabollito", "@ desabollito", un saludo seguido de "desabollito" ("buen día desabollito") o la palabra "bot".
+// "desabollito" suelto en una charla no cuenta.
+const mencionaBot = t => /@\s*desabollito|^\s*(hola+|buenas|buen dia|buenos dias|buenas tardes|buenas noches)[\s,.!¡]*desabollito|\bbot\b/i.test(sinTildes(String(t || "")));
+const quitarMencion = t => String(t || "").replace(/@?\s*desabollito|\bbot\b/gi, " ").replace(/\s+/g, " ").trim();
 const esCancelar = t => /^(cancelar|cancela|cancelalo|cancel|fue un error|error|me equivoque|no)$/.test(sinTildes(limpio(t)));
 const esCierreGrupo = t => /^(ok+|okey|okay|listo|lista|fin|termine)$/.test(sinTildes(limpio(t)));
 const esCambioOperativo = t => /^(cambiar\s+(de\s+)?)?operativos?$/.test(limpio(t));
