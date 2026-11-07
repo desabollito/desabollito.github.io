@@ -2186,4 +2186,9 @@ body[data-solo-ver="1"] :is(.step, .etapa-item) { pointer-events: none; }
 @media (max-width: 899px) {
   .topbar > .search { margin: 0 2px 0 6px; min-height: 40px; padding-right: 2px; }
   .topbar > .search .filtro-btn { width: 36px; height: 36px; flex: none; margin-left: auto; }
+  .topbar > .search { gap: 8px; padding-left: 14px; }
+  .topbar > .search > .ic { display: none; }   /* sin lupa: el texto entra entero */
+  /* Vacío: sin la "x" de borrar, que guarda lugar y cortaba el texto antes de llegar al filtro */
+  .topbar > .search input:placeholder-shown::-webkit-search-cancel-button { display: none; }
+  .topbar > .search input::placeholder { text-overflow: ellipsis; }
 }
