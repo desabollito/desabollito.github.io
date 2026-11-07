@@ -2175,3 +2175,5 @@ body[data-solo-ver="1"] :is(.step, .etapa-item) { pointer-events: none; }
   .side-grupo:has(.side-sub a.on) > a[data-nav="planillas"] { background: none; color: var(--ink-2); }
   .side-grupo:has(.side-sub a.on) > a[data-nav="planillas"]:hover { background: var(--surface-2); color: var(--ink); }
 }
+/* Celular: buscador en la barra de arriba, al lado del operativo */
+@media (max-width: 899px) { .topbar > .search { margin: 0 6px; min-height: 38px; } }

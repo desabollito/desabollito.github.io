@@ -223,6 +223,8 @@ export function vistaCalendario(view, selId = null) {
     C.dia = conAlgo.includes(hoy) ? hoy : (conAlgo[0] || (hoy.startsWith(mesActual) ? hoy : null));
   }
 
+  // "Ver cantidad" solo en computadora (en celular el botón no entra en la fila)
+  const txt = C.vista === "txt" && matchMedia("(min-width: 900px)").matches;
   let celdas = "";
   for (let i = 0; i < primero; i++) celdas += `<div class="cd out"></div>`;
   for (let d = 1; d <= dias; d++) {
@@ -230,7 +232,7 @@ export function vistaCalendario(view, selId = null) {
     celdas += `<button class="cd ${f === hoy ? "today" : ""} ${f === C.dia ? "sel" : ""} ${lst.length ? "has" : ""}" data-d="${f}"
       aria-label="${d} de ${MESES[C.m]}: ${lst.length} vehículos">
       <span class="cd-n">${d}</span>
-      ${C.vista === "txt" ? (lst.length ? `<span class="cd-txt">${lst.length} ${C.campo === "turnado" ? (lst.length === 1 ? "turno" : "turnos") : (lst.length === 1 ? "peritaje" : "peritajes")}</span>` : "") + "</button>" : `<span class="cd-ev">${lst.slice(0, 3).map(v => `<i style="--c:${sinConf(v) ? "#e5484d" : ESTADO[estadoActual(v)].color}">${esc(v.patente || v.modelo || "•")}</i>`).join("")}
+      ${txt ? (lst.length ? `<span class="cd-txt">${lst.length} ${C.campo === "turnado" ? (lst.length === 1 ? "turno" : "turnos") : (lst.length === 1 ? "peritaje" : "peritajes")}</span>` : "") + "</button>" : `<span class="cd-ev">${lst.slice(0, 3).map(v => `<i style="--c:${sinConf(v) ? "#e5484d" : ESTADO[estadoActual(v)].color}">${esc(v.patente || v.modelo || "•")}</i>`).join("")}
       ${lst.length > 3 ? `<i class="more">+${lst.length - 3}</i>` : ""}</span></button>`}`;
   }
   // Turnos sin confirmar primero
@@ -246,7 +248,7 @@ export function vistaCalendario(view, selId = null) {
         <h2>${MESES[C.m]} ${C.y}</h2>
         <button class="icon-btn" id="next" aria-label="Mes siguiente">${icon("next")}</button>
         <button class="btn btn-ghost btn-sm" id="hoy">Hoy</button>
-        <button class="btn btn-ghost btn-sm" id="vista" aria-label="Cambiar cómo se ven los días">${C.vista === "txt" ? "Ver patentes" : "Ver cantidad"}</button>
+        <button class="btn btn-ghost btn-sm hide-mobile" id="vista" aria-label="Cambiar cómo se ven los días">${C.vista === "txt" ? "Ver patentes" : "Ver cantidad"}</button>
       </div>
       <div class="seg seg-sm" id="campo">
         ${[["peritado", "Peritajes"], ["turnado", "Turnos"]].map(([k, t]) =>

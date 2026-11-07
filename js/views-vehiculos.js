@@ -220,8 +220,8 @@ export function vistaVehiculos(view, selId = null) {
       ${ancho ? `<section class="pane-detail" id="pane-detail"></section>` : ""}
     </div>`;
 
-  // Computadora: el buscador va arriba, a lo largo entre el título y el botón de filtros
-  if (ancho) $("#topbar .tb-title")?.after($(".list-tools .search", view));
+  // El buscador va arriba, en la barra: entre el operativo (o el título) y el botón de filtros
+  $("#topbar .tb-title")?.after($(".list-tools .search", view));
 
   const pintar = (animar = false) => {
     const todos = activos();
