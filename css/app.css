@@ -2184,10 +2184,9 @@ body[data-solo-ver="1"] :is(.step, .etapa-item) { pointer-events: none; }
 }
 /* Celular: buscador en la barra de arriba, al lado del operativo */
 @media (max-width: 899px) {
-  .topbar > .search { margin: 0 2px 0 6px; min-height: 40px; padding-right: 2px; }
-  .topbar > .search .filtro-btn { width: 36px; height: 36px; flex: none; margin-left: auto; }
-  .topbar > .search { gap: 8px; padding-left: 14px; }
-  .topbar > .search > .ic { display: none; }   /* sin lupa: el texto entra entero */
+  /* Del texto al ícono de filtros queda el mismo aire que del borde izquierdo a la lupa (~14px) */
+  .topbar > .search { margin: 0 2px 0 6px; min-height: 40px; gap: 8px; padding: 0 9px 0 14px; }
+  .topbar > .search .filtro-btn { width: 30px; height: 36px; flex: none; margin-left: auto; }
   /* Vacío: sin la "x" de borrar, que guarda lugar y cortaba el texto antes de llegar al filtro */
   .topbar > .search input:placeholder-shown::-webkit-search-cancel-button { display: none; }
   .topbar > .search input::placeholder { text-overflow: ellipsis; }
