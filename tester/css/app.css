@@ -2153,8 +2153,12 @@ body[data-solo-ver="1"] :is(.step, .etapa-item) { pointer-events: none; }
 /* Calendario en modo cantidad: "3 turnos" por día */
 .cd-txt { font-size: 12px; font-weight: 700; color: var(--primary); line-height: 1.2; }
 @media (max-width: 600px) { .cd-txt { font-size: 10px; } }
-/* Foto grande: barra de abajo para pasar a la anterior / siguiente */
-.zoom-foto .zoom-bar { position: absolute; left: 0; right: 0; bottom: 0; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  padding: 10px 16px calc(10px + var(--safe-b, 0px)); background: rgb(20 30 45 / .5); color: var(--ink); font-weight: 700;
-  -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px); border-top: 1px solid color-mix(in srgb, var(--line) 60%, transparent); }
-.zoom-foto .zoom-bar .zoom-n { flex: 1; text-align: center; }
+/* Foto grande: "Volver" es una flechita flotante arriba a la izquierda (no tapa la foto) */
+.zoom-foto .zoom-x { top: calc(12px + var(--safe-t, 0px)); left: 12px; right: auto; width: 44px; height: 44px; padding: 0; border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--line) 60%, transparent); }
+.zoom-foto .zoom-x .ic { position: static; transform: none; }
+/* Computadora: dos flechas flotantes juntas, abajo al centro. Celular: se pasa deslizando */
+.zoom-foto .zoom-bar { position: absolute; left: 50%; bottom: calc(20px + var(--safe-b, 0px)); transform: translateX(-50%); z-index: 1; display: flex; gap: 12px; }
+.zoom-foto .zoom-bar .icon-btn { width: 48px; height: 48px; border-radius: 50%; color: var(--ink); background: rgb(20 30 45 / .5);
+  -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px); border: 1px solid color-mix(in srgb, var(--line) 60%, transparent); }
+@media (pointer: coarse) { .zoom-foto .zoom-bar { display: none; } }

@@ -1172,24 +1172,24 @@ async function quitarAdjunto(v, campo, idx, confirmado = false) {
 }
 
 // Foto a pantalla completa: pellizcar o doble toque para hacer zoom, arrastrar para mover
-// mover(d): pasa a la foto anterior (-1) o siguiente (1) del visor y devuelve { url, previa, n }
-function zoomFoto(url, previa, mover = null, n = "") {
+// mover(d): pasa a la foto anterior (-1) o siguiente (1) del visor y devuelve { url, previa }.
+// Computadora: dos flechas flotantes abajo; celular: deslizando (sin zoom).
+function zoomFoto(url, previa, mover = null) {
   const el = document.createElement("div");
   el.className = "zoom-foto";
-  el.innerHTML = `<img alt=""><button class="zoom-x" aria-label="Volver"><span>${icon("back")}Volver</span></button>
-    ${mover ? `<div class="zoom-bar"><button class="icon-btn" data-zd="-1" aria-label="Foto anterior">${icon("back")}</button><span class="zoom-n"></span><button class="icon-btn" data-zd="1" aria-label="Foto siguiente">${icon("next")}</button></div>` : ""}`;
+  el.innerHTML = `<img alt=""><button class="zoom-x" aria-label="Volver" title="Volver">${icon("back")}</button>
+    ${mover ? `<div class="zoom-bar"><button class="icon-btn" data-zd="-1" aria-label="Foto anterior">${icon("back")}</button><button class="icon-btn" data-zd="1" aria-label="Foto siguiente">${icon("next")}</button></div>` : ""}`;
   document.body.appendChild(el);
   const im = $("img", el);
   let esc_ = 1, tx = 0, ty = 0, hd = null;
-  const cargar = (url, previa, n) => {
+  const cargar = (url, previa) => {
     esc_ = 1; tx = 0; ty = 0; im.style.transform = "";
     im.src = previa || url;
     if (hd) hd.onload = null;   // la HD de la foto anterior no pisa a la nueva
     if (previa && previa !== url) { hd = new Image(); hd.onload = () => { im.src = url; }; hd.src = url; }
-    if (mover) $(".zoom-n", el).textContent = n;
   };
-  const pasar = d => { const f = mover(d); cargar(f.url, f.previa, f.n); };
-  cargar(url, previa, n);
+  const pasar = d => { const f = mover(d); cargar(f.url, f.previa); };
+  cargar(url, previa);
   if (mover) $(".zoom-bar", el).onclick = e => { const b = e.target.closest("[data-zd]"); if (b) pasar(+b.dataset.zd); };
   const pintar = () => { im.style.transform = `translate(${tx}px, ${ty}px) scale(${esc_})`; };
   const limitar = () => {
@@ -1205,11 +1205,12 @@ function zoomFoto(url, previa, mover = null, n = "") {
   addEventListener("keydown", tecla, true);
   $(".zoom-x", el).onclick = cerrar;
   const ptrs = new Map();
-  let d0 = 0, e0 = 1, p0 = null, ultimoToque = 0, movio = false;
+  let d0 = 0, e0 = 1, p0 = null, ultimoToque = 0, movio = false, ini = null, pellizco = false;
   el.addEventListener("pointerdown", e => {
     if (e.target.closest(".zoom-x, .zoom-bar")) return;
     el.setPointerCapture?.(e.pointerId);
     ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY }); movio = false;
+    if (ptrs.size === 1) { ini = { x: e.clientX, y: e.clientY }; pellizco = false; } else pellizco = true;
     if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; d0 = Math.hypot(a.x - b.x, a.y - b.y); e0 = esc_; }
     else p0 = { x: e.clientX - tx, y: e.clientY - ty };
   });
@@ -1224,6 +1225,9 @@ function zoomFoto(url, previa, mover = null, n = "") {
     if (!ptrs.has(e.pointerId)) return;
     ptrs.delete(e.pointerId);
     if (ptrs.size === 1) { const [a] = [...ptrs.values()]; p0 = { x: a.x - tx, y: a.y - ty }; }
+    // Deslizar a los costados sin zoom: foto anterior / siguiente
+    const dx = e.clientX - (ini?.x ?? e.clientX), dy = e.clientY - (ini?.y ?? e.clientY);
+    if (!ptrs.size && mover && !pellizco && esc_ === 1 && Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) return pasar(dx < 0 ? 1 : -1);
     if (ptrs.size || movio) return;
     // Doble toque: acerca / vuelve
     const ahora = Date.now();
@@ -1444,8 +1448,8 @@ function visor(fotos = [], inicio = 0, v = null, campo = "fotos") {   // campo: 
   }
   // Tocar la foto: se abre a pantalla completa con zoom
   // shortcut: un video en la foto grande se ve como imagen fija; para reproducirlo se vuelve al visor
-  const actual = () => ({ url: grande(fotos[i].url, 2400, fotos[i].rot), previa: grande(fotos[i].url, 1600, fotos[i].rot), n: `${i + 1} de ${fotos.length}` });
-  img.addEventListener("click", () => { if (!deslizo) zoomFoto(actual().url, img.src, fotos.length > 1 ? d => { ir(d); return actual(); } : null, actual().n); deslizo = false; });
+  const actual = () => ({ url: grande(fotos[i].url, 2400, fotos[i].rot), previa: grande(fotos[i].url, 1600, fotos[i].rot) });
+  img.addEventListener("click", () => { if (!deslizo) zoomFoto(actual().url, img.src, fotos.length > 1 ? d => { ir(d); return actual(); } : null); deslizo = false; });
   const vwAdd = $("#vw-add", s.el);
   if (vwAdd) conectarFotos(vwAdd, files => {
     if (!files.length) return;
