@@ -222,6 +222,8 @@ export function vistaVehiculos(view, selId = null) {
 
   // El buscador va arriba, en la barra: entre el operativo (o el título) y el botón de filtros
   $("#topbar .tb-title")?.after($(".list-tools .search", view));
+  // Celular: el botón de filtros va dentro del buscador (así la barra llega hasta la campana)
+  if (!ancho && $("#tb-filtros")) $("#topbar > .search")?.append($("#tb-filtros"));
 
   const pintar = (animar = false) => {
     const todos = activos();
