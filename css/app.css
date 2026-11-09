@@ -2152,6 +2152,9 @@ body[data-solo-ver="1"] :is(.step, .etapa-item) { pointer-events: none; }
 .cd-ev i.more { position: absolute; top: 4px; right: 4px; margin: 0; }
 /* Calendario en modo cantidad: "3 turnos" por día */
 .cd-txt { font-size: 12px; font-weight: 700; color: var(--primary); line-height: 1.2; }
+.cal-total { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+/* Celular: en modo cantidad solo el número, en grande (la palabra no entra en la celda) */
+@media (max-width: 600px) { .cd-txt .cd-pal { display: none; } .cd-txt b { font-size: 18px; } }
 /* Celular: número del día centrado y abajo una fila de puntitos (hasta 3) con "+N" al lado */
 @media (max-width: 600px) {
   .cd { align-items: center; justify-content: space-between; padding: 6px 2px 7px; text-align: center; }

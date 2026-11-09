@@ -223,8 +223,7 @@ export function vistaCalendario(view, selId = null) {
     C.dia = conAlgo.includes(hoy) ? hoy : (conAlgo[0] || (hoy.startsWith(mesActual) ? hoy : null));
   }
 
-  // "Ver cantidad" solo en computadora; en celular van puntitos y "+N"
-  const txt = C.vista === "txt" && matchMedia("(min-width: 900px)").matches;
+  const txt = C.vista === "txt";
   let celdas = "";
   for (let i = 0; i < primero; i++) celdas += `<div class="cd out"></div>`;
   for (let d = 1; d <= dias; d++) {
@@ -255,7 +254,8 @@ export function vistaCalendario(view, selId = null) {
           `<button class="seg-btn ${C.campo === k ? "on" : ""}" data-c="${k}">${t}</button>`).join("")}
       </div>
       <div class="cal-grid">${["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"].map(d => `<div class="cw">${d}</div>`).join("")}${celdas}</div>
-      <p class="muted small">${totalMes} ${C.campo === "turnado" ? "turnos" : C.campo === "reparado" ? "reparaciones" : "peritajes"} en ${MESES[C.m]}.</p>
+      <p class="muted small cal-total">${totalMes} ${C.campo === "turnado" ? "turnos" : C.campo === "reparado" ? "reparaciones" : "peritajes"} en ${MESES[C.m]}.
+        <button class="btn btn-ghost btn-sm only-mobile vista">${C.vista === "txt" ? "Ver puntitos" : "Ver cantidad"}</button></p>
     </section>`}
     <section class="cal-day">
       <h3>${C.dia ? fechaLarga(C.dia) : "Elegí un día"}</h3>
@@ -274,7 +274,7 @@ export function vistaCalendario(view, selId = null) {
   $("#prev", view).onclick = () => { if (--C.m < 0) { C.m = 11; C.y--; } C.dia = null; vistaCalendario(view); };
   $("#next", view).onclick = () => { if (++C.m > 11) { C.m = 0; C.y++; } C.dia = null; vistaCalendario(view); };
   $("#hoy", view).onclick = () => { const d = new Date(); C.y = d.getFullYear(); C.m = d.getMonth(); C.dia = hoyISO(); vistaCalendario(view); };
-  $("#vista", view).onclick = () => { C.vista = C.vista === "txt" ? "pat" : "txt"; try { localStorage.setItem("calVista", C.vista); } catch {} vistaCalendario(view); };
+  $(".cal-total .vista", view).onclick = $("#vista", view).onclick = () => { C.vista = C.vista === "txt" ? "pat" : "txt"; try { localStorage.setItem("calVista", C.vista); } catch {} vistaCalendario(view); };
   $("#campo", view).onclick = e => { const b = e.target.closest("[data-c]"); if (b) { C.campo = b.dataset.c; C.auto = true; vistaCalendario(view); } };
   $(".cal-grid", view).onclick = e => { const b = e.target.closest("[data-d]"); if (b) { C.dia = b.dataset.d; vistaCalendario(view); } };
 }
