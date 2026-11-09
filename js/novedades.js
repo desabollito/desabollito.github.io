@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.0.23", items: ["Estados: se pueden marcar varios a la vez (ej. Peritado y Turnado). Tocá uno marcado para quitarlo."] },
   { v: "4.0.22", items: ["Filtros: los números se actualizan con lo que elegiste (ej. con Grado 1 marcado, cada compañía y cada estado de la pantalla principal cuentan solo los Grado 1)."] },
   { v: "4.0.21", items: ["Calendario en celular: botón «Ver cantidad» al lado del total del mes, para ver cuántos turnos hay cada día."] },
   { v: "4.0.20", items: ["Celular: buscador con lupa y el botón de filtros más pegado al texto."] },

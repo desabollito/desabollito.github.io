@@ -18,7 +18,7 @@ import { armarZip } from "./zip.js";
 import { setTopbar, go, esAncho } from "./shell.js";
 
 // Filtros de la lista (se conservan al navegar)
-const F = { estado: "todos", q: "", mios: false, sinAnul: false, orden: "fecha", dir: -1, grado: null, repuestos: new Set(), pintura: new Set(), turno: null, cliente: null, cargado: null, cias: new Set() }; // grado: null = todos, 0 = sin grado
+const F = { estado: new Set(), q: "", mios: false, sinAnul: false, orden: "fecha", dir: -1, grado: null, repuestos: new Set(), pintura: new Set(), turno: null, cliente: null, cargado: null, cias: new Set() }; // estado: vacío = todos (se pueden marcar varios); grado: null = todos, 0 = sin grado
 
 // Conformidad del cliente al entregar: carita y color de cada opción
 const CARAS = { conforme: ["Conforme", "#22b07d", "M8 14.5c1 1.4 2.4 2 4 2s3-.6 4-2"], regular: ["Regular", "#e0a526", "M8.5 15.5h7"], desconforme: ["Desconforme", "#e0486e", "M8 16.5c1-1.4 2.4-2 4-2s3 .6 4 2"] };
@@ -66,7 +66,7 @@ function filtrar(lista, conAnul) {
   if (F.cias.size && todas.every(c => F.cias.has(c))) F.cias.clear();
   const q = F.q.trim().toLowerCase();
   return lista.filter(v =>
-    (F.estado === "todos" || estadoActual(v) === F.estado) &&
+    (!F.estado.size || F.estado.has(estadoActual(v))) &&
     (!F.mios || esMioV(v)) &&
     (conAnul || !F.sinAnul || q || !esAnulado(v)) &&   // buscando, los anulados aparecen igual
     (F.grado === null || (v.grado || 0) === F.grado) &&
@@ -85,7 +85,7 @@ function filtrar(lista, conAnul) {
 // Filtra con todos los filtros menos uno: así cada número dice cuántos quedarían al elegir esa opción
 function filtrarSin(clave, lista) {
   const prev = F[clave];
-  F[clave] = prev instanceof Set ? new Set() : clave === "estado" ? "todos" : null;
+  F[clave] = prev instanceof Set ? new Set() : null;
   try { return filtrar(lista); } finally { F[clave] = prev; }
 }
 
@@ -237,7 +237,7 @@ export function vistaVehiculos(view, selId = null) {
     filtrarSin("estado", todos).forEach(v => cuenta[estadoActual(v)]++);
     $("#estado-strip", view).innerHTML =
       // Link de perito: solo los estados que tienen algún vehículo
-      ESTADOS.filter(e => !soyLector() || cuenta[e.key] || F.estado === e.key).map(e => `<button class="est ${F.estado === e.key ? "on" : ""}" data-e="${e.key}" style="--c:${e.color}">
+      ESTADOS.filter(e => !soyLector() || cuenta[e.key] || F.estado.has(e.key)).map(e => `<button class="est ${F.estado.has(e.key) ? "on" : ""}" data-e="${e.key}" style="--c:${e.color}">
         <b>${cuenta[e.key]}</b><span>${e.label}</span></button>`).join("");
     $("#estado-strip", view).setAttribute("aria-label", `Filtrar por estado (${todos.length} en total)`);
     // Count Up: los números de los estados cuentan desde 0 la primera vez que hay datos
@@ -260,7 +260,7 @@ export function vistaVehiculos(view, selId = null) {
          <button class="btn btn-ghost" id="limpiar">Limpiar filtros</button></div>`;
     box.classList.toggle("lista-anim", animar);
     if (animar) [...box.children].forEach((c, i) => c.style.setProperty("--i", i));
-    $("#limpiar", box)?.addEventListener("click", () => { F.q = ""; F.estado = "todos"; F.mios = false; F.sinAnul = false; F.cias.clear(); F.grado = null; F.repuestos.clear(); F.pintura.clear(); F.turno = null; F.cliente = null; F.cargado = null; marcarBoton(); $("#q").value = ""; pintar(); });
+    $("#limpiar", box)?.addEventListener("click", () => { F.q = ""; F.estado.clear(); F.mios = false; F.sinAnul = false; F.cias.clear(); F.grado = null; F.repuestos.clear(); F.pintura.clear(); F.turno = null; F.cliente = null; F.cargado = null; marcarBoton(); $("#q").value = ""; pintar(); });
   };
 
   // Computadora: tocar de nuevo el vehículo marcado lo desmarca y cierra el detalle
@@ -273,7 +273,7 @@ export function vistaVehiculos(view, selId = null) {
   $("#q").addEventListener("dblclick", e => { e.target.select(); });
   $("#estado-strip", view).addEventListener("click", e => {
     const b = e.target.closest("[data-e]"); if (!b) return;
-    F.estado = F.estado === b.dataset.e ? "todos" : b.dataset.e; pintar();
+    { const k = b.dataset.e; F.estado.has(k) ? F.estado.delete(k) : F.estado.add(k); } pintar();
   });
   // Un solo botón "Filtrar y ordenar": cada grupo es una fila de opciones (tocar una la elige; "Todos" la quita)
   $("#tb-filtros")?.addEventListener("click", () => {
