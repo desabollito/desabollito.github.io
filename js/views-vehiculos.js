@@ -82,6 +82,12 @@ function filtrar(lista, conAnul) {
       : [v.modelo, v.patente, v.asegurado, v.compania, v.localidad, v.telefono]
         .some(x => (x || "").toLowerCase().includes(q)))));
 }
+// Filtra con todos los filtros menos uno: así cada número dice cuántos quedarían al elegir esa opción
+function filtrarSin(clave, lista) {
+  const prev = F[clave];
+  F[clave] = prev instanceof Set ? new Set() : clave === "estado" ? "todos" : null;
+  try { return filtrar(lista); } finally { F[clave] = prev; }
+}
 
 // PDF de la lista filtrada: una fila por repuesto / paño (el vehículo va solo en la primera)
 function exportarPDF() {
@@ -228,7 +234,7 @@ export function vistaVehiculos(view, selId = null) {
   const pintar = (animar = false) => {
     const todos = activos();
     const cuenta = Object.fromEntries(ESTADOS.map(e => [e.key, 0]));
-    todos.forEach(v => cuenta[estadoActual(v)]++);
+    filtrarSin("estado", todos).forEach(v => cuenta[estadoActual(v)]++);
     $("#estado-strip", view).innerHTML =
       // Link de perito: solo los estados que tienen algún vehículo
       ESTADOS.filter(e => !soyLector() || cuenta[e.key] || F.estado === e.key).map(e => `<button class="est ${F.estado === e.key ? "on" : ""}" data-e="${e.key}" style="--c:${e.color}">
@@ -287,7 +293,7 @@ export function vistaVehiculos(view, selId = null) {
       <div class="fo-pie"><button type="button" class="btn btn-ghost" data-close id="fo-reset">Limpiar</button><button type="button" class="btn btn-primary" data-close id="fo-ver"></button></div>
     </div>` });
     const el = id => $(id, hoja.el);
-    const n = f => visibles().filter(f).length;
+    const n = (grupo, f) => filtrarSin(grupo, activos()).filter(f).length;
     // Opción de una fila: texto, cantidad y color opcional
     const op = (grupo, val, txt, cant, on, color) => `<button type="button" class="fo-op ${on ? "on" : ""}" data-g="${grupo}" data-v="${esc(String(val))}" ${color ? `style="--c:${color}"` : ""}>
       <span class="fo-txt">${color ? `<i class="f-dot"></i>` : ""}${txt}</span>${cant !== null && cant !== undefined ? `<b>${cant}</b>` : ""}</button>`;
@@ -296,18 +302,18 @@ export function vistaVehiculos(view, selId = null) {
       e.style.setProperty("--grad", `linear-gradient(90deg, ${colores.map((c, i) => `color-mix(in srgb, ${c} 16%, transparent) ${Math.round((i + 0.5) / colores.length * 100)}%`).join(", ")})`); };
     const pintarHoja = () => {
       el("#fo-orden").innerHTML = ORDENES.map(([k, t]) => op("orden", k, F.orden === k ? `${t} <i class="fo-flecha">${F.dir > 0 ? "↑" : "↓"}</i>` : t, null, F.orden === k)).join("");
-      const gr = [[0, "–"], [1, "G1"], [2, "G2"], [3, "G3"], [4, "G4"]].filter(([g]) => !(g === 4 && lector) && (g !== 0 || n(v => !v.grado) || F.grado === 0));
-      el("#fo-grado").innerHTML = gr.map(([g, t]) => op("grado", g, t, n(v => (v.grado || 0) === g), F.grado === g)).join("");
+      const gr = [[0, "–"], [1, "G1"], [2, "G2"], [3, "G3"], [4, "G4"]].filter(([g]) => !(g === 4 && lector) && (g !== 0 || n("grado", v => !v.grado) || F.grado === 0));
+      el("#fo-grado").innerHTML = gr.map(([g, t]) => op("grado", g, t, n("grado", v => (v.grado || 0) === g), F.grado === g)).join("");
       degrade("#fo-turno", ["#e0a526", "#22b07d"]);
       ["pintura", "repuestos"].forEach(tipo => degrade(`#fo-${tipo}`, ETAPAS[tipo].map(e => e[2])));
       el("#fo-turno").innerHTML = [["no", "Sin confirmar", "#e0a526", false], ["si", "Confirmados", "#22b07d", true]].map(([k, t, c, si]) =>
-          op("turno", k, t, n(v => estadoActual(v) === "turnado" && (v.turnoConfirmado === true) === si), F.turno === k, c)).join("");
-      el("#fo-cliente").innerHTML = Object.entries(CARAS).map(([k, [t, c]]) => op("cliente", k, t, n(v => v.conformidad === k), F.cliente === k, c)).join("");
-      if (el("#fo-cargado")) el("#fo-cargado").innerHTML = [["desm", "Desmontaje"], ["check", "Check in / out"], ["firma", "Firmados"]].map(([k, t]) => op("cargado", k, t, n(CARGADO[k]), F.cargado === k)).join("");
+          op("turno", k, t, n("turno", v => estadoActual(v) === "turnado" && (v.turnoConfirmado === true) === si), F.turno === k, c)).join("");
+      el("#fo-cliente").innerHTML = Object.entries(CARAS).map(([k, [t, c]]) => op("cliente", k, t, n("cliente", v => v.conformidad === k), F.cliente === k, c)).join("");
+      if (el("#fo-cargado")) el("#fo-cargado").innerHTML = [["desm", "Desmontaje"], ["check", "Check in / out"], ["firma", "Firmados"]].map(([k, t]) => op("cargado", k, t, n("cargado", CARGADO[k]), F.cargado === k)).join("");
       ["pintura", "repuestos"].forEach(tipo => {
-        el(`#fo-${tipo}`).innerHTML = ETAPAS[tipo].map(([k, t, c]) => op(tipo, k, t, n(v => tieneEtapa(v, tipo, k)), F[tipo].has(k), c)).join("");
+        el(`#fo-${tipo}`).innerHTML = ETAPAS[tipo].map(([k, t, c]) => op(tipo, k, t, n(tipo, v => tieneEtapa(v, tipo, k)), F[tipo].has(k), c)).join("");
       });
-      if (el("#fo-cias")) el("#fo-cias").innerHTML = ciasDisponibles().map(([c, k]) => `<button type="button" class="fo-op ${F.cias.has(c) ? "on" : ""}" data-cia="${esc(c)}"><span class="fo-txt">${esc(c)}</span><b>${k}</b></button>`).join("")
+      if (el("#fo-cias")) el("#fo-cias").innerHTML = ciasDisponibles().map(([c]) => [c, n("cias", v => ciaDe(v) === c)]).map(([c, k]) => `<button type="button" class="fo-op ${F.cias.has(c) ? "on" : ""}" data-cia="${esc(c)}"><span class="fo-txt">${esc(c)}</span><b>${k}</b></button>`).join("")
         || `<span class="muted small">Sin vehículos</span>`;
       const cant = filtrar(activos()).length;
       el("#fo-ver").textContent = `Ver ${cant} ${cant === 1 ? "vehículo" : "vehículos"}`;
