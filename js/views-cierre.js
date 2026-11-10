@@ -92,12 +92,11 @@ function cierrePDF(d, r) {
   caja("Gastos", [["Gasto", 0], ["Monto", 40, 1]], (d.gastos || []).map(f => [(f.nombre || "") + (f.retorno ? "  (retorno)" : ""), $$(num(f.monto))]), [["Total", r.gastos, "sub"]]);
   caja("Resumen", [], [], [["Total facturado", r.bruto], ["IVA 21%", -r.iva], ["IIBB 3,5%", -r.iibb], ["Neto", r.neto, "sub"], ["Gastos", -r.gastos], ...(r.retornos ? [["Retornos", r.retornos]] : []), ["Total final", r.final, "final"]]);
   if (d.reparto?.length) caja("Reparto del total final", [["Persona", 0], ["%", 24, 1], ["Le toca", 40, 1]], d.reparto.map(f => [f.nombre || "", num(f.pct) + "%", $$(parte(f, r))]));
-  const filasG = l => (l || []).map(g => [(g.nombre || "") + (g.retorno ? "  (retorno)" : ""), (g.retorno ? "+" : "") + $$(num(g.monto))]);
+  // Cada persona: lo que le toca, debajo cada gasto (y cada retorno, solo si hay) y lo que queda; sin tabla aparte ni línea "Gastos"
+  const itemsG = l => (l || []).map(g => [(g.nombre || "Sin nombre") + (g.retorno ? " (retorno)" : ""), g.retorno ? num(g.monto) : -num(g.monto)]);
   (d.reparto || []).forEach(f => {
-    caja(`Gastos de ${f.nombre || "sin nombre"}`, [["Gasto", 0], ["Monto", 40, 1]], filasG(f.gastos),
-      [[`Le toca (${num(f.pct)}%)`, parte(f, r)], ["Gastos", -gastosDe(f)], ...(retDe(f) ? [["Retornos", retDe(f)]] : []), ["Queda", queda(f, r), "final"]]);
-    if (f.gastos2?.length) caja(`Más gastos de ${f.nombre || "sin nombre"}`, [["Gasto", 0], ["Monto", 40, 1]], filasG(f.gastos2),
-      [["Queda", queda(f, r)], ["Gastos", -gastosDe(f, "gastos2")], ...(retDe(f, "gastos2") ? [["Retornos", retDe(f, "gastos2")]] : []), ["Queda final", quedaFinal(f, r), "final"]]);
+    caja(`Gastos de ${f.nombre || "sin nombre"}`, [], [], [[`Le toca (${num(f.pct)}%)`, parte(f, r)], ...itemsG(f.gastos), ["Queda", queda(f, r), "final"]]);
+    if (f.gastos2?.length) caja(`Más gastos de ${f.nombre || "sin nombre"}`, [], [], [["Queda", queda(f, r)], ...itemsG(f.gastos2), ["Queda final", quedaFinal(f, r), "final"]]);
   });
   doc.save(`Cierre_${hoyISO()}.pdf`);
 }
@@ -172,13 +171,13 @@ export function vistaCierre(view) {
     body.querySelectorAll("[data-sub]").forEach(td => { if (td.dataset.sub !== "reparto") return void (td.textContent = pesos({ ventas: r.bruto, gastos: r.gastos, pg: d.reparto[pSel] ? gastosDe(d.reparto[pSel]) : 0, pg2: d.reparto[pSel] ? gastosDe(d.reparto[pSel], "gastos2") : 0 }[td.dataset.sub]));
       td.textContent = pct === 100 ? "100%" : `${pct}% (tiene que dar 100%)`; td.classList.toggle("c-mal", pct !== 100); });
     $("#c-res", body).innerHTML = linea("Total facturado", r.bruto) + linea("IVA 21%", -r.iva) + linea("IIBB 3,5%", -r.iibb)
-      + linea("Neto", r.neto, "sub") + linea("Gastos", -r.gastos) + linea("Retornos", r.retornos) + linea("Total final", r.final, "final");
+      + linea("Neto", r.neto, "sub") + linea("Gastos", -r.gastos) + (r.retornos ? linea("Retornos", r.retornos) : "") + linea("Total final", r.final, "final");
     // Los botones de cada persona siguen al nombre que se escribe en el reparto
     body.querySelectorAll("[data-persona]").forEach(b => { b.textContent = d.reparto[b.dataset.persona]?.nombre || `Persona ${+b.dataset.persona + 1}`; });
     const yo = d.reparto[pSel], pres = $("#c-pg-res", body), pres2 = $("#c-pg2-res", body);
     body.querySelectorAll("[data-nombre]").forEach(x => { x.textContent = yo?.nombre || `Persona ${pSel + 1}`; });
-    if (yo && pres) pres.innerHTML = linea(`Le toca (${num(yo.pct)}%)`, parte(yo, r)) + linea("Gastos", -gastosDe(yo)) + linea("Retornos", retDe(yo)) + linea("Queda", queda(yo, r), "final");
-    if (yo && pres2) pres2.innerHTML = linea("Queda", queda(yo, r)) + linea("Gastos", -gastosDe(yo, "gastos2")) + linea("Retornos", retDe(yo, "gastos2")) + linea("Queda final", quedaFinal(yo, r), "final");
+    if (yo && pres) pres.innerHTML = linea(`Le toca (${num(yo.pct)}%)`, parte(yo, r)) + linea("Gastos", -gastosDe(yo)) + (retDe(yo) ? linea("Retornos", retDe(yo)) : "") + linea("Queda", queda(yo, r), "final");
+    if (yo && pres2) pres2.innerHTML = linea("Queda", queda(yo, r)) + linea("Gastos", -gastosDe(yo, "gastos2")) + (retDe(yo, "gastos2") ? linea("Retornos", retDe(yo, "gastos2")) : "") + linea("Queda final", quedaFinal(yo, r), "final");
   };
   const pintar = () => { body.innerHTML = tabla("ventas") + tabla("gastos") + `<section class="d-sec cierre-sec"><h3>Resumen</h3><div class="cierre-res" id="c-res"></div></section>` + tabla("reparto") + tabla("pg") + tabla("pg2"); totales(); };
   // shortcut: se guarda el documento entero (si dos editan a la vez gana el último); pasar a filas sueltas si se edita mucho en simultáneo
