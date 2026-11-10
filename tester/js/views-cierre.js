@@ -16,7 +16,7 @@ const MESES = [[0, "Único"], ...Array.from({ length: 12 }, (_, i) => [i + 1, `$
 const SECC = {
   ventas: { titulo: "Vehículos por compañía", campos: [["cant", "n", "Cantidad"], ["comp", "t", "Compañía"], ["valor", "n", "Valor por auto"]], total: f => num(f.cant) * num(f.valor), agregar: "Agregar compañía" },
   gastos: { titulo: "Gastos", campos: [["nombre", "t", "Gasto"], ["monto", "n", "Monto"], ["meses", "m", "Tiempo"]], total: f => num(f.monto) * (num(f.meses) || 1), agregar: "Agregar gasto" },
-  retornos: { titulo: "Retornos", sub: "Lo que vuelve, ej. alquileres de los técnicos", campos: [["nombre", "t", "Concepto"], ["monto", "n", "Monto"]], total: f => num(f.monto), agregar: "Agregar retorno" },
+  retornos: { titulo: "Retornos (ej. alquileres de los técnicos)", campos: [["nombre", "t", "Concepto"], ["monto", "n", "Monto"]], total: f => num(f.monto), agregar: "Agregar retorno" },
 };
 export function cuentas(d) {
   const s = k => (d[k] || []).reduce((a, f) => a + SECC[k].total(f), 0);
@@ -54,9 +54,8 @@ export function vistaCierre(view) {
     body.querySelectorAll("tr[data-sec]").forEach(tr => { $("[data-tot]", tr).textContent = pesos(SECC[tr.dataset.sec].total(d[tr.dataset.sec][tr.dataset.i])); });
     const r = cuentas(d);
     body.querySelectorAll("[data-sub]").forEach(td => { td.textContent = pesos({ ventas: r.bruto, gastos: r.gastos, retornos: r.retornos }[td.dataset.sub]); });
-    $("#c-res", body).innerHTML = linea("Total facturado", r.bruto) + linea("− IVA 21%", -r.iva, "menos") + linea("Sin IVA", r.sinIva)
-      + linea("− IIBB 3,5%", -r.iibb, "menos") + linea("Neto", r.neto, "sub") + linea("− Gastos", -r.gastos, "menos") + linea("Después de gastos", r.trasGastos, "sub")
-      + linea("+ Retornos", r.retornos, "mas") + linea("Total final", r.final, "final");
+    $("#c-res", body).innerHTML = linea("Total facturado", r.bruto) + linea("IVA 21%", -r.iva) + linea("IIBB 3,5%", -r.iibb)
+      + linea("Neto", r.neto, "sub") + linea("Gastos", -r.gastos) + linea("Retornos", r.retornos) + linea("Total final", r.final, "final");
   };
   const pintar = () => { body.innerHTML = tabla("ventas") + tabla("gastos") + tabla("retornos") + `<section class="cierre-sec"><h3>Resumen</h3><div class="cierre-res" id="c-res"></div></section>`; totales(); };
   // shortcut: se guarda el documento entero (si dos editan a la vez gana el último); pasar a filas sueltas si se edita mucho en simultáneo
