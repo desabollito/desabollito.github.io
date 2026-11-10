@@ -66,7 +66,20 @@ export function listaNotifs() {
   }
   return out.sort((a, b) => b.t - a.t).slice(0, MAX);
 }
-export const cuantasNuevas = () => { const v = visto(); return listaNotifs().filter(n => n.t > v).length; };
+// Las que tocó cada uno quedan marcadas (users/{uid}.notifAbiertas[cid] = ["vid|t", …])
+const clave = n => n.vid + "|" + n.t;
+const abiertas = () => S.profile?.notifAbiertas?.[S.company?.id] || [];
+export const cuantasNuevas = () => { const v = visto(), ab = new Set(abiertas()); return listaNotifs().filter(n => n.t > v && !ab.has(clave(n))).length; };
+function guardarPerfil(campo, valor) {
+  const cid = S.company?.id; if (!cid || !S.user?.uid) return;
+  S.profile = { ...S.profile, [campo]: { ...(S.profile?.[campo] || {}), [cid]: valor } };
+  pintarCampana();
+  updateDoc(doc(db, "users", S.user.uid), { [`${campo}.${cid}`]: valor }).catch(e => console.warn("notif", e));
+}
+function marcarAbierta(k, lista) {
+  const vigentes = new Set(lista.map(clave));   // las que ya salieron de la lista (más de 7 días) se descartan
+  guardarPerfil("notifAbiertas", [...new Set([...abiertas(), k])].filter(x => vigentes.has(x)));
+}
 
 // Campanita: el puntito (con la cantidad) se actualiza solo cuando cambian los vehículos
 export function pintarCampana() {
@@ -96,26 +109,22 @@ const cuando = t => {
 
 const minus = t => t.charAt(0).toLowerCase() + t.slice(1);
 export function abrirNotifs() {
-  const lista = listaNotifs(), v0 = visto();
-  const nuevas = lista.filter(n => n.t > v0).length;
+  const lista = listaNotifs(), v0 = visto(), ab = new Set(abiertas());
+  const nuevas = cuantasNuevas();
   const s = openSheet({ title: "Notificaciones", body: lista.length
     ? `<p class="muted small notif-sub">${nuevas ? `${nuevas} ${nuevas === 1 ? "nueva" : "nuevas"} · ` : ""}Cambios de los últimos ${DIAS} días hechos por otros</p>
-      <ul class="notif-list">${lista.map(n => `<li><a href="#/v/${esc(n.vid)}" class="notif-item ${n.t > v0 ? "nueva" : ""}" ${n.foto ? `data-foto-url="${esc(n.foto)}" ${n.desm ? "data-desm" : ""}` : ""}>
+      ${nuevas ? `<button class="btn btn-ghost notif-todas" type="button">Marcar todas como vistas</button>` : ""}
+      <ul class="notif-list">${lista.map(n => `<li><a href="#/v/${esc(n.vid)}" data-k="${esc(clave(n))}" class="notif-item ${ab.has(clave(n)) ? "abierta" : n.t > v0 ? "nueva" : ""}" ${n.foto ? `data-foto-url="${esc(n.foto)}" ${n.desm ? "data-desm" : ""}` : ""}>
         <span class="notif-veh">${plate(n.patente, "sm")}<small>${esc(n.modelo || "")}</small></span>
         <span class="notif-txt"><b>${esc(n.por)}</b> ${esc(minus(String(n.txt).replace(/ por WhatsApp/g, "")))}</span>
         <time>${cuando(n.t)}</time></a></li>`).join("")}</ul>`
     : `<div class="empty small">${icon("bell")}<p>No hay cambios nuevos de otros en los últimos ${DIAS} días.</p></div>` });
-  s.el.addEventListener("click", e => { const a = e.target.closest(".notif-item"); if (a) { e.preventDefault(); s.close();
+  s.el.addEventListener("click", e => {
+    if (e.target.closest(".notif-todas")) { guardarPerfil("notifVisto", Date.now()); s.close(); abrirNotifs(); return; }
+    const a = e.target.closest(".notif-item"); if (!a) return;
+    e.preventDefault(); marcarAbierta(a.dataset.k, lista); s.close();
     // Notificación de fotos: el vehículo se abre directo en esa foto
     S.abrirFoto = a.dataset.fotoUrl ? { vid: a.getAttribute("href").split("/").pop(), url: a.dataset.fotoUrl, desm: a.hasAttribute("data-desm") } : null;
-    location.hash = a.getAttribute("href"); } });
-  // Al abrirla queda todo visto
-  const cid = S.company?.id;
-  if (cid && S.user?.uid) {
-    const ahora = Date.now();
-    S.profile = { ...S.profile, notifVisto: { ...(S.profile?.notifVisto || {}), [cid]: ahora } };
-    pintarCampana();
-    updateDoc(doc(db, "users", S.user.uid), { [`notifVisto.${cid}`]: ahora }).catch(e => console.warn("notif", e));
-  }
+    location.hash = a.getAttribute("href"); });
 }
 document.addEventListener("click", e => { if (e.target.closest("#tb-notif")) abrirNotifs(); });

@@ -1630,6 +1630,8 @@ a.g-bar-fijo { text-decoration: none; color: inherit; }
 .notif-item:hover { border-color: var(--line-2); }
 .notif-item.nueva { border-color: color-mix(in srgb, var(--primary) 55%, var(--line)); background: color-mix(in srgb, var(--primary) 7%, var(--surface)); }
 .notif-item.nueva .notif-veh::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--primary); flex-shrink: 0; }
+.notif-item.abierta { border-color: color-mix(in srgb, var(--warn) 60%, var(--line)); background: color-mix(in srgb, var(--warn) 14%, var(--surface)); }
+.notif-todas { width: 100%; margin-bottom: 10px; }
 .notif-veh { grid-area: veh; display: flex; align-items: center; gap: 8px; min-width: 0; }
 .notif-veh small { color: var(--muted); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .notif-item time { grid-area: time; justify-self: end; font-size: 12px; color: var(--muted); white-space: nowrap; }
