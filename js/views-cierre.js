@@ -1,6 +1,6 @@
 // ═════════════════════════════════════════════════════════════
 //  CIERRE OPERATIVO: vehículos por compañía − IVA − IIBB − gastos + retornos = total final.
-//  Se guarda en companies/{cid}/cierre/datos: { ventas: [{cant, comp, valor}], gastos: [{nombre, monto}], retornos: [{nombre, monto}] }
+//  Se guarda en companies/{cid}/cierre/datos: { ventas: [{cant, comp, valor}], gastos: [{nombre, monto}], retornos: [{nombre, monto}], reparto: [{nombre, pct}] }
 //  Sin elegir acceso: lo ve quien tenga Gastos tildado (si no, los administradores).
 // ═════════════════════════════════════════════════════════════
 import { db, doc, onSnapshot, setDoc } from "./firebase.js";
@@ -28,6 +28,8 @@ const SECC = {
   ventas: { titulo: "Vehículos por compañía", campos: [["cant", "c", "Cantidad"], ["comp", "t", "Compañía"], ["valor", "n", "Valor por auto"]], total: (f, m) => m === "total" ? num(f.total) : num(f.cant) * num(f.valor), agregar: "Agregar compañía" },
   gastos: { titulo: "Gastos", campos: [["nombre", "t", "Gasto"], ["monto", "n", "Monto"]], total: f => num(f.monto), agregar: "Agregar gasto" },
   retornos: { titulo: "Retornos (ej. alquileres de los técnicos)", campos: [["nombre", "t", "Concepto"], ["monto", "n", "Monto"]], total: f => num(f.monto), agregar: "Agregar retorno" },
+  // Reparto del total final entre personas, por porcentaje (ej. 60/40)
+  reparto: { titulo: "Reparto del total final", campos: [["nombre", "t", "Persona"], ["pct", "c", "%"]], total: (f, m, r) => (r?.final || 0) * num(f.pct) / 100, agregar: "Agregar persona" },
 };
 // Gastos marcados como retorno: se restan como gasto y vuelven sumados en Retornos (ej. el alquiler que después pagan los técnicos)
 const gastosRet = d => (d.gastos || []).filter(f => f.retorno);
@@ -49,8 +51,9 @@ export function vistaCierre(view) {
   if (!S.company) { view.innerHTML = `<div class="skeleton tall"></div>`; return; }
   const ref = doc(db, "companies", S.company.id, "cierre", "datos");
   const comps = [...new Set(activos().map(v => v.compania).filter(Boolean))].sort();
-  let d = { ventas: [], gastos: [], retornos: [] }, remoto = null, tGuardar = null, retAbierto = false;
+  let d = { ventas: [], gastos: [], retornos: [], reparto: [] }, remoto = null, tGuardar = null, retAbierto = false;
   view.innerHTML = `<div class="tec-page cierre-page"><datalist id="c-comps">${comps.map(c => `<option value="${esc(c)}">`).join("")}</datalist>
+    <datalist id="c-gente">${Object.values(S.company?.memberNames || {}).filter(Boolean).map(n => `<option value="${esc(n)}">`).join("")}</datalist>
     <div id="c-body"><div class="skeleton tall"></div></div></div>`;
   const body = $("#c-body", view);
   // Una sola hoja: cada sección con su subtotal y al final el resumen
@@ -60,14 +63,15 @@ export function vistaCierre(view) {
     sec("VEHÍCULOS", "ventas", f => [f.comp || "", num(f.cant), d.modoVentas === "total" ? porAuto(f) : num(f.valor), SECC.ventas.total(f, d.modoVentas)], r.bruto);
     sec("GASTOS", "gastos", f => [f.nombre || "", "", num(f.monto), SECC.gastos.total(f)], r.gastos);
     sec("RETORNOS", "retornos", f => [f.nombre || "", "", num(f.monto), num(f.monto)], r.retornos, gastosRet(d));
+    const rep = (d.reparto || []).map(f => [f.nombre || "", num(f.pct) + "%", "", SECC.reparto.total(f, 0, r)]);
     filas.push(neg("RESUMEN", "", "", ""), ["Total facturado", "", "", r.bruto], ["IVA 21%", "", "", -r.iva], ["IIBB 3,5%", "", "", -r.iibb],
-      ["Neto", "", "", r.neto], ["Gastos", "", "", -r.gastos], ["Retornos", "", "", r.retornos], neg("TOTAL FINAL", "", "", r.final));
+      ["Neto", "", "", r.neto], ["Gastos", "", "", -r.gastos], ["Retornos", "", "", r.retornos], neg("TOTAL FINAL", "", "", r.final), ...(rep.length ? [["", "", "", ""], neg("REPARTO", "", "", ""), ...rep] : []));
     descargarTabla({ archivo: `Cierre_${hoyISO()}`, titulo: "Cierre operativo", filas,
       cols: [{ titulo: "CONCEPTO", ancho: 30 }, { titulo: "CANTIDAD", ancho: 16 }, { titulo: "VALOR", ancho: 18, tipo: "moneda" }, { titulo: "TOTAL", ancho: 20, tipo: "moneda" }] });
   };
 
   const celda = (c, t, l, v) => t === "n" ? `<input data-c="${c}" aria-label="${l}" type="text" inputmode="decimal" class="num" data-plata value="${esc(v === "" || v == null ? "" : num(v).toLocaleString("es-AR", { maximumFractionDigits: 2 }))}">`
-    : `<input data-c="${c}" aria-label="${l}" ${t === "c" ? `type="number" inputmode="numeric" min="0" step="any"` : `type="text" ${c === "comp" ? `list="c-comps"` : ""}`} value="${esc(v ?? "")}">`;
+    : `<input data-c="${c}" aria-label="${l}" ${t === "c" ? `type="number" inputmode="numeric" min="0" step="any"` : `type="text" ${c === "comp" ? `list="c-comps"` : c === "nombre" ? `list="c-gente"` : ""}`} value="${esc(v ?? "")}">`;
   // Retornos va plegado (se recuerda si se abrió), con su total a la vista
   // Vehículos: se escribe el valor por auto (y se calcula el total) o el total facturado (y se calcula el valor por auto)
   const ANCHO = { c: "110px", n: "150px", t: "" };
@@ -85,17 +89,19 @@ export function vistaCierre(view) {
   const linea = (txt, n, cls = "") => `<div class="cierre-linea ${cls}"><span>${txt}</span><b>${pesos(n)}</b></div>`;
   // Solo los números: no se repintan los campos, así no se pierde lo que se está escribiendo
   const totales = () => {
+    const r = cuentas(d);
     body.querySelectorAll("tr[data-sec]").forEach(tr => { const f = d[tr.dataset.sec][tr.dataset.i], tot = $("[data-tot]", tr), pu = $("[data-pu]", tr);
-      if (tot) tot.textContent = pesos(SECC[tr.dataset.sec].total(f, d.modoVentas));
+      if (tot) tot.textContent = pesos(SECC[tr.dataset.sec].total(f, d.modoVentas, r));
       if (pu) pu.textContent = pesos(porAuto(f)); });
     body.querySelectorAll("tr[data-gret]").forEach(tr => { const f = d.gastos[tr.dataset.gret] || {};
       $("[data-n]", tr).textContent = f.nombre || "Sin nombre"; tr.querySelectorAll("[data-m]").forEach(td => { td.textContent = pesos(num(f.monto)); }); });
-    const r = cuentas(d);
-    body.querySelectorAll("[data-sub]").forEach(td => { td.textContent = pesos({ ventas: r.bruto, gastos: r.gastos, retornos: r.retornos }[td.dataset.sub]); });
+    const pct = Math.round((d.reparto || []).reduce((a, f) => a + num(f.pct), 0) * 100) / 100;
+    body.querySelectorAll("[data-sub]").forEach(td => { if (td.dataset.sub !== "reparto") return void (td.textContent = pesos({ ventas: r.bruto, gastos: r.gastos, retornos: r.retornos }[td.dataset.sub]));
+      td.textContent = pct === 100 ? "100%" : `${pct}% (tiene que dar 100%)`; td.classList.toggle("c-mal", pct !== 100); });
     $("#c-res", body).innerHTML = linea("Total facturado", r.bruto) + linea("IVA 21%", -r.iva) + linea("IIBB 3,5%", -r.iibb)
       + linea("Neto", r.neto, "sub") + linea("Gastos", -r.gastos) + linea("Retornos", r.retornos) + linea("Total final", r.final, "final");
   };
-  const pintar = () => { body.innerHTML = tabla("ventas") + tabla("gastos") + tabla("retornos") + `<section class="d-sec cierre-sec"><h3>Resumen</h3><div class="cierre-res" id="c-res"></div></section>`; totales(); };
+  const pintar = () => { body.innerHTML = tabla("ventas") + tabla("gastos") + tabla("retornos") + `<section class="d-sec cierre-sec"><h3>Resumen</h3><div class="cierre-res" id="c-res"></div></section>` + tabla("reparto"); totales(); };
   // shortcut: se guarda el documento entero (si dos editan a la vez gana el último); pasar a filas sueltas si se edita mucho en simultáneo
   const guardar = () => { clearTimeout(tGuardar); tGuardar = null; remoto = null; setDoc(ref, d).catch(e => toast(mensajeError(e), "error")); };
   const editando = () => body.contains(document.activeElement) && document.activeElement.matches("input, select");
@@ -104,7 +110,7 @@ export function vistaCierre(view) {
   unsub = onSnapshot(ref, snap => {
     if (!document.body.contains(view) || location.hash !== "#/cierre") { unsub?.(); unsub = null; return; }
     if (snap.metadata.hasPendingWrites) return;   // el eco de lo propio
-    remoto = { ventas: [], gastos: [], retornos: [], ...snap.data() };
+    remoto = { ventas: [], gastos: [], retornos: [], reparto: [], ...snap.data() };
     if (editando() || tGuardar) return;           // lo de otros se pinta al salir del campo
     d = remoto; remoto = null; pintar();
   }, e => { body.innerHTML = `<div class="empty"><p>${esc(mensajeError(e))}</p></div>`; });

@@ -2224,3 +2224,4 @@ body[data-solo-ver="1"] :is(.step, .etapa-item) { pointer-events: none; }
 .tbl-cierre .c-retbtn[aria-pressed="true"] { color: var(--primary); opacity: 1; }
 .tbl-cierre tr.c-esret input { border-style: dashed; }
 .tbl-cierre tr.c-gret td { padding: 10px 8px; color: var(--ink-2); }
+.tbl-cierre td.c-mal { color: #e5484d; white-space: normal; }
