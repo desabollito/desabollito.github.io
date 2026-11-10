@@ -1,7 +1,7 @@
 import {
   S, onChange, iniciarSesion, ingresar, crearCuenta, mensajeError, elegirEmpresa
 } from "./data.js";
-import { cerrarSplash, veloCambio } from "./efectos.js";
+import { cerrarSplash } from "./efectos.js";
 import { $, $$, esc, toast, busy, openSheet, icon, cerrarHojas } from "./ui.js";
 import { FIREBASE, BOT_API } from "./config.js";
 import { iniciarFechas } from "./fecha.js";
@@ -55,44 +55,31 @@ const RUTAS = [
   [/^#\/papelera$/,         "papelera",   () => vistaPapelera(view)]
 ];
 
-// ── Transiciones entre pantallas ──
-// Pestañas: se desliza hacia el lado de la pestaña nueva. Vehículo (celular): entra desde la derecha y vuelve desde la izquierda.
-// Nuevo/editar: sube desde abajo. En computadora, cambiar de vehículo funde el detalle.
+// ── Transiciones entre pantallas: solo dos, con la misma duración ──
+// Entrar a algo (vehículo, cargar, una planilla) desliza desde la derecha y volver desde la izquierda; cambiar de pestaña funde.
 const ORDEN_TAB = { vehiculos: 0, calendario: 1, planillas: 2, planilla: 2, gastos: 2, tecnicos: 2, fijos: 2.1, facturacion: 2, cierre: 2.1 };   // x.1: pestaña de la derecha dentro de la planilla
+const ANIMS = ["anim-fade", "anim-push", "anim-pop"];
 function animarCambio(antes, ahora) {
   if (!antes.nombre || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
   const view = $("#view");
-  let clase = "";
-  if (["nuevo", "editar"].includes(ahora.nombre)) clase = "anim-sube";
-  else if (["nuevo", "editar"].includes(antes.nombre)) clase = "anim-fade";
-  else if (ahora.nombre === "vehiculos" && ahora.arg && antes.nombre !== "vehiculos") clase = "anim-push";   // desde el calendario, notificaciones, etc.
-  else if (antes.nombre === "vehiculos" && antes.arg && ahora.nombre !== "vehiculos") clase = "anim-pop";
-  // Del vehículo a la lista (celular): solo un fundido, sin desplazamiento ni velo (con el scroll restaurado se veía a los saltos)
-  else if (ahora.nombre === "vehiculos" && antes.nombre === "vehiculos" && !ahora.arg && !esAncho()) {
-    view.classList.remove("anim-sube", "anim-fade", "anim-push", "anim-pop", "anim-der", "anim-izq"); void view.offsetWidth;
-    view.classList.add("anim-fade"); view.addEventListener("animationend", () => view.classList.remove("anim-fade"), { once: true });
-    return;
+  let clase;
+  if (["nuevo", "editar"].includes(ahora.nombre)) clase = "anim-push";
+  else if (["nuevo", "editar"].includes(antes.nombre)) clase = "anim-pop";
+  else if (ahora.nombre === "vehiculos" && antes.nombre === "vehiculos") {
+    // Computadora: cambiar de vehículo funde solo el detalle
+    if (esAncho()) { const p = $(".pane-detail"); if (p && ahora.arg) { p.classList.remove("anim-fade"); void p.offsetWidth; p.classList.add("anim-fade"); } return; }
+    clase = ahora.arg ? "anim-push" : "anim-fade";   // volver a la lista: fundido (con el scroll restaurado, deslizar se veía a los saltos)
   }
+  else if (ahora.nombre === "vehiculos" && ahora.arg) clase = "anim-push";   // desde el calendario, notificaciones, etc.
+  else if (antes.nombre === "vehiculos" && antes.arg) clase = "anim-pop";
   else if (ahora.nombre === "planillas" && Math.floor(ORDEN_TAB[antes.nombre]) === 2) clase = "anim-pop";   // de una planilla al menú
   else if (antes.nombre === "planillas" && Math.floor(ORDEN_TAB[ahora.nombre]) === 2) clase = "anim-push";
-  else if (ahora.nombre === "vehiculos" && antes.nombre === "vehiculos") {
-    if (esAncho()) { const p = $(".pane-detail"); if (p && ahora.arg) { p.classList.remove("anim-fade"); void p.offsetWidth; p.classList.add("anim-fade"); } return; }
-    clase = ahora.arg ? "anim-push" : "anim-pop";
-  } else if (ahora.nombre in ORDEN_TAB && antes.nombre in ORDEN_TAB) {
-    const d = ORDEN_TAB[ahora.nombre] - ORDEN_TAB[antes.nombre];
-    clase = d > 0 ? "anim-der" : d < 0 ? "anim-izq" : "anim-push";
-  } else clase = ahora.arg || !(ahora.nombre in ORDEN_TAB) ? "anim-push" : "anim-pop";
-  view.classList.remove("anim-sube", "anim-fade", "anim-push", "anim-pop", "anim-der", "anim-izq");
-  void view.offsetWidth;
-  view.classList.add(clase); veloCambio();
+  else if (ahora.nombre in ORDEN_TAB && antes.nombre in ORDEN_TAB) clase = "anim-fade";   // pestañas
+  else clase = ahora.arg || !(ahora.nombre in ORDEN_TAB) ? "anim-push" : "anim-pop";
+  view.classList.remove(...ANIMS); void view.offsetWidth;
+  view.classList.add(clase);
   view.addEventListener("animationend", () => view.classList.remove(clase), { once: true });
 }
-// Cambio de operativo: la pantalla entra con un zoom suave
-document.addEventListener("click", e => {
-  if (!e.target.closest(".company-opt[data-id]")) return;
-  setTimeout(() => { const v = $("#view"); v.classList.remove("anim-op"); void v.offsetWidth; v.classList.add("anim-op");
-    v.addEventListener("animationend", () => v.classList.remove("anim-op"), { once: true }); }, 30);
-});
 // Botones de estado: el círculo late al tocarlo y el nuevo estado "aparece" al redibujarse
 document.addEventListener("pointerdown", e => {
   const st = e.target.closest(".step[data-estado]"); if (!st) return;

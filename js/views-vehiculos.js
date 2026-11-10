@@ -499,14 +499,19 @@ const claveItem = x => sinTildesJS(x).toLowerCase().replace(/[^a-z0-9]+/g, "_").
 const sinTildesJS = t => String(t).normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 const etapaItem = (v, tipo, x) => ETAPAS[tipo].find(e => e[0] === v[CAMPO_ETAPAS[tipo]]?.[claveItem(x)]) || ETAPAS[tipo][0];
 // Con las fotos de esa sección (fotosRepuestos / fotosPintura) abajo de los ítems
+// Misma grilla de fotos que el resto: si no entran, el último cuadro dice "+N" (abre el visor) y al final va el cuadro "+" para agregar
+const grillaFotos = (fotos, campo, soloVer) => {
+  const max = soloVer ? 8 : 7, ver = fotos.length > max ? fotos.slice(0, max - 1) : fotos, resto = fotos.length - ver.length;
+  const cuadro = (f, extra = "") => `<button type="button" data-pfoto="${esc(f.url)}" data-campo="${campo}"><img src="${esc(thumb(f.url, 200))}" alt="" loading="lazy">${extra}</button>`;
+  return `<div class="desm-fotos">${ver.map(f => cuadro(f)).join("")}${resto ? cuadro(fotos[ver.length], `<span class="ft-resto">+${resto}</span>`) : ""}${soloVer ? "" : `<button type="button" class="ft-mas" data-fsec="${campo}" aria-label="Agregar fotos">${icon("plus")}</button>`}</div>`;
+};
 const chipsSec = (titulo, v, tipo, soloVer) => {
   const items = itemsTexto(v[tipo]), campo = tipo === "pintura" ? "fotosPintura" : "fotosRepuestos", fotos = v[campo] || [];
   if (!items.length && !fotos.length) return "";
-  return `<section class="d-sec"><div class="sec-head"><h3>${titulo}${fotos.length ? ` <small>${fotos.length} ${fotos.length === 1 ? "foto" : "fotos"}</small>` : ""}</h3>
-    ${soloVer || !fotos.length ? "" : `<button type="button" class="btn btn-ghost btn-sm" data-fsec="${campo}">${icon("plus")}Fotos</button>`}</div>
+  return `<section class="d-sec"><div class="sec-head"><h3>${titulo}${fotos.length ? ` <small>${fotos.length} ${fotos.length === 1 ? "foto" : "fotos"}</small>` : ""}</h3></div>
   ${items.length ? `<ul class="piezas-list pintura-list etapas">${items.map(x => { const [, label, color] = etapaItem(v, tipo, x);
     return `<li><button type="button" class="etapa-item" data-tipo="${tipo}" data-item="${esc(x)}" style="--c:${color}"><span>${esc(x)}</span><small>${label}</small></button></li>`; }).join("")}</ul>` : ""}
-  ${fotos.length ? `<div class="desm-fotos">${fotos.map(f => `<button type="button" data-pfoto="${esc(f.url)}" data-campo="${campo}"><img src="${esc(thumb(f.url, 200))}" alt="" loading="lazy"></button>`).join("")}</div>` : ""}</section>`;
+  ${fotos.length ? grillaFotos(fotos, campo, soloVer) : ""}</section>`;
 };
 
 function elegirEtapa(v, tipo, item) {

@@ -147,6 +147,13 @@ export function openSheet({ title = "", body = "", wide = false, onClose } = {})
     </div>`;
   const bodyEl = $(".sheet-body", wrap);
   if (typeof body === "string") bodyEl.innerHTML = body; else bodyEl.appendChild(body);
+  // Pie fijo igual en todas las hojas: la acción principal del final abajo a la derecha, con Cancelar a la izquierda
+  const ult = bodyEl.firstElementChild?.lastElementChild;
+  if (ult?.matches(".btn-primary.btn-block:not([data-close])")) {
+    const pie = document.createElement("div"); pie.className = "sheet-pie";
+    ult.before(pie); ult.classList.remove("btn-block", "btn-lg");
+    pie.innerHTML = `<button type="button" class="btn btn-ghost" data-close>Cancelar</button>`; pie.append(ult);
+  }
   document.body.appendChild(wrap);
   document.body.classList.add("no-scroll");
   requestAnimationFrame(() => wrap.classList.add("in"));
