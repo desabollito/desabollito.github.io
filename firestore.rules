@@ -176,6 +176,13 @@ service cloud.firestore {
         allow read, write: if puede(cid, 'facturacion', isAdmin(cid));
       }
 
+      // ── Cierre operativo: sin elegir, quien tenga Gastos tildado (si no, administradores) ──
+      match /cierre/{d} {
+        function puedeCierre() { let v = acceso(cid, 'cierre'); let g = acceso(cid, 'gastos');
+          return v != null ? isMember(cid) && v == true : g != null ? isMember(cid) && g == true : isAdmin(cid); }
+        allow read, write: if puedeCierre();
+      }
+
       // ── Gastos del operativo ───────────────────────────────
       match /gastos/{gid} {
         allow read: if puede(cid, 'gastos', !esSacabollos(cid));   // Sacabollos no ve los gastos (salvo que el creador se lo habilite)

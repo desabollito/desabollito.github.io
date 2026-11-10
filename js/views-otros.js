@@ -728,7 +728,7 @@ export async function panelCreador() {
   const accesoDe = (op, m) => { const e = datos.config?.accesosOp?.[op.id]?.[m.uid] || {}, adm = ["admin", "owner"].includes(m.rol);
     // Igual que puedeVer: Sacabollos (rol técnico) ve Vehículos, Técnicos y Fijos, no Gastos
     const sac = ["", "tecnico"].includes(m.rol);
-    return { planilla: e.planilla ?? true, tecnicos: e.tecnicos ?? (adm || sac), gastos: e.gastos ?? !sac, fijos: e.fijos ?? (adm || sac), facturacion: e.facturacion ?? adm }; };
+    return { planilla: e.planilla ?? true, tecnicos: e.tecnicos ?? (adm || sac), gastos: e.gastos ?? !sac, fijos: e.fijos ?? (adm || sac), facturacion: e.facturacion ?? adm, cierre: e.cierre ?? e.gastos ?? adm }; };
   const nVeh = n => n === null || n === undefined ? "" : `${n} ${n === 1 ? "vehículo" : "vehículos"}`;
   const pintar = () => {
     const { operativos, usuarios } = datos;
@@ -763,15 +763,15 @@ export async function panelCreador() {
         </span>
       </div>
       <details class="adm-toggles adm-accesos" ${accAbierto ? "open" : ""}>
-        <summary><b>Quién ve las planillas</b> <small class="muted">Vehículos · Técnicos · Gastos · Fijos · Facturación</small></summary>
+        <summary><b>Quién ve las planillas</b> <small class="muted">Vehículos · Técnicos · Gastos · Fijos · Facturación · Cierre</small></summary>
         ${(() => { const op = opAcc(); if (!op) return `<small class="muted">No hay operativos.</small>`;
         if (!("accesosOp" in (datos.config || {}))) return `<small class="muted">Falta publicar el bot nuevo para elegir por operativo.</small>`;   // el bot viejo pisaría las tildes de los demás
         return `<label class="field"><span>Operativo</span><select id="adm-acc-op">${operativos.map(o => `<option value="${esc(o.id)}" ${o.id === op.id ? "selected" : ""}>${esc(o.name)}</option>`).join("")}</select></label>
-        <div class="adm-acc-head"><span></span><small>Vehíc.</small><small>Técnicos</small><small>Gastos</small><small>Fijos</small><small>Factura</small></div>
+        <div class="adm-acc-head"><span></span><small>Vehíc.</small><small>Técnicos</small><small>Gastos</small><small>Fijos</small><small>Factura</small><small>Cierre</small></div>
         ${op.miembros.filter(m => usuarios.find(u => u.uid === m.uid)?.username !== "gzmatte").map(m => { const a = accesoDe(op, m), u = usuarios.find(x => x.uid === m.uid);
           return `<div class="adm-acc-fila" data-acc="${esc(m.uid)}"><span><b>${esc(u?.name || "Sin nombre")}</b> <small class="muted">${esc(u ? "@" + u.username : m.quien)}</small></span>
-            ${["planilla", "tecnicos", "gastos", "fijos", "facturacion"].map(k => `<input type="checkbox" data-acc-sec="${k}" ${a[k] ? "checked" : ""} aria-label="${k}">`).join("")}</div>`; }).join("")}`; })()}
-        <small class="muted">Sin tocar: Técnicos, Fijos y Facturación los ven los administradores; Vehículos todos; Gastos todos menos Sacabollos (que ve Técnicos y Fijos). Vale solo para este operativo. Vos siempre ves todo.</small>
+            ${["planilla", "tecnicos", "gastos", "fijos", "facturacion", "cierre"].map(k => `<input type="checkbox" data-acc-sec="${k}" ${a[k] ? "checked" : ""} aria-label="${k}">`).join("")}</div>`; }).join("")}`; })()}
+        <small class="muted">Sin tocar: Técnicos, Fijos y Facturación los ven los administradores; Vehículos todos; Gastos todos menos Sacabollos (que ve Técnicos y Fijos); Cierre igual que Gastos si está tildado, si no los administradores. Vale solo para este operativo. Vos siempre ves todo.</small>
       </details>
       <div class="seg seg-sm adm-tabs">
         <button type="button" class="seg-btn ${tab === "operativos" ? "on" : ""}" data-tab="operativos">Operativos <small>${operativos.length}</small></button>

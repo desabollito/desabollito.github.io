@@ -2946,7 +2946,7 @@ async function adminConfig(env, body) {
   if (idValido(body.cid) && body.accesos && typeof body.accesos === "object")
     cambios.accesosOp = { ...(cambios.accesosOp || c?.accesosOp), [body.cid]: Object.fromEntries(Object.entries(body.accesos)
       .filter(([u, a]) => idValido(u) && a && typeof a === "object")
-      .map(([u, a]) => [u, Object.fromEntries(["planilla", "tecnicos", "gastos", "fijos", "facturacion"].filter(k => typeof a[k] === "boolean").map(k => [k, a[k]]))])) };
+      .map(([u, a]) => [u, Object.fromEntries(["planilla", "tecnicos", "gastos", "fijos", "facturacion", "cierre"].filter(k => typeof a[k] === "boolean").map(k => [k, a[k]]))])) };
   if (Object.keys(cambios).length) { await fsMerge(env, "config/app", cambios); c = await fsGet(env, "config/app"); }
   return json({ ok: true, config: { ...Object.fromEntries(CONFIG_CLAVES.map(k => [k, c?.[k] !== false])), etapasPdf: c?.etapasPdf === true, padronN: c?.padronN || 0, mensajeWa: c?.mensajeWa || "", accesosOp: c?.accesosOp || {}, sonidoAuto: c?.sonidoAuto || "deportivo" } });
 }

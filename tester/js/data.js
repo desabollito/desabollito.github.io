@@ -750,7 +750,9 @@ export const puedeVer = sec => {
   if (S.invitado) return S.invitado.tecnicos ? sec === "tecnicos" : sec === "planilla";
   if (soyCreador()) return true;
   // Hasta que el bot copie los accesos viejos (globales) a Paraná, valen esos
-  const v = (S.config?.accesosOp ? S.config.accesosOp[S.company?.id] : S.config?.accesos)?.[S.user?.uid]?.[sec];
+  const acc = (S.config?.accesosOp ? S.config.accesosOp[S.company?.id] : S.config?.accesos)?.[S.user?.uid] || {}, v = acc[sec];
+  // Cierre operativo sin elegir: igual que Gastos si está tildado, si no solo administradores
+  if (sec === "cierre" && typeof v !== "boolean") return typeof acc.gastos === "boolean" ? acc.gastos : soyAdmin();
   // Sacabollos: Vehículos (sin precios), Técnicos y Fijos; no Gastos
   return typeof v === "boolean" ? v : soySacabollos() ? ["planilla", "tecnicos", "fijos"].includes(sec) : ["gastos", "planilla"].includes(sec) || soyAdmin();
 };

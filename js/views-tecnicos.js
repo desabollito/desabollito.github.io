@@ -20,6 +20,7 @@ export function vistaPlanillas(view) {
     ${puedeVer("gastos") ? `<a class="hub-btn" href="#/gastos">${icon("money")}<span><strong>Planilla de gastos</strong><small>Gastos del operativo</small></span></a>` : ""}
     ${puedeVer("fijos") ? `<a class="hub-btn" href="#/fijos">${icon("wallet")}<span><strong>Fijos</strong><small>Viandas y alquiler, repartidos entre los técnicos</small></span></a>` : ""}
     ${puedeVer("facturacion") ? `<a class="hub-btn" href="#/facturacion">${icon("sign")}<span><strong>Facturación</strong><small>Documento firmado de cada vehículo</small></span></a>` : ""}
+    ${puedeVer("cierre") ? `<a class="hub-btn" href="#/cierre">${icon("wallet")}<span><strong>Cierre operativo</strong><small>Ventas por compañía, IVA, IIBB, gastos y retornos</small></span></a>` : ""}
   </div>`;
 }
 

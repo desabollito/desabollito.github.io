@@ -60,7 +60,7 @@ export function vistaCierre(view) {
   };
   const pintar = () => { body.innerHTML = tabla("ventas") + tabla("gastos") + tabla("retornos") + `<section class="cierre-sec"><h3>Resumen</h3><div class="cierre-res" id="c-res"></div></section>`; totales(); };
   // shortcut: se guarda el documento entero (si dos editan a la vez gana el último); pasar a filas sueltas si se edita mucho en simultáneo
-  const guardar = () => { clearTimeout(tGuardar); tGuardar = null; setDoc(ref, d).catch(e => toast(mensajeError(e), "error")); };
+  const guardar = () => { clearTimeout(tGuardar); tGuardar = null; remoto = null; setDoc(ref, d).catch(e => toast(mensajeError(e), "error")); };
   const editando = () => body.contains(document.activeElement) && document.activeElement.matches("input, select");
 
   unsub?.();
