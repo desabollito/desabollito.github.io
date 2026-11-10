@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.0.48", items: ["Cierre operativo: «Más gastos» quedó dentro de la caja de Gastos por persona, debajo de «Queda», con su botón «Agregar más gastos»."] },
   { v: "4.0.47", items: ["Cierre operativo: «Reparto del total final» pasa a llamarse «Reparto»; en el PDF los más gastos de cada persona van en la misma caja y el nombre del operativo sale grande al lado del título."] },
   { v: "4.0.46", items: ["Cierre operativo: el PDF sale en una sola hoja larga. «Queda final» pasa a llamarse «Final», y quien no tiene más gastos (ej. Fede) termina directo en «Final»."] },
   { v: "4.0.45", items: ["Cierre operativo: en el PDF los gastos de cada persona van uno por uno entre «Le toca» y «Queda», sin tabla aparte. Las líneas de Retornos en $0 ya no se muestran."] },
