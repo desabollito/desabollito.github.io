@@ -32,6 +32,7 @@ const SECC = {
   reparto: { titulo: "Reparto del total final", campos: [["nombre", "t", "Persona"], ["pct", "c", "%"]], total: (f, m, r) => (r?.final || 0) * num(f.pct) / 100, agregar: "Agregar persona" },
   // Gastos de cada persona del reparto: se le descuentan de su parte
   pg: { titulo: "Gastos por persona", campos: [["nombre", "t", "Gasto"], ["monto", "n", "Monto"]], total: f => num(f.monto), agregar: "Agregar gasto" },
+  pg2: { titulo: "Más gastos", campos: [["nombre", "t", "Gasto"], ["monto", "n", "Monto"]], total: f => num(f.monto), agregar: "Agregar gasto" },
 };
 // Gastos marcados como retorno: se restan como gasto y vuelven sumados en Retornos (ej. el alquiler que después pagan los técnicos)
 const gastosRet = d => (d.gastos || []).filter(f => f.retorno);
@@ -44,9 +45,12 @@ export function cuentas(d) {
 console.assert(cuentas({ modoVentas: "total", ventas: [{ cant: 2, valor: 1, total: 242 }] }).sinIva - 200 < 1e-9, "cierre: modo total");
 console.assert(Math.abs(cuentas({ ventas: [{ cant: 1, valor: 121 }], gastos: [{ monto: 10 }], retornos: [{ monto: 5 }] }).final - 86.5) < 1e-9, "cierre: cuentas");
 console.assert(cuentas({ gastos: [{ monto: 10, retorno: true }] }).final === 0, "cierre: gasto como retorno");
-const parte = (f, r) => SECC.reparto.total(f, 0, r), gastosDe = f => (f.gastos || []).filter(g => !g.retorno).reduce((a, g) => a + num(g.monto), 0);
+// Cada persona tiene dos listas: "gastos" (Gastos por persona) y "gastos2" (Más gastos, después de Queda)
+const parte = (f, r) => SECC.reparto.total(f, 0, r), gastosDe = (f, l = "gastos") => (f[l] || []).filter(g => !g.retorno).reduce((a, g) => a + num(g.monto), 0);
 // Lo que le queda a cada persona: su parte − sus gastos + sus retornos (en la persona el retorno es ganancia: no se resta)
-const retDe = f => (f.gastos || []).filter(g => g.retorno).reduce((a, g) => a + num(g.monto), 0), queda = (f, r) => parte(f, r) - gastosDe(f) + retDe(f);
+const retDe = (f, l = "gastos") => (f[l] || []).filter(g => g.retorno).reduce((a, g) => a + num(g.monto), 0), queda = (f, r) => parte(f, r) - gastosDe(f) + retDe(f);
+const quedaFinal = (f, r) => queda(f, r) - gastosDe(f, "gastos2") + retDe(f, "gastos2");
+console.assert(quedaFinal({ pct: 100, gastos: [{ monto: 10 }], gastos2: [{ monto: 5 }, { monto: 2, retorno: true }] }, { final: 100 }) === 87, "cierre: más gastos");
 // Secciones plegadas que cada uno dejó abiertas (solo en este equipo)
 const abiertos = (() => { try { return JSON.parse(localStorage.getItem("cierreAbiertos")) || {}; } catch { return {}; } })();
 
@@ -88,9 +92,13 @@ function cierrePDF(d, r) {
   caja("Gastos", [["Gasto", 0], ["Monto", 40, 1]], (d.gastos || []).map(f => [(f.nombre || "") + (f.retorno ? "  (retorno)" : ""), $$(num(f.monto))]), [["Total", r.gastos, "sub"]]);
   caja("Resumen", [], [], [["Total facturado", r.bruto], ["IVA 21%", -r.iva], ["IIBB 3,5%", -r.iibb], ["Neto", r.neto, "sub"], ["Gastos", -r.gastos], ["Retornos", r.retornos], ["Total final", r.final, "final"]]);
   if (d.reparto?.length) caja("Reparto del total final", [["Persona", 0], ["%", 24, 1], ["Le toca", 40, 1]], d.reparto.map(f => [f.nombre || "", num(f.pct) + "%", $$(parte(f, r))]));
-  (d.reparto || []).forEach(f => caja(`Gastos de ${f.nombre || "sin nombre"}`, [["Gasto", 0], ["Monto", 40, 1]],
-    (f.gastos || []).map(g => [(g.nombre || "") + (g.retorno ? "  (retorno)" : ""), (g.retorno ? "+" : "") + $$(num(g.monto))]),
-    [[`Le toca (${num(f.pct)}%)`, parte(f, r)], ["Gastos", -gastosDe(f)], ["Retornos", retDe(f)], ["Queda", queda(f, r), "final"]]));
+  const filasG = l => (l || []).map(g => [(g.nombre || "") + (g.retorno ? "  (retorno)" : ""), (g.retorno ? "+" : "") + $$(num(g.monto))]);
+  (d.reparto || []).forEach(f => {
+    caja(`Gastos de ${f.nombre || "sin nombre"}`, [["Gasto", 0], ["Monto", 40, 1]], filasG(f.gastos),
+      [[`Le toca (${num(f.pct)}%)`, parte(f, r)], ["Gastos", -gastosDe(f)], ["Retornos", retDe(f)], ["Queda", queda(f, r), "final"]]);
+    if (f.gastos2?.length) caja(`Más gastos de ${f.nombre || "sin nombre"}`, [["Gasto", 0], ["Monto", 40, 1]], filasG(f.gastos2),
+      [["Queda", queda(f, r)], ["Gastos", -gastosDe(f, "gastos2")], ["Retornos", retDe(f, "gastos2")], ["Queda final", quedaFinal(f, r), "final"]]);
+  });
   doc.save(`Cierre_${hoyISO()}.pdf`);
 }
 
@@ -103,7 +111,8 @@ export function vistaCierre(view) {
   const ref = doc(db, "companies", S.company.id, "cierre", "datos");
   const comps = [...new Set(activos().map(v => v.compania).filter(Boolean))].sort();
   let d = { ventas: [], gastos: [], reparto: [] }, remoto = null, tGuardar = null, pSel = 0;   // pSel: persona elegida en Gastos por persona
-  const lista = k => k === "pg" ? (d.reparto[pSel].gastos ||= []) : (d[k] ||= []);
+  const lista = k => k === "pg" ? (d.reparto[pSel].gastos ||= []) : k === "pg2" ? (d.reparto[pSel].gastos2 ||= []) : (d[k] ||= []);
+  const deGente = k => k === "pg" || k === "pg2";
   view.innerHTML = `<div class="tec-page cierre-page"><datalist id="c-comps">${comps.map(c => `<option value="${esc(c)}">`).join("")}</datalist>
     <datalist id="c-gente">${Object.values(S.company?.memberNames || {}).filter(Boolean).map(n => `<option value="${esc(n)}">`).join("")}</datalist>
     <div id="c-body"><div class="skeleton tall"></div></div></div>`;
@@ -121,6 +130,9 @@ export function vistaCierre(view) {
     (d.reparto || []).filter(f => f.gastos?.length).forEach(f => { filas.push(["", "", "", ""]);
       sec(`GASTOS DE ${(f.nombre || "SIN NOMBRE").toUpperCase()}`, f.gastos, g => [g.nombre || "", "", num(g.monto), num(g.monto)], gastosDe(f));
       filas.push(["Le toca", "", "", parte(f, r)], ["Gastos", "", "", -gastosDe(f)], ["Retornos", "", "", retDe(f)], neg("QUEDA", "", "", queda(f, r))); });
+    (d.reparto || []).filter(f => f.gastos2?.length).forEach(f => { filas.push(["", "", "", ""]);
+      sec(`MÁS GASTOS DE ${(f.nombre || "SIN NOMBRE").toUpperCase()}`, f.gastos2, g => [g.nombre || "", "", num(g.monto), num(g.monto)], gastosDe(f, "gastos2"));
+      filas.push(["Queda", "", "", queda(f, r)], ["Gastos", "", "", -gastosDe(f, "gastos2")], ["Retornos", "", "", retDe(f, "gastos2")], neg("QUEDA FINAL", "", "", quedaFinal(f, r))); });
     const cols = [{ titulo: "CONCEPTO", ancho: 30 }, { titulo: "CANTIDAD", ancho: 16 }, { titulo: "VALOR", ancho: 18, tipo: "moneda" }, { titulo: "TOTAL", ancho: 20, tipo: "moneda" }];
     elegirDescarga("Cierre operativo", {
       excel: () => exportarExcel({ archivo: `Cierre_${hoyISO()}.xlsx`, hoja: "Cierre operativo", titulo: `${S.company?.name || "Desabollito"} · Cierre operativo`, columnas: cols.map((x, i) => ({ ...x, valor: f => f[i] })), filas }),
@@ -136,17 +148,18 @@ export function vistaCierre(view) {
   const tabla = k => { const s = SECC[k], plegable = k === "reparto", porTotal = k === "ventas" && d.modoVentas === "total";
     const modos = k === "ventas" ? `<div class="seg seg-sm">${[["auto", "Valor por auto"], ["total", "Total facturado"]].map(([m, l]) => `<button type="button" class="seg-btn ${(d.modoVentas || "auto") === m ? "on" : ""}" data-modo="${m}">${l}</button>`).join("")}</div>` : "";
     const gente = (d.reparto || []).map((f, i) => `<button type="button" class="seg-btn ${i === pSel ? "on" : ""}" data-persona="${i}">${esc(f.nombre || `Persona ${i + 1}`)}</button>`).join("");
-    if (k === "pg") { if (!d.reparto?.length) return `<section class="d-sec cierre-sec"><h3>${s.titulo}</h3><p class="muted small">Agregá personas en el reparto para anotarles gastos.</p></section>`;
+    if (deGente(k)) { if (!d.reparto?.length) return k === "pg2" ? "" : `<section class="d-sec cierre-sec"><h3>${s.titulo}</h3><p class="muted small">Agregá personas en el reparto para anotarles gastos.</p></section>`;
       if (pSel >= d.reparto.length) pSel = 0; }
+    const titulo = k === "pg2" ? `Más gastos de <span data-nombre></span>` : s.titulo;
     return `${plegable ? `<details class="d-sec d-adic cierre-sec" data-plg="${k}" ${abiertos[k] ? "open" : ""}><summary><h3>${s.titulo}</h3><small class="muted" data-sub="${k}"></small></summary>`
-      : `<section class="d-sec cierre-sec"><div class="cierre-head"><h3>${s.titulo}</h3>${modos}</div>${k === "pg" ? `<div class="seg seg-sm c-gente">${gente}</div>` : ""}`}
-      <div class="table-wrap"><table class="tbl tbl-cierre"><colgroup>${s.campos.map(([, t]) => `<col style="width:${ANCHO[t] || "auto"}">`).join("")}<col style="width:150px"><col style="width:${k === "gastos" || k === "pg" ? 84 : 44}px"></colgroup>
+      : `<section class="d-sec cierre-sec"><div class="cierre-head"><h3>${titulo}</h3>${modos}</div>${k === "pg" ? `<div class="seg seg-sm c-gente">${gente}</div>` : ""}`}
+      <div class="table-wrap"><table class="tbl tbl-cierre"><colgroup>${s.campos.map(([, t]) => `<col style="width:${ANCHO[t] || "auto"}">`).join("")}<col style="width:150px"><col style="width:${k === "gastos" || deGente(k) ? 84 : 44}px"></colgroup>
       <thead><tr>${s.campos.map(([, t, l]) => `<th class="${t === "n" ? "num" : ""}">${l}</th>`).join("")}<th class="num">Total</th><th></th></tr></thead>
       <tbody>${lista(k).map((f, i) => `<tr data-sec="${k}" data-i="${i}" class="${f.retorno ? "c-esret" : ""}">${s.campos.map(([c, t, l]) => porTotal && c === "valor" ? `<td class="num" data-pu></td>` : `<td>${celda(c, t, l, f[c], k)}</td>`).join("")}
-        ${porTotal ? `<td>${celda("total", "n", "Total facturado", f.total)}</td>` : `<td class="num" data-tot></td>`}<td class="c-acc">${k === "gastos" || k === "pg" ? `<button type="button" class="icon-btn sm c-retbtn" data-retorno aria-pressed="${!!f.retorno}" aria-label="Marcar como retorno" title="${f.retorno ? "Es retorno: tocá para quitar" : "Marcar como retorno"}">${icon("rotate")}</button>` : ""}<button type="button" class="icon-btn sm danger" data-borrar aria-label="Borrar fila">${icon("trash")}</button></td></tr>`).join("")}
+        ${porTotal ? `<td>${celda("total", "n", "Total facturado", f.total)}</td>` : `<td class="num" data-tot></td>`}<td class="c-acc">${k === "gastos" || deGente(k) ? `<button type="button" class="icon-btn sm c-retbtn" data-retorno aria-pressed="${!!f.retorno}" aria-label="Marcar como retorno" title="${f.retorno ? "Es retorno: tocá para quitar" : "Marcar como retorno"}">${icon("rotate")}</button>` : ""}<button type="button" class="icon-btn sm danger" data-borrar aria-label="Borrar fila">${icon("trash")}</button></td></tr>`).join("")}
 </tbody>
       <tfoot><tr><td colspan="${s.campos.length}"></td><td class="num" data-sub="${k}"></td><td></td></tr></tfoot></table></div>
-      <button type="button" class="btn btn-ghost btn-sm" data-agregar="${k}">${icon("plus")}${s.agregar}</button>${k === "pg" ? `<div class="cierre-res" id="c-pres"></div>` : ""}${plegable ? "</details>" : "</section>"}`; };
+      <button type="button" class="btn btn-ghost btn-sm" data-agregar="${k}">${icon("plus")}${s.agregar}</button>${deGente(k) ? `<div class="cierre-res" id="c-${k}-res"></div>` : ""}${plegable ? "</details>" : "</section>"}`; };
   const linea = (txt, n, cls = "") => `<div class="cierre-linea ${cls}"><span>${txt}</span><b>${pesos(n)}</b></div>`;
   // Solo los números: no se repintan los campos, así no se pierde lo que se está escribiendo
   const totales = () => {
@@ -155,16 +168,18 @@ export function vistaCierre(view) {
       if (tot) tot.textContent = pesos(SECC[tr.dataset.sec].total(f, d.modoVentas, r));
       if (pu) pu.textContent = pesos(porAuto(f)); });
     const pct = Math.round((d.reparto || []).reduce((a, f) => a + num(f.pct), 0) * 100) / 100;
-    body.querySelectorAll("[data-sub]").forEach(td => { if (td.dataset.sub !== "reparto") return void (td.textContent = pesos({ ventas: r.bruto, gastos: r.gastos, pg: d.reparto[pSel] ? gastosDe(d.reparto[pSel]) : 0 }[td.dataset.sub]));
+    body.querySelectorAll("[data-sub]").forEach(td => { if (td.dataset.sub !== "reparto") return void (td.textContent = pesos({ ventas: r.bruto, gastos: r.gastos, pg: d.reparto[pSel] ? gastosDe(d.reparto[pSel]) : 0, pg2: d.reparto[pSel] ? gastosDe(d.reparto[pSel], "gastos2") : 0 }[td.dataset.sub]));
       td.textContent = pct === 100 ? "100%" : `${pct}% (tiene que dar 100%)`; td.classList.toggle("c-mal", pct !== 100); });
     $("#c-res", body).innerHTML = linea("Total facturado", r.bruto) + linea("IVA 21%", -r.iva) + linea("IIBB 3,5%", -r.iibb)
       + linea("Neto", r.neto, "sub") + linea("Gastos", -r.gastos) + linea("Retornos", r.retornos) + linea("Total final", r.final, "final");
     // Los botones de cada persona siguen al nombre que se escribe en el reparto
     body.querySelectorAll("[data-persona]").forEach(b => { b.textContent = d.reparto[b.dataset.persona]?.nombre || `Persona ${+b.dataset.persona + 1}`; });
-    const yo = d.reparto[pSel], pres = $("#c-pres", body);
+    const yo = d.reparto[pSel], pres = $("#c-pg-res", body), pres2 = $("#c-pg2-res", body);
+    body.querySelectorAll("[data-nombre]").forEach(x => { x.textContent = yo?.nombre || `Persona ${pSel + 1}`; });
     if (yo && pres) pres.innerHTML = linea(`Le toca (${num(yo.pct)}%)`, parte(yo, r)) + linea("Gastos", -gastosDe(yo)) + linea("Retornos", retDe(yo)) + linea("Queda", queda(yo, r), "final");
+    if (yo && pres2) pres2.innerHTML = linea("Queda", queda(yo, r)) + linea("Gastos", -gastosDe(yo, "gastos2")) + linea("Retornos", retDe(yo, "gastos2")) + linea("Queda final", quedaFinal(yo, r), "final");
   };
-  const pintar = () => { body.innerHTML = tabla("ventas") + tabla("gastos") + `<section class="d-sec cierre-sec"><h3>Resumen</h3><div class="cierre-res" id="c-res"></div></section>` + tabla("reparto") + tabla("pg"); totales(); };
+  const pintar = () => { body.innerHTML = tabla("ventas") + tabla("gastos") + `<section class="d-sec cierre-sec"><h3>Resumen</h3><div class="cierre-res" id="c-res"></div></section>` + tabla("reparto") + tabla("pg") + tabla("pg2"); totales(); };
   // shortcut: se guarda el documento entero (si dos editan a la vez gana el último); pasar a filas sueltas si se edita mucho en simultáneo
   const guardar = () => { clearTimeout(tGuardar); tGuardar = null; remoto = null; setDoc(ref, d).catch(e => toast(mensajeError(e), "error")); };
   const editando = () => body.contains(document.activeElement) && document.activeElement.matches("input, select");
