@@ -57,18 +57,16 @@ const abiertos = (() => { try { return JSON.parse(localStorage.getItem("cierreAb
 // PDF con las mismas cajas que la página (sin botones). Cada caja: título, tabla y líneas de total; si no entra, va a la hoja siguiente
 function cierrePDF(d, r) {
   if (!window.jspdf) throw new Error("Falta cargar el PDF, probá de nuevo en un momento");
-  const doc = new window.jspdf.jsPDF({ unit: "mm", format: "a4" }), W = 210, H = 297, M = 14, FILA = 7;
+  // Todo en una sola hoja: primero se juntan las cajas, después la hoja se hace del alto que haga falta (como mínimo A4)
+  const W = 210, M = 14, FILA = 7, pend = [];
   const $$ = n => (n < 0 ? "-$" : "$") + Math.abs(Math.round(n)).toLocaleString("es-AR");   // la fuente del PDF no tiene "−"
   const corto = (t, w) => doc.splitTextToSize(String(t ?? ""), w)[0] || "";
-  let y = M;
-  doc.setFont("helvetica", "bold"); doc.setFontSize(17); doc.setTextColor(17); doc.text("Cierre operativo", M, y + 6);
-  doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.setTextColor(100);
-  doc.text(`${S.company?.name || ""} · ${new Date().toLocaleDateString("es-AR")}`, M, y + 12); y += 20;
+  const altoDe = (filas, lineas) => 12 + (filas.length ? FILA * (filas.length + 1) + 2 : 0) + lineas.reduce((a, l) => a + (l[2] === "final" ? 10 : 7), 0) + 4;
   // cols: [título, ancho (0 = lo que sobra), a la derecha]; lineas: [texto, plata, "final" | "sub" | ""]
-  const caja = (titulo, cols, filas, lineas = []) => {
-    const ancho = W - 2 * M - 8, fijo = cols.reduce((a, c) => a + c[1], 0), ws = cols.map(c => c[1] || ancho - fijo);
-    const alto = 12 + (filas.length ? FILA * (filas.length + 1) + 2 : 0) + lineas.reduce((a, l) => a + (l[2] === "final" ? 10 : 7), 0) + 4;
-    if (y + alto > H - M) { doc.addPage(); y = M; }
+  const caja = (titulo, cols, filas, lineas = []) => pend.push([titulo, cols, filas, lineas]);
+  let doc, y = M;
+  const dibujar = (titulo, cols, filas, lineas) => {
+    const ancho = W - 2 * M - 8, fijo = cols.reduce((a, c) => a + c[1], 0), ws = cols.map(c => c[1] || ancho - fijo), alto = altoDe(filas, lineas);
     doc.setDrawColor(210); doc.setLineWidth(.3); doc.roundedRect(M, y, W - 2 * M, alto, 3, 3);
     let yy = y + 9, x0 = M + 4;
     doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.setTextColor(17); doc.text(titulo, x0, yy); yy += 4;
@@ -95,9 +93,15 @@ function cierrePDF(d, r) {
   // Cada persona: lo que le toca, debajo cada gasto (y cada retorno, solo si hay) y lo que queda; sin tabla aparte ni línea "Gastos"
   const itemsG = l => (l || []).map(g => [(g.nombre || "Sin nombre") + (g.retorno ? " (retorno)" : ""), g.retorno ? num(g.monto) : -num(g.monto)]);
   (d.reparto || []).forEach(f => {
-    caja(`Gastos de ${f.nombre || "sin nombre"}`, [], [], [[`Le toca (${num(f.pct)}%)`, parte(f, r)], ...itemsG(f.gastos), ["Queda", queda(f, r), "final"]]);
-    if (f.gastos2?.length) caja(`Más gastos de ${f.nombre || "sin nombre"}`, [], [], [["Queda", queda(f, r)], ...itemsG(f.gastos2), ["Queda final", quedaFinal(f, r), "final"]]);
+    caja(`Gastos de ${f.nombre || "sin nombre"}`, [], [], [[`Le toca (${num(f.pct)}%)`, parte(f, r)], ...itemsG(f.gastos), [f.gastos2?.length ? "Queda" : "Final", queda(f, r), "final"]]);
+    if (f.gastos2?.length) caja(`Más gastos de ${f.nombre || "sin nombre"}`, [], [], [["Queda", queda(f, r)], ...itemsG(f.gastos2), ["Final", quedaFinal(f, r), "final"]]);
   });
+  const H = Math.max(297, 20 + 2 * M + pend.reduce((a, [, , f, l]) => a + altoDe(f, l) + 5, 0));
+  doc = new window.jspdf.jsPDF({ unit: "mm", format: [W, H] });
+  doc.setFont("helvetica", "bold"); doc.setFontSize(17); doc.setTextColor(17); doc.text("Cierre operativo", M, y + 6);
+  doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.setTextColor(100);
+  doc.text(`${S.company?.name || ""} · ${new Date().toLocaleDateString("es-AR")}`, M, y + 12); y += 20;
+  pend.forEach(c => dibujar(...c));
   doc.save(`Cierre_${hoyISO()}.pdf`);
 }
 
@@ -128,10 +132,10 @@ export function vistaCierre(view) {
       ["Neto", "", "", r.neto], ["Gastos", "", "", -r.gastos], ["Retornos", "", "", r.retornos], neg("TOTAL FINAL", "", "", r.final), ...(rep.length ? [["", "", "", ""], neg("REPARTO", "", "", ""), ...rep] : []));
     (d.reparto || []).filter(f => f.gastos?.length).forEach(f => { filas.push(["", "", "", ""]);
       sec(`GASTOS DE ${(f.nombre || "SIN NOMBRE").toUpperCase()}`, f.gastos, g => [g.nombre || "", "", num(g.monto), num(g.monto)], gastosDe(f));
-      filas.push(["Le toca", "", "", parte(f, r)], ["Gastos", "", "", -gastosDe(f)], ["Retornos", "", "", retDe(f)], neg("QUEDA", "", "", queda(f, r))); });
+      filas.push(["Le toca", "", "", parte(f, r)], ["Gastos", "", "", -gastosDe(f)], ["Retornos", "", "", retDe(f)], neg(f.gastos2?.length ? "QUEDA" : "FINAL", "", "", queda(f, r))); });
     (d.reparto || []).filter(f => f.gastos2?.length).forEach(f => { filas.push(["", "", "", ""]);
       sec(`MÁS GASTOS DE ${(f.nombre || "SIN NOMBRE").toUpperCase()}`, f.gastos2, g => [g.nombre || "", "", num(g.monto), num(g.monto)], gastosDe(f, "gastos2"));
-      filas.push(["Queda", "", "", queda(f, r)], ["Gastos", "", "", -gastosDe(f, "gastos2")], ["Retornos", "", "", retDe(f, "gastos2")], neg("QUEDA FINAL", "", "", quedaFinal(f, r))); });
+      filas.push(["Queda", "", "", queda(f, r)], ["Gastos", "", "", -gastosDe(f, "gastos2")], ["Retornos", "", "", retDe(f, "gastos2")], neg("FINAL", "", "", quedaFinal(f, r))); });
     const cols = [{ titulo: "CONCEPTO", ancho: 30 }, { titulo: "CANTIDAD", ancho: 16 }, { titulo: "VALOR", ancho: 18, tipo: "moneda" }, { titulo: "TOTAL", ancho: 20, tipo: "moneda" }];
     elegirDescarga("Cierre operativo", {
       excel: () => exportarExcel({ archivo: `Cierre_${hoyISO()}.xlsx`, hoja: "Cierre operativo", titulo: `${S.company?.name || "Desabollito"} · Cierre operativo`, columnas: cols.map((x, i) => ({ ...x, valor: f => f[i] })), filas }),
@@ -176,8 +180,8 @@ export function vistaCierre(view) {
     body.querySelectorAll("[data-persona]").forEach(b => { b.textContent = d.reparto[b.dataset.persona]?.nombre || `Persona ${+b.dataset.persona + 1}`; });
     const yo = d.reparto[pSel], pres = $("#c-pg-res", body), pres2 = $("#c-pg2-res", body);
     body.querySelectorAll("[data-nombre]").forEach(x => { x.textContent = yo?.nombre || `Persona ${pSel + 1}`; });
-    if (yo && pres) pres.innerHTML = linea(`Le toca (${num(yo.pct)}%)`, parte(yo, r)) + linea("Gastos", -gastosDe(yo)) + (retDe(yo) ? linea("Retornos", retDe(yo)) : "") + linea("Queda", queda(yo, r), "final");
-    if (yo && pres2) pres2.innerHTML = linea("Queda", queda(yo, r)) + linea("Gastos", -gastosDe(yo, "gastos2")) + (retDe(yo, "gastos2") ? linea("Retornos", retDe(yo, "gastos2")) : "") + linea("Queda final", quedaFinal(yo, r), "final");
+    if (yo && pres) pres.innerHTML = linea(`Le toca (${num(yo.pct)}%)`, parte(yo, r)) + linea("Gastos", -gastosDe(yo)) + (retDe(yo) ? linea("Retornos", retDe(yo)) : "") + linea(yo.gastos2?.length ? "Queda" : "Final", queda(yo, r), "final");
+    if (yo && pres2) pres2.innerHTML = linea("Queda", queda(yo, r)) + linea("Gastos", -gastosDe(yo, "gastos2")) + (retDe(yo, "gastos2") ? linea("Retornos", retDe(yo, "gastos2")) : "") + linea("Final", quedaFinal(yo, r), "final");
   };
   const pintar = () => { body.innerHTML = tabla("ventas") + tabla("gastos") + `<section class="d-sec cierre-sec"><h3>Resumen</h3><div class="cierre-res" id="c-res"></div></section>` + tabla("reparto") + tabla("pg") + tabla("pg2"); totales(); };
   // shortcut: se guarda el documento entero (si dos editan a la vez gana el último); pasar a filas sueltas si se edita mucho en simultáneo

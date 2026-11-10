@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.0.46", items: ["Cierre operativo: el PDF sale en una sola hoja larga. «Queda final» pasa a llamarse «Final», y quien no tiene más gastos (ej. Fede) termina directo en «Final»."] },
   { v: "4.0.45", items: ["Cierre operativo: en el PDF los gastos de cada persona van uno por uno entre «Le toca» y «Queda», sin tabla aparte. Las líneas de Retornos en $0 ya no se muestran."] },
   { v: "4.0.44", items: ["Cierre operativo: en el PDF la línea «Retornos» solo aparece si hay retornos."] },
   { v: "4.0.43", items: ["Cierre operativo: abajo de Vehículos por compañía se ve el total de autos, a la altura del total en plata."] },
