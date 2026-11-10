@@ -88,7 +88,7 @@ function cierrePDF(d, r) {
   };
   const tot = d.modoVentas === "total";
   caja("Vehículos por compañía", [["Cantidad", 24], ["Compañía", 0], ["Valor por auto", 38, 1], ["Total", 38, 1]],
-    (d.ventas || []).map(f => [num(f.cant) || "", f.comp || "", $$(tot ? porAuto(f) : num(f.valor)), $$(SECC.ventas.total(f, d.modoVentas))]), [["Total", r.bruto, "sub"]]);
+    (d.ventas || []).map(f => [num(f.cant) || "", f.comp || "", $$(tot ? porAuto(f) : num(f.valor)), $$(SECC.ventas.total(f, d.modoVentas))]), [[`Total (${(d.ventas || []).reduce((a, f) => a + num(f.cant), 0)} autos)`, r.bruto, "sub"]]);
   caja("Gastos", [["Gasto", 0], ["Monto", 40, 1]], (d.gastos || []).map(f => [(f.nombre || "") + (f.retorno ? "  (retorno)" : ""), $$(num(f.monto))]), [["Total", r.gastos, "sub"]]);
   caja("Resumen", [], [], [["Total facturado", r.bruto], ["IVA 21%", -r.iva], ["IIBB 3,5%", -r.iibb], ["Neto", r.neto, "sub"], ["Gastos", -r.gastos], ["Retornos", r.retornos], ["Total final", r.final, "final"]]);
   if (d.reparto?.length) caja("Reparto del total final", [["Persona", 0], ["%", 24, 1], ["Le toca", 40, 1]], d.reparto.map(f => [f.nombre || "", num(f.pct) + "%", $$(parte(f, r))]));
@@ -158,7 +158,7 @@ export function vistaCierre(view) {
       <tbody>${lista(k).map((f, i) => `<tr data-sec="${k}" data-i="${i}" class="${f.retorno ? "c-esret" : ""}">${s.campos.map(([c, t, l]) => porTotal && c === "valor" ? `<td class="num" data-pu></td>` : `<td>${celda(c, t, l, f[c], k)}</td>`).join("")}
         ${porTotal ? `<td>${celda("total", "n", "Total facturado", f.total)}</td>` : `<td class="num" data-tot></td>`}<td class="c-acc">${k === "gastos" || deGente(k) ? `<button type="button" class="icon-btn sm c-retbtn" data-retorno aria-pressed="${!!f.retorno}" aria-label="Marcar como retorno" title="${f.retorno ? "Es retorno: tocá para quitar" : "Marcar como retorno"}">${icon("rotate")}</button>` : ""}<button type="button" class="icon-btn sm danger" data-borrar aria-label="Borrar fila">${icon("trash")}</button></td></tr>`).join("")}
 </tbody>
-      <tfoot><tr><td colspan="${s.campos.length}"></td><td class="num" data-sub="${k}"></td><td></td></tr></tfoot></table></div>
+      <tfoot><tr>${k === "ventas" ? `<td data-cant></td><td colspan="${s.campos.length - 1}"></td>` : `<td colspan="${s.campos.length}"></td>`}<td class="num" data-sub="${k}"></td><td></td></tr></tfoot></table></div>
       <button type="button" class="btn btn-ghost btn-sm" data-agregar="${k}">${icon("plus")}${s.agregar}</button>${deGente(k) ? `<div class="cierre-res" id="c-${k}-res"></div>` : ""}${plegable ? "</details>" : "</section>"}`; };
   const linea = (txt, n, cls = "") => `<div class="cierre-linea ${cls}"><span>${txt}</span><b>${pesos(n)}</b></div>`;
   // Solo los números: no se repintan los campos, así no se pierde lo que se está escribiendo
@@ -167,6 +167,7 @@ export function vistaCierre(view) {
     body.querySelectorAll("tr[data-sec]").forEach(tr => { const f = lista(tr.dataset.sec)[tr.dataset.i], tot = $("[data-tot]", tr), pu = $("[data-pu]", tr);
       if (tot) tot.textContent = pesos(SECC[tr.dataset.sec].total(f, d.modoVentas, r));
       if (pu) pu.textContent = pesos(porAuto(f)); });
+    const cant = $("[data-cant]", body); if (cant) cant.textContent = (d.ventas || []).reduce((a, f) => a + num(f.cant), 0);
     const pct = Math.round((d.reparto || []).reduce((a, f) => a + num(f.pct), 0) * 100) / 100;
     body.querySelectorAll("[data-sub]").forEach(td => { if (td.dataset.sub !== "reparto") return void (td.textContent = pesos({ ventas: r.bruto, gastos: r.gastos, pg: d.reparto[pSel] ? gastosDe(d.reparto[pSel]) : 0, pg2: d.reparto[pSel] ? gastosDe(d.reparto[pSel], "gastos2") : 0 }[td.dataset.sub]));
       td.textContent = pct === 100 ? "100%" : `${pct}% (tiene que dar 100%)`; td.classList.toggle("c-mal", pct !== 100); });

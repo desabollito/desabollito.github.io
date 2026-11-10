@@ -2208,7 +2208,7 @@ body[data-solo-ver="1"] :is(.step, .etapa-item) { pointer-events: none; }
 .tbl-cierre tbody tr:hover { background: none; }
 .tbl-cierre th, .tbl-cierre th:first-child { position: static; background: none; padding: 0 8px 8px; font-size: 12px; font-weight: 600; color: var(--muted); }
 .tbl-cierre td, .tbl-cierre tbody td:first-child { position: static; background: none; padding: 4px 6px; max-width: none; border-bottom: 0; }
-.tbl-cierre tfoot td { background: none; padding: 12px 8px 0; border-top: 1px solid var(--line); }
+.tbl-cierre tfoot td { background: none; padding: 12px 8px 0; border-top: 1px solid var(--line); color: var(--ink); font-weight: 750; }
 .tbl-cierre input, .tbl-cierre select { width: 100%; min-width: 80px; padding: 7px 8px; border: 1px solid var(--line); border-radius: var(--r); background: var(--surface); color: var(--ink); font: inherit; }
 .tbl-cierre input:focus, .tbl-cierre select:focus { outline: none; border-color: var(--ink-2); }
 .tbl-cierre input.num { text-align: right; }

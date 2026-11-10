@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.0.43", items: ["Cierre operativo: abajo de Vehículos por compañía se ve el total de autos, a la altura del total en plata."] },
   { v: "4.0.42", items: ["Cierre operativo: debajo de Gastos por persona, la caja «Más gastos» de cada persona para seguir anotando gastos y ver su «Queda final»."] },
   { v: "4.0.41", items: ["Cierre operativo: el PDF se descarga directo (ya no abre la ventana de imprimir), con las mismas cajas que la página y los gastos de cada persona."] },
   { v: "4.0.39", items: ["Cierre operativo: el PDF ahora es la misma página (con Reparto abierto y sin botones). Se abre la ventana de imprimir: elegí «Guardar como PDF»."] },
