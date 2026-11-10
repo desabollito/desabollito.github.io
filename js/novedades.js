@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.0.32", items: ["Cierre operativo: arreglado, ya se puede escribir en los montos."] },
   { v: "4.0.31", items: ["Cierre operativo: los gastos ya no tienen la opción de tiempo; cada gasto es su monto."] },
   { v: "4.0.30", items: ["Cierre operativo: los montos se escriben con los puntos de miles puestos solos (ej. 1.500.000)."] },
   { v: "4.0.29", items: ["Cierre operativo: en Vehículos elegís cargar el valor por auto o el total facturado de cada compañía; la cantidad va alineada a la izquierda y las columnas ya no se mueven al escribir."] },

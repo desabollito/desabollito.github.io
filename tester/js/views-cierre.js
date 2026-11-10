@@ -14,11 +14,11 @@ const num = x => Number(x) || 0;
 const porAuto = f => num(f.cant) ? Math.round(num(f.total) / num(f.cant) * 100) / 100 : 0;
 // Plata con puntos de miles mientras se escribe (coma para decimales); el cursor queda después del mismo dígito
 function plata(inp) {
-  const izq = inp.value.slice(0, inp.selectionStart).replace(/[^d,]/g, "").length;
-  const [ent = "", dec] = inp.value.replace(/[^d,]/g, "").split(",");
-  const e = ent.replace(/^0+(?=d)/, ""), txt = (e ? Number(e).toLocaleString("es-AR") : dec !== undefined ? "0" : "") + (dec !== undefined ? "," + dec.slice(0, 2) : "");
+  const izq = inp.value.slice(0, inp.selectionStart).replace(/[^\d,]/g, "").length;
+  const [ent = "", dec] = inp.value.replace(/[^\d,]/g, "").split(",");
+  const e = ent.replace(/^0+(?=\d)/, ""), txt = (e ? Number(e).toLocaleString("es-AR") : dec !== undefined ? "0" : "") + (dec !== undefined ? "," + dec.slice(0, 2) : "");
   inp.value = txt;
-  let pos = 0, n = 0; while (pos < txt.length && n < izq) { if (/[d,]/.test(txt[pos])) n++; pos++; }
+  let pos = 0, n = 0; while (pos < txt.length && n < izq) { if (/[\d,]/.test(txt[pos])) n++; pos++; }
   inp.setSelectionRange(pos, pos);
   return txt ? Number((e || "0") + (dec ? "." + dec.slice(0, 2) : "")) : "";
 }
