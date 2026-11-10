@@ -51,7 +51,7 @@ export function vistaCierre(view) {
   if (!S.company) { view.innerHTML = `<div class="skeleton tall"></div>`; return; }
   const ref = doc(db, "companies", S.company.id, "cierre", "datos");
   const comps = [...new Set(activos().map(v => v.compania).filter(Boolean))].sort();
-  let d = { ventas: [], gastos: [], retornos: [], reparto: [] }, remoto = null, tGuardar = null, retAbierto = false;
+  let d = { ventas: [], gastos: [], retornos: [], reparto: [] }, remoto = null, tGuardar = null, abiertos = {};
   view.innerHTML = `<div class="tec-page cierre-page"><datalist id="c-comps">${comps.map(c => `<option value="${esc(c)}">`).join("")}</datalist>
     <datalist id="c-gente">${Object.values(S.company?.memberNames || {}).filter(Boolean).map(n => `<option value="${esc(n)}">`).join("")}</datalist>
     <div id="c-body"><div class="skeleton tall"></div></div></div>`;
@@ -72,18 +72,18 @@ export function vistaCierre(view) {
 
   const celda = (c, t, l, v) => t === "n" ? `<input data-c="${c}" aria-label="${l}" type="text" inputmode="decimal" class="num" data-plata value="${esc(v === "" || v == null ? "" : num(v).toLocaleString("es-AR", { maximumFractionDigits: 2 }))}">`
     : `<input data-c="${c}" aria-label="${l}" ${t === "c" ? `type="number" inputmode="numeric" min="0" step="any"` : `type="text" ${c === "comp" ? `list="c-comps"` : c === "nombre" ? `list="c-gente"` : ""}`} value="${esc(v ?? "")}">`;
-  // Retornos va plegado (se recuerda si se abrió), con su total a la vista
+  // Retornos y Reparto van plegados (se recuerda si se abrieron), con su total a la vista
   // Vehículos: se escribe el valor por auto (y se calcula el total) o el total facturado (y se calcula el valor por auto)
   const ANCHO = { c: "110px", n: "150px", t: "" };
-  const tabla = k => { const s = SECC[k], plegable = k === "retornos", porTotal = k === "ventas" && d.modoVentas === "total";
+  const tabla = k => { const s = SECC[k], plegable = k === "retornos" || k === "reparto", porTotal = k === "ventas" && d.modoVentas === "total";
     const modos = k === "ventas" ? `<div class="seg seg-sm">${[["auto", "Valor por auto"], ["total", "Total facturado"]].map(([m, l]) => `<button type="button" class="seg-btn ${(d.modoVentas || "auto") === m ? "on" : ""}" data-modo="${m}">${l}</button>`).join("")}</div>` : "";
-    return `${plegable ? `<details class="d-sec d-adic cierre-sec" id="c-ret" ${retAbierto ? "open" : ""}><summary><h3>${s.titulo}</h3><small class="muted" data-sub="${k}"></small></summary>`
+    return `${plegable ? `<details class="d-sec d-adic cierre-sec" data-plg="${k}" ${abiertos[k] ? "open" : ""}><summary><h3>${s.titulo}</h3><small class="muted" data-sub="${k}"></small></summary>`
       : `<section class="d-sec cierre-sec"><div class="cierre-head"><h3>${s.titulo}</h3>${modos}</div>`}
       <div class="table-wrap"><table class="tbl tbl-cierre"><colgroup>${s.campos.map(([, t]) => `<col style="width:${ANCHO[t] || "auto"}">`).join("")}<col style="width:150px"><col style="width:${k === "gastos" ? 84 : 44}px"></colgroup>
       <thead><tr>${s.campos.map(([, t, l]) => `<th class="${t === "n" ? "num" : ""}">${l}</th>`).join("")}<th class="num">Total</th><th></th></tr></thead>
       <tbody>${(d[k] || []).map((f, i) => `<tr data-sec="${k}" data-i="${i}" class="${f.retorno ? "c-esret" : ""}">${s.campos.map(([c, t, l]) => porTotal && c === "valor" ? `<td class="num" data-pu></td>` : `<td>${celda(c, t, l, f[c])}</td>`).join("")}
         ${porTotal ? `<td>${celda("total", "n", "Total facturado", f.total)}</td>` : `<td class="num" data-tot></td>`}<td class="c-acc">${k === "gastos" ? `<button type="button" class="icon-btn sm c-retbtn" data-retorno aria-pressed="${!!f.retorno}" aria-label="Marcar como retorno" title="${f.retorno ? "Es retorno: tocá para quitar" : "Marcar como retorno"}">${icon("rotate")}</button>` : ""}<button type="button" class="icon-btn sm danger" data-borrar aria-label="Borrar fila">${icon("trash")}</button></td></tr>`).join("")}
-      ${plegable ? (d.gastos || []).map((f, i) => f.retorno ? `<tr data-gret="${i}" class="c-gret"><td><span data-n></span> <small class="muted">· gasto</small></td><td class="num" data-m></td><td class="num" data-m></td><td><button type="button" class="icon-btn sm" data-desmarcar="${i}" aria-label="Quitar de retornos" title="Quitar de retornos">${icon("x")}</button></td></tr>` : "").join("") : ""}</tbody>
+      ${k === "retornos" ? (d.gastos || []).map((f, i) => f.retorno ? `<tr data-gret="${i}" class="c-gret"><td><span data-n></span> <small class="muted">· gasto</small></td><td class="num" data-m></td><td class="num" data-m></td><td><button type="button" class="icon-btn sm" data-desmarcar="${i}" aria-label="Quitar de retornos" title="Quitar de retornos">${icon("x")}</button></td></tr>` : "").join("") : ""}</tbody>
       <tfoot><tr><td colspan="${s.campos.length}"></td><td class="num" data-sub="${k}"></td><td></td></tr></tfoot></table></div>
       <button type="button" class="btn btn-ghost btn-sm" data-agregar="${k}">${icon("plus")}${s.agregar}</button>${plegable ? "</details>" : "</section>"}`; };
   const linea = (txt, n, cls = "") => `<div class="cierre-linea ${cls}"><span>${txt}</span><b>${pesos(n)}</b></div>`;
@@ -122,7 +122,7 @@ export function vistaCierre(view) {
     else f[c] = t === "number" ? (e.target.value === "" ? "" : num(e.target.value)) : e.target.value;
     totales(); clearTimeout(tGuardar); tGuardar = setTimeout(guardar, 700);
   });
-  body.addEventListener("toggle", e => { if (e.target.id === "c-ret") retAbierto = e.target.open; }, true);
+  body.addEventListener("toggle", e => { if (e.target.dataset?.plg) abiertos[e.target.dataset.plg] = e.target.open; }, true);
   body.addEventListener("focusout",() => setTimeout(() => {
     if (tGuardar) guardar();
     if (remoto && !editando()) { d = remoto; remoto = null; pintar(); }
