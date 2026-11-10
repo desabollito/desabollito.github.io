@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.0.36", items: ["Cierre operativo: nueva sección «Gastos por persona» (elegís a alguien del reparto, le anotás gastos y ves cuánto le queda). Se sacó la lista de Retornos: ahora cuentan solo los gastos marcados con el botón de retorno. El Reparto queda abierto si lo dejaste abierto."] },
   { v: "4.0.35", items: ["Cierre operativo: el Reparto también se pliega, como Retornos."] },
   { v: "4.0.34", items: ["Cierre operativo: al final, «Reparto del total final» para dividirlo entre personas por porcentaje (ej. 60/40)."] },
   { v: "4.0.33", items: ["Cierre operativo: cada gasto tiene un botón para marcarlo como retorno; se sigue restando como gasto y vuelve sumado en Retornos."] },
