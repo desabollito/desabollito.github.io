@@ -2220,3 +2220,7 @@ body[data-solo-ver="1"] :is(.step, .etapa-item) { pointer-events: none; }
 .cierre-linea.sub { border-top: 1px solid var(--line); margin-top: 8px; padding-top: 14px; }
 .cierre-linea.final { border-top: 2px solid var(--ink); margin-top: 12px; padding-top: 16px; font-size: 18px; color: var(--ink); font-weight: 700; }
 .cierre-linea.final b { font-weight: 800; }
+.tbl-cierre .c-acc { white-space: nowrap; }
+.tbl-cierre .c-retbtn[aria-pressed="true"] { color: var(--primary); opacity: 1; }
+.tbl-cierre tr.c-esret input { border-style: dashed; }
+.tbl-cierre tr.c-gret td { padding: 10px 8px; color: var(--ink-2); }

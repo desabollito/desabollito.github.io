@@ -29,14 +29,17 @@ const SECC = {
   gastos: { titulo: "Gastos", campos: [["nombre", "t", "Gasto"], ["monto", "n", "Monto"]], total: f => num(f.monto), agregar: "Agregar gasto" },
   retornos: { titulo: "Retornos (ej. alquileres de los técnicos)", campos: [["nombre", "t", "Concepto"], ["monto", "n", "Monto"]], total: f => num(f.monto), agregar: "Agregar retorno" },
 };
+// Gastos marcados como retorno: se restan como gasto y vuelven sumados en Retornos (ej. el alquiler que después pagan los técnicos)
+const gastosRet = d => (d.gastos || []).filter(f => f.retorno);
 export function cuentas(d) {
   const s = k => (d[k] || []).reduce((a, f) => a + SECC[k].total(f, d.modoVentas), 0);
-  const bruto = s("ventas"), sinIva = bruto / IVA, iibb = sinIva * IIBB, neto = sinIva - iibb, gastos = s("gastos"), retornos = s("retornos");
+  const bruto = s("ventas"), sinIva = bruto / IVA, iibb = sinIva * IIBB, neto = sinIva - iibb, gastos = s("gastos"), retornos = s("retornos") + gastosRet(d).reduce((a, f) => a + num(f.monto), 0);
   return { bruto, iva: bruto - sinIva, sinIva, iibb, neto, gastos, trasGastos: neto - gastos, retornos, final: neto - gastos + retornos };
 }
 // Autocontrol: 121 de venta → 100 sin IVA → 96,5 tras IIBB; −10 de gasto, +5 de retorno = 91,5
 console.assert(cuentas({ modoVentas: "total", ventas: [{ cant: 2, valor: 1, total: 242 }] }).sinIva - 200 < 1e-9, "cierre: modo total");
 console.assert(Math.abs(cuentas({ ventas: [{ cant: 1, valor: 121 }], gastos: [{ monto: 10 }], retornos: [{ monto: 5 }] }).final - 91.5) < 1e-9, "cierre: cuentas");
+console.assert(cuentas({ gastos: [{ monto: 10, retorno: true }], retornos: [{ monto: 5 }] }).final === 5, "cierre: gasto como retorno");
 
 let unsub = null;
 export function vistaCierre(view) {
@@ -53,10 +56,10 @@ export function vistaCierre(view) {
   // Una sola hoja: cada sección con su subtotal y al final el resumen
   $("#c-desc").onclick = () => {
     const r = cuentas(d), neg = (...x) => Object.assign(x, { negrita: true }), filas = [];
-    const sec = (titulo, k, fila, sub) => { filas.push(neg(titulo, "", "", "")); (d[k] || []).forEach(f => filas.push(fila(f))); filas.push(neg("Subtotal", "", "", sub), ["", "", "", ""]); };
+    const sec = (titulo, k, fila, sub, extra = []) => { filas.push(neg(titulo, "", "", "")); [...(d[k] || []), ...extra].forEach(f => filas.push(fila(f))); filas.push(neg("Subtotal", "", "", sub), ["", "", "", ""]); };
     sec("VEHÍCULOS", "ventas", f => [f.comp || "", num(f.cant), d.modoVentas === "total" ? porAuto(f) : num(f.valor), SECC.ventas.total(f, d.modoVentas)], r.bruto);
     sec("GASTOS", "gastos", f => [f.nombre || "", "", num(f.monto), SECC.gastos.total(f)], r.gastos);
-    sec("RETORNOS", "retornos", f => [f.nombre || "", "", num(f.monto), num(f.monto)], r.retornos);
+    sec("RETORNOS", "retornos", f => [f.nombre || "", "", num(f.monto), num(f.monto)], r.retornos, gastosRet(d));
     filas.push(neg("RESUMEN", "", "", ""), ["Total facturado", "", "", r.bruto], ["IVA 21%", "", "", -r.iva], ["IIBB 3,5%", "", "", -r.iibb],
       ["Neto", "", "", r.neto], ["Gastos", "", "", -r.gastos], ["Retornos", "", "", r.retornos], neg("TOTAL FINAL", "", "", r.final));
     descargarTabla({ archivo: `Cierre_${hoyISO()}`, titulo: "Cierre operativo", filas,
@@ -72,10 +75,11 @@ export function vistaCierre(view) {
     const modos = k === "ventas" ? `<div class="seg seg-sm">${[["auto", "Valor por auto"], ["total", "Total facturado"]].map(([m, l]) => `<button type="button" class="seg-btn ${(d.modoVentas || "auto") === m ? "on" : ""}" data-modo="${m}">${l}</button>`).join("")}</div>` : "";
     return `${plegable ? `<details class="d-sec d-adic cierre-sec" id="c-ret" ${retAbierto ? "open" : ""}><summary><h3>${s.titulo}</h3><small class="muted" data-sub="${k}"></small></summary>`
       : `<section class="d-sec cierre-sec"><div class="cierre-head"><h3>${s.titulo}</h3>${modos}</div>`}
-      <div class="table-wrap"><table class="tbl tbl-cierre"><colgroup>${s.campos.map(([, t]) => `<col style="width:${ANCHO[t] || "auto"}">`).join("")}<col style="width:150px"><col style="width:44px"></colgroup>
+      <div class="table-wrap"><table class="tbl tbl-cierre"><colgroup>${s.campos.map(([, t]) => `<col style="width:${ANCHO[t] || "auto"}">`).join("")}<col style="width:150px"><col style="width:${k === "gastos" ? 84 : 44}px"></colgroup>
       <thead><tr>${s.campos.map(([, t, l]) => `<th class="${t === "n" ? "num" : ""}">${l}</th>`).join("")}<th class="num">Total</th><th></th></tr></thead>
-      <tbody>${(d[k] || []).map((f, i) => `<tr data-sec="${k}" data-i="${i}">${s.campos.map(([c, t, l]) => porTotal && c === "valor" ? `<td class="num" data-pu></td>` : `<td>${celda(c, t, l, f[c])}</td>`).join("")}
-        ${porTotal ? `<td>${celda("total", "n", "Total facturado", f.total)}</td>` : `<td class="num" data-tot></td>`}<td><button type="button" class="icon-btn sm danger" data-borrar aria-label="Borrar fila">${icon("trash")}</button></td></tr>`).join("")}</tbody>
+      <tbody>${(d[k] || []).map((f, i) => `<tr data-sec="${k}" data-i="${i}" class="${f.retorno ? "c-esret" : ""}">${s.campos.map(([c, t, l]) => porTotal && c === "valor" ? `<td class="num" data-pu></td>` : `<td>${celda(c, t, l, f[c])}</td>`).join("")}
+        ${porTotal ? `<td>${celda("total", "n", "Total facturado", f.total)}</td>` : `<td class="num" data-tot></td>`}<td class="c-acc">${k === "gastos" ? `<button type="button" class="icon-btn sm c-retbtn" data-retorno aria-pressed="${!!f.retorno}" aria-label="Marcar como retorno" title="${f.retorno ? "Es retorno: tocá para quitar" : "Marcar como retorno"}">${icon("rotate")}</button>` : ""}<button type="button" class="icon-btn sm danger" data-borrar aria-label="Borrar fila">${icon("trash")}</button></td></tr>`).join("")}
+      ${plegable ? (d.gastos || []).map((f, i) => f.retorno ? `<tr data-gret="${i}" class="c-gret"><td><span data-n></span> <small class="muted">· gasto</small></td><td class="num" data-m></td><td class="num" data-m></td><td><button type="button" class="icon-btn sm" data-desmarcar="${i}" aria-label="Quitar de retornos" title="Quitar de retornos">${icon("x")}</button></td></tr>` : "").join("") : ""}</tbody>
       <tfoot><tr><td colspan="${s.campos.length}"></td><td class="num" data-sub="${k}"></td><td></td></tr></tfoot></table></div>
       <button type="button" class="btn btn-ghost btn-sm" data-agregar="${k}">${icon("plus")}${s.agregar}</button>${plegable ? "</details>" : "</section>"}`; };
   const linea = (txt, n, cls = "") => `<div class="cierre-linea ${cls}"><span>${txt}</span><b>${pesos(n)}</b></div>`;
@@ -84,6 +88,8 @@ export function vistaCierre(view) {
     body.querySelectorAll("tr[data-sec]").forEach(tr => { const f = d[tr.dataset.sec][tr.dataset.i], tot = $("[data-tot]", tr), pu = $("[data-pu]", tr);
       if (tot) tot.textContent = pesos(SECC[tr.dataset.sec].total(f, d.modoVentas));
       if (pu) pu.textContent = pesos(porAuto(f)); });
+    body.querySelectorAll("tr[data-gret]").forEach(tr => { const f = d.gastos[tr.dataset.gret] || {};
+      $("[data-n]", tr).textContent = f.nombre || "Sin nombre"; tr.querySelectorAll("[data-m]").forEach(td => { td.textContent = pesos(num(f.monto)); }); });
     const r = cuentas(d);
     body.querySelectorAll("[data-sub]").forEach(td => { td.textContent = pesos({ ventas: r.bruto, gastos: r.gastos, retornos: r.retornos }[td.dataset.sub]); });
     $("#c-res", body).innerHTML = linea("Total facturado", r.bruto) + linea("IVA 21%", -r.iva) + linea("IIBB 3,5%", -r.iibb)
@@ -121,6 +127,8 @@ export function vistaCierre(view) {
       // Al cambiar se pasa el dato, así el total de cada compañía no cambia
       d.ventas = (d.ventas || []).map(f => modo === "total" ? { ...f, total: num(f.cant) * num(f.valor) } : { ...f, valor: porAuto(f) });
       d.modoVentas = modo; guardar(); return pintar(); }
+    const ret = e.target.closest("[data-retorno], [data-desmarcar]");
+    if (ret) { const f = d.gastos[ret.dataset.desmarcar ?? ret.closest("tr").dataset.i]; if (f.retorno) delete f.retorno; else f.retorno = true; guardar(); return pintar(); }
     const add = e.target.closest("[data-agregar]");
     if (add) { const k = add.dataset.agregar; d[k] = [...(d[k] || []), {}]; guardar(); pintar();
       return $(`tr[data-sec="${k}"][data-i="${d[k].length - 1}"] input`, body)?.focus(); }
