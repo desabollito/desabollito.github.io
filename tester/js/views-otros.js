@@ -845,6 +845,10 @@ export async function panelCreador() {
           ${datos.config?.padronN ? `<button type="button" class="btn btn-ghost btn-sm danger" id="adm-padron-del">${icon("trash")}Borrar</button>` : ""}
         </span>
       </div>
+      <div class="adm-toggles">
+        <span><b>Fotos de perfil</b><br><small class="muted">Trae la foto de WhatsApp de los usuarios vinculados que todavía no la tienen</small></span>
+        <span class="row-btns"><button type="button" class="btn btn-ghost btn-sm" id="adm-fotos">${icon("image")}Traer fotos</button></span>
+      </div>
       <details class="adm-toggles adm-accesos" ${accAbierto ? "open" : ""}>
         <summary><b>Quién ve las planillas</b> <small class="muted">Vehículos · Técnicos · Gastos · Fijos · Facturación · Cierre</small></summary>
         ${(() => { const op = opAcc(); if (!op) return `<small class="muted">No hay operativos.</small>`;
@@ -924,6 +928,14 @@ export async function panelCreador() {
   caja.addEventListener("toggle", e => { if (e.target.classList?.contains("adm-accesos")) accAbierto = e.target.open; }, true);
   caja.addEventListener("click", e => { const p = e.target.closest("[data-probar]"); if (p) ruidoMotor(p.dataset.probar, true); });
   caja.addEventListener("click", async e => {
+    const fb = e.target.closest("#adm-fotos");
+    if (fb) {   // de a tandas hasta que no queden
+      busy(fb, true, "Buscando…"); let hechas = 0, revisadas = 0;
+      try { for (let i = 0; i < 40; i++) { const j = await llamarAdmin("fotos-wa"); hechas += j.hechas; revisadas += j.revisadas; if (!j.quedan || !j.revisadas) break; } }
+      catch (err) { toast(err.message, "error"); }
+      busy(fb, false);
+      return toast(revisadas ? `${hechas} de ${revisadas} con foto (el resto la tiene privada o no tiene)` : "Todos los vinculados ya tienen la foto revisada", "success");
+    }
     const chip = e.target.closest("[data-var]");
     if (chip) {
       const ta = $("#adm-wa", caja), i = ta.selectionStart ?? ta.value.length;

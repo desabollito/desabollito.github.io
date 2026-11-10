@@ -44,7 +44,7 @@ export default {
     if (url.pathname === "/diagnostico") return diagnostico(url, env);
     if (url.pathname === "/evolution") return webhookEvolution(req, url, env, ctx);
     const API = { "/registro": nuevoRegistro, "/avisar": avisarCliente, "/solicitud": avisarSolicitud, "/agregado": avisarAgregado, "/pedido-union": avisarPedidoUnion,
-      "/admin/datos": adminDatos, "/admin/borrar-usuario": adminBorrarUsuario, "/admin/config": adminConfig, "/admin/padron": adminPadron, "/mover-vehiculo": moverVehiculo,
+      "/admin/datos": adminDatos, "/admin/borrar-usuario": adminBorrarUsuario, "/admin/config": adminConfig, "/admin/padron": adminPadron, "/admin/fotos-wa": adminFotosWa, "/mover-vehiculo": moverVehiculo,
       "/borrar-media": borrarMediaApi, "/eliminar-vehiculo": eliminarVehiculoApi,
       "/compartir": compartirApi, "/compartido": compartidoApi, "/aviso-planilla": avisoPlanilla,
       "/aviso-version": avisoVersion, "/pedir-borrar-operativo": pedirBorrarOperativo,
@@ -2343,6 +2343,16 @@ async function actualizarFotoWa(env, uid, numero, forzar = false, perfil = null)
   await Promise.all(ops.map(o => fsMerge(env, `companies/${o.__id}`, { memberPhotos: { ...(o.memberPhotos || {}), [uid]: sub.secure_url } }).catch(() => {})));
   return sub.secure_url;
 }
+// Panel del creador: trae la foto de WhatsApp de los vinculados que todavía no la buscaron.
+// De a 5 por llamada (cada una son ~8 pedidos y el Worker tiene tope de pedidos); la app repite hasta que no queden.
+async function adminFotosWa(env, { idToken }) {
+  if (!(await soloCreador(env, idToken))) return json({ ok: false, error: "No autorizado" }, 403);
+  const faltan = (await fsList(env, "users")).filter(u => u.whatsapp && !u.fotoWaAt);
+  const tanda = faltan.slice(0, 5);
+  const fotos = await Promise.all(tanda.map(u => actualizarFotoWa(env, u.__id, u.whatsapp, true, u).catch(e => { console.error("foto wa", u.__id, e?.stack || e); return null; })));
+  return json({ ok: true, hechas: fotos.filter(Boolean).length, revisadas: tanda.length, quedan: faltan.length - tanda.length });
+}
+
 // Ajustes → "Usar mi foto de WhatsApp": la trae ya (sin esperar a la revisión semanal)
 async function fotoWaApi(env, { idToken }) {
   let uid; try { uid = await verificarIdToken(env, idToken); } catch { return json({ ok: false, error: "No autorizado" }, 403); }
