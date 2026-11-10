@@ -45,6 +45,8 @@ console.assert(cuentas({ modoVentas: "total", ventas: [{ cant: 2, valor: 1, tota
 console.assert(Math.abs(cuentas({ ventas: [{ cant: 1, valor: 121 }], gastos: [{ monto: 10 }], retornos: [{ monto: 5 }] }).final - 86.5) < 1e-9, "cierre: cuentas");
 console.assert(cuentas({ gastos: [{ monto: 10, retorno: true }] }).final === 0, "cierre: gasto como retorno");
 const parte = (f, r) => SECC.reparto.total(f, 0, r), gastosDe = f => (f.gastos || []).reduce((a, g) => a + num(g.monto), 0);
+// Lo que le queda a cada persona: su parte − sus gastos + los que marcó como retorno
+const retDe = f => (f.gastos || []).filter(g => g.retorno).reduce((a, g) => a + num(g.monto), 0), queda = (f, r) => parte(f, r) - gastosDe(f) + retDe(f);
 // Secciones plegadas que cada uno dejó abiertas (solo en este equipo)
 const abiertos = (() => { try { return JSON.parse(localStorage.getItem("cierreAbiertos")) || {}; } catch { return {}; } })();
 
@@ -74,7 +76,7 @@ export function vistaCierre(view) {
       ["Neto", "", "", r.neto], ["Gastos", "", "", -r.gastos], ["Retornos", "", "", r.retornos], neg("TOTAL FINAL", "", "", r.final), ...(rep.length ? [["", "", "", ""], neg("REPARTO", "", "", ""), ...rep] : []));
     (d.reparto || []).filter(f => f.gastos?.length).forEach(f => { filas.push(["", "", "", ""]);
       sec(`GASTOS DE ${(f.nombre || "SIN NOMBRE").toUpperCase()}`, f.gastos, g => [g.nombre || "", "", num(g.monto), num(g.monto)], gastosDe(f));
-      filas.push(["Le toca", "", "", parte(f, r)], ["Gastos", "", "", -gastosDe(f)], neg("QUEDA", "", "", parte(f, r) - gastosDe(f))); });
+      filas.push(["Le toca", "", "", parte(f, r)], ["Gastos", "", "", -gastosDe(f)], ["Retornos", "", "", retDe(f)], neg("QUEDA", "", "", queda(f, r))); });
     descargarTabla({ archivo: `Cierre_${hoyISO()}`, titulo: "Cierre operativo", filas,
       cols: [{ titulo: "CONCEPTO", ancho: 30 }, { titulo: "CANTIDAD", ancho: 16 }, { titulo: "VALOR", ancho: 18, tipo: "moneda" }, { titulo: "TOTAL", ancho: 20, tipo: "moneda" }] });
   };
@@ -91,10 +93,10 @@ export function vistaCierre(view) {
       if (pSel >= d.reparto.length) pSel = 0; }
     return `${plegable ? `<details class="d-sec d-adic cierre-sec" data-plg="${k}" ${abiertos[k] ? "open" : ""}><summary><h3>${s.titulo}</h3><small class="muted" data-sub="${k}"></small></summary>`
       : `<section class="d-sec cierre-sec"><div class="cierre-head"><h3>${s.titulo}</h3>${modos}</div>${k === "pg" ? `<div class="seg seg-sm c-gente">${gente}</div>` : ""}`}
-      <div class="table-wrap"><table class="tbl tbl-cierre"><colgroup>${s.campos.map(([, t]) => `<col style="width:${ANCHO[t] || "auto"}">`).join("")}<col style="width:150px"><col style="width:${k === "gastos" ? 84 : 44}px"></colgroup>
+      <div class="table-wrap"><table class="tbl tbl-cierre"><colgroup>${s.campos.map(([, t]) => `<col style="width:${ANCHO[t] || "auto"}">`).join("")}<col style="width:150px"><col style="width:${k === "gastos" || k === "pg" ? 84 : 44}px"></colgroup>
       <thead><tr>${s.campos.map(([, t, l]) => `<th class="${t === "n" ? "num" : ""}">${l}</th>`).join("")}<th class="num">Total</th><th></th></tr></thead>
       <tbody>${lista(k).map((f, i) => `<tr data-sec="${k}" data-i="${i}" class="${f.retorno ? "c-esret" : ""}">${s.campos.map(([c, t, l]) => porTotal && c === "valor" ? `<td class="num" data-pu></td>` : `<td>${celda(c, t, l, f[c], k)}</td>`).join("")}
-        ${porTotal ? `<td>${celda("total", "n", "Total facturado", f.total)}</td>` : `<td class="num" data-tot></td>`}<td class="c-acc">${k === "gastos" ? `<button type="button" class="icon-btn sm c-retbtn" data-retorno aria-pressed="${!!f.retorno}" aria-label="Marcar como retorno" title="${f.retorno ? "Es retorno: tocá para quitar" : "Marcar como retorno"}">${icon("rotate")}</button>` : ""}<button type="button" class="icon-btn sm danger" data-borrar aria-label="Borrar fila">${icon("trash")}</button></td></tr>`).join("")}
+        ${porTotal ? `<td>${celda("total", "n", "Total facturado", f.total)}</td>` : `<td class="num" data-tot></td>`}<td class="c-acc">${k === "gastos" || k === "pg" ? `<button type="button" class="icon-btn sm c-retbtn" data-retorno aria-pressed="${!!f.retorno}" aria-label="Marcar como retorno" title="${f.retorno ? "Es retorno: tocá para quitar" : "Marcar como retorno"}">${icon("rotate")}</button>` : ""}<button type="button" class="icon-btn sm danger" data-borrar aria-label="Borrar fila">${icon("trash")}</button></td></tr>`).join("")}
 </tbody>
       <tfoot><tr><td colspan="${s.campos.length}"></td><td class="num" data-sub="${k}"></td><td></td></tr></tfoot></table></div>
       <button type="button" class="btn btn-ghost btn-sm" data-agregar="${k}">${icon("plus")}${s.agregar}</button>${k === "pg" ? `<div class="cierre-res" id="c-pres"></div>` : ""}${plegable ? "</details>" : "</section>"}`; };
@@ -113,7 +115,7 @@ export function vistaCierre(view) {
     // Los botones de cada persona siguen al nombre que se escribe en el reparto
     body.querySelectorAll("[data-persona]").forEach(b => { b.textContent = d.reparto[b.dataset.persona]?.nombre || `Persona ${+b.dataset.persona + 1}`; });
     const yo = d.reparto[pSel], pres = $("#c-pres", body);
-    if (yo && pres) pres.innerHTML = linea(`Le toca (${num(yo.pct)}%)`, parte(yo, r)) + linea("Gastos", -gastosDe(yo)) + linea("Queda", parte(yo, r) - gastosDe(yo), "final");
+    if (yo && pres) pres.innerHTML = linea(`Le toca (${num(yo.pct)}%)`, parte(yo, r)) + linea("Gastos", -gastosDe(yo)) + linea("Retornos", retDe(yo)) + linea("Queda", queda(yo, r), "final");
   };
   const pintar = () => { body.innerHTML = tabla("ventas") + tabla("gastos") + `<section class="d-sec cierre-sec"><h3>Resumen</h3><div class="cierre-res" id="c-res"></div></section>` + tabla("reparto") + tabla("pg"); totales(); };
   // shortcut: se guarda el documento entero (si dos editan a la vez gana el último); pasar a filas sueltas si se edita mucho en simultáneo
@@ -150,7 +152,7 @@ export function vistaCierre(view) {
     const per = e.target.closest("[data-persona]");
     if (per) { pSel = +per.dataset.persona; return pintar(); }
     const ret = e.target.closest("[data-retorno]");
-    if (ret) { const f = d.gastos[ret.closest("tr").dataset.i]; if (f.retorno) delete f.retorno; else f.retorno = true; guardar(); return pintar(); }
+    if (ret) { const tr = ret.closest("tr"), f = lista(tr.dataset.sec)[tr.dataset.i]; if (f.retorno) delete f.retorno; else f.retorno = true; guardar(); return pintar(); }
     const add = e.target.closest("[data-agregar]");
     if (add) { const k = add.dataset.agregar; lista(k).push({}); guardar(); pintar();
       return $(`tr[data-sec="${k}"][data-i="${lista(k).length - 1}"] input`, body)?.focus(); }
