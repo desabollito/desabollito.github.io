@@ -1042,7 +1042,7 @@ async function ofrecerAvisoCliente(v) {
   if (!(await confirmar({ title: "¿Confirmás el envío?", message: `Se va a enviar este mensaje a ${v.telefono}:\n\n“${textoAviso(v)}”`, ok: "Enviar mensaje" }))) return;
   try {
     const r = await fetch(`${BOT_API}/avisar`, { method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ cid: S.company.id, vid: v.id, por: S.profile?.name || "" }) });
+      body: JSON.stringify({ idToken: await S.user.getIdToken(), cid: S.company.id, vid: v.id, por: S.profile?.name || "" }) });
     const d = await r.json().catch(() => ({}));
     if (!r.ok || !d.ok) throw new Error(d.error || "No se pudo enviar");
     toast("Aviso enviado al cliente", "success");

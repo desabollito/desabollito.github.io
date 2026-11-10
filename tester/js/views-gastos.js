@@ -120,8 +120,8 @@ export function vistaGastos(view) {
         <span class="g-bar-track"><i style="width:${Math.max(4, v / maxF * 100)}%"></i></span><span class="g-bar-v">${money(v) || "$0"}</span></a>`).join("") : "";
     $("#g-bars", view).innerHTML = barrasFijas + (fx && filas.length ? `<div class="g-fijos-sep"><span>Gastos comunes</span><span>${money(total) || "$0"}</span></div>` : "") + (filas.length ? filas.map(([k, v]) => {
       const c = catMap()[k] || catMap().otros;
-      return `<button class="g-bar ${G.cat === k ? "on" : ""} ${G.cat && G.cat !== k ? "dim" : ""}" data-cat="${k}" style="--c:${c.color}">
-        <span class="g-bar-l">${c.label}</span>
+      return `<button class="g-bar ${G.cat === k ? "on" : ""} ${G.cat && G.cat !== k ? "dim" : ""}" data-cat="${esc(k)}" style="--c:${esc(c.color)}">
+        <span class="g-bar-l">${esc(c.label)}</span>
         <span class="g-bar-track"><i style="width:${Math.max(4, v / maxF * 100)}%"></i></span>
         <span class="g-bar-v">${money(v)}</span></button>`;
     }).join("") : (fx ? "" : `<p class="muted small">Sin gastos cargados${G.mes ? " en este mes" : ""}.</p>`));
@@ -137,7 +137,7 @@ export function vistaGastos(view) {
     }
     box.innerHTML = lista.map(g => {
       const c = catMap()[g.categoria] || catMap().otros;
-      return `<button class="g-row" data-id="${g.id}" style="--c:${c.color}">
+      return `<button class="g-row" data-id="${g.id}" style="--c:${esc(c.color)}">
         <span class="g-dot"></span>
         <span class="g-main"><strong>${esc(g.concepto || c.label)}</strong>
           <small>${[c.label, g.tecnicoNombre || g.vehiculoTxt].filter(Boolean).map(esc).join(" · ")}</small></span>
@@ -167,7 +167,7 @@ export function vistaGastos(view) {
         `<button type="button" class="p-chip ${(G.mes || "") === k ? "on" : ""}" data-mes="${k}">${t}</button>`).join("");
       const mes = S.gastos.filter(g => (g.fecha || "").startsWith(claveMes()));
       const cats = [...CATEGORIAS, ...propias()].filter(c => mes.some(g => g.categoria === c.key) || G.cat === c.key);
-      $("#gf-cat", hoja.el).innerHTML = cats.map(c => `<button type="button" class="p-chip ${G.cat === c.key ? "on" : ""}" data-cat="${esc(c.key)}" style="--c:${c.color}"><i class="f-dot"></i>${esc(c.label)} <b class="f-n">${mes.filter(g => g.categoria === c.key).length}</b></button>`).join("") || `<span class="muted small">Sin gastos este mes</span>`;
+      $("#gf-cat", hoja.el).innerHTML = cats.map(c => `<button type="button" class="p-chip ${G.cat === c.key ? "on" : ""}" data-cat="${esc(c.key)}" style="--c:${esc(c.color)}"><i class="f-dot"></i>${esc(c.label)} <b class="f-n">${mes.filter(g => g.categoria === c.key).length}</b></button>`).join("") || `<span class="muted small">Sin gastos este mes</span>`;
       $("#gf-met", hoja.el).innerHTML = METODOS.map(m => `<button type="button" class="p-chip ${G.metodo === m ? "on" : ""}" data-met="${m}">${m} <b class="f-n">${mes.filter(g => (g.metodo || "Efectivo") === m).length}</b></button>`).join("");
       marcarOrden();
     };
@@ -222,7 +222,7 @@ export function vistaGastos(view) {
 
 function chipsCat(cat, puedeEditar) {
   return [...CATEGORIAS, ...propias()].map(c => `
-    <button type="button" class="chip ${cat === c.key ? "on" : ""}" data-c="${esc(c.key)}" style="--c:${c.color}">${esc(c.label)}</button>`).join("")
+    <button type="button" class="chip ${cat === c.key ? "on" : ""}" data-c="${esc(c.key)}" style="--c:${esc(c.color)}">${esc(c.label)}</button>`).join("")
     + (puedeEditar ? `<button type="button" class="chip chip-nueva" data-nueva>${icon("plus")}Etiqueta</button>` : "");
 }
 
@@ -243,7 +243,7 @@ function modificarEtiquetas(alCambiar) {
   const pintar = () => {
     const lista = propias();
     $("#etq-lista", s.el).innerHTML = lista.length ? `<ul class="adm-list">${lista.map(c => `
-      <li><span class="etq-nom"><i class="g-dot" style="--c:${c.color}"></i>${esc(c.label)}</span>
+      <li><span class="etq-nom"><i class="g-dot" style="--c:${esc(c.color)}"></i>${esc(c.label)}</span>
         <span><button type="button" class="icon-btn sm" data-ren="${esc(c.key)}" aria-label="Renombrar">${icon("edit")}</button>
         <button type="button" class="icon-btn sm danger" data-del="${esc(c.key)}" aria-label="Borrar">${icon("trash")}</button></span></li>`).join("")}</ul>
       <p class="muted small">Las categorías fijas (Herramientas, Repuestos, etc.) no se pueden cambiar.</p>`

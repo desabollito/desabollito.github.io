@@ -57,7 +57,7 @@ service cloud.firestore {
 
     // ── Configuración general de la app (solo la cambia el creador, desde el bot) ──
     match /config/{doc} {
-      allow read: if signedIn();
+      allow read: if signedIn() && aprobado();   // las cuentas sin aprobar no ven accesos ni mensajes
     }
 
     // ── Nombres de usuario únicos → { uid, name } ────────────

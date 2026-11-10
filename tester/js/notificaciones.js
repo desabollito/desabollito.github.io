@@ -21,7 +21,13 @@ const visto = () => {
 const ETAPAS_TXT = /: (Sin cargar|Sin pedir|Pedido|Recibido|Colocado|Sin pintar|Turnado|Pintado)$/;
 const avisable = txt => !!txt && !/^(Pasó a|Volvió a|Carg[óo] el veh)/.test(txt) && !ETAPAS_TXT.test(txt);
 const MIN_CARGA = 30 * 60_000;   // fotos de los primeros 30 min = las de la carga, no se avisan
+// Se recalcula solo cuando llega otra lista de vehículos (cada cambio pedía la lista 2 o 3 veces seguidas)
+let memo = { vs: null, uid: null, t: 0, lista: [] };
 export function listaNotifs() {
+  if (memo.vs !== S.vehicles || memo.uid !== S.user?.uid || Date.now() - memo.t > 60_000) memo = { vs: S.vehicles, uid: S.user?.uid, t: Date.now(), lista: calcularNotifs() };
+  return memo.lista;
+}
+function calcularNotifs() {
   const yo = S.user?.uid, desde = Date.now() - DIAS * 86400_000, out = [];
   if (!yo || S.invitado) return out;
   for (const v of activos()) {

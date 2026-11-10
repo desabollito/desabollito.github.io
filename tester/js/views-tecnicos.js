@@ -5,7 +5,7 @@
 // ═════════════════════════════════════════════════════════════
 import { db, collection, doc, onSnapshot, writeBatch } from "./firebase.js";
 import { S, activos, puedeVer, mensajeError, soyAdmin, linkTecnicos } from "./data.js";
-import { $, $$, esc, icon, toast, openSheet, confirmar, pedirTexto, fechaCorta, hoyISO, busy } from "./ui.js";
+import { $, $$, esc, icon, toast, openSheet, confirmar, pedirTexto, fechaCorta, hoyISO, busy, pesos, nuevoId } from "./ui.js";
 import { setTopbar } from "./shell.js";
 import { estadoActual, fechaRep, tocarTec, cambiarGrupo, grupoSolo, masMes, fechasDeSueldo } from "./domain.js";
 import { viandasPorTec, repartoAlquiler } from "./views-fijos.js";
@@ -22,7 +22,6 @@ export function vistaPlanillas(view) {
   </div>`;
 }
 
-const pesos = n => "$" + Math.round(Number(n) || 0).toLocaleString("es-AR");
 const DIAS = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 const diaLabel = iso => { const [y, m, d] = iso.split("-").map(Number); const f = new Date(y, m - 1, d); return `${DIAS[f.getDay()]} ${d}/${m}`; };
 const lunesDe = iso => { const [y, m, d] = iso.split("-").map(Number); const f = new Date(y, m - 1, d); f.setDate(f.getDate() - ((f.getDay() + 6) % 7));
@@ -31,7 +30,6 @@ const masDias = (iso, n) => { const [y, m, d] = iso.split("-").map(Number); cons
   return `${f.getFullYear()}-${String(f.getMonth() + 1).padStart(2, "0")}-${String(f.getDate()).padStart(2, "0")}`; };
 // Cuentan los autos desde que entran a reparar (Reparando, Revisión, Contactado, Entregado o Facturado)
 const entregado = v => ["enreparacion", "reparado", "llamado", "entregado", "facturado"].includes(estadoActual(v));
-const nuevoId = () => Math.random().toString(36).slice(2, 9);
 const COLORES_GRUPO = ["#4f8ff7", "#e0a526", "#22b07d", "#9b7bf2", "#f0743e", "#e0486e"];
 
 const T = { tab: "autos", resumen: "dia", desde: "", hasta: "", q: "", editando: false };   // desde/hasta quedan vacíos: se sacó el filtro de fechas

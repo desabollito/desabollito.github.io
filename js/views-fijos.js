@@ -7,18 +7,16 @@
 // ═════════════════════════════════════════════════════════════
 import { db, collection, doc, onSnapshot, deleteField } from "./firebase.js";
 import { S, puedeVer, mensajeError } from "./data.js";
-import { $, $$, esc, icon, toast, openSheet, confirmar, pedirTexto, fechaCorta, hoyISO } from "./ui.js";
+import { $, $$, esc, icon, toast, openSheet, confirmar, pedirTexto, fechaCorta, hoyISO, pesos, nuevoId } from "./ui.js";
 import { setTopbar } from "./shell.js";
 import { marcarVianda, valoresVianda } from "./domain.js";
 import { crearVersiones, botonesVersion } from "./versiones.js";
 
-const pesos = n => "$" + Math.round(Number(n) || 0).toLocaleString("es-AR");
 const DIAS = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 const diaLabel = iso => { const [y, m, d] = iso.split("-").map(Number); return `${DIAS[new Date(y, m - 1, d).getDay()]} ${d}/${m}`; };
 const iso = f => `${f.getFullYear()}-${String(f.getMonth() + 1).padStart(2, "0")}-${String(f.getDate()).padStart(2, "0")}`;
 const masDias = (s, n) => { const [y, m, d] = s.split("-").map(Number); return iso(new Date(y, m - 1, d + n)); };
 const masMeses = (s, n) => { const [y, m, d] = s.split("-").map(Number); return iso(new Date(y, m - 1 + n, d)); };
-const nuevoId = () => Math.random().toString(36).slice(2, 9);
 function* diasEntre(a, b) { for (let d = a; d <= b; d = masDias(d, 1)) yield d; }
 
 // ── Cálculos (también los usa el Cierre de la planilla de técnicos) ──

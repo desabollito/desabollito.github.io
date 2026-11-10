@@ -9,6 +9,9 @@ export function esc(s) {
   return String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
 
+export const pesos = n => "$" + Math.round(Number(n) || 0).toLocaleString("es-AR");   // planillas: siempre con número (también $0)
+export const nuevoId = () => Math.random().toString(36).slice(2, 9);   // ids de filas dentro de un documento (no de Firestore)
+
 export const money = n => {
   const v = Number(n || 0);
   return v ? "$" + v.toLocaleString("es-AR") : "";
@@ -258,7 +261,9 @@ export function marcarError(input) {
 
 // Blobatar: avatar generado por nombre de usuario (se arma en el navegador, sin mandar datos afuera).
 // Mientras carga la librería (o sin señal) quedan las iniciales.
-export function avatarUsuario(usuario, nombre, cls = "") {
+// foto: la de WhatsApp (Cloudinary), recortada a la cara; si no hay, el blobatar
+export function avatarUsuario(usuario, nombre, cls = "", foto = "") {
+  if (/^https:\/\/res\.cloudinary\.com\//.test(foto || "")) return `<span class="avatar ${cls}"><img src="${esc(foto.replace("/upload/", "/upload/c_fill,g_face,w_160,h_160,q_auto,f_auto/"))}" alt="" loading="lazy"></span>`;
   return `<span class="avatar ${cls}" data-blob="${esc(usuario || nombre || "")}">${esc(initials(nombre || usuario || ""))}</span>`;
 }
 // Solo celestes y azules (tono OKLCH 195°–265°). Los del operativo se reparten en orden alfabético para no repetirse

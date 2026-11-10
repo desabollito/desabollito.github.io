@@ -14,7 +14,7 @@ import { NOVEDADES } from "./novedades.js";
 import { imagenChica, avatar } from "./media.js";
 import { planillaPDF } from "./pdf.js";
 import { exportarExcel } from "./excel.js";
-import { setTopbar, go, logoOperativo } from "./shell.js";
+import { setTopbar, go, logoOperativo, pintarLateral } from "./shell.js";
 import { APP_VERSION, WHATSAPP_BOT, BOT_API } from "./config.js";
 import { renderDetalle } from "./views-vehiculos.js";
 
@@ -307,7 +307,7 @@ export function vistaEmpresa(view) {
       <h3>Equipo <small class="muted">${miembros.length}</small></h3>
       <ul class="members">${miembros.map(m => `
         <li>
-          ${avatarUsuario(m.user, m.name)}
+          ${avatarUsuario(m.user, m.name, "", c.memberPhotos?.[m.uid])}
           <span class="m-meta">
             <strong>${esc(m.name)}${m.uid === S.user.uid ? " (vos)" : ""}</strong>
             <small>${[m.user ? `@${esc(m.user)}` : "", admin && m.rol !== "owner" && m.uid !== S.user.uid ? "" : ROLES[m.rol]?.label || m.rol].filter(Boolean).join(" · ")}</small>
@@ -386,7 +386,7 @@ export function vistaEmpresa(view) {
       const q = inp.value.trim().toLowerCase().replace(/^@/, "");
       const l = todos.filter(u => !q || u.username.toLowerCase().includes(q) || u.name.toLowerCase().includes(q)).slice(0, 30);
       tira.innerHTML = l.length ? l.map(u => `<button type="button" class="usr-chip ${u.username.toLowerCase() === q ? "on" : ""}" data-u="${esc(u.username)}">
-          ${avatarUsuario(u.username, u.name, "sm")}<span><strong>${esc(u.name || u.username)}</strong><small>@${esc(u.username)}</small></span></button>`).join("")
+          ${avatarUsuario(u.username, u.name, "sm", u.foto)}<span><strong>${esc(u.name || u.username)}</strong><small>@${esc(u.username)}</small></span></button>`).join("")
         : `<span class="muted small">${todos.length ? "No hay coincidencias" : "No hay usuarios para sumar"}</span>`;
     };
     S.user.getIdToken().then(idToken => fetch(`${BOT_API}/usuarios-app`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ idToken, cid: c.id }) }))
@@ -585,10 +585,11 @@ export function vistaAjustes(view) {
     <section class="card profile">
       <button type="button" class="icon-btn aj-son" id="editar-perfil" aria-label="Editar perfil" title="Editar perfil">${icon("edit")}</button>
       <div class="profile-row">
-        ${avatarUsuario(p.username, p.name, "lg")}
+        ${avatarUsuario(p.username, p.name, "lg", p.foto)}
         <div class="profile-meta"><h2>${esc(p.name)}</h2><p class="muted">@${esc(p.username)}</p>
           ${p.whatsapp ? `<p class="perfil-wa" title="WhatsApp vinculado al bot">${icon("chat")}+${esc(String(p.whatsapp).replace(/^(\d{2})(9)(\d{2})(\d{4})(\d{4})$/, "$1 $2 $3 $4-$5"))}</p>` : ""}</div>
       </div>
+      ${p.whatsapp ? "" : `<button type="button" class="btn btn-primary btn-block" id="vincular-wa">${icon("chat")}Vincular WhatsApp</button>`}
     </section>
 
     ${WHATSAPP_BOT ? `<section class="card">
@@ -618,6 +619,7 @@ export function vistaAjustes(view) {
   </div>`;
 
   $("#editar-perfil", view).onclick = () => editarPerfil(() => vistaAjustes(view));
+  if ($("#vincular-wa", view)) $("#vincular-wa", view).onclick = () => vincularWhatsApp(() => vistaAjustes(view));
   $("#tema", view).onclick = e => {
     const b = e.target.closest("[data-t]"); if (!b) return;
     aplicarTema(b.dataset.t); $$(".seg-btn", $("#tema", view)).forEach(x => x.classList.toggle("on", x === b));
@@ -676,6 +678,31 @@ function compartirPerito() {
   };
 }
 
+// Llamada al bot con la sesión (las respuestas de error vienen como { ok: false, error })
+const llamarBot = async (ruta, datos = {}) => {
+  try {
+    const r = await fetch(`${BOT_API}/${ruta}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ idToken: await S.user.getIdToken(), ...datos }) });
+    return await r.json();
+  } catch { return { ok: false, error: "Sin conexión. Probá de nuevo." }; }
+};
+
+// Vincular WhatsApp: la app da un código de 6 dígitos y se lo mandás al bot desde tu número
+async function vincularWhatsApp(alTerminar) {
+  const s = openSheet({ title: "Vincular WhatsApp", body: `<div class="stack center wa-cod"><div class="skeleton" style="height:90px"></div></div>` });
+  const j = await llamarBot("codigo-wa"), caja = $(".wa-cod", s.el);
+  if (!caja) return;
+  if (!j.ok) { caja.innerHTML = `<p class="muted">${esc(j.error || "No se pudo generar el código")}</p>`; return; }
+  const cod = `${j.codigo.slice(0, 3)} ${j.codigo.slice(3)}`;
+  caja.innerHTML = `<p class="muted small">Mandale este código al bot por WhatsApp, desde el número que querés vincular. Vence en 15 minutos.</p>
+    <strong class="wa-codigo" aria-label="Código ${esc(j.codigo)}">${esc(cod)}</strong>
+    ${j.bot ? `<a class="btn btn-primary btn-block" href="https://wa.me/${esc(j.bot)}?text=${esc(j.codigo)}" target="_blank" rel="noopener">${icon("chat")}Mandar por WhatsApp</a>` : ""}
+    <button type="button" class="btn btn-ghost btn-block" id="wa-copiar">Copiar código</button>`;
+  $("#wa-copiar", s.el).onclick = () => navigator.clipboard?.writeText(j.codigo).then(() => toast("Código copiado", "success"), () => {});
+  // Cuando el bot lo vincula, el perfil cambia solo: se cierra la hoja
+  const listo = () => { if (S.profile?.whatsapp) { s.close(); toast("WhatsApp vinculado", "success"); alTerminar?.(); } };
+  const t = setInterval(() => { if (!document.body.contains(s.el)) return clearInterval(t); listo(); }, 1500);
+}
+
 function editarPerfil(alTerminar) {
   const p = S.profile;
   const s = openSheet({
@@ -687,11 +714,20 @@ function editarPerfil(alTerminar) {
         <input value="@${esc(p.username)}" readonly disabled>
         <small class="muted">El usuario no se puede cambiar. Es el que usan para sumarte a un operativo.</small></label>
       <button class="btn btn-primary btn-block btn-lg">Guardar perfil</button>
-      ${p.whatsapp ? `<button type="button" class="btn btn-danger-ghost btn-block" id="wa-desv">${icon("chat")}Desvincular WhatsApp</button>` : ""}
+      ${p.whatsapp ? `<button type="button" class="btn btn-ghost btn-block" id="wa-foto">${icon("image")}Usar mi foto de WhatsApp</button>
+        <button type="button" class="btn btn-danger-ghost btn-block" id="wa-desv">${icon("chat")}Desvincular WhatsApp</button>` : ""}
     </form>`
   });
+  $("#wa-foto", s.el)?.addEventListener("click", async e => {
+    const b = e.currentTarget; busy(b, true, "Buscando tu foto…");
+    const j = await llamarBot("foto-wa");
+    busy(b, false);
+    if (!j.ok) return toast(j.error || "No se pudo", "warning");
+    S.profile.foto = j.foto; toast("Foto actualizada", "success"); s.close(); alTerminar?.();
+    pintarLateral();
+  });
   $("#wa-desv", s.el)?.addEventListener("click", async () => {
-    if (!(await confirmar({ title: "¿Desvincular tu WhatsApp?", message: "El bot te va a pedir tu usuario la próxima vez que le escribas (desde este u otro número).", ok: "Desvincular", danger: true }))) return;
+    if (!(await confirmar({ title: "¿Desvincular tu WhatsApp?", message: "Para volver a usar el bot vas a tener que vincularlo de nuevo con un código desde Ajustes.", ok: "Desvincular", danger: true }))) return;
     desvincularWhatsApp().then(() => { toast("WhatsApp desvinculado", "success"); s.close(); alTerminar?.(); }).catch(e => toast(mensajeError(e), "error"));
   });
   $("#perfil-form", s.el).onsubmit = async e => {

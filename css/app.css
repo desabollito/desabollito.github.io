@@ -231,6 +231,8 @@ button { cursor: pointer; }
 .avatar img { width: 100%; height: 100%; object-fit: cover; }
 .avatar.lg { width: 64px; height: 64px; font-size: 22px; }
 .avatar.xl { width: 104px; height: 104px; font-size: 34px; }
+.wa-codigo { display: block; font-size: 40px; font-weight: 800; letter-spacing: .12em; font-variant-numeric: tabular-nums; margin: 6px 0 10px; color: var(--ink); }
+.card.profile #vincular-wa { margin-top: 14px; }
 .profile-row { display: flex; align-items: center; gap: 14px; }
 .profile-meta { min-width: 0; }
 .profile-meta h2 { overflow-wrap: anywhere; }

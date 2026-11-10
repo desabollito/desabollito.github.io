@@ -48,7 +48,7 @@ export default {
       "/borrar-media": borrarMediaApi, "/eliminar-vehiculo": eliminarVehiculoApi,
       "/compartir": compartirApi, "/compartido": compartidoApi, "/aviso-planilla": avisoPlanilla,
       "/aviso-version": avisoVersion, "/pedir-borrar-operativo": pedirBorrarOperativo,
-      "/recuperar": recuperarApi, "/restablecer": restablecerApi, "/usuarios-app": usuariosAppApi,
+      "/recuperar": recuperarApi, "/restablecer": restablecerApi, "/usuarios-app": usuariosAppApi, "/codigo-wa": codigoWaApi, "/foto-wa": fotoWaApi,
       "/admin/resumen-ahora": async (env, { idToken, forzar }) => (await soloCreador(env, idToken)) ? json({ ok: true, enviados: await enviarResumenesDiarios(env, forzar) }) : json({ ok: false }, 403) };
     if (API[url.pathname]) {
       if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
@@ -96,7 +96,7 @@ export default {
       }
     }
     // Respondemos 200 enseguida (si no, Meta reintenta) y procesamos en segundo plano
-    ctx.waitUntil(Promise.all(mensajes.map(m => procesar(m, env).catch(e => {
+    ctx.waitUntil(Promise.all(mensajes.map(m => procesar(m, env).finally(() => m._foto).catch(e => {
       console.error("Error con mensaje", m.id, e?.stack || e);
       registrar(env, { ultimoError: `${new Date().toISOString()} · ${String(e?.message || e).slice(0, 500)}` }).catch(() => {});
       return responder(env, dest(m), "⚠️ Hubo un error procesando tu mensaje. Probá de nuevo en un rato.").catch(() => {});
@@ -142,6 +142,7 @@ async function procesar(m, env) {
     await fsDelete(env, `bot_numeros/${numero}`).catch(() => {});
     return vincular(env, m, quien);
   }
+  m._foto = actualizarFotoWa(env, cuenta.uid, numero, false, perfil).catch(e => console.error("foto wa", e?.stack || e));   // revisión semanal de la foto de perfil (en segundo plano)
   quien.waNombre = m._nombre || ""; quien.appNombre = cuenta.name || ""; quien.uid = cuenta.uid; quien.username = cuenta.username; quien.nombre = cuenta.name || quien.nombre;
   // Grupo con operativo asignado (!operativo): todo lo que se carga ahí va a ese operativo
   if (m._grupo) quien.grupoOp = await fsGet(env, `bot_grupo_op/${idGrupo(m)}`).catch(() => null);
@@ -2170,7 +2171,7 @@ async function webhookEvolution(req, url, env, ctx) {
   if (raro) ctx.waitUntil(registrar(env, { ultimoCrudoEvo: `${new Date().toISOString()} · ${evento} · ` +
     JSON.stringify({ ...raro, message: raro.message }, (k, v) => (k === "base64" || k === "jpegThumbnail" ? "…" : v)).slice(0, 3000) }).catch(() => {}));
   ctx.waitUntil(registrar(env, { ultimoEvolution: `${new Date().toISOString()} · ${mensajes.length} mensaje(s)` }));
-  ctx.waitUntil(Promise.all(mensajes.map(m => procesar(m, env).catch(e => {
+  ctx.waitUntil(Promise.all(mensajes.map(m => procesar(m, env).finally(() => m._foto).catch(e => {
     console.error("Error con mensaje de Evolution", m.id, e?.stack || e);
     registrar(env, { ultimoError: `${new Date().toISOString()} · Evolution · ${String(e?.message || e).slice(0, 400)}` }).catch(() => {});
   }))));
@@ -2297,54 +2298,107 @@ const destinoNumero = (env, numero) => (env.EVOLUTION_URL ? `evo:${numero}` : nu
 const limpiarUsuario = u => String(u || "").toLowerCase().trim().replace(/^@/, "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9._-]/g, "");
 const responderLink = (env, to, texto) => enviar(env, to, { type: "text", text: { body: texto, preview_url: true } });
 
-// Primer contacto de un número: se le pide el usuario de la web y se vincula
+// App → Ajustes → Vincular WhatsApp: código de 6 dígitos (vale 15 min) que se le manda al bot desde el número a vincular
+async function codigoWaApi(env, { idToken }) {
+  let uid; try { uid = await verificarIdToken(env, idToken); } catch { return json({ ok: false, error: "No autorizado" }, 403); }
+  const p = await fsGet(env, `users/${uid}`);
+  if (!p?.username || p.aprobado === false || p.rechazado) return json({ ok: false, error: "Tu cuenta todavía no está aprobada" }, 403);
+  const previo = await fsGet(env, `bot_codigo_uid/${uid}`).catch(() => null);
+  if (previo?.codigo) await fsDelete(env, `bot_codigos_wa/${previo.codigo}`).catch(() => {});
+  let codigo = "";
+  for (let i = 0; i < 5 && !codigo; i++) {   // sin pisar el código vigente de otra persona
+    const c = String(crypto.getRandomValues(new Uint32Array(1))[0] % 1_000_000).padStart(6, "0");
+    const otro = await fsGet(env, `bot_codigos_wa/${c}`).catch(() => null);
+    if (!otro || Date.now() > Number(otro.exp || 0)) codigo = c;
+  }
+  if (!codigo) return json({ ok: false, error: "Probá de nuevo" }, 503);
+  const exp = Date.now() + 15 * 60_000;
+  await fsSet(env, `bot_codigos_wa/${codigo}`, { uid, exp });
+  await fsSet(env, `bot_codigo_uid/${uid}`, { codigo, exp });
+  const id = await fsGet(env, "bot_estado/identidad").catch(() => null);
+  const bot = (id?.jids || []).find(j => String(j).endsWith("@s.whatsapp.net"))?.split("@")[0] || "";
+  return json({ ok: true, codigo, bot });
+}
+
+// Foto de perfil = la de WhatsApp del número vinculado, copiada a Cloudinary (el link de WhatsApp vence a los días).
+// Se revisa como mucho una vez por semana; si la foto es privada o no hay, queda el avatar de siempre.
+async function actualizarFotoWa(env, uid, numero, forzar = false, perfil = null) {
+  if (!env.EVOLUTION_URL || !numero) return null;
+  const p = perfil || await fsGet(env, `users/${uid}`);
+  if (!p || (!forzar && Date.now() - Number(p.fotoWaAt || 0) < 7 * 86400_000)) return p?.foto || null;
+  await fsMerge(env, `users/${uid}`, { fotoWaAt: Date.now() });   // aunque falle, no se reintenta en cada mensaje
+  const base = String(env.EVOLUTION_URL).replace(/\/+$/, "");
+  const j = await fetch(`${base}/chat/fetchProfilePictureUrl/${env.EVOLUTION_INSTANCE || "desabollito"}`, { method: "POST",
+    headers: { apikey: env.EVOLUTION_APIKEY, "Content-Type": "application/json" }, body: JSON.stringify({ number: numero }) }).then(r => r.json()).catch(() => null);
+  const url = j?.profilePictureUrl || j?.profilePicUrl || j?.url || "";
+  if (!/^https:\/\//.test(url)) return p.foto || null;
+  const origen = new URL(url).pathname;   // la misma foto conserva el archivo; cambia solo la firma del link
+  if (origen === p.fotoWaOrigen && p.foto) return p.foto;
+  const img = await fetch(url);
+  if (!img.ok) return p.foto || null;
+  const sub = await subirCloudinary(env, await img.blob(), "perfil.jpg", "desabollito/perfiles", "image");
+  await fsMerge(env, `users/${uid}`, { foto: sub.secure_url, fotoWaOrigen: origen });
+  // En cada operativo del usuario (los compañeros la ven en el equipo)
+  const ops = await fsQuery(env, "", "companies", { field: "members", op: "ARRAY_CONTAINS", value: uid }, 100).catch(() => []);
+  await Promise.all(ops.map(o => fsMerge(env, `companies/${o.__id}`, { memberPhotos: { ...(o.memberPhotos || {}), [uid]: sub.secure_url } }).catch(() => {})));
+  return sub.secure_url;
+}
+// Ajustes → "Usar mi foto de WhatsApp": la trae ya (sin esperar a la revisión semanal)
+async function fotoWaApi(env, { idToken }) {
+  let uid; try { uid = await verificarIdToken(env, idToken); } catch { return json({ ok: false, error: "No autorizado" }, 403); }
+  const p = await fsGet(env, `users/${uid}`);
+  if (!p?.whatsapp) return json({ ok: false, error: "Primero vinculá tu WhatsApp" });
+  const foto = await actualizarFotoWa(env, uid, p.whatsapp, true);
+  return foto ? json({ ok: true, foto }) : json({ ok: false, error: "Tu foto de WhatsApp es privada o no tenés. Ponela visible para todos (o agendá al bot) y probá de nuevo." });
+}
+
+// Primer contacto de un número: se pide el código de la app y se vincula
 async function vincular(env, m, quien) {
   const numero = quien.numero;
   if (m._grupo) {
     const txt = m.type === "text" ? String(m.text?.body || "") : String(m.image?.caption || "");
     if (!mencionaBot(txt) && !buscarPatenteEnTexto(txt)) return;   // charla del grupo: no se responde
     return avisarUnaVez(env, { ...m, _grupo: false }, numero, "vincular",
-      "👋 Para usar el bot primero escribime por privado tu *usuario* de Desabollito.");
+      "👋 Para usar el bot primero vinculá tu WhatsApp: en la app, Ajustes → *Vincular WhatsApp*, y mandame el código por privado.");
   }
   const estado = await fsGet(env, `bot_vinculo/${numero}`);
   const texto = m.type === "text" ? String(m.text?.body || "").trim() : "";
-  const unaPalabra = texto && !/\s/.test(texto.replace(/^@/, ""));
-  const cand = unaPalabra ? limpiarUsuario(texto) : "";
+  const PEDIR_CODIGO = `entrá a la app → *Ajustes* → *Vincular WhatsApp* y mandame el código de 6 dígitos que te aparece.\n\n👉 ${APP_URL}/#/ajustes`;
 
-  if (cand.length >= 3) {
-    const u = await fsGet(env, `usernames/${cand}`);
-    if (u?.uid) {
-      const perfil = await fsGet(env, `users/${u.uid}`);
-      if (perfil?.rechazado) return responder(env, dest(m), "⛔ Esa cuenta no fue aprobada, así que no puede usar el bot.");
-      if (perfil?.aprobado === false) {
-        await fsSet(env, `bot_vinculo/${numero}`, { pedido: true, ts: Date.now() });
-        return responder(env, dest(m), `⏳ La cuenta *@${cand}* todavía está esperando aprobación.\n\nCuando la aprueben, escribime de nuevo tu usuario.`);
-      }
-      const nombre = perfil?.name || u.name || cand;
-      // Un usuario con otro WhatsApp ya vinculado no se puede tomar desde otro número
-      if (perfil?.whatsapp && perfil.whatsapp !== numero) {
-        const otro = await fsGet(env, `bot_numeros/${perfil.whatsapp}`);
-        if (otro?.uid === u.uid) {
-          return responder(env, dest(m), `🔒 El usuario *@${cand}* ya tiene otro WhatsApp vinculado.
-
-Si cambiaste de número, entrá a la app → Ajustes → *Desvincular WhatsApp* y después escribime tu usuario desde este número.`);
-        }
-      }
-      await fsSet(env, `bot_numeros/${numero}`, { uid: u.uid, username: cand, name: nombre, ts: Date.now() });
-      await fsMerge(env, `users/${u.uid}`, { whatsapp: numero });
-      await fsDelete(env, `bot_vinculo/${numero}`).catch(() => {});
-      return responder(env, dest(m), `✅ Listo *${nombre}*, tu WhatsApp quedó vinculado a *@${cand}*.\n\n` + INSTRUCCIONES);
+  // Código de 6 dígitos que da la app: prueba que quien escribe es el dueño de la cuenta (con el usuario solo, cualquiera podía tomarla)
+  if (/^\d{3}\s?\d{3}$/.test(texto)) {
+    const intentos = Date.now() - Number(estado?.ts || 0) < 3600_000 ? Number(estado?.intentos || 0) : 0;
+    if (intentos >= 8) return responder(env, dest(m), "⛔ Demasiados códigos incorrectos. Probá de nuevo en una hora.");
+    const cod = texto.replace(/\D/g, ""), c = await fsGet(env, `bot_codigos_wa/${cod}`).catch(() => null);
+    const perfil = c?.uid && Date.now() <= Number(c.exp || 0) ? await fsGet(env, `users/${c.uid}`) : null;
+    if (!perfil?.username) {
+      await fsSet(env, `bot_vinculo/${numero}`, { pedido: true, intentos: intentos + 1, ts: Date.now() });
+      return responderLink(env, dest(m), `❌ Ese código no es válido o ya venció. Para pedir otro, ${PEDIR_CODIGO}`);
     }
-    if (estado?.pedido) {
-      return responderLink(env, dest(m), `❌ No encontré el usuario *${cand}*.\n\nPara usar el bot necesitás una cuenta en Desabollito. Registrate acá y, cuando te la aprueben, escribime tu usuario:\n\n👉 ${APP_URL}`);
-    }
-  } else if (estado?.pedido && texto) {
-    return responderLink(env, dest(m), `Escribime solo tu *usuario* de Desabollito (una palabra, sin espacios).\n\n¿No tenés cuenta? Registrate acá:\n👉 ${APP_URL}`);
+    if (perfil.rechazado || perfil.aprobado === false) return responder(env, dest(m), "⛔ Esa cuenta todavía no está aprobada, así que no puede usar el bot.");
+    // El código sale de la cuenta: si tenía otro número vinculado, ese queda desvinculado
+    if (perfil.whatsapp && perfil.whatsapp !== numero) await fsDelete(env, `bot_numeros/${perfil.whatsapp}`).catch(() => {});
+    const nombre = perfil.name || perfil.username;
+    await fsSet(env, `bot_numeros/${numero}`, { uid: c.uid, username: perfil.username, name: nombre, ts: Date.now() });
+    await fsMerge(env, `users/${c.uid}`, { whatsapp: numero });
+    await Promise.all([`bot_codigos_wa/${cod}`, `bot_codigo_uid/${c.uid}`, `bot_vinculo/${numero}`].map(r => fsDelete(env, r).catch(() => {})));
+    const r = await responder(env, dest(m), `✅ Listo *${nombre}*, tu WhatsApp quedó vinculado a *@${perfil.username}*.\n\n` + INSTRUCCIONES);
+    await actualizarFotoWa(env, c.uid, numero, true).catch(e => console.error("foto wa", e?.stack || e));
+    return r;
   }
-  if (estado?.pedido && m.type !== "text") return; // fotos antes de vincular: ya se le pidió el usuario
+  // Escribió su usuario (como antes): ahora se pide el código de la app
+  const cand = texto && !/\s/.test(texto.replace(/^@/, "")) ? limpiarUsuario(texto) : "";
+  if (cand.length >= 3 && (await fsGet(env, `usernames/${cand}`))?.uid) {
+    await fsSet(env, `bot_vinculo/${numero}`, { ...(estado || {}), pedido: true, ts: estado?.ts || Date.now() });
+    return responderLink(env, dest(m), `🔐 Para vincular este WhatsApp a *@${cand}*, ${PEDIR_CODIGO}`);
+  }
+  if (estado?.pedido && texto) {
+    return responderLink(env, dest(m), `Para usar el bot, ${PEDIR_CODIGO}\n\n¿No tenés cuenta? Registrate en ${APP_URL} y, cuando te la aprueben, pedí el código.`);
+  }
+  if (estado?.pedido && m.type !== "text") return; // fotos antes de vincular: ya se le pidió el código
   await fsSet(env, `bot_vinculo/${numero}`, { pedido: true, ts: Date.now() });
   const wa = String(m._nombre || "").trim();
-  return responder(env, dest(m), `👋 ¡Hola${wa ? " " + wa : ""}! Soy el bot de *Desabollito*.\n\nPara empezar, escribime tu *usuario* de la app (el que usás para entrar en desabollito.com).`);
+  return responderLink(env, dest(m), `👋 ¡Hola${wa ? " " + wa : ""}! Soy el bot de *Desabollito*.\n\nPara empezar, ${PEDIR_CODIGO}`);
 }
 
 // El administrador responde "SI usuario" / "NO usuario" (o solo SI/NO si hay una sola solicitud)
@@ -2461,7 +2515,8 @@ export function telefonoAR(t) {
 }
 
 // Aviso al cliente cuando su auto queda reparado (una sola vez por vehículo)
-async function avisarCliente(env, { cid, vid, por }) {
+async function avisarCliente(env, { idToken, cid, vid, por }) {
+  if (!(await miembroDe(env, idToken, cid))) return json({ ok: false, error: "No autorizado. Actualizá la app y probá de nuevo." }, 403);
   if (!/^[A-Za-z0-9_-]{1,60}$/.test(cid || "") || !/^[A-Za-z0-9_-]{1,60}$/.test(vid || "")) return json({ ok: false, error: "Datos inválidos" }, 400);
   const ruta = `companies/${cid}/vehicles/${vid}`;
   const v = await fsGet(env, ruta);
@@ -2980,7 +3035,7 @@ async function usuariosAppApi(env, { idToken, cid }) {
   if (!m || !["owner", "admin"].includes(m.c.roles?.[m.uid])) return json({ ok: false, error: "No autorizado" }, 403);
   const ya = new Set(m.c.members || []);
   const lista = (await fsList(env, "users")).filter(u => u.username && u.aprobado !== false && !u.rechazado && !ya.has(u.__id))
-    .map(u => ({ username: u.username, name: u.name || "" })).sort((a, b) => (a.name || a.username).localeCompare(b.name || b.username));
+    .map(u => ({ username: u.username, name: u.name || "", foto: u.foto || "" })).sort((a, b) => (a.name || a.username).localeCompare(b.name || b.username));
   return json({ ok: true, lista });
 }
 
@@ -3068,7 +3123,8 @@ async function borrarCuentaAuth(env, uid) {
 const idValido = x => /^[A-Za-z0-9_-]{1,120}$/.test(String(x || ""));
 
 // Solicitudes de la app (eliminar, quitar foto/documento, acceso de edición): aviso al administrador
-async function avisarSolicitud(env, { cid, sid }) {
+async function avisarSolicitud(env, { idToken, cid, sid }) {
+  if (!(await miembroDe(env, idToken, cid))) return json({ ok: false, error: "No autorizado" }, 403);
   if (!idValido(cid) || !idValido(sid)) return json({ ok: false, error: "Datos inválidos" }, 400);
   const ruta = `companies/${cid}/solicitudes/${sid}`;
   const sol = await fsGet(env, ruta);
@@ -3104,7 +3160,8 @@ async function avisoPlanilla(env, { idToken, cid, planilla, ids }) {
 }
 
 // Alguien fue sumado a un operativo: se le avisa por WhatsApp si tiene el número vinculado (una sola vez)
-async function avisarAgregado(env, { cid, uid }) {
+async function avisarAgregado(env, { idToken, cid, uid }) {
+  if (!(await miembroDe(env, idToken, cid))) return json({ ok: false, error: "No autorizado" }, 403);
   if (!idValido(cid) || !idValido(uid)) return json({ ok: false, error: "Datos inválidos" }, 400);
   const c = await fsGet(env, `companies/${cid}`);
   if (!c || !(c.members || []).includes(uid)) return json({ ok: false, error: "No es miembro" });

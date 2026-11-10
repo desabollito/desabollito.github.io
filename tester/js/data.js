@@ -367,8 +367,8 @@ export async function agregarMiembro(usuario, rol = "tecnico", empresa = S.compa
     [`memberAddedBy.${uid}`]: { por: S.profile?.name || "", user: S.profile?.username || "", t: Date.now() }
   });
   // Aviso por WhatsApp a la persona agregada (si tiene el número vinculado)
-  fetch(`${BOT_API}/agregado`, { method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ cid: empresa.id, uid }) }).catch(() => {});
+  S.user.getIdToken().then(idToken => fetch(`${BOT_API}/agregado`, { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ idToken, cid: empresa.id, uid }) })).catch(() => {});
   return name || u;
 }
 
@@ -663,8 +663,8 @@ export async function crearSolicitud(v, tipo, item = null) {
     createdAt: serverTimestamp()
   });
   // Aviso por WhatsApp al administrador de Desabollito
-  fetch(`${BOT_API}/solicitud`, { method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ cid: S.company.id, sid: id }) }).catch(() => {});
+  S.user.getIdToken().then(idToken => fetch(`${BOT_API}/solicitud`, { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ idToken, cid: S.company.id, sid: id }) })).catch(() => {});
 }
 export const solicitarEliminacion = v => crearSolicitud(v, "eliminar");
 export async function resolverSolicitud(sol, aprobar) {
