@@ -2202,7 +2202,8 @@ body[data-solo-ver="1"] :is(.step, .etapa-item) { pointer-events: none; }
 .cierre-sec > [data-agregar] { align-self: flex-start; }
 .cierre-sec h3 { margin: 0; font-size: 16px; font-weight: 750; color: var(--ink); }
 .cierre-sec .table-wrap { width: 100%; min-height: 0; max-height: none; border: 0; background: none; }
-.tbl-cierre { min-width: 0; }
+.tbl-cierre { min-width: 540px; table-layout: fixed; }
+.cierre-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
 .tbl-cierre tbody tr { cursor: default; }
 .tbl-cierre tbody tr:hover { background: none; }
 .tbl-cierre th, .tbl-cierre th:first-child { position: static; background: none; padding: 0 8px 8px; font-size: 12px; font-weight: 600; color: var(--muted); }

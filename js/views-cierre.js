@@ -11,20 +11,22 @@ import { descargarTabla } from "./excel.js";
 
 const IVA = 1.21, IIBB = 0.035;
 const num = x => Number(x) || 0;
+const porAuto = f => num(f.cant) ? Math.round(num(f.total) / num(f.cant) * 100) / 100 : 0;
 const pesos = n => (n < 0 ? "−$" : "$") + Math.abs(Math.round(n)).toLocaleString("es-AR");
 const MESES = [[0, "Único"], ...Array.from({ length: 12 }, (_, i) => [i + 1, `${i + 1} ${i ? "meses" : "mes"}`])];
-// Cada sección: sus columnas [campo, tipo (n número, t texto, m tiempo), título] y el total de una fila
+// Cada sección: sus columnas [campo, tipo (c cantidad, n plata, t texto, m tiempo), título] y el total de una fila (m: modo de Vehículos)
 const SECC = {
-  ventas: { titulo: "Vehículos por compañía", campos: [["cant", "n", "Cantidad"], ["comp", "t", "Compañía"], ["valor", "n", "Valor por auto"]], total: f => num(f.cant) * num(f.valor), agregar: "Agregar compañía" },
+  ventas: { titulo: "Vehículos por compañía", campos: [["cant", "c", "Cantidad"], ["comp", "t", "Compañía"], ["valor", "n", "Valor por auto"]], total: (f, m) => m === "total" ? num(f.total) : num(f.cant) * num(f.valor), agregar: "Agregar compañía" },
   gastos: { titulo: "Gastos", campos: [["nombre", "t", "Gasto"], ["monto", "n", "Monto"], ["meses", "m", "Tiempo"]], total: f => num(f.monto) * (num(f.meses) || 1), agregar: "Agregar gasto" },
   retornos: { titulo: "Retornos (ej. alquileres de los técnicos)", campos: [["nombre", "t", "Concepto"], ["monto", "n", "Monto"]], total: f => num(f.monto), agregar: "Agregar retorno" },
 };
 export function cuentas(d) {
-  const s = k => (d[k] || []).reduce((a, f) => a + SECC[k].total(f), 0);
+  const s = k => (d[k] || []).reduce((a, f) => a + SECC[k].total(f, d.modoVentas), 0);
   const bruto = s("ventas"), sinIva = bruto / IVA, iibb = sinIva * IIBB, neto = sinIva - iibb, gastos = s("gastos"), retornos = s("retornos");
   return { bruto, iva: bruto - sinIva, sinIva, iibb, neto, gastos, trasGastos: neto - gastos, retornos, final: neto - gastos + retornos };
 }
 // Autocontrol: 121 de venta → 100 sin IVA → 96,5 tras IIBB; −10 de gasto mensual por 2 meses, +5 de retorno = 81,5
+console.assert(cuentas({ modoVentas: "total", ventas: [{ cant: 2, valor: 1, total: 242 }] }).sinIva - 200 < 1e-9, "cierre: modo total");
 console.assert(Math.abs(cuentas({ ventas: [{ cant: 1, valor: 121 }], gastos: [{ monto: 10, meses: 2 }], retornos: [{ monto: 5 }] }).final - 81.5) < 1e-9, "cierre: cuentas");
 
 let unsub = null;
@@ -43,7 +45,7 @@ export function vistaCierre(view) {
   $("#c-desc").onclick = () => {
     const r = cuentas(d), neg = (...x) => Object.assign(x, { negrita: true }), filas = [];
     const sec = (titulo, k, fila, sub) => { filas.push(neg(titulo, "", "", "")); (d[k] || []).forEach(f => filas.push(fila(f))); filas.push(neg("Subtotal", "", "", sub), ["", "", "", ""]); };
-    sec("VEHÍCULOS", "ventas", f => [f.comp || "", num(f.cant), num(f.valor), SECC.ventas.total(f)], r.bruto);
+    sec("VEHÍCULOS", "ventas", f => [f.comp || "", num(f.cant), d.modoVentas === "total" ? porAuto(f) : num(f.valor), SECC.ventas.total(f, d.modoVentas)], r.bruto);
     sec("GASTOS", "gastos", f => [f.nombre || "", MESES.find(([n]) => n === num(f.meses))?.[1] || "Único", num(f.monto), SECC.gastos.total(f)], r.gastos);
     sec("RETORNOS", "retornos", f => [f.nombre || "", "", num(f.monto), num(f.monto)], r.retornos);
     filas.push(neg("RESUMEN", "", "", ""), ["Total facturado", "", "", r.bruto], ["IVA 21%", "", "", -r.iva], ["IIBB 3,5%", "", "", -r.iibb],
@@ -54,20 +56,26 @@ export function vistaCierre(view) {
 
   const celda = (c, t, l, v) => t === "m"
     ? `<select data-c="${c}" aria-label="${l}">${MESES.map(([n, txt]) => `<option value="${n}" ${num(v) === n ? "selected" : ""}>${txt}</option>`).join("")}</select>`
-    : `<input data-c="${c}" aria-label="${l}" ${t === "n" ? `type="number" inputmode="decimal" min="0" step="any" class="num"` : `type="text" ${c === "comp" ? `list="c-comps"` : ""}`} value="${esc(v ?? "")}">`;
+    : `<input data-c="${c}" aria-label="${l}" ${t === "n" || t === "c" ? `type="number" inputmode="decimal" min="0" step="any" ${t === "n" ? `class="num"` : ""}` : `type="text" ${c === "comp" ? `list="c-comps"` : ""}`} value="${esc(v ?? "")}">`;
   // Retornos va plegado (se recuerda si se abrió), con su total a la vista
-  const tabla = k => { const s = SECC[k], plegable = k === "retornos";
+  // Vehículos: se escribe el valor por auto (y se calcula el total) o el total facturado (y se calcula el valor por auto)
+  const ANCHO = { c: "110px", n: "150px", m: "130px", t: "" };
+  const tabla = k => { const s = SECC[k], plegable = k === "retornos", porTotal = k === "ventas" && d.modoVentas === "total";
+    const modos = k === "ventas" ? `<div class="seg seg-sm">${[["auto", "Valor por auto"], ["total", "Total facturado"]].map(([m, l]) => `<button type="button" class="seg-btn ${(d.modoVentas || "auto") === m ? "on" : ""}" data-modo="${m}">${l}</button>`).join("")}</div>` : "";
     return `${plegable ? `<details class="d-sec d-adic cierre-sec" id="c-ret" ${retAbierto ? "open" : ""}><summary><h3>${s.titulo}</h3><small class="muted" data-sub="${k}"></small></summary>`
-      : `<section class="d-sec cierre-sec"><h3>${s.titulo}</h3>`}
-      <div class="table-wrap"><table class="tbl tbl-cierre"><thead><tr>${s.campos.map(([, t, l]) => `<th class="${t === "n" ? "num" : ""}">${l}</th>`).join("")}<th class="num">Total</th><th></th></tr></thead>
-      <tbody>${(d[k] || []).map((f, i) => `<tr data-sec="${k}" data-i="${i}">${s.campos.map(([c, t, l]) => `<td>${celda(c, t, l, f[c])}</td>`).join("")}
-        <td class="num" data-tot></td><td><button type="button" class="icon-btn sm danger" data-borrar aria-label="Borrar fila">${icon("trash")}</button></td></tr>`).join("")}</tbody>
+      : `<section class="d-sec cierre-sec"><div class="cierre-head"><h3>${s.titulo}</h3>${modos}</div>`}
+      <div class="table-wrap"><table class="tbl tbl-cierre"><colgroup>${s.campos.map(([, t]) => `<col style="width:${ANCHO[t] || "auto"}">`).join("")}<col style="width:150px"><col style="width:44px"></colgroup>
+      <thead><tr>${s.campos.map(([, t, l]) => `<th class="${t === "n" ? "num" : ""}">${l}</th>`).join("")}<th class="num">Total</th><th></th></tr></thead>
+      <tbody>${(d[k] || []).map((f, i) => `<tr data-sec="${k}" data-i="${i}">${s.campos.map(([c, t, l]) => porTotal && c === "valor" ? `<td class="num" data-pu></td>` : `<td>${celda(c, t, l, f[c])}</td>`).join("")}
+        ${porTotal ? `<td>${celda("total", "n", "Total facturado", f.total)}</td>` : `<td class="num" data-tot></td>`}<td><button type="button" class="icon-btn sm danger" data-borrar aria-label="Borrar fila">${icon("trash")}</button></td></tr>`).join("")}</tbody>
       <tfoot><tr><td colspan="${s.campos.length}"></td><td class="num" data-sub="${k}"></td><td></td></tr></tfoot></table></div>
       <button type="button" class="btn btn-ghost btn-sm" data-agregar="${k}">${icon("plus")}${s.agregar}</button>${plegable ? "</details>" : "</section>"}`; };
   const linea = (txt, n, cls = "") => `<div class="cierre-linea ${cls}"><span>${txt}</span><b>${pesos(n)}</b></div>`;
   // Solo los números: no se repintan los campos, así no se pierde lo que se está escribiendo
   const totales = () => {
-    body.querySelectorAll("tr[data-sec]").forEach(tr => { $("[data-tot]", tr).textContent = pesos(SECC[tr.dataset.sec].total(d[tr.dataset.sec][tr.dataset.i])); });
+    body.querySelectorAll("tr[data-sec]").forEach(tr => { const f = d[tr.dataset.sec][tr.dataset.i], tot = $("[data-tot]", tr), pu = $("[data-pu]", tr);
+      if (tot) tot.textContent = pesos(SECC[tr.dataset.sec].total(f, d.modoVentas));
+      if (pu) pu.textContent = pesos(porAuto(f)); });
     const r = cuentas(d);
     body.querySelectorAll("[data-sub]").forEach(td => { td.textContent = pesos({ ventas: r.bruto, gastos: r.gastos, retornos: r.retornos }[td.dataset.sub]); });
     $("#c-res", body).innerHTML = linea("Total facturado", r.bruto) + linea("IVA 21%", -r.iva) + linea("IIBB 3,5%", -r.iibb)
@@ -99,6 +107,11 @@ export function vistaCierre(view) {
     if (remoto && !editando()) { d = remoto; remoto = null; pintar(); }
   }));
   body.addEventListener("click", async e => {
+    const modo = e.target.closest("[data-modo]")?.dataset.modo;
+    if (modo) { if (modo === (d.modoVentas || "auto")) return;
+      // Al cambiar se pasa el dato, así el total de cada compañía no cambia
+      d.ventas = (d.ventas || []).map(f => modo === "total" ? { ...f, total: num(f.cant) * num(f.valor) } : { ...f, valor: porAuto(f) });
+      d.modoVentas = modo; guardar(); return pintar(); }
     const add = e.target.closest("[data-agregar]");
     if (add) { const k = add.dataset.agregar; d[k] = [...(d[k] || []), k === "gastos" ? { meses: 0 } : {}]; guardar(); pintar();
       return $(`tr[data-sec="${k}"][data-i="${d[k].length - 1}"] input`, body)?.focus(); }

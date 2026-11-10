@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.0.29", items: ["Cierre operativo: en Vehículos elegís cargar el valor por auto o el total facturado de cada compañía; la cantidad va alineada a la izquierda y las columnas ya no se mueven al escribir."] },
   { v: "4.0.28", items: ["Cierre operativo: cada categoría en su caja, sin el texto «Subtotal», y Retornos plegado (se abre tocándolo)."] },
   { v: "4.0.27", items: ["Cierre operativo: botón Descargar (Excel o PDF) y categorías mejor separadas."] },
   { v: "4.0.26", items: ["Cierre operativo más simple: sin colores, resumen más corto y solo el total final resalta."] },
