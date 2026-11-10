@@ -29,7 +29,7 @@ const SECC = {
   ventas: { titulo: "Vehículos por compañía", campos: [["cant", "c", "Cantidad"], ["comp", "t", "Compañía"], ["valor", "n", "Valor por auto"]], total: (f, m) => m === "total" ? num(f.total) : num(f.cant) * num(f.valor), agregar: "Agregar compañía" },
   gastos: { titulo: "Gastos", campos: [["nombre", "t", "Gasto"], ["monto", "n", "Monto"]], total: f => num(f.monto), agregar: "Agregar gasto" },
   // Reparto del total final entre personas, por porcentaje (ej. 60/40)
-  reparto: { titulo: "Reparto del total final", campos: [["nombre", "t", "Persona"], ["pct", "c", "%"]], total: (f, m, r) => (r?.final || 0) * num(f.pct) / 100, agregar: "Agregar persona" },
+  reparto: { titulo: "Reparto", campos: [["nombre", "t", "Persona"], ["pct", "c", "%"]], total: (f, m, r) => (r?.final || 0) * num(f.pct) / 100, agregar: "Agregar persona" },
   // Gastos de cada persona del reparto: se le descuentan de su parte
   pg: { titulo: "Gastos por persona", campos: [["nombre", "t", "Gasto"], ["monto", "n", "Monto"]], total: f => num(f.monto), agregar: "Agregar gasto" },
   pg2: { titulo: "Más gastos", campos: [["nombre", "t", "Gasto"], ["monto", "n", "Monto"]], total: f => num(f.monto), agregar: "Agregar gasto" },
@@ -89,18 +89,17 @@ function cierrePDF(d, r) {
     (d.ventas || []).map(f => [num(f.cant) || "", f.comp || "", $$(tot ? porAuto(f) : num(f.valor)), $$(SECC.ventas.total(f, d.modoVentas))]), [[`Total (${(d.ventas || []).reduce((a, f) => a + num(f.cant), 0)} autos)`, r.bruto, "sub"]]);
   caja("Gastos", [["Gasto", 0], ["Monto", 40, 1]], (d.gastos || []).map(f => [(f.nombre || "") + (f.retorno ? "  (retorno)" : ""), $$(num(f.monto))]), [["Total", r.gastos, "sub"]]);
   caja("Resumen", [], [], [["Total facturado", r.bruto], ["IVA 21%", -r.iva], ["IIBB 3,5%", -r.iibb], ["Neto", r.neto, "sub"], ["Gastos", -r.gastos], ...(r.retornos ? [["Retornos", r.retornos]] : []), ["Total final", r.final, "final"]]);
-  if (d.reparto?.length) caja("Reparto del total final", [["Persona", 0], ["%", 24, 1], ["Le toca", 40, 1]], d.reparto.map(f => [f.nombre || "", num(f.pct) + "%", $$(parte(f, r))]));
+  if (d.reparto?.length) caja("Reparto", [["Persona", 0], ["%", 24, 1], ["Le toca", 40, 1]], d.reparto.map(f => [f.nombre || "", num(f.pct) + "%", $$(parte(f, r))]));
   // Cada persona: lo que le toca, debajo cada gasto (y cada retorno, solo si hay) y lo que queda; sin tabla aparte ni línea "Gastos"
   const itemsG = l => (l || []).map(g => [(g.nombre || "Sin nombre") + (g.retorno ? " (retorno)" : ""), g.retorno ? num(g.monto) : -num(g.monto)]);
   (d.reparto || []).forEach(f => {
-    caja(`Gastos de ${f.nombre || "sin nombre"}`, [], [], [[`Le toca (${num(f.pct)}%)`, parte(f, r)], ...itemsG(f.gastos), [f.gastos2?.length ? "Queda" : "Final", queda(f, r), "final"]]);
-    if (f.gastos2?.length) caja(`Más gastos de ${f.nombre || "sin nombre"}`, [], [], [["Queda", queda(f, r)], ...itemsG(f.gastos2), ["Final", quedaFinal(f, r), "final"]]);
+    caja(`Gastos de ${f.nombre || "sin nombre"}`, [], [], [[`Le toca (${num(f.pct)}%)`, parte(f, r)], ...itemsG(f.gastos), ...(f.gastos2?.length ? [["Queda", queda(f, r), "sub"], ...itemsG(f.gastos2)] : []), ["Final", quedaFinal(f, r), "final"]]);
   });
   const H = Math.max(297, 20 + 2 * M + pend.reduce((a, [, , f, l]) => a + altoDe(f, l) + 5, 0));
   doc = new window.jspdf.jsPDF({ unit: "mm", format: [W, H] });
-  doc.setFont("helvetica", "bold"); doc.setFontSize(17); doc.setTextColor(17); doc.text("Cierre operativo", M, y + 6);
+  doc.setFont("helvetica", "bold"); doc.setFontSize(17); doc.setTextColor(17); doc.text(`Cierre operativo · ${S.company?.name || ""}`, M, y + 6);
   doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.setTextColor(100);
-  doc.text(`${S.company?.name || ""} · ${new Date().toLocaleDateString("es-AR")}`, M, y + 12); y += 20;
+  doc.text(new Date().toLocaleDateString("es-AR"), M, y + 12); y += 20;
   pend.forEach(c => dibujar(...c));
   doc.save(`Cierre_${hoyISO()}.pdf`);
 }
