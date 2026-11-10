@@ -1,6 +1,6 @@
 // ═════════════════════════════════════════════════════════════
 //  CIERRE OPERATIVO: vehículos por compañía − IVA − IIBB − gastos + retornos = total final.
-//  Se guarda en companies/{cid}/cierre/datos: { ventas: [{cant, comp, valor}], gastos: [{nombre, monto, meses}], retornos: [{nombre, monto}] }
+//  Se guarda en companies/{cid}/cierre/datos: { ventas: [{cant, comp, valor}], gastos: [{nombre, monto}], retornos: [{nombre, monto}] }
 //  Sin elegir acceso: lo ve quien tenga Gastos tildado (si no, los administradores).
 // ═════════════════════════════════════════════════════════════
 import { db, doc, onSnapshot, setDoc } from "./firebase.js";
@@ -23,11 +23,10 @@ function plata(inp) {
   return txt ? Number((e || "0") + (dec ? "." + dec.slice(0, 2) : "")) : "";
 }
 const pesos = n => (n < 0 ? "−$" : "$") + Math.abs(Math.round(n)).toLocaleString("es-AR");
-const MESES = [[0, "Único"], ...Array.from({ length: 12 }, (_, i) => [i + 1, `${i + 1} ${i ? "meses" : "mes"}`])];
-// Cada sección: sus columnas [campo, tipo (c cantidad, n plata, t texto, m tiempo), título] y el total de una fila (m: modo de Vehículos)
+// Cada sección: sus columnas [campo, tipo (c cantidad, n plata, t texto), título] y el total de una fila (m: modo de Vehículos)
 const SECC = {
   ventas: { titulo: "Vehículos por compañía", campos: [["cant", "c", "Cantidad"], ["comp", "t", "Compañía"], ["valor", "n", "Valor por auto"]], total: (f, m) => m === "total" ? num(f.total) : num(f.cant) * num(f.valor), agregar: "Agregar compañía" },
-  gastos: { titulo: "Gastos", campos: [["nombre", "t", "Gasto"], ["monto", "n", "Monto"], ["meses", "m", "Tiempo"]], total: f => num(f.monto) * (num(f.meses) || 1), agregar: "Agregar gasto" },
+  gastos: { titulo: "Gastos", campos: [["nombre", "t", "Gasto"], ["monto", "n", "Monto"]], total: f => num(f.monto), agregar: "Agregar gasto" },
   retornos: { titulo: "Retornos (ej. alquileres de los técnicos)", campos: [["nombre", "t", "Concepto"], ["monto", "n", "Monto"]], total: f => num(f.monto), agregar: "Agregar retorno" },
 };
 export function cuentas(d) {
@@ -35,9 +34,9 @@ export function cuentas(d) {
   const bruto = s("ventas"), sinIva = bruto / IVA, iibb = sinIva * IIBB, neto = sinIva - iibb, gastos = s("gastos"), retornos = s("retornos");
   return { bruto, iva: bruto - sinIva, sinIva, iibb, neto, gastos, trasGastos: neto - gastos, retornos, final: neto - gastos + retornos };
 }
-// Autocontrol: 121 de venta → 100 sin IVA → 96,5 tras IIBB; −10 de gasto mensual por 2 meses, +5 de retorno = 81,5
+// Autocontrol: 121 de venta → 100 sin IVA → 96,5 tras IIBB; −10 de gasto, +5 de retorno = 91,5
 console.assert(cuentas({ modoVentas: "total", ventas: [{ cant: 2, valor: 1, total: 242 }] }).sinIva - 200 < 1e-9, "cierre: modo total");
-console.assert(Math.abs(cuentas({ ventas: [{ cant: 1, valor: 121 }], gastos: [{ monto: 10, meses: 2 }], retornos: [{ monto: 5 }] }).final - 81.5) < 1e-9, "cierre: cuentas");
+console.assert(Math.abs(cuentas({ ventas: [{ cant: 1, valor: 121 }], gastos: [{ monto: 10 }], retornos: [{ monto: 5 }] }).final - 91.5) < 1e-9, "cierre: cuentas");
 
 let unsub = null;
 export function vistaCierre(view) {
@@ -56,21 +55,19 @@ export function vistaCierre(view) {
     const r = cuentas(d), neg = (...x) => Object.assign(x, { negrita: true }), filas = [];
     const sec = (titulo, k, fila, sub) => { filas.push(neg(titulo, "", "", "")); (d[k] || []).forEach(f => filas.push(fila(f))); filas.push(neg("Subtotal", "", "", sub), ["", "", "", ""]); };
     sec("VEHÍCULOS", "ventas", f => [f.comp || "", num(f.cant), d.modoVentas === "total" ? porAuto(f) : num(f.valor), SECC.ventas.total(f, d.modoVentas)], r.bruto);
-    sec("GASTOS", "gastos", f => [f.nombre || "", MESES.find(([n]) => n === num(f.meses))?.[1] || "Único", num(f.monto), SECC.gastos.total(f)], r.gastos);
+    sec("GASTOS", "gastos", f => [f.nombre || "", "", num(f.monto), SECC.gastos.total(f)], r.gastos);
     sec("RETORNOS", "retornos", f => [f.nombre || "", "", num(f.monto), num(f.monto)], r.retornos);
     filas.push(neg("RESUMEN", "", "", ""), ["Total facturado", "", "", r.bruto], ["IVA 21%", "", "", -r.iva], ["IIBB 3,5%", "", "", -r.iibb],
       ["Neto", "", "", r.neto], ["Gastos", "", "", -r.gastos], ["Retornos", "", "", r.retornos], neg("TOTAL FINAL", "", "", r.final));
     descargarTabla({ archivo: `Cierre_${hoyISO()}`, titulo: "Cierre operativo", filas,
-      cols: [{ titulo: "CONCEPTO", ancho: 30 }, { titulo: "CANT. / TIEMPO", ancho: 16 }, { titulo: "VALOR", ancho: 18, tipo: "moneda" }, { titulo: "TOTAL", ancho: 20, tipo: "moneda" }] });
+      cols: [{ titulo: "CONCEPTO", ancho: 30 }, { titulo: "CANTIDAD", ancho: 16 }, { titulo: "VALOR", ancho: 18, tipo: "moneda" }, { titulo: "TOTAL", ancho: 20, tipo: "moneda" }] });
   };
 
-  const celda = (c, t, l, v) => t === "m"
-    ? `<select data-c="${c}" aria-label="${l}">${MESES.map(([n, txt]) => `<option value="${n}" ${num(v) === n ? "selected" : ""}>${txt}</option>`).join("")}</select>`
-    : t === "n" ? `<input data-c="${c}" aria-label="${l}" type="text" inputmode="decimal" class="num" data-plata value="${esc(v === "" || v == null ? "" : num(v).toLocaleString("es-AR", { maximumFractionDigits: 2 }))}">`
+  const celda = (c, t, l, v) => t === "n" ? `<input data-c="${c}" aria-label="${l}" type="text" inputmode="decimal" class="num" data-plata value="${esc(v === "" || v == null ? "" : num(v).toLocaleString("es-AR", { maximumFractionDigits: 2 }))}">`
     : `<input data-c="${c}" aria-label="${l}" ${t === "c" ? `type="number" inputmode="numeric" min="0" step="any"` : `type="text" ${c === "comp" ? `list="c-comps"` : ""}`} value="${esc(v ?? "")}">`;
   // Retornos va plegado (se recuerda si se abrió), con su total a la vista
   // Vehículos: se escribe el valor por auto (y se calcula el total) o el total facturado (y se calcula el valor por auto)
-  const ANCHO = { c: "110px", n: "150px", m: "130px", t: "" };
+  const ANCHO = { c: "110px", n: "150px", t: "" };
   const tabla = k => { const s = SECC[k], plegable = k === "retornos", porTotal = k === "ventas" && d.modoVentas === "total";
     const modos = k === "ventas" ? `<div class="seg seg-sm">${[["auto", "Valor por auto"], ["total", "Total facturado"]].map(([m, l]) => `<button type="button" class="seg-btn ${(d.modoVentas || "auto") === m ? "on" : ""}" data-modo="${m}">${l}</button>`).join("")}</div>` : "";
     return `${plegable ? `<details class="d-sec d-adic cierre-sec" id="c-ret" ${retAbierto ? "open" : ""}><summary><h3>${s.titulo}</h3><small class="muted" data-sub="${k}"></small></summary>`
@@ -110,7 +107,7 @@ export function vistaCierre(view) {
     const c = e.target.dataset.c, tr = e.target.closest("tr[data-sec]"); if (!c || !tr) return;
     const f = d[tr.dataset.sec][tr.dataset.i], t = e.target.type;
     if (e.target.hasAttribute("data-plata")) f[c] = plata(e.target);
-    else f[c] = t === "number" || e.target.tagName === "SELECT" ? (e.target.value === "" ? "" : num(e.target.value)) : e.target.value;
+    else f[c] = t === "number" ? (e.target.value === "" ? "" : num(e.target.value)) : e.target.value;
     totales(); clearTimeout(tGuardar); tGuardar = setTimeout(guardar, 700);
   });
   body.addEventListener("toggle", e => { if (e.target.id === "c-ret") retAbierto = e.target.open; }, true);
@@ -125,7 +122,7 @@ export function vistaCierre(view) {
       d.ventas = (d.ventas || []).map(f => modo === "total" ? { ...f, total: num(f.cant) * num(f.valor) } : { ...f, valor: porAuto(f) });
       d.modoVentas = modo; guardar(); return pintar(); }
     const add = e.target.closest("[data-agregar]");
-    if (add) { const k = add.dataset.agregar; d[k] = [...(d[k] || []), k === "gastos" ? { meses: 0 } : {}]; guardar(); pintar();
+    if (add) { const k = add.dataset.agregar; d[k] = [...(d[k] || []), {}]; guardar(); pintar();
       return $(`tr[data-sec="${k}"][data-i="${d[k].length - 1}"] input`, body)?.focus(); }
     const tr = e.target.closest("[data-borrar]")?.closest("tr"); if (!tr) return;
     const k = tr.dataset.sec, f = d[k][tr.dataset.i];
