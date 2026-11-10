@@ -12,6 +12,16 @@ import { descargarTabla } from "./excel.js";
 const IVA = 1.21, IIBB = 0.035;
 const num = x => Number(x) || 0;
 const porAuto = f => num(f.cant) ? Math.round(num(f.total) / num(f.cant) * 100) / 100 : 0;
+// Plata con puntos de miles mientras se escribe (coma para decimales); el cursor queda después del mismo dígito
+function plata(inp) {
+  const izq = inp.value.slice(0, inp.selectionStart).replace(/[^d,]/g, "").length;
+  const [ent = "", dec] = inp.value.replace(/[^d,]/g, "").split(",");
+  const e = ent.replace(/^0+(?=d)/, ""), txt = (e ? Number(e).toLocaleString("es-AR") : dec !== undefined ? "0" : "") + (dec !== undefined ? "," + dec.slice(0, 2) : "");
+  inp.value = txt;
+  let pos = 0, n = 0; while (pos < txt.length && n < izq) { if (/[d,]/.test(txt[pos])) n++; pos++; }
+  inp.setSelectionRange(pos, pos);
+  return txt ? Number((e || "0") + (dec ? "." + dec.slice(0, 2) : "")) : "";
+}
 const pesos = n => (n < 0 ? "−$" : "$") + Math.abs(Math.round(n)).toLocaleString("es-AR");
 const MESES = [[0, "Único"], ...Array.from({ length: 12 }, (_, i) => [i + 1, `${i + 1} ${i ? "meses" : "mes"}`])];
 // Cada sección: sus columnas [campo, tipo (c cantidad, n plata, t texto, m tiempo), título] y el total de una fila (m: modo de Vehículos)
@@ -56,7 +66,8 @@ export function vistaCierre(view) {
 
   const celda = (c, t, l, v) => t === "m"
     ? `<select data-c="${c}" aria-label="${l}">${MESES.map(([n, txt]) => `<option value="${n}" ${num(v) === n ? "selected" : ""}>${txt}</option>`).join("")}</select>`
-    : `<input data-c="${c}" aria-label="${l}" ${t === "n" || t === "c" ? `type="number" inputmode="decimal" min="0" step="any" ${t === "n" ? `class="num"` : ""}` : `type="text" ${c === "comp" ? `list="c-comps"` : ""}`} value="${esc(v ?? "")}">`;
+    : t === "n" ? `<input data-c="${c}" aria-label="${l}" type="text" inputmode="decimal" class="num" data-plata value="${esc(v === "" || v == null ? "" : num(v).toLocaleString("es-AR", { maximumFractionDigits: 2 }))}">`
+    : `<input data-c="${c}" aria-label="${l}" ${t === "c" ? `type="number" inputmode="numeric" min="0" step="any"` : `type="text" ${c === "comp" ? `list="c-comps"` : ""}`} value="${esc(v ?? "")}">`;
   // Retornos va plegado (se recuerda si se abrió), con su total a la vista
   // Vehículos: se escribe el valor por auto (y se calcula el total) o el total facturado (y se calcula el valor por auto)
   const ANCHO = { c: "110px", n: "150px", m: "130px", t: "" };
@@ -98,7 +109,8 @@ export function vistaCierre(view) {
   body.addEventListener("input", e => {
     const c = e.target.dataset.c, tr = e.target.closest("tr[data-sec]"); if (!c || !tr) return;
     const f = d[tr.dataset.sec][tr.dataset.i], t = e.target.type;
-    f[c] = t === "number" || e.target.tagName === "SELECT" ? (e.target.value === "" ? "" : num(e.target.value)) : e.target.value;
+    if (e.target.hasAttribute("data-plata")) f[c] = plata(e.target);
+    else f[c] = t === "number" || e.target.tagName === "SELECT" ? (e.target.value === "" ? "" : num(e.target.value)) : e.target.value;
     totales(); clearTimeout(tGuardar); tGuardar = setTimeout(guardar, 700);
   });
   body.addEventListener("toggle", e => { if (e.target.id === "c-ret") retAbierto = e.target.open; }, true);
