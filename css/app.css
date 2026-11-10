@@ -2198,9 +2198,9 @@ body[data-solo-ver="1"] :is(.step, .etapa-item) { pointer-events: none; }
 }
 /* Cierre operativo: sobrio, sin colores; solo el total final resalta */
 .cierre-page { max-width: 760px; gap: 32px; padding-bottom: 40px; }
-.cierre-sec + .cierre-sec { margin-top: 32px; padding-top: 32px; border-top: 1px solid var(--line); }
-.cierre-sec { display: flex; flex-direction: column; gap: 12px; align-items: flex-start; }
-.cierre-sec h3 { margin: 0 0 4px; font-size: 16px; font-weight: 750; color: var(--ink); }
+#c-body { display: flex; flex-direction: column; gap: 16px; }
+.cierre-sec > [data-agregar] { align-self: flex-start; }
+.cierre-sec h3 { margin: 0; font-size: 16px; font-weight: 750; color: var(--ink); }
 .cierre-sec .table-wrap { width: 100%; min-height: 0; max-height: none; border: 0; background: none; }
 .tbl-cierre { min-width: 0; }
 .tbl-cierre tbody tr { cursor: default; }

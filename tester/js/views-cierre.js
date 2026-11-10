@@ -35,7 +35,7 @@ export function vistaCierre(view) {
   if (!S.company) { view.innerHTML = `<div class="skeleton tall"></div>`; return; }
   const ref = doc(db, "companies", S.company.id, "cierre", "datos");
   const comps = [...new Set(activos().map(v => v.compania).filter(Boolean))].sort();
-  let d = { ventas: [], gastos: [], retornos: [] }, remoto = null, tGuardar = null;
+  let d = { ventas: [], gastos: [], retornos: [] }, remoto = null, tGuardar = null, retAbierto = false;
   view.innerHTML = `<div class="tec-page cierre-page"><datalist id="c-comps">${comps.map(c => `<option value="${esc(c)}">`).join("")}</datalist>
     <div id="c-body"><div class="skeleton tall"></div></div></div>`;
   const body = $("#c-body", view);
@@ -55,13 +55,15 @@ export function vistaCierre(view) {
   const celda = (c, t, l, v) => t === "m"
     ? `<select data-c="${c}" aria-label="${l}">${MESES.map(([n, txt]) => `<option value="${n}" ${num(v) === n ? "selected" : ""}>${txt}</option>`).join("")}</select>`
     : `<input data-c="${c}" aria-label="${l}" ${t === "n" ? `type="number" inputmode="decimal" min="0" step="any" class="num"` : `type="text" ${c === "comp" ? `list="c-comps"` : ""}`} value="${esc(v ?? "")}">`;
-  const tabla = k => { const s = SECC[k];
-    return `<section class="cierre-sec"><h3>${s.titulo}${s.sub ? ` <small class="muted">${s.sub}</small>` : ""}</h3>
+  // Retornos va plegado (se recuerda si se abrió), con su total a la vista
+  const tabla = k => { const s = SECC[k], plegable = k === "retornos";
+    return `${plegable ? `<details class="d-sec d-adic cierre-sec" id="c-ret" ${retAbierto ? "open" : ""}><summary><h3>${s.titulo}</h3><small class="muted" data-sub="${k}"></small></summary>`
+      : `<section class="d-sec cierre-sec"><h3>${s.titulo}</h3>`}
       <div class="table-wrap"><table class="tbl tbl-cierre"><thead><tr>${s.campos.map(([, t, l]) => `<th class="${t === "n" ? "num" : ""}">${l}</th>`).join("")}<th class="num">Total</th><th></th></tr></thead>
       <tbody>${(d[k] || []).map((f, i) => `<tr data-sec="${k}" data-i="${i}">${s.campos.map(([c, t, l]) => `<td>${celda(c, t, l, f[c])}</td>`).join("")}
         <td class="num" data-tot></td><td><button type="button" class="icon-btn sm danger" data-borrar aria-label="Borrar fila">${icon("trash")}</button></td></tr>`).join("")}</tbody>
-      <tfoot><tr><td colspan="${s.campos.length}">Subtotal</td><td class="num" data-sub="${k}"></td><td></td></tr></tfoot></table></div>
-      <button type="button" class="btn btn-ghost btn-sm" data-agregar="${k}">${icon("plus")}${s.agregar}</button></section>`; };
+      <tfoot><tr><td colspan="${s.campos.length}"></td><td class="num" data-sub="${k}"></td><td></td></tr></tfoot></table></div>
+      <button type="button" class="btn btn-ghost btn-sm" data-agregar="${k}">${icon("plus")}${s.agregar}</button>${plegable ? "</details>" : "</section>"}`; };
   const linea = (txt, n, cls = "") => `<div class="cierre-linea ${cls}"><span>${txt}</span><b>${pesos(n)}</b></div>`;
   // Solo los números: no se repintan los campos, así no se pierde lo que se está escribiendo
   const totales = () => {
@@ -71,7 +73,7 @@ export function vistaCierre(view) {
     $("#c-res", body).innerHTML = linea("Total facturado", r.bruto) + linea("IVA 21%", -r.iva) + linea("IIBB 3,5%", -r.iibb)
       + linea("Neto", r.neto, "sub") + linea("Gastos", -r.gastos) + linea("Retornos", r.retornos) + linea("Total final", r.final, "final");
   };
-  const pintar = () => { body.innerHTML = tabla("ventas") + tabla("gastos") + tabla("retornos") + `<section class="cierre-sec"><h3>Resumen</h3><div class="cierre-res" id="c-res"></div></section>`; totales(); };
+  const pintar = () => { body.innerHTML = tabla("ventas") + tabla("gastos") + tabla("retornos") + `<section class="d-sec cierre-sec"><h3>Resumen</h3><div class="cierre-res" id="c-res"></div></section>`; totales(); };
   // shortcut: se guarda el documento entero (si dos editan a la vez gana el último); pasar a filas sueltas si se edita mucho en simultáneo
   const guardar = () => { clearTimeout(tGuardar); tGuardar = null; remoto = null; setDoc(ref, d).catch(e => toast(mensajeError(e), "error")); };
   const editando = () => body.contains(document.activeElement) && document.activeElement.matches("input, select");
@@ -91,7 +93,8 @@ export function vistaCierre(view) {
     f[c] = t === "number" || e.target.tagName === "SELECT" ? (e.target.value === "" ? "" : num(e.target.value)) : e.target.value;
     totales(); clearTimeout(tGuardar); tGuardar = setTimeout(guardar, 700);
   });
-  body.addEventListener("focusout", () => setTimeout(() => {
+  body.addEventListener("toggle", e => { if (e.target.id === "c-ret") retAbierto = e.target.open; }, true);
+  body.addEventListener("focusout",() => setTimeout(() => {
     if (tGuardar) guardar();
     if (remoto && !editando()) { d = remoto; remoto = null; pintar(); }
   }));
