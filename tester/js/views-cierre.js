@@ -90,14 +90,14 @@ function cierrePDF(d, r) {
   caja("Vehículos por compañía", [["Cantidad", 24], ["Compañía", 0], ["Valor por auto", 38, 1], ["Total", 38, 1]],
     (d.ventas || []).map(f => [num(f.cant) || "", f.comp || "", $$(tot ? porAuto(f) : num(f.valor)), $$(SECC.ventas.total(f, d.modoVentas))]), [[`Total (${(d.ventas || []).reduce((a, f) => a + num(f.cant), 0)} autos)`, r.bruto, "sub"]]);
   caja("Gastos", [["Gasto", 0], ["Monto", 40, 1]], (d.gastos || []).map(f => [(f.nombre || "") + (f.retorno ? "  (retorno)" : ""), $$(num(f.monto))]), [["Total", r.gastos, "sub"]]);
-  caja("Resumen", [], [], [["Total facturado", r.bruto], ["IVA 21%", -r.iva], ["IIBB 3,5%", -r.iibb], ["Neto", r.neto, "sub"], ["Gastos", -r.gastos], ["Retornos", r.retornos], ["Total final", r.final, "final"]]);
+  caja("Resumen", [], [], [["Total facturado", r.bruto], ["IVA 21%", -r.iva], ["IIBB 3,5%", -r.iibb], ["Neto", r.neto, "sub"], ["Gastos", -r.gastos], ...(r.retornos ? [["Retornos", r.retornos]] : []), ["Total final", r.final, "final"]]);
   if (d.reparto?.length) caja("Reparto del total final", [["Persona", 0], ["%", 24, 1], ["Le toca", 40, 1]], d.reparto.map(f => [f.nombre || "", num(f.pct) + "%", $$(parte(f, r))]));
   const filasG = l => (l || []).map(g => [(g.nombre || "") + (g.retorno ? "  (retorno)" : ""), (g.retorno ? "+" : "") + $$(num(g.monto))]);
   (d.reparto || []).forEach(f => {
     caja(`Gastos de ${f.nombre || "sin nombre"}`, [["Gasto", 0], ["Monto", 40, 1]], filasG(f.gastos),
-      [[`Le toca (${num(f.pct)}%)`, parte(f, r)], ["Gastos", -gastosDe(f)], ["Retornos", retDe(f)], ["Queda", queda(f, r), "final"]]);
+      [[`Le toca (${num(f.pct)}%)`, parte(f, r)], ["Gastos", -gastosDe(f)], ...(retDe(f) ? [["Retornos", retDe(f)]] : []), ["Queda", queda(f, r), "final"]]);
     if (f.gastos2?.length) caja(`Más gastos de ${f.nombre || "sin nombre"}`, [["Gasto", 0], ["Monto", 40, 1]], filasG(f.gastos2),
-      [["Queda", queda(f, r)], ["Gastos", -gastosDe(f, "gastos2")], ["Retornos", retDe(f, "gastos2")], ["Queda final", quedaFinal(f, r), "final"]]);
+      [["Queda", queda(f, r)], ["Gastos", -gastosDe(f, "gastos2")], ...(retDe(f, "gastos2") ? [["Retornos", retDe(f, "gastos2")]] : []), ["Queda final", quedaFinal(f, r), "final"]]);
   });
   doc.save(`Cierre_${hoyISO()}.pdf`);
 }
