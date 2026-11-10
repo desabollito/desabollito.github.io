@@ -35,6 +35,55 @@ function elegirConformidad(el, v, alElegir) {
     alElegir?.();
   });
 }
+// ── Deslizar una tarjeta a la izquierda y mantener el dedo: pasa el vehículo al estado siguiente ──
+// Hay que dejarlo hasta que se llene la barra (0,8 s), así no hay cambios sin querer
+const PROX = { peritado: "turnado", turnado: "enreparacion", ausente: "enreparacion", enreparacion: "reparado", reparado: "llamado", llamado: "entregado", entregado: "facturado" };
+function avanzarEstado(v) {
+  const sig = PROX[estadoActual(v)]; if (!sig) return;
+  if (sig === "turnado") return elegirFechaEstado(v, "turnado");   // el turno pide día y hora
+  cambiarEstado(v, sig, hoyISO()).then(() => toast(`${v.patente || v.modelo || "Vehículo"} · ${ESTADO[sig].label}`, "success")).catch(err => toast(mensajeError(err), "error"));
+  if (sig === "llamado") setTimeout(() => ofrecerAvisoCliente(v), 350);
+  if (sig === "entregado") setTimeout(() => popupConformidad(v), 350);
+}
+function deslizarParaAvanzar(lista) {
+  if (soyDesmontaje() || soloVer()) return;
+  let g = null;
+  lista.addEventListener("pointerdown", e => {
+    if (e.pointerType === "mouse") return;
+    const card = e.target.closest("a.vcard"), v = card && getVehiculo(card.getAttribute("href").split("/").pop());
+    const sig = v && PROX[estadoActual(v)];
+    g = sig ? { card, v, sig, x0: e.clientX, y0: e.clientY, activo: false, armado: false, t: 0 } : null;
+  });
+  lista.addEventListener("pointermove", e => {
+    if (!g) return;
+    const dx = e.clientX - g.x0, dy = e.clientY - g.y0;
+    if (!g.activo) {
+      if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)) { g = null; return; }   // está desplazando la lista
+      if (dx > -14) return;
+      g.activo = true; lista.classList.remove("lista-anim"); g.card.classList.add("desliza");
+      g.card.insertAdjacentHTML("beforeend", `<span class="vswipe" style="--s:${ESTADO[g.sig].color}" aria-hidden="true"><b>${ESTADO[g.sig].label}</b><i class="vswipe-barra"></i><small>Mantené</small></span>`);
+    }
+    const x = Math.max(-124, Math.min(0, dx));
+    g.card.style.transform = `translateX(${x}px)`;
+    const armar = x <= -96;
+    if (armar && !g.armado) {
+      g.armado = true; g.card.classList.add("armado"); navigator.vibrate?.(10);
+      const yo = g;
+      g.t = setTimeout(() => { yo.hecho = true; yo.card.classList.add("hecho"); navigator.vibrate?.(30); avanzarEstado(getVehiculo(yo.v.id) || yo.v); }, 800);
+    } else if (!armar && g.armado && !g.hecho) { g.armado = false; g.card.classList.remove("armado"); clearTimeout(g.t); }
+  });
+  const fin = () => {
+    if (!g) return; const x = g; g = null;
+    if (!x.hecho) clearTimeout(x.t);
+    if (!x.activo) return;
+    x.card.dataset.deslizado = "1";   // el toque que sigue no abre el vehículo
+    x.card.classList.remove("desliza", "armado"); x.card.style.transform = "";
+    setTimeout(() => { x.card.querySelector(".vswipe")?.remove(); x.card.classList.remove("hecho"); }, 260);
+  };
+  lista.addEventListener("pointerup", fin); lista.addEventListener("pointercancel", fin);
+  lista.addEventListener("click", e => { const c = e.target.closest("a.vcard"); if (c?.dataset.deslizado) { e.preventDefault(); e.stopImmediatePropagation(); delete c.dataset.deslizado; } }, true);
+}
+
 function popupConformidad(v) {
   const s = openSheet({ title: "¿Cómo se fue el cliente?", body: conformidadHTML(getVehiculo(v.id) || v) });
   elegirConformidad(s.el, v, () => setTimeout(() => s.close(), 250));
@@ -203,6 +252,21 @@ export function vistaVehiculos(view, selId = null) {
   const cuantosActivos = () => [F.mios, F.sinAnul, F.grado.size, F.repuestos.size, F.pintura.size, F.turno.size, F.cliente.size, F.cargado.size, F.cias.size, F.orden !== "fecha" || F.dir !== -1].filter(Boolean).length;
   const marcarBoton = () => { const b = $("#tb-filtros"); if (!b) return; const k = cuantosActivos();
     b.classList.toggle("activo", k > 0); const n = $(".fo-badge", b); if (n) { n.textContent = k; n.hidden = !k; } };
+  // Filtros puestos, a la vista debajo del buscador: cada uno con su X (los estados ya se ven marcados en la fila de estados)
+  const puestos = () => { const o = [];
+    if (F.mios) o.push(["Cargados por mí", () => { F.mios = false; }]);
+    if (F.sinAnul) o.push(["Sin anulados", () => { F.sinAnul = false; }]);
+    F.grado.forEach(g => o.push([g ? `Grado ${g}` : "Sin grado", () => F.grado.delete(g)]));
+    ["pintura", "repuestos"].forEach(t => F[t].forEach(k => o.push([`${t === "pintura" ? "Pintura" : "Repuestos"}: ${ETAPAS[t].find(e => e[0] === k)?.[1] || k}`, () => F[t].delete(k)])));
+    F.turno.forEach(k => o.push([k === "si" ? "Turno confirmado" : "Turno sin confirmar", () => F.turno.delete(k)]));
+    F.cliente.forEach(k => o.push([`Cliente ${CARAS[k]?.[0].toLowerCase() || k}`, () => F.cliente.delete(k)]));
+    F.cargado.forEach(k => o.push([{ desm: "Con desmontaje", check: "Con check in / out", firma: "Firmados" }[k] || k, () => F.cargado.delete(k)]));
+    F.cias.forEach(c => o.push([c, () => F.cias.delete(c)]));
+    if (F.orden !== "fecha" || F.dir !== -1) o.push([`Orden: ${ORDENES.find(x => x[0] === F.orden)?.[1]} ${F.dir > 0 ? "↑" : "↓"}`, () => { F.orden = "fecha"; F.dir = -1; }]);
+    return o; };
+  const pintarPuestos = () => { const c = $("#filtros-act", view); if (!c) return; const o = puestos(), k = o.map(x => x[0]).join("|");
+    if (c.dataset.k === k) return; c.dataset.k = k;   // sin cambios no se repinta (si no, las etiquetas se animan con cada cambio de datos)
+    c.innerHTML = o.map(([t], i) => `<button type="button" class="filtro-act" data-quitar="${i}" aria-label="Quitar filtro ${esc(t)}"><span>${esc(t)}</span>${icon("x")}</button>`).join(""); c.hidden = !o.length; };
   setTopbar({
     title: "Vehículos", sinTitulo: true,
     back: S.volverA || null,   // abierto desde la planilla de técnicos: volver a la planilla
@@ -221,6 +285,7 @@ export function vistaVehiculos(view, selId = null) {
             <input type="search" id="q" placeholder="Buscar patente, modelo…" value="${esc(F.q)}" autocomplete="off"></label>
           ${ancho ? "" : strip}
         </div>
+        <div id="filtros-act" class="filtros-act" aria-label="Filtros puestos"></div>
         <div id="vlist" class="vlist"></div>
       </section>
       ${ancho ? `<section class="pane-detail" id="pane-detail"></section>` : ""}
@@ -240,6 +305,7 @@ export function vistaVehiculos(view, selId = null) {
       ESTADOS.filter(e => !soyLector() || cuenta[e.key] || F.estado.has(e.key)).map(e => `<button class="est ${F.estado.has(e.key) ? "on" : ""}" data-e="${e.key}" style="--c:${e.color}">
         <b>${cuenta[e.key]}</b><span>${e.label}</span></button>`).join("");
     $("#estado-strip", view).setAttribute("aria-label", `Filtrar por estado (${todos.length} en total)`);
+    pintarPuestos();
     // Count Up: los números de los estados cuentan desde 0 la primera vez que hay datos
     if (contarAlEntrar && !S.loadingVehicles) { contarAlEntrar = false; $$("#estado-strip b", view).forEach(b => contar(b)); }
 
@@ -264,6 +330,7 @@ export function vistaVehiculos(view, selId = null) {
   };
 
   // Computadora: tocar de nuevo el vehículo marcado lo desmarca y cierra el detalle
+  deslizarParaAvanzar($("#vlist", view));
   $("#vlist", view).addEventListener("click", e => {
     const a = e.target.closest("a.vcard.sel"); if (!a || !ancho || e.metaKey || e.ctrlKey) return;
     e.preventDefault(); S.ultimoVid = null; a.classList.remove("sel"); go("#/");
@@ -274,6 +341,10 @@ export function vistaVehiculos(view, selId = null) {
   $("#estado-strip", view).addEventListener("click", e => {
     const b = e.target.closest("[data-e]"); if (!b) return;
     { const k = b.dataset.e; F.estado.has(k) ? F.estado.delete(k) : F.estado.add(k); } pintar(true);   // misma cascada que al buscar
+  });
+  $("#filtros-act", view).addEventListener("click", e => {
+    const b = e.target.closest("[data-quitar]"); if (!b) return;
+    puestos()[+b.dataset.quitar]?.[1](); marcarBoton(); pintar(true);
   });
   // Un solo botón "Filtrar y ordenar": cada grupo es una fila de opciones (tocar una la elige; "Todos" la quita)
   $("#tb-filtros")?.addEventListener("click", () => {
@@ -287,8 +358,8 @@ export function vistaVehiculos(view, selId = null) {
       <section class="fo-sec fo-compacto"><h3>Turnos</h3><div class="fo-seg" id="fo-turno"></div></section>
       <section class="fo-sec"><h3>Cliente</h3><div class="fo-seg" id="fo-cliente"></div></section>
       ${lector ? "" : `<section class="fo-sec"><h3>Cargado</h3><div class="fo-seg" id="fo-cargado"></div></section>`}
-      <div class="fo-switches">${lector ? "" : `<label class="fo-switch"><span>Cargados por mí</span><input type="checkbox" id="fo-mios" ${F.mios ? "checked" : ""}></label>`}
-        <label class="fo-switch"><span>Ocultar anulados</span><input type="checkbox" id="fo-anul" ${F.sinAnul ? "checked" : ""}></label></div>
+      <section class="fo-sec"><h3>Opciones</h3><div class="fo-switches">${lector ? "" : `<label class="fo-switch"><span>Cargados por mí</span><input type="checkbox" id="fo-mios" ${F.mios ? "checked" : ""}></label>`}
+        <label class="fo-switch"><span>Ocultar anulados</span><input type="checkbox" id="fo-anul" ${F.sinAnul ? "checked" : ""}></label></div></section>
       <button type="button" class="btn btn-ghost btn-block" data-close id="fo-pdf">${icon("file")}Exportar PDF</button>
       <div class="fo-pie"><button type="button" class="btn btn-ghost" data-close id="fo-reset">Limpiar</button><button type="button" class="btn btn-primary" data-close id="fo-ver"></button></div>
     </div>` });

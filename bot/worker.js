@@ -44,7 +44,7 @@ export default {
     if (url.pathname === "/diagnostico") return diagnostico(url, env);
     if (url.pathname === "/evolution") return webhookEvolution(req, url, env, ctx);
     const API = { "/registro": nuevoRegistro, "/avisar": avisarCliente, "/solicitud": avisarSolicitud, "/agregado": avisarAgregado, "/pedido-union": avisarPedidoUnion,
-      "/admin/datos": adminDatos, "/admin/borrar-usuario": adminBorrarUsuario, "/admin/config": adminConfig, "/admin/padron": adminPadron, "/admin/fotos-wa": adminFotosWa, "/mover-vehiculo": moverVehiculo,
+      "/admin/datos": adminDatos, "/admin/borrar-usuario": adminBorrarUsuario, "/admin/config": adminConfig, "/admin/padron": adminPadron, "/admin/fotos-wa": adminFotosWa, "/admin/foto-usuario": adminFotoUsuario, "/mover-vehiculo": moverVehiculo,
       "/borrar-media": borrarMediaApi, "/eliminar-vehiculo": eliminarVehiculoApi,
       "/compartir": compartirApi, "/compartido": compartidoApi, "/aviso-planilla": avisoPlanilla,
       "/aviso-version": avisoVersion, "/pedir-borrar-operativo": pedirBorrarOperativo,
@@ -2322,35 +2322,55 @@ async function codigoWaApi(env, { idToken }) {
 
 // Foto de perfil = la de WhatsApp del número vinculado, copiada a Cloudinary (el link de WhatsApp vence a los días).
 // Se revisa como mucho una vez por semana; si la foto es privada o no hay, queda el avatar de siempre.
+// Una foto puesta a mano por el creador no se pisa (salvo que la persona pida la de WhatsApp).
+// Devuelve { foto, motivo }: el motivo sirve para ver en el panel por qué alguien quedó sin foto.
 async function actualizarFotoWa(env, uid, numero, forzar = false, perfil = null) {
-  if (!env.EVOLUTION_URL || !numero) return null;
+  if (!env.EVOLUTION_URL) return { foto: null, motivo: "falta EVOLUTION_URL en el bot" };
+  if (!numero) return { foto: null, motivo: "sin WhatsApp vinculado" };
   const p = perfil || await fsGet(env, `users/${uid}`);
-  if (!p || (!forzar && Date.now() - Number(p.fotoWaAt || 0) < 7 * 86400_000)) return p?.foto || null;
+  if (!p) return { foto: null, motivo: "no existe el usuario" };
+  if (!forzar && (p.fotoManual || Date.now() - Number(p.fotoWaAt || 0) < 7 * 86400_000)) return { foto: p.foto || null, motivo: "revisada hace poco" };
   await fsMerge(env, `users/${uid}`, { fotoWaAt: Date.now() });   // aunque falle, no se reintenta en cada mensaje
   const base = String(env.EVOLUTION_URL).replace(/\/+$/, "");
-  const j = await fetch(`${base}/chat/fetchProfilePictureUrl/${env.EVOLUTION_INSTANCE || "desabollito"}`, { method: "POST",
-    headers: { apikey: env.EVOLUTION_APIKEY, "Content-Type": "application/json" }, body: JSON.stringify({ number: numero }) }).then(r => r.json()).catch(() => null);
-  const url = j?.profilePictureUrl || j?.profilePicUrl || j?.url || "";
-  if (!/^https:\/\//.test(url)) return p.foto || null;
+  const r = await fetch(`${base}/chat/fetchProfilePictureUrl/${env.EVOLUTION_INSTANCE || "desabollito"}`, { method: "POST",
+    headers: { apikey: env.EVOLUTION_APIKEY, "Content-Type": "application/json" }, body: JSON.stringify({ number: String(numero).replace(/\D/g, "") }) }).catch(e => ({ ok: false, status: 0, text: async () => String(e?.message || e) }));
+  const crudo = await r.text().catch(() => "");
+  if (!r.ok) return { foto: p.foto || null, motivo: `Evolution respondió ${r.status}: ${crudo.slice(0, 160)}` };
+  let j = null; try { j = JSON.parse(crudo); } catch { /* respuesta rara */ }
+  const url = j?.profilePictureUrl || j?.profilePicUrl || j?.picture || j?.url || "";
+  if (!/^https:\/\//.test(url)) return { foto: p.foto || null, motivo: `sin foto visible para el bot (${crudo.slice(0, 120)})` };
   const origen = new URL(url).pathname;   // la misma foto conserva el archivo; cambia solo la firma del link
-  if (origen === p.fotoWaOrigen && p.foto) return p.foto;
+  if (origen === p.fotoWaOrigen && p.foto && !p.fotoManual) return { foto: p.foto, motivo: "ok (sin cambios)" };
   const img = await fetch(url);
-  if (!img.ok) return p.foto || null;
+  if (!img.ok) return { foto: p.foto || null, motivo: `no se pudo bajar la foto de WhatsApp (${img.status})` };
   const sub = await subirCloudinary(env, await img.blob(), "perfil.jpg", "desabollito/perfiles", "image");
-  await fsMerge(env, `users/${uid}`, { foto: sub.secure_url, fotoWaOrigen: origen });
-  // En cada operativo del usuario (los compañeros la ven en el equipo)
-  const ops = await fsQuery(env, "", "companies", { field: "members", op: "ARRAY_CONTAINS", value: uid }, 100).catch(() => []);
-  await Promise.all(ops.map(o => fsMerge(env, `companies/${o.__id}`, { memberPhotos: { ...(o.memberPhotos || {}), [uid]: sub.secure_url } }).catch(() => {})));
-  return sub.secure_url;
+  await ponerFoto(env, uid, sub.secure_url, { fotoWaOrigen: origen, fotoManual: false });
+  return { foto: sub.secure_url, motivo: "ok" };
 }
-// Panel del creador: trae la foto de WhatsApp de los vinculados que todavía no la buscaron.
-// De a 5 por llamada (cada una son ~8 pedidos y el Worker tiene tope de pedidos); la app repite hasta que no queden.
-async function adminFotosWa(env, { idToken }) {
+// Guarda la foto en el perfil y en cada operativo del usuario (los compañeros la ven en el equipo)
+async function ponerFoto(env, uid, url, extra = {}) {
+  await fsMerge(env, `users/${uid}`, { foto: url, ...extra });
+  const ops = await fsQuery(env, "", "companies", { field: "members", op: "ARRAY_CONTAINS", value: uid }, 100).catch(() => []);
+  await Promise.all(ops.map(o => fsMerge(env, `companies/${o.__id}`, { memberPhotos: { ...(o.memberPhotos || {}), [uid]: url } }).catch(() => {})));
+}
+// Panel del creador: vuelve a buscar la foto de WhatsApp de todos los vinculados (menos los que tienen foto puesta a mano).
+// De a 5 por llamada (cada una son ~8 pedidos y el Worker tiene tope de pedidos); la app sigue con `desde` hasta terminar.
+async function adminFotosWa(env, { idToken, desde = 0 }) {
   if (!(await soloCreador(env, idToken))) return json({ ok: false, error: "No autorizado" }, 403);
-  const faltan = (await fsList(env, "users")).filter(u => u.whatsapp && !u.fotoWaAt);
-  const tanda = faltan.slice(0, 5);
-  const fotos = await Promise.all(tanda.map(u => actualizarFotoWa(env, u.__id, u.whatsapp, true, u).catch(e => { console.error("foto wa", u.__id, e?.stack || e); return null; })));
-  return json({ ok: true, hechas: fotos.filter(Boolean).length, revisadas: tanda.length, quedan: faltan.length - tanda.length });
+  const todos = (await fsList(env, "users")).filter(u => u.whatsapp && !u.fotoManual).sort((a, b) => a.__id.localeCompare(b.__id));
+  const i = Math.max(0, Number(desde) || 0), tanda = todos.slice(i, i + 5);
+  const res = await Promise.all(tanda.map(u => actualizarFotoWa(env, u.__id, u.whatsapp, true, u)
+    .catch(e => { console.error("foto wa", u.__id, e?.stack || e); return { foto: null, motivo: "error: " + String(e?.message || e).slice(0, 120) }; })));
+  return json({ ok: true, detalle: tanda.map((u, k) => ({ usuario: u.username || u.name || u.__id, foto: !!res[k].foto, motivo: res[k].motivo })),
+    siguiente: i + tanda.length, quedan: Math.max(0, todos.length - i - tanda.length) });
+}
+// Panel del creador: foto puesta a mano (ya subida a Cloudinary desde la app). Queda fija hasta que la persona pida la de WhatsApp.
+async function adminFotoUsuario(env, { idToken, uid, url }) {
+  if (!(await soloCreador(env, idToken))) return json({ ok: false, error: "No autorizado" }, 403);
+  if (!idValido(uid) || !String(url || "").startsWith(`https://res.cloudinary.com/${env.CLOUDINARY_CLOUD_NAME}/image/upload/`)) return json({ ok: false, error: "Datos inválidos" }, 400);
+  if (!(await fsGet(env, `users/${uid}`))) return json({ ok: false, error: "No existe el usuario" }, 404);
+  await ponerFoto(env, uid, url, { fotoManual: true });
+  return json({ ok: true, foto: url });
 }
 
 // Ajustes → "Usar mi foto de WhatsApp": la trae ya (sin esperar a la revisión semanal)
@@ -2358,8 +2378,10 @@ async function fotoWaApi(env, { idToken }) {
   let uid; try { uid = await verificarIdToken(env, idToken); } catch { return json({ ok: false, error: "No autorizado" }, 403); }
   const p = await fsGet(env, `users/${uid}`);
   if (!p?.whatsapp) return json({ ok: false, error: "Primero vinculá tu WhatsApp" });
-  const foto = await actualizarFotoWa(env, uid, p.whatsapp, true);
-  return foto ? json({ ok: true, foto }) : json({ ok: false, error: "Tu foto de WhatsApp es privada o no tenés. Ponela visible para todos (o agendá al bot) y probá de nuevo." });
+  const { foto, motivo } = await actualizarFotoWa(env, uid, p.whatsapp, true, p);
+  if (foto && motivo.startsWith("ok")) return json({ ok: true, foto });
+  console.error("foto wa", uid, motivo);
+  return json({ ok: false, error: /sin foto/.test(motivo) ? "Tu foto de WhatsApp es privada o no tenés. Ponela visible para todos (o agendá al bot) y probá de nuevo." : "No se pudo traer la foto: " + motivo });
 }
 
 // Primer contacto de un número: se pide el código de la app y se vincula
@@ -2971,7 +2993,7 @@ async function adminDatos(env, { idToken }) {
     return [c.__id, t === null ? null : t - (b || 0)];
   })));
   return json({ ok: true,
-    usuarios: users.map(u => ({ uid: u.__id, name: u.name || "", username: u.username || "", whatsapp: u.whatsapp || "",
+    usuarios: users.map(u => ({ uid: u.__id, name: u.name || "", username: u.username || "", whatsapp: u.whatsapp || "", foto: u.foto || "", fotoManual: !!u.fotoManual,
       aprobado: u.aprobado !== false, rechazado: !!u.rechazado }))
       .sort((a, b) => (a.name || a.username).localeCompare(b.name || b.username)),
     operativos: comps.sort((a, b) => (Date.parse(a.createdAt || "") || 9e15) - (Date.parse(b.createdAt || "") || 9e15)).map(c => ({ id: c.__id, name: c.name || "Sin nombre", vehiculos: cuentas[c.__id],

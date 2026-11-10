@@ -2246,3 +2246,81 @@ body[data-solo-ver="1"] :is(.step, .etapa-item) { pointer-events: none; }
 .tbl-cierre tr.c-gret td { padding: 10px 8px; color: var(--ink-2); }
 .tbl-cierre td.c-mal { color: #e5484d; white-space: normal; }
 .cierre-sec > .c-gente { align-self: flex-start; flex-wrap: wrap; }
+
+/* Aviso del primer operativo: cómo abrir las Planillas */
+.aviso-plan-tab { display: flex; justify-content: space-around; align-items: center; padding: 10px 8px; border-radius: var(--r-lg); background: var(--surface-2); border: 1px solid var(--line); }
+.aviso-plan-tab span { display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 11.5px; font-weight: 600; color: var(--muted); position: relative; }
+.aviso-plan-tab b { width: 44px; height: 44px; border-radius: 14px; background: var(--primary); color: var(--on-primary); display: grid; place-items: center; }
+.aviso-plan-tab .toca { color: var(--primary); }
+.aviso-plan-tab .toca::after { content: ""; position: absolute; top: -4px; left: 50%; width: 34px; height: 34px; margin-left: -17px; border-radius: 50%; border: 2px solid var(--primary); animation: toca-dos 1.6s ease-out infinite; }
+.aviso-plan-tab i { position: absolute; top: -8px; right: -14px; font-style: normal; font-size: 11px; font-weight: 800; background: var(--primary); color: var(--on-primary); border-radius: 6px; padding: 0 4px; }
+@keyframes toca-dos { 0%, 40% { transform: scale(.6); opacity: .9; } 20%, 60% { transform: scale(1.15); opacity: 0; } 100% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .aviso-plan-tab .toca::after { animation: none; opacity: .5; } }
+
+/* Filtros puestos, debajo del buscador */
+.filtros-act { display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 0 10px; }
+.filtro-act { display: inline-flex; align-items: center; gap: 4px; min-height: 30px; padding: 0 6px 0 11px; border-radius: 999px; font-size: 13px; font-weight: 600;
+  border: 1px solid color-mix(in srgb, var(--primary) 45%, transparent); background: var(--primary-soft); color: var(--ink); animation: filtro-entra .2s ease-out; }
+.filtro-act .ic { width: 15px; height: 15px; color: var(--muted); }
+.filtro-act:hover .ic { color: var(--ink); }
+@keyframes filtro-entra { from { opacity: 0; transform: scale(.9); } }
+@media (prefers-reduced-motion: reduce) { .filtro-act { animation: none; } }
+
+/* ── Ajustes y hojas en grupos (como la configuración del celular): título chico y filas dentro de una caja ── */
+.ajustes { display: flex; flex-direction: column; gap: 18px; }
+.aj-perfil { display: flex; align-items: center; gap: 14px; padding: 4px 4px 0; }
+.aj-grupo > h3, .fo-sec > h3 { margin: 0 0 6px 4px; font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+.aj-lista { display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); overflow: hidden; }
+.aj-item { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 52px; padding: 8px 14px; border: 0; background: none; color: var(--ink); text-align: left; font-weight: 600; text-decoration: none; }
+.aj-item + .aj-item { border-top: 1px solid var(--line); }
+.aj-item > .ic:first-child { width: 19px; height: 19px; color: var(--muted); flex: none; }
+.aj-item > .ic:last-child { width: 16px; height: 16px; color: var(--muted); flex: none; }
+.aj-txt { flex: 1; min-width: 0; }
+.aj-val { color: var(--muted); font-weight: 500; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 55%; }
+.aj-pend { color: var(--primary); font-weight: 700; }
+button.aj-item:hover, a.aj-item:hover { background: var(--surface-2); }
+.aj-ctrl { flex-wrap: wrap; }
+.aj-ctrl .seg { flex: 0 1 auto; padding: 3px; }
+.aj-ctrl .seg-btn { padding: 0 12px; min-height: 32px; font-size: 13.5px; }
+.aj-peligro, .aj-peligro > .ic:first-child { color: var(--danger); }
+.aj-peligro > .ic:last-child { display: none; }
+
+/* Filtrar y ordenar, en grupos como Ajustes: cada fila es una caja con opciones en pastillas que se acomodan solas */
+.fo { gap: 18px; }
+.fo .fo-seg { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px; background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r-lg); }
+.fo .fo-seg.fo-grad { background: var(--surface-2); }
+.fo .fo-seg .fo-op, .fo .fo-grados .fo-seg .fo-op, .fo .fo-compacto .fo-seg .fo-op { flex: 0 0 auto; flex-direction: row; gap: 6px; height: 38px; min-height: 38px; padding: 0 12px; line-height: 1;
+  border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--ink-2); outline: 0; box-shadow: none; white-space: nowrap; font-size: 13.5px; }
+.fo .fo-seg .fo-op b, .fo .fo-grados .fo-seg .fo-op b { font-size: 12px; font-weight: 700; color: var(--muted); line-height: 1; }
+.fo .fo-seg .f-dot { display: inline-block; width: 8px; height: 8px; }
+.fo .fo-seg .fo-op.on { background: var(--primary-soft); border-color: var(--primary); color: var(--ink); }
+.fo .fo-seg .fo-op[style].on { background: color-mix(in srgb, var(--c) 18%, var(--surface)); border-color: var(--c); }
+.fo .fo-seg .fo-op.on b { color: var(--ink); }
+.fo .fo-seg.fo-cias { flex-wrap: nowrap; overflow-x: auto; }
+.fo .fo-switches { flex-direction: column; gap: 0; background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r-lg); overflow: hidden; }
+.fo .fo-switches .fo-switch { flex: none; height: auto; min-height: 52px; border: 0; border-radius: 0; }
+.fo .fo-switches .fo-switch + .fo-switch { border-top: 1px solid var(--line); }
+
+/* Celular: mantener apretado un link o botón no abre la vista previa ni el menú del navegador (iPhone no avisa con contextmenu) */
+@media (pointer: coarse) {
+  a, button, [role="button"], .vcard, .tabbar, .company-switch, .tb-company { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+}
+
+/* Deslizar la tarjeta a la izquierda y mantener: próximo estado (solo táctil) */
+@media (pointer: coarse) {
+  .vlist { overflow-x: clip; }
+  .vlist .vcard { touch-action: pan-y; transition: transform .25s var(--ease, ease), box-shadow .3s, border-color .3s; }
+  .vlist .vcard.desliza { transition: none; }
+}
+.vswipe { position: absolute; top: -1px; bottom: -1px; left: calc(100% + 10px); width: 110px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+  border-radius: var(--r-lg); border: 1px solid color-mix(in srgb, var(--s) 55%, transparent); background: color-mix(in srgb, var(--s) 16%, var(--surface)); color: var(--ink); }
+.vswipe b { font-size: 13.5px; }
+.vswipe small { font-size: 11px; color: var(--muted); font-weight: 600; }
+.vswipe-barra { position: relative; width: 70%; height: 5px; border-radius: 3px; overflow: hidden; background: color-mix(in srgb, var(--s) 22%, transparent); }
+.vswipe-barra::after { content: ""; position: absolute; inset: 0; background: var(--s); transform: scaleX(0); transform-origin: left; }
+.armado .vswipe-barra::after { transform: scaleX(1); transition: transform .8s linear; }
+.armado .vswipe small::after { content: "…"; }
+.hecho .vswipe { background: var(--s); border-color: var(--s); color: #fff; }
+.hecho .vswipe small { color: #fff; }
+@media (prefers-reduced-motion: reduce) { .armado .vswipe-barra::after { transition-duration: .8s; } }
+.adm-list li > div { flex: 1; }

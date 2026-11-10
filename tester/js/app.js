@@ -2,7 +2,7 @@ import {
   S, onChange, iniciarSesion, ingresar, crearCuenta, mensajeError, elegirEmpresa
 } from "./data.js";
 import { cerrarSplash, veloCambio } from "./efectos.js";
-import { $, $$, esc, toast, busy, openSheet } from "./ui.js";
+import { $, $$, esc, toast, busy, openSheet, icon, cerrarHojas } from "./ui.js";
 import { FIREBASE, BOT_API } from "./config.js";
 import { iniciarFechas } from "./fecha.js";
 import { cuentaPendiente, salir, marcarOperativosVistos, soyCreador, crearEmpresa, pedirUnion, cancelarPedidoUnion, escucharMiPedido, responderPedidoUnion, soyDesmontaje, miRol, soyAdmin, getVehiculo, iniciarInvitado, soyLector, puedeVer, soySacabollos, registrarRuta } from "./data.js";
@@ -245,22 +245,18 @@ function pintarTabPlanilla(r) {
   $('.tabbar [data-nav="calendario"]').hidden = enPlan;
 }
 // Tocar Calendario estando en el calendario (2.º toque) lleva a Planillas, y tocar Planillas estando ahí vuelve al calendario
-// Mantener apretado Calendario también abre Planillas
-let tabLargo = false;
-const CAL_TAB = '.tabbar [data-nav="calendario"]';
-document.addEventListener("pointerdown", e => {
-  if (!e.target.closest(CAL_TAB)) return;
-  tabLargo = false;
-  const x0 = e.clientX, y0 = e.clientY;
-  const t = setTimeout(() => { tabLargo = true; location.hash = $("#tab-planilla").getAttribute("href"); }, 500);
-  const mov = ev => { if (Math.hypot(ev.clientX - x0, ev.clientY - y0) > 10) fin(); };
-  const fin = () => { clearTimeout(t); removeEventListener("pointerup", fin); removeEventListener("pointercancel", fin); removeEventListener("pointermove", mov); };
-  addEventListener("pointerup", fin); addEventListener("pointercancel", fin); addEventListener("pointermove", mov);
-});
-// Sin el menú de "mantener apretado" del navegador en la barra de abajo (al abrir Planillas queda otra pestaña bajo el dedo)
+// Primer operativo creado (celular): cómo se llega a las Planillas, una sola vez
+function avisoPlanillas() {
+  if (esAncho()) return;
+  openSheet({ title: "Tus planillas", body: `<div class="stack aviso-plan">
+    <div class="aviso-plan-tab" aria-hidden="true"><span>${icon("car")}Vehículos</span><b>${icon("plus")}</b><span class="toca">${icon("calendar")}Calendario<i>×2</i></span></div>
+    <p>Tocá <strong>dos veces Calendario</strong>, en la barra de abajo, para abrir las Planillas: técnicos, gastos y facturación.</p>
+    <p class="muted small">Tocándolo otra vez volvés al calendario.</p>
+    <button type="button" class="btn btn-primary btn-block" data-close>Entendido</button></div>` });
+}
+// Sin el menú de "mantener apretado" del navegador en la barra de abajo
 document.addEventListener("contextmenu", e => { if (e.target.closest(".tabbar")) e.preventDefault(); });
 document.addEventListener("click", e => {
-  if (tabLargo && e.target.closest(CAL_TAB)) { tabLargo = false; e.preventDefault(); e.stopImmediatePropagation(); return; }   // el toque largo ya abrió Planillas
   const cal = e.target.closest('.tabbar [data-nav="calendario"]'), plan = e.target.closest(".tabbar #tab-planilla.on");
   if (!(cal && ruta.nombre === "calendario") && !plan) return;
   e.preventDefault(); e.stopImmediatePropagation();   // antes que "tocar de nuevo la pestaña" (que reinicia el calendario)
@@ -537,20 +533,28 @@ function avisarAgregado(ops) {
   if (ir) ir.onclick = () => { elegirEmpresa(ops[0].id); s.close(); location.hash = "#/"; };
 }
 
-// Mantener apretado Ajustes (solo el creador de la app): panel con todos los operativos y usuarios
-{
-  let reloj = null, largo = false;
+// Mantener apretado: Ajustes (solo el creador) abre el panel de administración; el botón del operativo abre Ajustes
+function mantener(selector, accion, puede = () => true) {
+  let reloj = null, largo = false, x0 = 0, y0 = 0;
+  const cortar = () => clearTimeout(reloj);
   document.addEventListener("pointerdown", e => {
-    if (!e.target.closest('a[href="#/ajustes"]') || !soyCreador()) return;
-    largo = false;
-    reloj = setTimeout(() => { reloj = null; largo = true; navigator.vibrate?.(30); panelCreador(); }, 550);
+    if (!e.target.closest(selector) || !puede()) return;
+    largo = false; x0 = e.clientX; y0 = e.clientY;
+    reloj = setTimeout(() => { largo = true; navigator.vibrate?.(30); accion(); }, 550);
   }, true);
-  ["pointerup", "pointerleave", "pointercancel"].forEach(ev => document.addEventListener(ev, () => clearTimeout(reloj), true));
-  // El toque que viene después de un mantenido no debe navegar a Ajustes
-  document.addEventListener("click", e => {
-    if (largo && e.target.closest('a[href="#/ajustes"]')) { e.preventDefault(); e.stopPropagation(); largo = false; }
-  }, true);
+  ["pointerup", "pointerleave", "pointercancel"].forEach(ev => document.addEventListener(ev, cortar, true));
+  document.addEventListener("pointermove", e => { if (Math.hypot(e.clientX - x0, e.clientY - y0) > 10) cortar(); }, true);
+  // El toque que viene después de un mantenido no hace lo de siempre
+  document.addEventListener("click", e => { if (largo && e.target.closest(selector)) { e.preventDefault(); e.stopImmediatePropagation(); largo = false; } }, true);
 }
+mantener('a[href="#/ajustes"]', () => panelCreador(), soyCreador);
+mantener("#tb-company, #company-switch", () => { cerrarHojas(); location.hash = "#/ajustes"; }, () => !soyLector());
+// En el celular, mantener apretado un botón o link no abre el menú del navegador (copiar link, vista previa…)
+let ultimoToque = "";
+document.addEventListener("pointerdown", e => { ultimoToque = e.pointerType; }, true);
+document.addEventListener("contextmenu", e => {
+  if (ultimoToque !== "mouse" && e.target.closest("a, button, [role=button], .vcard, .tabbar") && !e.target.closest("input, textarea, [contenteditable]")) e.preventDefault();
+}, true);
 
 // ── Sin operativo: pedir unirse a uno o crear uno propio ─────────
 let unsubMiPedido = null, pedidoActual = null, pintarSinOp = () => {};
@@ -571,7 +575,7 @@ function mostrarSinOperativo() {
       busy(b, true, "Enviando…");
       try {
         if (f.id === "so-unir") { await pedirUnion(f.admin.value); toast("Pedido enviado", "success"); }
-        else { await crearEmpresa(f.nombre.value.trim()); toast("Operativo creado", "success"); }
+        else { await crearEmpresa(f.nombre.value.trim()); toast("Operativo creado", "success"); setTimeout(avisoPlanillas, 1500); }
       } catch (err) { toast(err.message || mensajeError(err), "error"); }
       busy(b, false);
     });

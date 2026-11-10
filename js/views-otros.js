@@ -11,7 +11,7 @@ import {
 } from "./ui.js";
 import { ruidoMotor, SONIDOS_AUTO } from "./sonidos.js";
 import { NOVEDADES } from "./novedades.js";
-import { imagenChica, avatar } from "./media.js";
+import { imagenChica, avatar, subir, comprimir } from "./media.js";
 import { planillaPDF } from "./pdf.js";
 import { exportarExcel } from "./excel.js";
 import { setTopbar, go, logoOperativo, pintarLateral } from "./shell.js";
@@ -580,39 +580,36 @@ export function vistaAjustes(view) {
   const p = S.profile;
   const oscuro = document.documentElement.getAttribute("data-theme") !== "light";
   const enPapelera = papelera().length;
+  const wa = p.whatsapp ? "+" + String(p.whatsapp).replace(/^(\d{2})(9)(\d{2})(\d{4})(\d{4})$/, "$1 $2 $3 $4-$5") : "";
+  const nPap = soySacabollos() ? 0 : enPapelera + (soyAdmin() ? S.solicitudes?.length || 0 : 0);
+  const fv = (() => { try { return localStorage.getItem("fechaVista") || "peritado"; } catch { return "peritado"; } })();
+  // Fila de un grupo: ícono, texto, valor y flechita (o un control a la derecha)
+  const fila = (id, ic, txt, valor = "", extra = "") => `<button type="button" class="aj-item ${extra}" id="${id}">${icon(ic)}<span class="aj-txt">${txt}</span><span class="aj-val">${valor}</span>${icon("next")}</button>`;
   view.innerHTML = `
-  <div class="page narrow">
-    <section class="card profile">
-      <button type="button" class="icon-btn aj-son" id="editar-perfil" aria-label="Editar perfil" title="Editar perfil">${icon("edit")}</button>
-      <div class="profile-row">
-        ${avatarUsuario(p.username, p.name, "lg", p.foto)}
-        <div class="profile-meta"><h2>${esc(p.name)}</h2><p class="muted">@${esc(p.username)}</p>
-          ${p.whatsapp ? `<p class="perfil-wa" title="WhatsApp vinculado al bot">${icon("chat")}+${esc(String(p.whatsapp).replace(/^(\d{2})(9)(\d{2})(\d{4})(\d{4})$/, "$1 $2 $3 $4-$5"))}</p>` : ""}</div>
-      </div>
-      ${p.whatsapp ? "" : `<button type="button" class="btn btn-primary btn-block" id="vincular-wa">${icon("chat")}Vincular WhatsApp</button>`}
+  <div class="page narrow ajustes">
+    <section class="aj-perfil">
+      ${avatarUsuario(p.username, p.name, "lg", p.foto)}
+      <div class="profile-meta"><h2>${esc(p.name)}</h2><p class="muted">@${esc(p.username)}</p></div>
     </section>
 
-    ${WHATSAPP_BOT ? `<section class="card">
-      <h3>Bot de WhatsApp</h3>
-      <p class="muted small">Mandale la patente y después las fotos: se guardan solas en ese vehículo, en el operativo que corresponda.</p>
-      <a class="btn btn-ghost btn-block" href="https://wa.me/${WHATSAPP_BOT}?text=ayuda" target="_blank" rel="noopener">${icon("chat")}Abrir chat con el bot</a>
-    </section>` : ""}
+    <section class="aj-grupo"><h3>Cuenta</h3><div class="aj-lista">
+      ${fila("editar-perfil", "edit", "Perfil", esc(p.name))}
+      ${p.whatsapp ? fila("ver-wa", "chat", "WhatsApp", esc(wa)) : fila("vincular-wa", "chat", "WhatsApp", `<b class="aj-pend">Vincular</b>`)}
+      ${WHATSAPP_BOT ? `<a class="aj-item" href="https://wa.me/${WHATSAPP_BOT}?text=ayuda" target="_blank" rel="noopener">${icon("chat")}<span class="aj-txt">Chat con el bot</span><span class="aj-val"></span>${icon("next")}</a>` : ""}
+    </div></section>
 
-    <section class="card">
-      <h3>Apariencia</h3>
-      <div class="seg" id="tema">
-        <button class="seg-btn ${oscuro ? "" : "on"}" data-t="light">Claro</button>
-        <button class="seg-btn ${oscuro ? "on" : ""}" data-t="dark">Oscuro</button>
-      </div>
-      ${S.config?.fechaVista === false ? "" : `<span class="muted small aj-sub">Fecha que se muestra en la lista de vehículos</span>
-      <div class="seg" id="fecha-vista">${[["peritado", "Día de peritación"], ["estado", "Último estado"]].map(([k, t]) =>
-        `<button class="seg-btn ${(() => { try { return localStorage.getItem("fechaVista") || "peritado"; } catch { return "peritado"; } })() === k ? "on" : ""}" data-fv="${k}">${t}</button>`).join("")}</div>`}
-    </section>
+    <section class="aj-grupo"><h3>Apariencia</h3><div class="aj-lista">
+      <div class="aj-item aj-ctrl">${icon("image")}<span class="aj-txt">Tema</span>
+        <div class="seg seg-sm" id="tema"><button class="seg-btn ${oscuro ? "" : "on"}" data-t="light">Claro</button><button class="seg-btn ${oscuro ? "on" : ""}" data-t="dark">Oscuro</button></div></div>
+      ${S.config?.fechaVista === false ? "" : `<div class="aj-item aj-ctrl">${icon("calendar")}<span class="aj-txt">Fecha en la lista</span>
+        <div class="seg seg-sm" id="fecha-vista">${[["peritado", "Peritación"], ["estado", "Último estado"]].map(([k, t]) => `<button class="seg-btn ${fv === k ? "on" : ""}" data-fv="${k}">${t}</button>`).join("")}</div></div>`}
+    </div></section>
 
-    <section class="card ${soySacabollos() ? "" : "aj-fila"}">
-      ${soySacabollos() ? "" : `<a class="btn btn-ghost" href="#/papelera">${icon("trash")}Papelera${(() => { const n = enPapelera + (soyAdmin() ? S.solicitudes?.length || 0 : 0); return n ? ` (${n})` : ""; })()}</a>`}
-      <button class="btn btn-danger-ghost ${soySacabollos() ? "btn-block" : ""}" id="salir">${icon("logout")}Cerrar sesión</button>
-    </section>
+    <section class="aj-grupo"><h3>General</h3><div class="aj-lista">
+      ${soySacabollos() ? "" : `<a class="aj-item" href="#/papelera">${icon("trash")}<span class="aj-txt">Papelera</span><span class="aj-val">${nPap || ""}</span>${icon("next")}</a>`}
+      ${fila("ver-novedades", "bell", "Novedades", esc(APP_VERSION))}
+      ${fila("salir", "logout", "Cerrar sesión", "", "aj-peligro")}
+    </div></section>
 
     <p class="center aj-version"><button type="button" class="version-btn" id="version-btn"
       title="Tocá para forzar la actualización · mantené apretado para ver las novedades">Desabollito ${APP_VERSION} ${icon("rotate")}</button></p>
@@ -620,6 +617,8 @@ export function vistaAjustes(view) {
 
   $("#editar-perfil", view).onclick = () => editarPerfil(() => vistaAjustes(view));
   if ($("#vincular-wa", view)) $("#vincular-wa", view).onclick = () => vincularWhatsApp(() => vistaAjustes(view));
+  if ($("#ver-wa", view)) $("#ver-wa", view).onclick = () => editarPerfil(() => vistaAjustes(view));
+  $("#ver-novedades", view).onclick = verNovedades;
   $("#tema", view).onclick = e => {
     const b = e.target.closest("[data-t]"); if (!b) return;
     aplicarTema(b.dataset.t); $$(".seg-btn", $("#tema", view)).forEach(x => x.classList.toggle("on", x === b));
@@ -846,7 +845,7 @@ export async function panelCreador() {
         </span>
       </div>
       <div class="adm-toggles">
-        <span><b>Fotos de perfil</b><br><small class="muted">Trae la foto de WhatsApp de los usuarios vinculados que todavía no la tienen</small></span>
+        <span><b>Fotos de perfil</b><br><small class="muted">Vuelve a buscar la foto de WhatsApp de todos los vinculados y te dice qué pasó con cada uno. Las puestas a mano (📷 en Usuarios) no se tocan.</small></span>
         <span class="row-btns"><button type="button" class="btn btn-ghost btn-sm" id="adm-fotos">${icon("image")}Traer fotos</button></span>
       </div>
       <details class="adm-toggles adm-accesos" ${accAbierto ? "open" : ""}>
@@ -868,10 +867,11 @@ export async function panelCreador() {
         <li><div><strong>${esc(o.name)}</strong> <span class="adm-n">${nVeh(o.vehiculos)}</span>
           <small class="muted">${o.miembros.map(m => `${esc(m.quien)}${m.rol === "admin" ? " (admin)" : ""}`).join(" · ") || "Sin miembros"}</small></div></li>`).join("")}</ul>`
       : `<ul class="adm-list">${usuarios.map(u => `
-        <li><div><strong>${esc(u.name || "Sin nombre")}</strong>
+        <li>${avatarUsuario(u.username, u.name, "sm", u.foto)}<div><strong>${esc(u.name || "Sin nombre")}</strong>
           <small class="muted">@${esc(u.username)}${u.whatsapp ? ` · +${esc(u.whatsapp)}` : ""}${!u.aprobado ? " · pendiente" : ""}${u.rechazado ? " · rechazado" : ""}</small>
           <small class="adm-ops">${(() => { const ops = operativos.filter(o => o.miembros.some(m => m.uid === u.uid));
             return ops.length ? ops.map(o => `${esc(o.name)} <b>${nVeh(o.vehiculos)}</b>`).join(" · ") : `<span class="muted">Sin operativos</span>`; })()}</small></div>
+          <button type="button" class="icon-btn sm" data-foto-u="${esc(u.uid)}" aria-label="Poner foto de ${esc(u.name || u.username)}" title="${u.fotoManual ? "Cambiar la foto (puesta a mano)" : "Poner una foto a mano"}">${icon("camera")}</button>
           ${u.username === "gzmatte" ? "" : `<button type="button" class="icon-btn sm danger" data-borrar="${esc(u.uid)}" aria-label="Eliminar usuario" title="Eliminar de la app">${icon("trash")}</button>`}</li>`).join("")}</ul>`}`;
   };
   const cargar = async () => {
@@ -929,12 +929,29 @@ export async function panelCreador() {
   caja.addEventListener("click", e => { const p = e.target.closest("[data-probar]"); if (p) ruidoMotor(p.dataset.probar, true); });
   caja.addEventListener("click", async e => {
     const fb = e.target.closest("#adm-fotos");
-    if (fb) {   // de a tandas hasta que no queden
-      busy(fb, true, "Buscando…"); let hechas = 0, revisadas = 0;
-      try { for (let i = 0; i < 40; i++) { const j = await llamarAdmin("fotos-wa"); hechas += j.hechas; revisadas += j.revisadas; if (!j.quedan || !j.revisadas) break; } }
+    if (fb) {   // de a tandas hasta que no queden; al final, el motivo de cada uno
+      busy(fb, true, "Buscando…"); const detalle = [];
+      try { let desde = 0; for (let i = 0; i < 40; i++) { const j = await llamarAdmin("fotos-wa", { desde }); detalle.push(...j.detalle); desde = j.siguiente; if (!j.quedan || !j.detalle.length) break; } }
       catch (err) { toast(err.message, "error"); }
       busy(fb, false);
-      return toast(revisadas ? `${hechas} de ${revisadas} con foto (el resto la tiene privada o no tiene)` : "Todos los vinculados ya tienen la foto revisada", "success");
+      if (!detalle.length) return toast("No hay usuarios con WhatsApp vinculado (o todos tienen foto puesta a mano)");
+      cargar();
+      return openSheet({ title: `Fotos: ${detalle.filter(d => d.foto).length} de ${detalle.length}`, body: `<ul class="adm-list">${detalle.map(d =>
+        `<li><div><strong>@${esc(d.usuario)}</strong><small class="${d.foto ? "" : "muted"}">${d.foto ? "✓ " : ""}${esc(d.motivo)}</small></div></li>`).join("")}</ul>` });
+    }
+    const fu = e.target.closest("[data-foto-u]");
+    if (fu) {   // foto a mano para un usuario: se elige la imagen, se achica y se sube
+      const inp = Object.assign(document.createElement("input"), { type: "file", accept: "image/*" });
+      inp.onchange = async () => {
+        const file = inp.files[0]; if (!file) return;
+        toast("Subiendo foto…");
+        try {
+          const r = await subir(await comprimir(file, 480, 0.85), "perfiles");
+          await llamarAdmin("foto-usuario", { uid: fu.dataset.fotoU, url: r.url });
+          toast("Foto guardada", "success"); cargar();
+        } catch (err) { toast(err.message || mensajeError(err), "error"); }
+      };
+      return inp.click();
     }
     const chip = e.target.closest("[data-var]");
     if (chip) {
