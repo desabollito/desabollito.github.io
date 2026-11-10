@@ -50,6 +50,50 @@ const retDe = f => (f.gastos || []).filter(g => g.retorno).reduce((a, g) => a + 
 // Secciones plegadas que cada uno dejó abiertas (solo en este equipo)
 const abiertos = (() => { try { return JSON.parse(localStorage.getItem("cierreAbiertos")) || {}; } catch { return {}; } })();
 
+// PDF con las mismas cajas que la página (sin botones). Cada caja: título, tabla y líneas de total; si no entra, va a la hoja siguiente
+function cierrePDF(d, r) {
+  if (!window.jspdf) throw new Error("Falta cargar el PDF, probá de nuevo en un momento");
+  const doc = new window.jspdf.jsPDF({ unit: "mm", format: "a4" }), W = 210, H = 297, M = 14, FILA = 7;
+  const $$ = n => (n < 0 ? "-$" : "$") + Math.abs(Math.round(n)).toLocaleString("es-AR");   // la fuente del PDF no tiene "−"
+  const corto = (t, w) => doc.splitTextToSize(String(t ?? ""), w)[0] || "";
+  let y = M;
+  doc.setFont("helvetica", "bold"); doc.setFontSize(17); doc.setTextColor(17); doc.text("Cierre operativo", M, y + 6);
+  doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.setTextColor(100);
+  doc.text(`${S.company?.name || ""} · ${new Date().toLocaleDateString("es-AR")}`, M, y + 12); y += 20;
+  // cols: [título, ancho (0 = lo que sobra), a la derecha]; lineas: [texto, plata, "final" | "sub" | ""]
+  const caja = (titulo, cols, filas, lineas = []) => {
+    const ancho = W - 2 * M - 8, fijo = cols.reduce((a, c) => a + c[1], 0), ws = cols.map(c => c[1] || ancho - fijo);
+    const alto = 12 + (filas.length ? FILA * (filas.length + 1) + 2 : 0) + lineas.reduce((a, l) => a + (l[2] === "final" ? 10 : 7), 0) + 4;
+    if (y + alto > H - M) { doc.addPage(); y = M; }
+    doc.setDrawColor(210); doc.setLineWidth(.3); doc.roundedRect(M, y, W - 2 * M, alto, 3, 3);
+    let yy = y + 9, x0 = M + 4;
+    doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.setTextColor(17); doc.text(titulo, x0, yy); yy += 4;
+    if (filas.length) {
+      const fila = (vals, bold, color) => { let x = x0; yy += FILA; doc.setFont("helvetica", bold ? "bold" : "normal"); doc.setTextColor(color);
+        vals.forEach((v, i) => { const t = corto(v, ws[i] - 2); cols[i][2] ? doc.text(t, x + ws[i] - 1, yy - 2, { align: "right" }) : doc.text(t, x + 1, yy - 2); x += ws[i]; }); };
+      doc.setFontSize(9); fila(cols.map(c => c[0]), true, 110); doc.setFontSize(10);
+      filas.forEach(f => { doc.setDrawColor(230); doc.line(x0, yy, x0 + ancho, yy); fila(f, false, 30); });
+      yy += 2;
+    }
+    lineas.forEach(([t, n, cls]) => {
+      if (cls) { doc.setDrawColor(cls === "final" ? 30 : 200); doc.setLineWidth(cls === "final" ? .6 : .3); doc.line(x0, yy + 1, x0 + ancho, yy + 1); }
+      yy += cls === "final" ? 10 : 7; doc.setFont("helvetica", cls ? "bold" : "normal"); doc.setFontSize(cls === "final" ? 12 : 10); doc.setTextColor(cls ? 17 : 60);
+      doc.text(t, x0, yy - 2); doc.text($$(n), x0 + ancho, yy - 2, { align: "right" });
+    });
+    doc.setLineWidth(.3); y += alto + 5;
+  };
+  const tot = d.modoVentas === "total";
+  caja("Vehículos por compañía", [["Cantidad", 24], ["Compañía", 0], ["Valor por auto", 38, 1], ["Total", 38, 1]],
+    (d.ventas || []).map(f => [num(f.cant) || "", f.comp || "", $$(tot ? porAuto(f) : num(f.valor)), $$(SECC.ventas.total(f, d.modoVentas))]), [["Total", r.bruto, "sub"]]);
+  caja("Gastos", [["Gasto", 0], ["Monto", 40, 1]], (d.gastos || []).map(f => [(f.nombre || "") + (f.retorno ? "  (retorno)" : ""), $$(num(f.monto))]), [["Total", r.gastos, "sub"]]);
+  caja("Resumen", [], [], [["Total facturado", r.bruto], ["IVA 21%", -r.iva], ["IIBB 3,5%", -r.iibb], ["Neto", r.neto, "sub"], ["Gastos", -r.gastos], ["Retornos", r.retornos], ["Total final", r.final, "final"]]);
+  if (d.reparto?.length) caja("Reparto del total final", [["Persona", 0], ["%", 24, 1], ["Le toca", 40, 1]], d.reparto.map(f => [f.nombre || "", num(f.pct) + "%", $$(parte(f, r))]));
+  (d.reparto || []).forEach(f => caja(`Gastos de ${f.nombre || "sin nombre"}`, [["Gasto", 0], ["Monto", 40, 1]],
+    (f.gastos || []).map(g => [(g.nombre || "") + (g.retorno ? "  (retorno)" : ""), (g.retorno ? "+" : "") + $$(num(g.monto))]),
+    [[`Le toca (${num(f.pct)}%)`, parte(f, r)], ["Gastos", -gastosDe(f)], ["Retornos", retDe(f)], ["Queda", queda(f, r), "final"]]));
+  doc.save(`Cierre_${hoyISO()}.pdf`);
+}
+
 let unsub = null;
 export function vistaCierre(view) {
   setTopbar({ title: "Cierre operativo", sub: S.company?.name, back: "#/planillas",
@@ -60,7 +104,7 @@ export function vistaCierre(view) {
   const comps = [...new Set(activos().map(v => v.compania).filter(Boolean))].sort();
   let d = { ventas: [], gastos: [], reparto: [] }, remoto = null, tGuardar = null, pSel = 0;   // pSel: persona elegida en Gastos por persona
   const lista = k => k === "pg" ? (d.reparto[pSel].gastos ||= []) : (d[k] ||= []);
-  view.innerHTML = `<div class="tec-page cierre-page"><h2 class="c-print-tit">Cierre operativo · ${esc(S.company.name || "")} · ${new Date().toLocaleDateString("es-AR")}</h2><datalist id="c-comps">${comps.map(c => `<option value="${esc(c)}">`).join("")}</datalist>
+  view.innerHTML = `<div class="tec-page cierre-page"><datalist id="c-comps">${comps.map(c => `<option value="${esc(c)}">`).join("")}</datalist>
     <datalist id="c-gente">${Object.values(S.company?.memberNames || {}).filter(Boolean).map(n => `<option value="${esc(n)}">`).join("")}</datalist>
     <div id="c-body"><div class="skeleton tall"></div></div></div>`;
   const body = $("#c-body", view);
@@ -81,13 +125,7 @@ export function vistaCierre(view) {
     elegirDescarga("Cierre operativo", {
       excel: () => exportarExcel({ archivo: `Cierre_${hoyISO()}.xlsx`, hoja: "Cierre operativo", titulo: `${S.company?.name || "Desabollito"} · Cierre operativo`, columnas: cols.map((x, i) => ({ ...x, valor: f => f[i] })), filas }),
       // PDF: la misma página impresa (Guardar como PDF), con lo plegado abierto y sin botones (ver @media print)
-      pdf: () => { setTimeout(() => {
-        const cerrados = [...body.querySelectorAll("details:not([open])")]; cerrados.forEach(x => { x.open = true; });
-        const t = document.title; document.title = `Cierre_${hoyISO()}`;
-        // En el celular print() no frena: se vuelve a como estaba recién al terminar de imprimir
-        addEventListener("afterprint", () => { document.title = t; cerrados.forEach(x => { x.open = false; }); }, { once: true });
-        window.print();
-      }, 400); } });   // espera a que se cierre la hoja de Descargar
+      pdf: () => cierrePDF(d, r) });
   };
 
   const celda = (c, t, l, v, k) => t === "n" ? `<input data-c="${c}" aria-label="${l}" type="text" inputmode="decimal" class="num" data-plata value="${esc(v === "" || v == null ? "" : num(v).toLocaleString("es-AR", { maximumFractionDigits: 2 }))}">`

@@ -2226,17 +2226,3 @@ body[data-solo-ver="1"] :is(.step, .etapa-item) { pointer-events: none; }
 .tbl-cierre tr.c-gret td { padding: 10px 8px; color: var(--ink-2); }
 .tbl-cierre td.c-mal { color: #e5484d; white-space: normal; }
 .cierre-sec > .c-gente { align-self: flex-start; flex-wrap: wrap; }
-/* Cierre operativo impreso / PDF: la misma página en blanco y negro, sin botones */
-@media print {
-  html:root, html:root[data-theme], html:root:not([data-theme="light"]) { --bg: #fff; --surface: #fff; --surface-2: #fff; --ink: #111; --ink-2: #333; --muted: #666; --line: #ccc; --line-2: #bbb; }
-  body:has(.cierre-page) { background: #fff; }
-  body:has(.cierre-page) :is(.fab, .toast, #toasts) { display: none !important; }
-  .cierre-page { max-width: none; }
-  .cierre-page .c-print-tit { display: block; margin: 0 0 4px; font-size: 20px; }
-  .cierre-page :is([data-agregar], .cierre-head .seg, .c-gente .seg-btn:not(.on), .c-retbtn[aria-pressed="false"], [data-borrar]) { display: none !important; }
-  .cierre-page .c-gente .seg-btn.on { border: 0; background: none; color: var(--ink); font-weight: 700; padding: 0; }
-  .cierre-page .d-adic > summary::after { display: none; }
-  .cierre-page .d-sec { break-inside: avoid; }
-  .tbl-cierre input { border: 0 !important; background: none !important; padding: 4px 0; color: var(--ink); }
-}
-.c-print-tit { display: none; }
