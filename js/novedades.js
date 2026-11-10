@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.0.27", items: ["Cierre operativo: botón Descargar (Excel o PDF) y categorías mejor separadas."] },
   { v: "4.0.26", items: ["Cierre operativo más simple: sin colores, resumen más corto y solo el total final resalta."] },
   { v: "4.0.25", items: ["Nueva planilla «Cierre operativo»: cargás cantidad de autos, compañía y valor; le saca IVA 21% e IIBB 3,5%, resta los gastos (únicos o por meses) y suma los retornos (ej. alquileres de los técnicos). Se guarda sola."] },
   { v: "4.0.24", items: ["Notificaciones: abrir la campanita ya no las limpia. Cada una que tocás queda marcada en amarillo, así sabés cuáles ya abriste. Botón «Marcar todas como vistas» para limpiar el contador."] },

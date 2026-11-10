@@ -5,8 +5,9 @@
 // ═════════════════════════════════════════════════════════════
 import { db, doc, onSnapshot, setDoc } from "./firebase.js";
 import { S, activos, puedeVer, mensajeError } from "./data.js";
-import { $, esc, icon, toast, confirmar } from "./ui.js";
+import { $, esc, icon, toast, confirmar, hoyISO } from "./ui.js";
 import { setTopbar } from "./shell.js";
+import { descargarTabla } from "./excel.js";
 
 const IVA = 1.21, IIBB = 0.035;
 const num = x => Number(x) || 0;
@@ -28,7 +29,8 @@ console.assert(Math.abs(cuentas({ ventas: [{ cant: 1, valor: 121 }], gastos: [{ 
 
 let unsub = null;
 export function vistaCierre(view) {
-  setTopbar({ title: "Cierre operativo", sub: S.company?.name, back: "#/planillas" });
+  setTopbar({ title: "Cierre operativo", sub: S.company?.name, back: "#/planillas",
+    actions: `<button class="btn btn-ghost btn-sm" id="c-desc">${icon("download")}<span class="hide-sm">Descargar</span></button>` });
   if (!puedeVer("cierre")) { view.innerHTML = `<div class="empty"><p>No tenés acceso a esta planilla.</p></div>`; return; }
   if (!S.company) { view.innerHTML = `<div class="skeleton tall"></div>`; return; }
   const ref = doc(db, "companies", S.company.id, "cierre", "datos");
@@ -37,6 +39,18 @@ export function vistaCierre(view) {
   view.innerHTML = `<div class="tec-page cierre-page"><datalist id="c-comps">${comps.map(c => `<option value="${esc(c)}">`).join("")}</datalist>
     <div id="c-body"><div class="skeleton tall"></div></div></div>`;
   const body = $("#c-body", view);
+  // Una sola hoja: cada sección con su subtotal y al final el resumen
+  $("#c-desc").onclick = () => {
+    const r = cuentas(d), neg = (...x) => Object.assign(x, { negrita: true }), filas = [];
+    const sec = (titulo, k, fila, sub) => { filas.push(neg(titulo, "", "", "")); (d[k] || []).forEach(f => filas.push(fila(f))); filas.push(neg("Subtotal", "", "", sub), ["", "", "", ""]); };
+    sec("VEHÍCULOS", "ventas", f => [f.comp || "", num(f.cant), num(f.valor), SECC.ventas.total(f)], r.bruto);
+    sec("GASTOS", "gastos", f => [f.nombre || "", MESES.find(([n]) => n === num(f.meses))?.[1] || "Único", num(f.monto), SECC.gastos.total(f)], r.gastos);
+    sec("RETORNOS", "retornos", f => [f.nombre || "", "", num(f.monto), num(f.monto)], r.retornos);
+    filas.push(neg("RESUMEN", "", "", ""), ["Total facturado", "", "", r.bruto], ["IVA 21%", "", "", -r.iva], ["IIBB 3,5%", "", "", -r.iibb],
+      ["Neto", "", "", r.neto], ["Gastos", "", "", -r.gastos], ["Retornos", "", "", r.retornos], neg("TOTAL FINAL", "", "", r.final));
+    descargarTabla({ archivo: `Cierre_${hoyISO()}`, titulo: "Cierre operativo", filas,
+      cols: [{ titulo: "CONCEPTO", ancho: 30 }, { titulo: "CANT. / TIEMPO", ancho: 16 }, { titulo: "VALOR", ancho: 18, tipo: "moneda" }, { titulo: "TOTAL", ancho: 20, tipo: "moneda" }] });
+  };
 
   const celda = (c, t, l, v) => t === "m"
     ? `<select data-c="${c}" aria-label="${l}">${MESES.map(([n, txt]) => `<option value="${n}" ${num(v) === n ? "selected" : ""}>${txt}</option>`).join("")}</select>`
