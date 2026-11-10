@@ -40,6 +40,7 @@ service cloud.firestore {
         && request.resource.data.get('aprobado', true) == resource.data.get('aprobado', true)
         && request.resource.data.get('rechazado', false) == resource.data.get('rechazado', false)
         && request.resource.data.get('tracking', false) == resource.data.get('tracking', false)   // el trackeo solo lo prende/apaga el creador (desde el bot)
+        && (resource.data.get('username', '') == '' || request.resource.data.get('username', '') == resource.data.get('username', ''))   // el usuario no se cambia una vez elegido
         && (request.resource.data.get('whatsapp', '') == resource.data.get('whatsapp', '')
             || !('whatsapp' in request.resource.data));   // solo se puede desvincular, no poner otro número
     }

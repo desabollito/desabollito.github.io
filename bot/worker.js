@@ -2930,7 +2930,7 @@ async function adminPadron(env, { idToken, filas }) {
   return json({ ok: true, n: nuevas.length });
 }
 
-const CONFIG_CLAVES = ["avisoReparado", "documentos", "fechaVista", "etapasPdf"];   // interruptores del creador (todos arrancan encendidos, salvo etapasPdf)
+const CONFIG_CLAVES = ["avisoReparado", "documentos", "fechaVista", "etapasPdf", "planillaVeh"];   // interruptores del creador (todos arrancan encendidos, salvo etapasPdf)
 async function adminConfig(env, body) {
   if (!(await soloCreador(env, body.idToken))) return json({ ok: false, error: "No autorizado" }, 403);
   const cambios = Object.fromEntries(CONFIG_CLAVES.filter(k => typeof body[k] === "boolean").map(k => [k, body[k]]));

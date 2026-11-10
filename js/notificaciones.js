@@ -9,7 +9,7 @@ import { S, activos, onChange } from "./data.js";
 import { $, esc, icon, openSheet, plate } from "./ui.js";
 import { sonidoNotif } from "./sonidos.js";
 
-const DIAS = 7, MAX = 80;
+const DIAS = 30, MAX = 150;
 const ms = t => typeof t === "number" ? t : t?.toMillis?.() || (t?.seconds ? t.seconds * 1000 : 0);
 const visto = () => {
   const v = S.profile?.notifVisto?.[S.company?.id];
@@ -77,7 +77,7 @@ function guardarPerfil(campo, valor) {
   updateDoc(doc(db, "users", S.user.uid), { [`${campo}.${cid}`]: valor }).catch(e => console.warn("notif", e));
 }
 function marcarAbierta(k, lista) {
-  const vigentes = new Set(lista.map(clave));   // las que ya salieron de la lista (más de 7 días) se descartan
+  const vigentes = new Set(lista.map(clave));   // las que ya salieron de la lista (más de DIAS días) se descartan
   guardarPerfil("notifAbiertas", [...new Set([...abiertas(), k])].filter(x => vigentes.has(x)));
 }
 

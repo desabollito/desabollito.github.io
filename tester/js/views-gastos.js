@@ -30,6 +30,8 @@ export const montoTxt = g => esUSD(g) ? "US$ " + Number(g.monto || 0).toLocaleSt
 const MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
 
 // mes: null = todos los gastos del operativo; "AAAA-MM" = solo ese mes (se elige en Ordenar o con las flechas)
+// Fijos sumados o no al total (se recuerda en este equipo)
+const conFijos = () => { try { return localStorage.getItem("gastosSinFijos") !== "1"; } catch { return true; } };
 const G = { mes: null, q: "", cat: null, metodo: null, orden: "fecha", dir: -1 };
 const claveMes = () => G.mes || "";
 const mesActual = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`; };
@@ -101,7 +103,9 @@ export function vistaGastos(view) {
     const total = todosMes.filter(g => !esUSD(g)).reduce((s, g) => s + Number(g.monto || 0), 0);
     const totalUSD = todosMes.filter(esUSD).reduce((s, g) => s + Number(g.monto || 0), 0);
     const fx = totalesFijos(), fijosT = fx ? fx.vi + fx.al : 0;
-    $("#g-total", view).textContent = money(total + fijosT) || "$0";
+    const sumar = fx && conFijos();
+    if (fx && !sumar) $("#g-total-l", view).textContent += " (sin fijos)";
+    $("#g-total", view).textContent = money(total + (sumar ? fijosT : 0)) || "$0";
     $("#g-usd", view).textContent = totalUSD ? `+ US$ ${totalUSD.toLocaleString("es-AR")} en dólares` : "";
     $("#g-count", view).textContent = `${todosMes.length} ${todosMes.length === 1 ? "gasto" : "gastos"}`;
 
@@ -111,8 +115,8 @@ export function vistaGastos(view) {
     const filas = Object.entries(porCat).sort((a, b) => b[1] - a[1]);
     const max = filas[0]?.[1] || 1;
     const maxF = Math.max(filas[0]?.[1] || 0, fx?.vi || 0, fx?.al || 0) || 1;
-    const barrasFijas = fx ? `<div class="g-fijos-sep"><span>Fijos</span><a href="#/fijos">Ver ${icon("next")}</a></div>` + [["Viandas", fx.vi, "#e0a526"], ["Alquiler", fx.al, "#8b5cf6"]].map(([l, v, c]) =>
-      `<a class="g-bar g-bar-fijo" href="#/fijos" style="--c:${c}"><span class="g-bar-l">${l}</span>
+    const barrasFijas = fx ? `<div class="g-fijos-sep"><span>Fijos</span><span class="g-fijos-acc"><button type="button" class="g-fijos-suma" data-fijos-suma aria-pressed="${sumar}">${sumar ? "Sacar del total" : "Sumar al total"}</button><a href="#/fijos">Ver ${icon("next")}</a></span></div>` + [["Viandas", fx.vi, "#e0a526"], ["Alquiler", fx.al, "#8b5cf6"]].map(([l, v, c]) =>
+      `<a class="g-bar g-bar-fijo ${sumar ? "" : "dim"}" href="#/fijos" style="--c:${c}"><span class="g-bar-l">${l}</span>
         <span class="g-bar-track"><i style="width:${Math.max(4, v / maxF * 100)}%"></i></span><span class="g-bar-v">${money(v) || "$0"}</span></a>`).join("") : "";
     $("#g-bars", view).innerHTML = barrasFijas + (fx && filas.length ? `<div class="g-fijos-sep"><span>Gastos comunes</span><span>${money(total) || "$0"}</span></div>` : "") + (filas.length ? filas.map(([k, v]) => {
       const c = catMap()[k] || catMap().otros;
@@ -179,7 +183,7 @@ export function vistaGastos(view) {
       chips(); pintar();
     });
   });
-  $("#g-bars", view).onclick = e => { const b = e.target.closest("[data-cat]"); if (b) { G.cat = G.cat === b.dataset.cat ? null : b.dataset.cat; pintar(); } };
+  $("#g-bars", view).onclick = e => { if (e.target.closest("[data-fijos-suma]")) { try { localStorage.setItem("gastosSinFijos", conFijos() ? "1" : "0"); } catch { /* sin almacenamiento */ } return pintar(); } const b = e.target.closest("[data-cat]"); if (b) { G.cat = G.cat === b.dataset.cat ? null : b.dataset.cat; pintar(); } };
   $("#g-list", view).onclick = e => { const r = e.target.closest("[data-id]"); if (r && !soySacabollos()) formGasto(S.gastos.find(g => g.id === r.dataset.id)); };
   $("#g-nuevo", view).onclick = () => formGasto();
 

@@ -240,21 +240,6 @@ async function reservarUsuario(base, uid, name, pendiente = false) {
   throw new Error("No se pudo reservar un nombre de usuario");
 }
 
-export async function cambiarUsuario(nuevo) {
-  const u = limpiarUsuario(nuevo);
-  if (u.length < 3) throw new Error("Mínimo 3 caracteres: letras, números, punto o guion");
-  if (u === S.profile.username) return;
-  const ref = doc(db, "usernames", u);
-  const s = await getDoc(ref);
-  if (s.exists() && s.data().uid !== S.user.uid) throw new Error("Ese usuario ya está en uso");
-  await setDoc(ref, { uid: S.user.uid, name: S.profile.name });
-  const viejo = S.profile.username;
-  await updateDoc(doc(db, "users", S.user.uid), { username: u });
-  if (viejo) await deleteDoc(doc(db, "usernames", viejo)).catch(() => {});
-  S.profile.username = u;
-  emit("profile");
-}
-
 export async function cambiarNombre(nombre) {
   nombre = nombre.trim();
   if (!nombre) return;
@@ -265,9 +250,8 @@ export async function cambiarNombre(nombre) {
   emit("profile");
 }
 
-// Edita nombre y usuario
-export async function actualizarPerfil({ nombre, usuario }) {
-  if (usuario && limpiarUsuario(usuario) !== S.profile.username) await cambiarUsuario(usuario);
+// Edita el nombre (el usuario se elige al crear la cuenta y no cambia)
+export async function actualizarPerfil({ nombre }) {
   if (nombre && nombre.trim() !== S.profile.name) await cambiarNombre(nombre);
   emit("profile");
 }
@@ -285,12 +269,18 @@ async function sincronizarUsuario() {
 }
 
 // ── Empresas ──────────────────────────────────────────────────
+// Orden de los operativos: el que eligió el usuario arrastrándolos (users/{uid}.ordenOps); los demás, por fecha de creación
+const posOp = c => { const i = S.profile?.ordenOps?.indexOf(c.id) ?? -1; return i < 0 ? 1e9 : i; };
+const ordenOps = (a, b) => posOp(a) - posOp(b) || (a.createdAt?.seconds ?? 9e12) - (b.createdAt?.seconds ?? 9e12) || (a.name || "").localeCompare(b.name || "");
+export function guardarOrdenOps(ids) {
+  S.profile.ordenOps = ids; S.companies.sort(ordenOps); emit("companies");
+  return updateDoc(doc(db, "users", S.user.uid), { ordenOps: ids });
+}
 function escucharEmpresas() {
   const q = query(collection(db, "companies"), where("members", "array-contains", S.user.uid));
   let creando = false;
   unsubCompanies = onSnapshot(q, { includeMetadataChanges: true }, async snap => {
-    S.companies = snap.docs.map(d => ({ id: d.id, ...d.data() }))
-      .sort((a, b) => (a.createdAt?.seconds ?? 9e12) - (b.createdAt?.seconds ?? 9e12) || (a.name || "").localeCompare(b.name || ""));   // por orden de creación
+    S.companies = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort(ordenOps);
     // Sin operativos: la app ofrece pedir unirse a uno o crear uno (ya no se crea solo)
     const sinOp = !S.companies.length && !snap.metadata.fromCache;
     if (sinOp !== !!S.sinOperativo) { S.sinOperativo = sinOp; emit("sin-operativo"); }
@@ -748,6 +738,7 @@ export const soyCreador = () => S.profile?.username === "gzmatte";
 // Sin elegir: Técnicos y Gastos fijos los ven los administradores; Gastos, todos los miembros. Las reglas de Firestore piden lo mismo.
 export const puedeVer = sec => {
   if (S.invitado) return S.invitado.tecnicos ? sec === "tecnicos" : sec === "planilla";
+  if (sec === "planilla" && S.config?.planillaVeh === false) return false;   // el creador la apagó para todos
   if (soyCreador()) return true;
   // Hasta que el bot copie los accesos viejos (globales) a Paraná, valen esos
   const acc = (S.config?.accesosOp ? S.config.accesosOp[S.company?.id] : S.config?.accesos)?.[S.user?.uid] || {}, v = acc[sec];

@@ -58,7 +58,7 @@ const RUTAS = [
 // ── Transiciones entre pantallas ──
 // Pestañas: se desliza hacia el lado de la pestaña nueva. Vehículo (celular): entra desde la derecha y vuelve desde la izquierda.
 // Nuevo/editar: sube desde abajo. En computadora, cambiar de vehículo funde el detalle.
-const ORDEN_TAB = { vehiculos: 0, calendario: 1, planillas: 2, planilla: 2, gastos: 2, tecnicos: 2, fijos: 2, facturacion: 2, cierre: 2 };
+const ORDEN_TAB = { vehiculos: 0, calendario: 1, planillas: 2, planilla: 2, gastos: 2, tecnicos: 2, fijos: 2.1, facturacion: 2, cierre: 2.1 };   // x.1: pestaña de la derecha dentro de la planilla
 function animarCambio(antes, ahora) {
   if (!antes.nombre || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
   const view = $("#view");
@@ -73,8 +73,8 @@ function animarCambio(antes, ahora) {
     view.classList.add("anim-fade"); view.addEventListener("animationend", () => view.classList.remove("anim-fade"), { once: true });
     return;
   }
-  else if (ahora.nombre === "planillas" && ORDEN_TAB[antes.nombre] === 2) clase = "anim-pop";   // de una planilla al menú
-  else if (antes.nombre === "planillas" && ORDEN_TAB[ahora.nombre] === 2) clase = "anim-push";
+  else if (ahora.nombre === "planillas" && Math.floor(ORDEN_TAB[antes.nombre]) === 2) clase = "anim-pop";   // de una planilla al menú
+  else if (antes.nombre === "planillas" && Math.floor(ORDEN_TAB[ahora.nombre]) === 2) clase = "anim-push";
   else if (ahora.nombre === "vehiculos" && antes.nombre === "vehiculos") {
     if (esAncho()) { const p = $(".pane-detail"); if (p && ahora.arg) { p.classList.remove("anim-fade"); void p.offsetWidth; p.classList.add("anim-fade"); } return; }
     clase = ahora.arg ? "anim-push" : "anim-pop";
@@ -154,8 +154,10 @@ function render({ conservarScroll = false, reabrir = false } = {}) {
   pintarTabPlanilla(hit[1]);
   // Menú lateral (computadora): Planillas queda desplegado solo si el usuario lo desplegó (flechita)
   $(".side-grupo")?.classList.toggle("abierto", planAbiertas());
-  $$(".side-sub a").forEach(a => a.classList.toggle("on", a.dataset.sub === hit[1]));
-  $$(".side-sub [data-sub=tecnicos], .side-sub [data-sub=fijos], .side-sub [data-sub=facturacion], .side-sub [data-sub=cierre], .side-sub [data-sub=gastos], .side-sub [data-sub=planilla]").forEach(a => { a.hidden = !puedeVer(a.dataset.sub); });
+  const ALT = { gastos: "fijos", facturacion: "cierre" };   // la otra pestaña de la misma planilla
+  $$(".side-sub a").forEach(a => a.classList.toggle("on", a.dataset.sub === hit[1] || ALT[a.dataset.sub] === hit[1]));
+  $$(".side-sub a[data-sub]").forEach(a => { const s = a.dataset.sub, otra = ALT[s], ver = puedeVer(s);
+    a.hidden = !ver && !(otra && puedeVer(otra)); a.setAttribute("href", "#/" + (ver || !otra ? s : otra)); });
   if (hit[1] === "calendario" && !mismaRuta) calendarioAlEntrar();
   ultimoRender = Date.now();
   const eraCal = !!$(".cal-page", view);

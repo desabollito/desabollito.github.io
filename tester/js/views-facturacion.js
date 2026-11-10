@@ -44,7 +44,8 @@ export function vistaFacturacion(view) {
   const alFinal = vid => estadoDe(vid) === "impreso" ? { vids: [...vids.filter(x => x !== vid), vid] } : {};
   view.innerHTML = `<div class="tec-page">
     <label class="search">${icon("search")}<input type="search" id="f-q" placeholder="Buscar patente o modelo" value="${esc(F.q)}" autocomplete="off" autocapitalize="characters"></label>
-    <button type="button" class="btn btn-primary" id="f-add">${icon("plus")}Agregar vehículo</button>
+    <div class="row-btns"><button type="button" class="btn btn-primary" id="f-add">${icon("plus")}Agregar vehículo</button>
+      <button type="button" class="btn btn-ghost" id="f-digital">${icon("check")}Facturados digital</button></div>
     <input type="file" id="f-in" accept="application/pdf,image/*" hidden>
     <div id="f-body"><div class="skeleton tall"></div></div></div>`;
 
@@ -100,6 +101,15 @@ export function vistaFacturacion(view) {
       vids = [...vids, b.dataset.id]; pintarTira(); q.select();
       if (await guardar({ vids: arrayUnion(b.dataset.id) }, `Agregó ${patenteDe(b.dataset.id)}`)) toast("Vehículo agregado", "success");
     });
+  };
+  // Facturados digital: los que están en Facturado en Vehículos pero no en esta planilla (que es la de facturados físico)
+  $("#f-digital", view).onclick = () => {
+    const vs = activos().filter(v => estadoActual(v) === "facturado" && !vids.includes(v.id));
+    const s = openSheet({ title: `Facturados digital (${vs.length})`, wide: true, body: vs.length
+      ? `<div class="table-wrap"><table class="tbl"><thead><tr><th>Vehículo</th><th>Patente</th><th>Compañía</th></tr></thead><tbody>${vs.map(v =>
+        `<tr data-ir="${esc(v.id)}" style="cursor:pointer"><td>${esc(v.modelo || "—")}</td><td>${plate(v.patente)}</td><td>${esc(v.compania || "—")}</td></tr>`).join("")}</tbody></table></div>`
+      : `<p class="muted center">No hay vehículos facturados fuera de esta planilla.</p>` });
+    s.el.addEventListener("click", e => { const r = e.target.closest("[data-ir]"); if (r) { s.close(); F.volver = { y: scrollY, t: 0 }; location.hash = `#/v/${r.dataset.ir}`; } });
   };
   $("#f-q", view).oninput = e => { F.q = e.target.value; pintar(); };
   $("#f-body", view).onclick = async e => {

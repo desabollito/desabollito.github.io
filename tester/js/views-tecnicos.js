@@ -17,10 +17,8 @@ export function vistaPlanillas(view) {
   view.innerHTML = `<div class="planillas-hub">
     ${puedeVer("planilla") ? `<a class="hub-btn" href="#/planilla">${icon("table")}<span><strong>Planilla de vehículos</strong><small>Todos los vehículos del operativo</small></span></a>` : ""}
     ${puedeVer("tecnicos") ? `<a class="hub-btn" href="#/tecnicos">${icon("team")}<span><strong>Planilla de técnicos</strong><small>Sacabollos, sueldos y cierre</small></span></a>` : ""}
-    ${puedeVer("gastos") ? `<a class="hub-btn" href="#/gastos">${icon("money")}<span><strong>Planilla de gastos</strong><small>Gastos del operativo</small></span></a>` : ""}
-    ${puedeVer("fijos") ? `<a class="hub-btn" href="#/fijos">${icon("wallet")}<span><strong>Fijos</strong><small>Viandas y alquiler, repartidos entre los técnicos</small></span></a>` : ""}
-    ${puedeVer("facturacion") ? `<a class="hub-btn" href="#/facturacion">${icon("sign")}<span><strong>Facturación</strong><small>Documento firmado de cada vehículo</small></span></a>` : ""}
-    ${puedeVer("cierre") ? `<a class="hub-btn" href="#/cierre">${icon("wallet")}<span><strong>Cierre operativo</strong><small>Ventas por compañía, IVA, IIBB, gastos y retornos</small></span></a>` : ""}
+    ${puedeVer("gastos") || puedeVer("fijos") ? `<a class="hub-btn" href="#/${puedeVer("gastos") ? "gastos" : "fijos"}">${icon("money")}<span><strong>Planilla de gastos</strong><small>Gastos del operativo y fijos (viandas y alquiler)</small></span></a>` : ""}
+    ${puedeVer("facturacion") || puedeVer("cierre") ? `<a class="hub-btn" href="#/${puedeVer("facturacion") ? "facturacion" : "cierre"}">${icon("sign")}<span><strong>Facturación</strong><small>Órdenes firmadas y cierre operativo</small></span></a>` : ""}
   </div>`;
 }
 

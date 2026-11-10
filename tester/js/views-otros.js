@@ -1,7 +1,7 @@
 import {
   S, activos, papelera, restaurar, eliminarDefinitivo, soyAdmin, miRol, renombrarEmpresa, guardarSello, deshaciblesDe, deshacerCambio, soyDesmontaje,
   agregarMiembro, cambiarRol, quitarMiembro, guardarEtiquetas, resolverSolicitud, desvincularWhatsApp, salirDeEmpresa, eliminarEmpresa, crearEmpresa, elegirEmpresa,
-  actualizarPerfil, salir, mensajeError, llamarAdmin, soloDesmontaje, pedirUnion, linksCompartidos, getVehiculo, soloVer, soySacabollos
+  actualizarPerfil, salir, mensajeError, llamarAdmin, soloDesmontaje, pedirUnion, linksCompartidos, getVehiculo, soloVer, soySacabollos, guardarOrdenOps
 } from "./data.js";
 import { cargarExcelJS } from "./excel.js";
 import { ESTADOS, ESTADO, ROLES, estadoActual, esAnulado } from "./domain.js";
@@ -10,6 +10,7 @@ import {
   pedirTexto, busy, debounce, avatarUsuario, tsToISO, elegirDescarga, horaDe
 } from "./ui.js";
 import { ruidoMotor, SONIDOS_AUTO } from "./sonidos.js";
+import { NOVEDADES } from "./novedades.js";
 import { imagenChica, avatar } from "./media.js";
 import { planillaPDF } from "./pdf.js";
 import { exportarExcel } from "./excel.js";
@@ -505,6 +506,38 @@ async function crearOperativo() {
   try { await crearEmpresa(n); toast("Operativo creado", "success"); } catch (e) { toast(mensajeError(e), "error"); }
 }
 
+// Mantener apretado un operativo (400 ms) y arrastrarlo arriba o abajo lo cambia de lugar; al soltar se guarda el orden
+function ordenable(ul, alSoltar) {
+  if (!ul || ul.children.length < 2) return;
+  let arr = null, timer = 0, y0 = 0, movido = false, largo = false;
+  ul.addEventListener("pointerdown", e => {
+    const li = e.target.closest("li"); if (!li) return;
+    y0 = e.clientY; movido = largo = false;
+    timer = setTimeout(() => { arr = { li, y: y0 }; largo = true; li.classList.add("arrastrando"); navigator.vibrate?.(15);
+      try { ul.setPointerCapture(e.pointerId); } catch { /* sin captura */ } }, 400);
+  });
+  ul.addEventListener("pointermove", e => {
+    if (!arr) { if (Math.abs(e.clientY - y0) > 8) clearTimeout(timer); return; }
+    const li = arr.li; let dy = e.clientY - arr.y;
+    const otro = dy > 0 ? li.nextElementSibling : li.previousElementSibling;
+    if (otro && Math.abs(dy) > otro.offsetHeight / 2) {
+      const h = otro.offsetHeight + 6;   // 6 = gap de la lista
+      dy > 0 ? otro.after(li) : otro.before(li);
+      arr.y += Math.sign(dy) * h; dy = e.clientY - arr.y; movido = true;
+    }
+    li.style.transform = `translateY(${dy}px)`;
+  });
+  const soltar = () => {
+    clearTimeout(timer); if (!arr) return;
+    arr.li.classList.remove("arrastrando"); arr.li.style.transform = ""; arr = null;
+    if (movido) alSoltar([...ul.querySelectorAll("[data-id]")].map(b => b.dataset.id));
+  };
+  ul.addEventListener("pointerup", soltar); ul.addEventListener("pointercancel", soltar);
+  ul.addEventListener("touchmove", e => { if (arr) e.preventDefault(); }, { passive: false });   // arrastrando no se desliza la hoja
+  ul.addEventListener("contextmenu", e => e.preventDefault());
+  ul.addEventListener("click", e => { if (largo) { e.preventDefault(); e.stopPropagation(); largo = false; } }, true);   // soltar no elige el operativo
+}
+
 export function elegirEmpresaSheet() {
   // Lista de operativos; abajo un solo botón con las opciones (gestionar / unirme / crear) y, en celular, Ajustes
   const s = openSheet({
@@ -515,7 +548,7 @@ export function elegirEmpresaSheet() {
         <span><strong>${esc(c.name)}</strong><small>${ROLES[c.roles?.[S.user.uid]]?.label || ""} · ${c.members.length} ${c.members.length === 1 ? "persona" : "personas"}</small></span>
         ${c.id === S.company?.id ? icon("check") : ""}</button></li>`).join("")}</ul>
       <div class="op-menu">
-        <button type="button" class="op-mas" id="op-mas" aria-expanded="false">${icon("team")}<span><strong>Operativos</strong><small>Gestionar, unirme o crear</small></span>${icon("next")}</button>
+        <button type="button" class="op-mas" id="op-mas" aria-expanded="false">${icon("settings")}<span><strong>Gestión</strong><small>Administrar, unirme a otro o crear uno</small></span>${icon("next")}</button>
         <div class="op-opciones" id="op-opciones" hidden>
           ${S.company ? `<a class="op-opc" href="#/operativo" data-close>${icon("settings")}<span><strong>Gestionar ${esc(S.company.name)}</strong><small>Usuarios, roles, sello y links</small></span></a>` : ""}
           <button type="button" class="op-opc" id="unir-op">${icon("swap")}<span><strong>Unirme a un operativo</strong><small>Pedir unirme a uno que ya existe</small></span></button>
@@ -524,6 +557,7 @@ export function elegirEmpresaSheet() {
         <a class="op-mas op-ajustes only-mobile" href="#/ajustes" data-close>${icon("settings")}<span><strong>Ajustes</strong></span>${icon("next")}</a>
       </div>`
   });
+  ordenable($(".company-list", s.el), ids => guardarOrdenOps(ids).then(() => toast("Orden guardado", "success")).catch(err => toast(mensajeError(err), "error")));
   s.body.addEventListener("click", e => {
     const b = e.target.closest("[data-id]");
     if (b) { elegirEmpresa(b.dataset.id); s.close(); go("#/"); }
@@ -579,8 +613,8 @@ export function vistaAjustes(view) {
       <button class="btn btn-danger-ghost ${soySacabollos() ? "btn-block" : ""}" id="salir">${icon("logout")}Cerrar sesión</button>
     </section>
 
-    <p class="center aj-version"><button type="button" class="version-btn" onclick="window.dispatchEvent(new Event('forzar-actualizacion'))"
-      title="Tocá para forzar la actualización">Desabollito ${APP_VERSION} ${icon("rotate")}</button></p>
+    <p class="center aj-version"><button type="button" class="version-btn" id="version-btn"
+      title="Tocá para forzar la actualización · mantené apretado para ver las novedades">Desabollito ${APP_VERSION} ${icon("rotate")}</button></p>
   </div>`;
 
   $("#editar-perfil", view).onclick = () => editarPerfil(() => vistaAjustes(view));
@@ -594,6 +628,17 @@ export function vistaAjustes(view) {
     $$(".seg-btn", $("#fecha-vista", view)).forEach(x => x.classList.toggle("on", x === b));
   };
   $("#salir", view).onclick = async () => { if (await confirmar({ title: "¿Cerrar sesión?", ok: "Cerrar sesión" })) salir(); };
+  // Versión: tocar fuerza la actualización; mantener apretado muestra las novedades
+  const vb = $("#version-btn", view); let largo = false, t = 0;
+  vb.onpointerdown = () => { largo = false; t = setTimeout(() => { largo = true; navigator.vibrate?.(15); verNovedades(); }, 500); };
+  vb.onpointerup = vb.onpointerleave = vb.onpointercancel = () => clearTimeout(t);
+  vb.oncontextmenu = e => e.preventDefault();
+  vb.onclick = () => { if (!largo) window.dispatchEvent(new Event("forzar-actualizacion")); largo = false; };
+}
+
+function verNovedades() {
+  openSheet({ title: "Novedades", wide: true, body: `<div class="novedades">${NOVEDADES.map(n =>
+    `<section class="nov"><h3>${esc(n.v)}</h3><ul>${n.items.map(i => `<li>${esc(i)}</li>`).join("")}</ul></section>`).join("")}</div>` });
 }
 
 // Links de solo lectura: el perito ve los vehículos de una compañía en este operativo (sin poder tocar nada)
@@ -639,8 +684,8 @@ function editarPerfil(alTerminar) {
       <label class="field"><span>Nombre</span>
         <input name="nombre" value="${esc(p.name)}" required autocomplete="name"></label>
       <label class="field"><span>Usuario</span>
-        <input name="usuario" value="${esc(p.username)}" required autocapitalize="none" spellcheck="false">
-        <small class="muted">Letras, números, punto o guion. Es el que usan para sumarte a un operativo.</small></label>
+        <input value="@${esc(p.username)}" readonly disabled>
+        <small class="muted">El usuario no se puede cambiar. Es el que usan para sumarte a un operativo.</small></label>
       <button class="btn btn-primary btn-block btn-lg">Guardar perfil</button>
       ${p.whatsapp ? `<button type="button" class="btn btn-danger-ghost btn-block" id="wa-desv">${icon("chat")}Desvincular WhatsApp</button>` : ""}
     </form>`
@@ -654,7 +699,7 @@ function editarPerfil(alTerminar) {
     const b = $("button.btn-primary", e.target);
     busy(b, true, "Guardando…");
     try {
-      await actualizarPerfil({ nombre: e.target.nombre.value, usuario: e.target.usuario.value });
+      await actualizarPerfil({ nombre: e.target.nombre.value });
       toast("Perfil actualizado", "success");
       s.close(); alTerminar?.();
     } catch (err) { toast(mensajeError(err), "error"); busy(b, false); }
@@ -742,6 +787,8 @@ export async function panelCreador() {
           <span>Elegir en Ajustes la fecha que se muestra en la lista</span></label>
         <label class="toggle"><input type="checkbox" data-config="etapasPdf" ${datos.config?.etapasPdf ? "checked" : ""}>
           <span>Estado de repuestos y pintura en los PDF</span></label>
+        <label class="toggle"><input type="checkbox" data-config="planillaVeh" ${datos.config?.planillaVeh !== false ? "checked" : ""}>
+          <span>Planilla de vehículos</span></label>
       </div>
       <div class="adm-toggles adm-sonido">
         <span><b>Sonido al actualizar la app</b> <small class="muted">(lo escuchan todos)</small></span>
@@ -834,7 +881,7 @@ export async function panelCreador() {
     try {
       const r = await llamarAdmin("config", { [clave]: on });
       datos.config = r.config; S.config = { ...S.config, ...r.config };
-      toast(`${{ documentos: "Documentos", fechaVista: "Elegir fecha", etapasPdf: "Estado en los PDF" }[clave] || "Aviso al cliente"} ${on ? "activado" : "desactivado"}`, "success");
+      toast(`${{ documentos: "Documentos", fechaVista: "Elegir fecha", etapasPdf: "Estado en los PDF", planillaVeh: "Planilla de vehículos" }[clave] || "Aviso al cliente"} ${on ? "activado" : "desactivado"}`, "success");
     } catch (err) { e.target.checked = !on; toast(err.message, "error"); }
     e.target.disabled = false;
   });

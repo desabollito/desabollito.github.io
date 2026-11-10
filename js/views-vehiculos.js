@@ -18,7 +18,7 @@ import { armarZip } from "./zip.js";
 import { setTopbar, go, esAncho } from "./shell.js";
 
 // Filtros de la lista (se conservan al navegar)
-const F = { estado: new Set(), q: "", mios: false, sinAnul: false, orden: "fecha", dir: -1, grado: null, repuestos: new Set(), pintura: new Set(), turno: null, cliente: null, cargado: null, cias: new Set() }; // estado: vacío = todos (se pueden marcar varios); grado: null = todos, 0 = sin grado
+const F = { estado: new Set(), q: "", mios: false, sinAnul: false, orden: "fecha", dir: -1, grado: new Set(), repuestos: new Set(), pintura: new Set(), turno: new Set(), cliente: new Set(), cargado: new Set(), cias: new Set() }; // cada filtro: Set vacío = todos (se pueden marcar varias opciones de cada uno); grado 0 = sin grado
 
 // Conformidad del cliente al entregar: carita y color de cada opción
 const CARAS = { conforme: ["Conforme", "#22b07d", "M8 14.5c1 1.4 2.4 2 4 2s3-.6 4-2"], regular: ["Regular", "#e0a526", "M8.5 15.5h7"], desconforme: ["Desconforme", "#e0486e", "M8 16.5c1-1.4 2.4-2 4-2s3 .6 4 2"] };
@@ -69,12 +69,12 @@ function filtrar(lista, conAnul) {
     (!F.estado.size || F.estado.has(estadoActual(v))) &&
     (!F.mios || esMioV(v)) &&
     (conAnul || !F.sinAnul || q || !esAnulado(v)) &&   // buscando, los anulados aparecen igual
-    (F.grado === null || (v.grado || 0) === F.grado) &&
+    (!F.grado.size || F.grado.has(v.grado || 0)) &&
     (!F.repuestos.size || [...F.repuestos].some(f => tieneEtapa(v, "repuestos", f))) &&   // varias fases = cualquiera de ellas
     (!F.pintura.size || [...F.pintura].some(f => tieneEtapa(v, "pintura", f))) &&
-    (!F.turno || (estadoActual(v) === "turnado" && (F.turno === "si") === (v.turnoConfirmado === true))) &&
-    (!F.cliente || v.conformidad === F.cliente) &&
-    (!F.cargado || CARGADO[F.cargado](v)) &&
+    (!F.turno.size || (estadoActual(v) === "turnado" && F.turno.has(v.turnoConfirmado === true ? "si" : "no"))) &&
+    (!F.cliente.size || F.cliente.has(v.conformidad)) &&
+    (!F.cargado.size || [...F.cargado].some(k => CARGADO[k](v))) &&
     (!F.cias.size || F.cias.has(ciaDe(v))) &&
     (!q || (q.startsWith("@")
       // "@usuario": los vehículos que cargó esa persona
@@ -200,7 +200,7 @@ export function vistaVehiculos(view, selId = null) {
   if (selId && !ancho) return vistaDetalle(view, selId);
 
   // Cuántos filtros/órdenes distintos de lo normal hay puestos (se ve en el botón)
-  const cuantosActivos = () => [F.mios, F.sinAnul, F.grado !== null, F.repuestos.size > 0, F.pintura.size > 0, F.turno, F.cliente, F.cargado, F.cias.size > 0, F.orden !== "fecha" || F.dir !== -1].filter(Boolean).length;
+  const cuantosActivos = () => [F.mios, F.sinAnul, F.grado.size, F.repuestos.size, F.pintura.size, F.turno.size, F.cliente.size, F.cargado.size, F.cias.size, F.orden !== "fecha" || F.dir !== -1].filter(Boolean).length;
   const marcarBoton = () => { const b = $("#tb-filtros"); if (!b) return; const k = cuantosActivos();
     b.classList.toggle("activo", k > 0); const n = $(".fo-badge", b); if (n) { n.textContent = k; n.hidden = !k; } };
   setTopbar({
@@ -260,7 +260,7 @@ export function vistaVehiculos(view, selId = null) {
          <button class="btn btn-ghost" id="limpiar">Limpiar filtros</button></div>`;
     box.classList.toggle("lista-anim", animar);
     if (animar) [...box.children].forEach((c, i) => c.style.setProperty("--i", i));
-    $("#limpiar", box)?.addEventListener("click", () => { F.q = ""; F.estado.clear(); F.mios = false; F.sinAnul = false; F.cias.clear(); F.grado = null; F.repuestos.clear(); F.pintura.clear(); F.turno = null; F.cliente = null; F.cargado = null; marcarBoton(); $("#q").value = ""; pintar(); });
+    $("#limpiar", box)?.addEventListener("click", () => { F.q = ""; F.estado.clear(); F.mios = false; F.sinAnul = false; F.cias.clear(); F.grado.clear(); F.repuestos.clear(); F.pintura.clear(); F.turno.clear(); F.cliente.clear(); F.cargado.clear(); marcarBoton(); $("#q").value = ""; pintar(); });
   };
 
   // Computadora: tocar de nuevo el vehículo marcado lo desmarca y cierra el detalle
@@ -273,14 +273,14 @@ export function vistaVehiculos(view, selId = null) {
   $("#q").addEventListener("dblclick", e => { e.target.select(); });
   $("#estado-strip", view).addEventListener("click", e => {
     const b = e.target.closest("[data-e]"); if (!b) return;
-    { const k = b.dataset.e; F.estado.has(k) ? F.estado.delete(k) : F.estado.add(k); } pintar();
+    { const k = b.dataset.e; F.estado.has(k) ? F.estado.delete(k) : F.estado.add(k); } pintar(true);   // misma cascada que al buscar
   });
   // Un solo botón "Filtrar y ordenar": cada grupo es una fila de opciones (tocar una la elige; "Todos" la quita)
   $("#tb-filtros")?.addEventListener("click", () => {
     const lector = soyLector();
     const hoja = openSheet({ title: "Filtrar y ordenar", body: `<div class="fo">
       <section class="fo-sec"><h3>Ordenar por</h3><div class="fo-seg" id="fo-orden"></div></section>
-      ${lector ? "" : `<section class="fo-sec"><h3>Compañías</h3><div class="fo-seg fo-cias" id="fo-cias"></div></section>`}
+      ${lector ? "" : `<section class="fo-sec"><h3>Compañías</h3><div class="fo-cias-caja"><button type="button" class="icon-btn fo-cias-flecha" data-mover="-1" aria-label="Ver compañías anteriores">${icon("back")}</button><div class="fo-seg fo-cias" id="fo-cias"></div><button type="button" class="icon-btn fo-cias-flecha" data-mover="1" aria-label="Ver más compañías">${icon("next")}</button></div></section>`}
       <section class="fo-sec fo-grados"><h3>Grado</h3><div class="fo-seg" id="fo-grado"></div></section>
       <section class="fo-sec"><h3>Pintura</h3><div class="fo-seg" id="fo-pintura"></div></section>
       <section class="fo-sec"><h3>Repuestos</h3><div class="fo-seg" id="fo-repuestos"></div></section>
@@ -302,14 +302,14 @@ export function vistaVehiculos(view, selId = null) {
       e.style.setProperty("--grad", `linear-gradient(90deg, ${colores.map((c, i) => `color-mix(in srgb, ${c} 16%, transparent) ${Math.round((i + 0.5) / colores.length * 100)}%`).join(", ")})`); };
     const pintarHoja = () => {
       el("#fo-orden").innerHTML = ORDENES.map(([k, t]) => op("orden", k, F.orden === k ? `${t} <i class="fo-flecha">${F.dir > 0 ? "↑" : "↓"}</i>` : t, null, F.orden === k)).join("");
-      const gr = [[0, "–"], [1, "G1"], [2, "G2"], [3, "G3"], [4, "G4"]].filter(([g]) => !(g === 4 && lector) && (g !== 0 || n("grado", v => !v.grado) || F.grado === 0));
-      el("#fo-grado").innerHTML = gr.map(([g, t]) => op("grado", g, t, n("grado", v => (v.grado || 0) === g), F.grado === g)).join("");
+      const gr = [[0, "–"], [1, "G1"], [2, "G2"], [3, "G3"], [4, "G4"]].filter(([g]) => !(g === 4 && lector) && (g !== 0 || n("grado", v => !v.grado) || F.grado.has(0)));
+      el("#fo-grado").innerHTML = gr.map(([g, t]) => op("grado", g, t, n("grado", v => (v.grado || 0) === g), F.grado.has(g))).join("");
       degrade("#fo-turno", ["#e0a526", "#22b07d"]);
       ["pintura", "repuestos"].forEach(tipo => degrade(`#fo-${tipo}`, ETAPAS[tipo].map(e => e[2])));
       el("#fo-turno").innerHTML = [["no", "Sin confirmar", "#e0a526", false], ["si", "Confirmados", "#22b07d", true]].map(([k, t, c, si]) =>
-          op("turno", k, t, n("turno", v => estadoActual(v) === "turnado" && (v.turnoConfirmado === true) === si), F.turno === k, c)).join("");
-      el("#fo-cliente").innerHTML = Object.entries(CARAS).map(([k, [t, c]]) => op("cliente", k, t, n("cliente", v => v.conformidad === k), F.cliente === k, c)).join("");
-      if (el("#fo-cargado")) el("#fo-cargado").innerHTML = [["desm", "Desmontaje"], ["check", "Check in / out"], ["firma", "Firmados"]].map(([k, t]) => op("cargado", k, t, n("cargado", CARGADO[k]), F.cargado === k)).join("");
+          op("turno", k, t, n("turno", v => estadoActual(v) === "turnado" && (v.turnoConfirmado === true) === si), F.turno.has(k), c)).join("");
+      el("#fo-cliente").innerHTML = Object.entries(CARAS).map(([k, [t, c]]) => op("cliente", k, t, n("cliente", v => v.conformidad === k), F.cliente.has(k), c)).join("");
+      if (el("#fo-cargado")) el("#fo-cargado").innerHTML = [["desm", "Desmontaje"], ["check", "Check in / out"], ["firma", "Firmados"]].map(([k, t]) => op("cargado", k, t, n("cargado", CARGADO[k]), F.cargado.has(k))).join("");
       ["pintura", "repuestos"].forEach(tipo => {
         el(`#fo-${tipo}`).innerHTML = ETAPAS[tipo].map(([k, t, c]) => op(tipo, k, t, n(tipo, v => tieneEtapa(v, tipo, k)), F[tipo].has(k), c)).join("");
       });
@@ -320,24 +320,29 @@ export function vistaVehiculos(view, selId = null) {
       marcarBoton();
     };
     const aplicar = () => { pintar(); pintarHoja(); };
+    // Compañías: flechas, rueda del mouse y flechas apagadas en las puntas (en computadora no se podía deslizar)
+    const cias = el("#fo-cias"), flechas = () => { if (!cias) return; const fin = cias.scrollWidth - cias.clientWidth;
+      $$(".fo-cias-flecha", hoja.el).forEach(b => { b.disabled = b.dataset.mover < 0 ? cias.scrollLeft <= 2 : cias.scrollLeft >= fin - 2; b.hidden = fin <= 2; }); };
+    cias?.addEventListener("scroll", flechas, { passive: true });
+    cias?.addEventListener("wheel", e => { if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) { e.preventDefault(); cias.scrollLeft += e.deltaY; } }, { passive: false });
     hoja.el.addEventListener("click", e => {
+      const m = e.target.closest("[data-mover]");
+      if (m) return cias.scrollBy({ left: m.dataset.mover * cias.clientWidth * 0.7, behavior: "smooth" });
       const c = e.target.closest("[data-cia]");
       if (c) { const k = c.dataset.cia; F.cias.has(k) ? F.cias.delete(k) : F.cias.add(k); return aplicar(); }
-      if (e.target.closest("#fo-reset")) { F.mios = false; F.sinAnul = false; F.cargado = null; F.grado = null; F.repuestos.clear(); F.pintura.clear(); F.turno = null; F.cliente = null; F.cias.clear(); F.orden = "fecha"; F.dir = -1;
+      if (e.target.closest("#fo-reset")) { F.mios = false; F.sinAnul = false; F.cargado.clear(); F.grado.clear(); F.repuestos.clear(); F.pintura.clear(); F.turno.clear(); F.cliente.clear(); F.cias.clear(); F.orden = "fecha"; F.dir = -1;
         if (el("#fo-mios")) el("#fo-mios").checked = false; el("#fo-anul").checked = false; return aplicar(); }
       if (e.target.closest("#fo-pdf")) return exportarPDF();
       const b = e.target.closest("[data-g]"); if (!b) return;
       const g = b.dataset.g, v = b.dataset.v;
       if (g === "orden") { if (F.orden === v) F.dir *= -1; else { F.orden = v; F.dir = v === "fecha" ? -1 : 1; } }
       // Sin "Todos": tocar la opción elegida la quita (ninguna elegida = todos)
-      else if (g === "grado") F.grado = F.grado === Number(v) ? null : Number(v);
-      else if (g === "pintura" || g === "repuestos") F[g].has(v) ? F[g].delete(v) : F[g].add(v);   // se pueden marcar varias
-      else F[g] = F[g] === v ? null : v;   // turno, cliente, cargado
+      else { const k = g === "grado" ? Number(v) : v; F[g].has(k) ? F[g].delete(k) : F[g].add(k); }   // se pueden marcar varias en cada fila
       aplicar();
     });
     el("#fo-mios")?.addEventListener("change", e => { F.mios = e.target.checked; aplicar(); });
     el("#fo-anul").addEventListener("change", e => { F.sinAnul = e.target.checked; aplicar(); });
-    pintarHoja();
+    pintarHoja(); requestAnimationFrame(flechas);
   });
   pintar();
 

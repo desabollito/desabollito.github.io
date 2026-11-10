@@ -1,4 +1,4 @@
-import { S } from "./data.js";
+import { S, puedeVer } from "./data.js";
 import { $, $$, esc, icon, avatarUsuario } from "./ui.js";
 import { ROLES } from "./domain.js";
 import { avatar } from "./media.js";
@@ -6,6 +6,14 @@ import { pintarCampana } from "./notificaciones.js";
 
 export const go = hash => { if (location.hash !== hash) location.hash = hash; };
 export const esAncho = () => matchMedia("(min-width: 1100px)").matches;
+
+// Planillas de a dos (una sola planilla con pestañas arriba): Gastos | Fijos y Facturación | Cierre
+export const PARES = [[["gastos", "Gastos"], ["fijos", "Fijos"]], [["facturacion", "Facturación"], ["cierre", "Cierre"]]];
+function pestanas() {
+  const r = location.hash.slice(2), par = PARES.find(p => p.some(([k]) => k === r))?.filter(([k]) => puedeVer(k));
+  return par?.length > 1 ? `<nav class="seg seg-sm tb-tabs" aria-label="Pestañas">${par.map(([k, t]) =>
+    `<a class="seg-btn ${k === r ? "on" : ""}" href="#/${k}" ${k === r ? 'aria-current="page"' : ""}>${t}</a>`).join("")}</nav>` : "";
+}
 
 // title: texto; back: hash o true (history.back); actions: HTML de botones; sinTitulo: el título queda solo para lectores de pantalla
 export function setTopbar({ title = "", back = null, actions = "", sub = "", sinTitulo = false } = {}) {
@@ -16,7 +24,7 @@ export function setTopbar({ title = "", back = null, actions = "", sub = "", sin
          ${logoOperativo("sm")}</button>`;
   tb.innerHTML = `
     ${backBtn}
-    <div class="tb-title"><h1 ${sinTitulo ? 'class="oculto"' : ""}>${esc(title)}</h1>${sub ? `<small>${esc(sub)}</small>` : ""}</div>
+    <div class="tb-title"><h1 ${sinTitulo || pestanas() ? 'class="oculto"' : ""}>${esc(title)}</h1>${pestanas() || (sub ? `<small>${esc(sub)}</small>` : "")}</div>
     <div class="tb-actions">${actions}${S.invitado ? `<button class="icon-btn only-sm" data-tema-lector aria-label="Modo claro / oscuro" title="Modo claro / oscuro">${ICONO_TEMA}</button>`
       : S.company ? `<button class="icon-btn notif-btn" id="tb-notif" aria-label="Notificaciones" title="Notificaciones">${icon("bell")}<span class="notif-dot" hidden></span></button>` : ""}</div>`;
   pintarCampana();
