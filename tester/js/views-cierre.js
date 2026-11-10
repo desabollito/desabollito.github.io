@@ -93,7 +93,7 @@ function cierrePDF(d, r) {
   // Cada persona: lo que le toca, debajo cada gasto (y cada retorno, solo si hay) y lo que queda; sin tabla aparte ni línea "Gastos"
   const itemsG = l => (l || []).map(g => [(g.nombre || "Sin nombre") + (g.retorno ? " (retorno)" : ""), g.retorno ? num(g.monto) : -num(g.monto)]);
   (d.reparto || []).forEach(f => {
-    caja(`Gastos de ${f.nombre || "sin nombre"}`, [], [], [[`Le toca (${num(f.pct)}%)`, parte(f, r)], ...itemsG(f.gastos), ...(f.gastos2?.length ? [["Queda", queda(f, r), "sub"], ...itemsG(f.gastos2)] : []), ["Final", quedaFinal(f, r), "final"]]);
+    caja(`Gastos de ${f.nombre || "sin nombre"}`, [], [], [[`Le toca (${num(f.pct)}%)`, parte(f, r)], ...itemsG(f.gastos), ...(f.gastos2?.length ? [["Queda", queda(f, r), "final"], ...itemsG(f.gastos2)] : []), ["Final", quedaFinal(f, r), "final"]]);
   });
   const H = Math.max(297, 20 + 2 * M + pend.reduce((a, [, , f, l]) => a + altoDe(f, l) + 5, 0));
   doc = new window.jspdf.jsPDF({ unit: "mm", format: [W, H] });
@@ -180,7 +180,7 @@ export function vistaCierre(view) {
     body.querySelectorAll("[data-persona]").forEach(b => { b.textContent = d.reparto[b.dataset.persona]?.nombre || `Persona ${+b.dataset.persona + 1}`; });
     const yo = d.reparto[pSel], pres = $("#c-pg-res", body), pres2 = $("#c-pg2-res", body);
     body.querySelectorAll("[data-nombre]").forEach(x => { x.textContent = yo?.nombre || `Persona ${pSel + 1}`; });
-    if (yo && pres) pres.innerHTML = linea(`Le toca (${num(yo.pct)}%)`, parte(yo, r)) + linea("Gastos", -gastosDe(yo)) + (retDe(yo) ? linea("Retornos", retDe(yo)) : "") + (yo.gastos2?.length ? linea("Queda", queda(yo, r), "sub") : linea("Final", queda(yo, r), "final"));
+    if (yo && pres) pres.innerHTML = linea(`Le toca (${num(yo.pct)}%)`, parte(yo, r)) + linea("Gastos", -gastosDe(yo)) + (retDe(yo) ? linea("Retornos", retDe(yo)) : "") + (yo.gastos2?.length ? linea("Queda", queda(yo, r), "final") : linea("Final", queda(yo, r), "final"));
     if (yo && pres2) pres2.innerHTML = !yo.gastos2?.length ? "" : linea("Más gastos", -gastosDe(yo, "gastos2")) + (retDe(yo, "gastos2") ? linea("Retornos", retDe(yo, "gastos2")) : "") + linea("Final", quedaFinal(yo, r), "final");
   };
   const pintar = () => { body.innerHTML = tabla("ventas") + tabla("gastos") + `<section class="d-sec cierre-sec"><h3>Resumen</h3><div class="cierre-res" id="c-res"></div></section>` + tabla("reparto") + tabla("pg"); totales(); };
