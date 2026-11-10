@@ -44,8 +44,8 @@ export function cuentas(d) {
 console.assert(cuentas({ modoVentas: "total", ventas: [{ cant: 2, valor: 1, total: 242 }] }).sinIva - 200 < 1e-9, "cierre: modo total");
 console.assert(Math.abs(cuentas({ ventas: [{ cant: 1, valor: 121 }], gastos: [{ monto: 10 }], retornos: [{ monto: 5 }] }).final - 86.5) < 1e-9, "cierre: cuentas");
 console.assert(cuentas({ gastos: [{ monto: 10, retorno: true }] }).final === 0, "cierre: gasto como retorno");
-const parte = (f, r) => SECC.reparto.total(f, 0, r), gastosDe = f => (f.gastos || []).reduce((a, g) => a + num(g.monto), 0);
-// Lo que le queda a cada persona: su parte − sus gastos + los que marcó como retorno
+const parte = (f, r) => SECC.reparto.total(f, 0, r), gastosDe = f => (f.gastos || []).filter(g => !g.retorno).reduce((a, g) => a + num(g.monto), 0);
+// Lo que le queda a cada persona: su parte − sus gastos + sus retornos (en la persona el retorno es ganancia: no se resta)
 const retDe = f => (f.gastos || []).filter(g => g.retorno).reduce((a, g) => a + num(g.monto), 0), queda = (f, r) => parte(f, r) - gastosDe(f) + retDe(f);
 // Secciones plegadas que cada uno dejó abiertas (solo en este equipo)
 const abiertos = (() => { try { return JSON.parse(localStorage.getItem("cierreAbiertos")) || {}; } catch { return {}; } })();
