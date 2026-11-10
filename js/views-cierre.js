@@ -88,7 +88,7 @@ function cierrePDF(d, r) {
   caja("Vehículos por compañía", [["Cantidad", 24], ["Compañía", 0], ["Valor por auto", 38, 1], ["Total", 38, 1]],
     (d.ventas || []).map(f => [num(f.cant) || "", f.comp || "", $$(tot ? porAuto(f) : num(f.valor)), $$(SECC.ventas.total(f, d.modoVentas))]), [[`Total (${(d.ventas || []).reduce((a, f) => a + num(f.cant), 0)} autos)`, r.bruto, "sub"]]);
   caja("Gastos", [["Gasto", 0], ["Monto", 40, 1]], (d.gastos || []).map(f => [(f.nombre || "") + (f.retorno ? "  (retorno)" : ""), $$(num(f.monto))]), [["Total", r.gastos, "sub"]]);
-  caja("Resumen", [], [], [["Total facturado", r.bruto], ["IVA 21%", -r.iva], ["IIBB 3,5%", -r.iibb], ["Neto", r.neto, "sub"], ["Gastos", -r.gastos], ...(r.retornos ? [["Retornos", r.retornos]] : []), ["Total final", r.final, "final"]]);
+  caja("Resumen", [], [], [["Total facturado", r.bruto], ["IVA 21%", -r.iva], ["IIBB 3,5%", -r.iibb], ["Neto", r.neto, "sub"], ["Gastos", -r.gastos], ...(r.retornos ? [["Retornos", r.retornos]] : []), ["Total", r.final, "final"]]);
   if (d.reparto?.length) caja("Reparto", [["Persona", 0], ["%", 24, 1], ["Le toca", 40, 1]], d.reparto.map(f => [f.nombre || "", num(f.pct) + "%", $$(parte(f, r))]));
   // Cada persona: lo que le toca, debajo cada gasto (y cada retorno, solo si hay) y lo que queda; sin tabla aparte ni línea "Gastos"
   const itemsG = l => (l || []).map(g => [(g.nombre || "Sin nombre") + (g.retorno ? " (retorno)" : ""), g.retorno ? num(g.monto) : -num(g.monto)]);
@@ -128,7 +128,7 @@ export function vistaCierre(view) {
     sec("RETORNOS (GASTOS QUE VUELVEN)", gastosRet(d), f => [f.nombre || "", "", num(f.monto), num(f.monto)], r.retornos);
     const rep = (d.reparto || []).map(f => [f.nombre || "", num(f.pct) + "%", "", SECC.reparto.total(f, 0, r)]);
     filas.push(neg("RESUMEN", "", "", ""), ["Total facturado", "", "", r.bruto], ["IVA 21%", "", "", -r.iva], ["IIBB 3,5%", "", "", -r.iibb],
-      ["Neto", "", "", r.neto], ["Gastos", "", "", -r.gastos], ["Retornos", "", "", r.retornos], neg("TOTAL FINAL", "", "", r.final), ...(rep.length ? [["", "", "", ""], neg("REPARTO", "", "", ""), ...rep] : []));
+      ["Neto", "", "", r.neto], ["Gastos", "", "", -r.gastos], ["Retornos", "", "", r.retornos], neg("TOTAL", "", "", r.final), ...(rep.length ? [["", "", "", ""], neg("REPARTO", "", "", ""), ...rep] : []));
     (d.reparto || []).filter(f => f.gastos?.length).forEach(f => { filas.push(["", "", "", ""]);
       sec(`GASTOS DE ${(f.nombre || "SIN NOMBRE").toUpperCase()}`, f.gastos, g => [g.nombre || "", "", num(g.monto), num(g.monto)], gastosDe(f));
       filas.push(["Le toca", "", "", parte(f, r)], ["Gastos", "", "", -gastosDe(f)], ["Retornos", "", "", retDe(f)], neg(f.gastos2?.length ? "QUEDA" : "FINAL", "", "", queda(f, r))); });
@@ -175,7 +175,7 @@ export function vistaCierre(view) {
     body.querySelectorAll("[data-sub]").forEach(td => { if (td.dataset.sub !== "reparto") return void (td.textContent = pesos({ ventas: r.bruto, gastos: r.gastos, pg: d.reparto[pSel] ? gastosDe(d.reparto[pSel]) : 0, pg2: d.reparto[pSel] ? gastosDe(d.reparto[pSel], "gastos2") : 0 }[td.dataset.sub]));
       td.textContent = pct === 100 ? "100%" : `${pct}% (tiene que dar 100%)`; td.classList.toggle("c-mal", pct !== 100); });
     $("#c-res", body).innerHTML = linea("Total facturado", r.bruto) + linea("IVA 21%", -r.iva) + linea("IIBB 3,5%", -r.iibb)
-      + linea("Neto", r.neto, "sub") + linea("Gastos", -r.gastos) + (r.retornos ? linea("Retornos", r.retornos) : "") + linea("Total final", r.final, "final");
+      + linea("Neto", r.neto, "sub") + linea("Gastos", -r.gastos) + (r.retornos ? linea("Retornos", r.retornos) : "") + linea("Total", r.final, "final");
     // Los botones de cada persona siguen al nombre que se escribe en el reparto
     body.querySelectorAll("[data-persona]").forEach(b => { b.textContent = d.reparto[b.dataset.persona]?.nombre || `Persona ${+b.dataset.persona + 1}`; });
     const yo = d.reparto[pSel], pres = $("#c-pg-res", body), pres2 = $("#c-pg2-res", body);
