@@ -60,7 +60,7 @@ export function vistaCierre(view) {
   const comps = [...new Set(activos().map(v => v.compania).filter(Boolean))].sort();
   let d = { ventas: [], gastos: [], reparto: [] }, remoto = null, tGuardar = null, pSel = 0;   // pSel: persona elegida en Gastos por persona
   const lista = k => k === "pg" ? (d.reparto[pSel].gastos ||= []) : (d[k] ||= []);
-  view.innerHTML = `<div class="tec-page cierre-page"><datalist id="c-comps">${comps.map(c => `<option value="${esc(c)}">`).join("")}</datalist>
+  view.innerHTML = `<div class="tec-page cierre-page"><h2 class="c-print-tit">Cierre operativo · ${esc(S.company.name || "")} · ${new Date().toLocaleDateString("es-AR")}</h2><datalist id="c-comps">${comps.map(c => `<option value="${esc(c)}">`).join("")}</datalist>
     <datalist id="c-gente">${Object.values(S.company?.memberNames || {}).filter(Boolean).map(n => `<option value="${esc(n)}">`).join("")}</datalist>
     <div id="c-body"><div class="skeleton tall"></div></div></div>`;
   const body = $("#c-body", view);

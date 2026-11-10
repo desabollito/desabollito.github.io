@@ -2232,9 +2232,11 @@ body[data-solo-ver="1"] :is(.step, .etapa-item) { pointer-events: none; }
   body:has(.cierre-page) { background: #fff; }
   body:has(.cierre-page) :is(.fab, .toast, #toasts) { display: none !important; }
   .cierre-page { max-width: none; }
+  .cierre-page .c-print-tit { display: block; margin: 0 0 4px; font-size: 20px; }
   .cierre-page :is([data-agregar], .cierre-head .seg, .c-gente .seg-btn:not(.on), .c-retbtn[aria-pressed="false"], [data-borrar]) { display: none !important; }
   .cierre-page .c-gente .seg-btn.on { border: 0; background: none; color: var(--ink); font-weight: 700; padding: 0; }
   .cierre-page .d-adic > summary::after { display: none; }
   .cierre-page .d-sec { break-inside: avoid; }
   .tbl-cierre input { border: 0 !important; background: none !important; padding: 4px 0; color: var(--ink); }
 }
+.c-print-tit { display: none; }
