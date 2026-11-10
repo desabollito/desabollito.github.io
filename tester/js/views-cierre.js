@@ -6,9 +6,9 @@
 // ═════════════════════════════════════════════════════════════
 import { db, doc, onSnapshot, setDoc } from "./firebase.js";
 import { S, activos, puedeVer, mensajeError } from "./data.js";
-import { $, esc, icon, toast, confirmar, hoyISO } from "./ui.js";
+import { $, esc, icon, toast, confirmar, hoyISO, elegirDescarga } from "./ui.js";
 import { setTopbar } from "./shell.js";
-import { descargarTabla } from "./excel.js";
+import { exportarExcel } from "./excel.js";
 
 const IVA = 1.21, IIBB = 0.035;
 const num = x => Number(x) || 0;
@@ -77,8 +77,17 @@ export function vistaCierre(view) {
     (d.reparto || []).filter(f => f.gastos?.length).forEach(f => { filas.push(["", "", "", ""]);
       sec(`GASTOS DE ${(f.nombre || "SIN NOMBRE").toUpperCase()}`, f.gastos, g => [g.nombre || "", "", num(g.monto), num(g.monto)], gastosDe(f));
       filas.push(["Le toca", "", "", parte(f, r)], ["Gastos", "", "", -gastosDe(f)], ["Retornos", "", "", retDe(f)], neg("QUEDA", "", "", queda(f, r))); });
-    descargarTabla({ archivo: `Cierre_${hoyISO()}`, titulo: "Cierre operativo", filas,
-      cols: [{ titulo: "CONCEPTO", ancho: 30 }, { titulo: "CANTIDAD", ancho: 16 }, { titulo: "VALOR", ancho: 18, tipo: "moneda" }, { titulo: "TOTAL", ancho: 20, tipo: "moneda" }] });
+    const cols = [{ titulo: "CONCEPTO", ancho: 30 }, { titulo: "CANTIDAD", ancho: 16 }, { titulo: "VALOR", ancho: 18, tipo: "moneda" }, { titulo: "TOTAL", ancho: 20, tipo: "moneda" }];
+    elegirDescarga("Cierre operativo", {
+      excel: () => exportarExcel({ archivo: `Cierre_${hoyISO()}.xlsx`, hoja: "Cierre operativo", titulo: `${S.company?.name || "Desabollito"} · Cierre operativo`, columnas: cols.map((x, i) => ({ ...x, valor: f => f[i] })), filas }),
+      // PDF: la misma página impresa (Guardar como PDF), con lo plegado abierto y sin botones (ver @media print)
+      pdf: () => { setTimeout(() => {
+        const cerrados = [...body.querySelectorAll("details:not([open])")]; cerrados.forEach(x => { x.open = true; });
+        const t = document.title; document.title = `Cierre_${hoyISO()}`;
+        // En el celular print() no frena: se vuelve a como estaba recién al terminar de imprimir
+        addEventListener("afterprint", () => { document.title = t; cerrados.forEach(x => { x.open = false; }); }, { once: true });
+        window.print();
+      }, 400); } });   // espera a que se cierre la hoja de Descargar
   };
 
   const celda = (c, t, l, v, k) => t === "n" ? `<input data-c="${c}" aria-label="${l}" type="text" inputmode="decimal" class="num" data-plata value="${esc(v === "" || v == null ? "" : num(v).toLocaleString("es-AR", { maximumFractionDigits: 2 }))}">`
