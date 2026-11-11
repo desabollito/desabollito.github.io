@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.5.1", items: ["Creador: elegir en el panel quiénes usan «Mensajes y turnos» (por defecto solo vos). Ellos lo ven en Ajustes."] },
   { v: "4.5.0", items: ["Creador: conectar el número de la empresa con QR desde el panel.", "Creador: «Mensajes y turnos»: marcar vehículos y mandarles un WhatsApp a cada uno, o turnarlos en los días y con los autos por día que elijas y avisarle a cada cliente su turno."] },
   { v: "4.4.4", items: ["Filtros: Compañías sin flechas, con la barra de abajo y a todo el ancho como el resto."] },
   { v: "4.4.3", items: ["Ajustes: Papelera y Cerrar sesión otra vez como filas, al final.", "Arreglo: apagar la planilla de vehículos desde el panel del creador ahora queda apagado al recargar."] },

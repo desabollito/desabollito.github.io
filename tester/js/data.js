@@ -734,6 +734,7 @@ export const borrarGasto = id => deleteDoc(doc(colGastos(), id));
 
 // ── Panel del creador (@gzmatte): todos los operativos y usuarios ─────
 export const soyCreador = () => S.profile?.username === "gzmatte";
+export const usaClientes = () => soyCreador() || (S.config?.usanClientes || []).includes(S.user?.uid);   // Mensajes y turnos: el creador elige quiénes
 // Quién ve cada planilla: lo elige el creador por operativo (config/app.accesosOp[cid][uid][seccion]).
 // Sin elegir: Técnicos y Gastos fijos los ven los administradores; Gastos, todos los miembros. Las reglas de Firestore piden lo mismo.
 export const puedeVer = sec => {
@@ -800,7 +801,7 @@ export function escucharConfig() {
   if (unsubConfig) return;
   unsubConfig = onSnapshot(doc(db, "config", "app"), d => {
     const antes = JSON.stringify(S.config);
-    S.config = { avisoReparado: d.data()?.avisoReparado !== false, documentos: d.data()?.documentos !== false, fechaVista: d.data()?.fechaVista !== false, mensajeWa: d.data()?.mensajeWa || "", accesosOp: d.data()?.accesosOp || null, accesos: d.data()?.accesos || {}, sonidoAuto: d.data()?.sonidoAuto || "deportivo", etapasPdf: d.data()?.etapasPdf === true, planillaVeh: d.data()?.planillaVeh !== false };
+    S.config = { avisoReparado: d.data()?.avisoReparado !== false, documentos: d.data()?.documentos !== false, fechaVista: d.data()?.fechaVista !== false, mensajeWa: d.data()?.mensajeWa || "", accesosOp: d.data()?.accesosOp || null, accesos: d.data()?.accesos || {}, sonidoAuto: d.data()?.sonidoAuto || "deportivo", etapasPdf: d.data()?.etapasPdf === true, planillaVeh: d.data()?.planillaVeh !== false, usanClientes: d.data()?.usanClientes || [] };
     if (JSON.stringify(S.config) !== antes) {
       // Si cambió el permiso de gastos, prender o apagar la escucha
       if (S.company && puedeVer("gastos") !== !!unsubGastos) escucharGastos();

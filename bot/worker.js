@@ -2590,8 +2590,12 @@ async function adminClientesQr(env, { idToken, salir }) {
 }
 
 // Panel del creador: un mensaje a un cliente desde el número de la empresa (envío masivo y turnos; la app los manda de a uno con pausa)
-async function adminEnviarCliente(env, { idToken, cid, vid, texto }) {
-  if (!(await soloCreador(env, idToken))) return json({ ok: false, error: "No autorizado" }, 403);
+async function adminEnviarCliente(env, { idToken, cid, vid, texto, por }) {
+  // El creador, o quien él habilitó (config/app.usanClientes) si es miembro de ese operativo
+  if (!(await soloCreador(env, idToken))) {
+    const [m, cfg] = await Promise.all([miembroDe(env, idToken, cid), fsGet(env, "config/app").catch(() => null)]);
+    if (!m || !(cfg?.usanClientes || []).includes(m.uid)) return json({ ok: false, error: "No autorizado" }, 403);
+  }
   if (!idValido(cid) || !idValido(vid) || typeof texto !== "string" || !texto.trim() || texto.length > 2000) return json({ ok: false, error: "Datos inválidos" }, 400);
   const ruta = `companies/${cid}/vehicles/${vid}`;
   const v = await fsGet(env, ruta);
@@ -2601,7 +2605,7 @@ async function adminEnviarCliente(env, { idToken, cid, vid, texto }) {
   if (await estadoEvolution(env, instanciaClientes(env)) !== "open") return json({ ok: false, error: "El número de la empresa no está conectado" });
   const r = await enviarEvolution(env, `evo:${tel}`, { type: "text", text: { body: texto.trim() }, _inst: instanciaClientes(env) });
   if (!r?.ok) return json({ ok: false, error: "WhatsApp no aceptó el mensaje" });
-  await fsAppend(env, ruta, "historial", { t: Date.now(), uid: "", por: CREADOR, txt: "Mensaje al cliente por WhatsApp: " + texto.trim().slice(0, 200) }).catch(() => {});
+  await fsAppend(env, ruta, "historial", { t: Date.now(), uid: "", por: String(por || CREADOR).slice(0, 60), txt: "Mensaje al cliente por WhatsApp: " + texto.trim().slice(0, 200) }).catch(() => {});
   return json({ ok: true });
 }
 
@@ -3054,6 +3058,7 @@ async function adminConfig(env, body) {
   if (!(await soloCreador(env, body.idToken))) return json({ ok: false, error: "No autorizado" }, 403);
   const cambios = Object.fromEntries(CONFIG_CLAVES.filter(k => typeof body[k] === "boolean").map(k => [k, body[k]]));
   if (typeof body.mensajeWa === "string") cambios.mensajeWa = body.mensajeWa.slice(0, 2000);
+  if (Array.isArray(body.usanClientes)) cambios.usanClientes = body.usanClientes.filter(idValido).slice(0, 200);   // quiénes usan Mensajes y turnos
   if (["deportivo", "turbo", "v8"].includes(body.sonidoAuto)) cambios.sonidoAuto = body.sonidoAuto;   // sonido al actualizar la app
   // Quién ve cada planilla, por operativo: accesosOp[cid] = { uid: { planilla, tecnicos, gastos, fijos, facturacion } } (solo booleanos)
   let c = await fsGet(env, "config/app");
@@ -3067,7 +3072,7 @@ async function adminConfig(env, body) {
       .filter(([u, a]) => idValido(u) && a && typeof a === "object")
       .map(([u, a]) => [u, Object.fromEntries(["planilla", "tecnicos", "gastos", "fijos", "facturacion", "cierre"].filter(k => typeof a[k] === "boolean").map(k => [k, a[k]]))])) };
   if (Object.keys(cambios).length) { await fsMerge(env, "config/app", cambios); c = await fsGet(env, "config/app"); }
-  return json({ ok: true, config: { ...Object.fromEntries(CONFIG_CLAVES.map(k => [k, c?.[k] !== false])), etapasPdf: c?.etapasPdf === true, padronN: c?.padronN || 0, mensajeWa: c?.mensajeWa || "", accesosOp: c?.accesosOp || {}, sonidoAuto: c?.sonidoAuto || "deportivo" } });
+  return json({ ok: true, config: { ...Object.fromEntries(CONFIG_CLAVES.map(k => [k, c?.[k] !== false])), etapasPdf: c?.etapasPdf === true, padronN: c?.padronN || 0, mensajeWa: c?.mensajeWa || "", accesosOp: c?.accesosOp || {}, sonidoAuto: c?.sonidoAuto || "deportivo", usanClientes: c?.usanClientes || [] } });
 }
 
 // Elimina un usuario de la app: cuenta de acceso, perfil, nombre de usuario, WhatsApp y membresías

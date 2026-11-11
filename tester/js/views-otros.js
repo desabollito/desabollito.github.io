@@ -1,7 +1,7 @@
 import {
   S, activos, papelera, restaurar, eliminarDefinitivo, soyAdmin, miRol, renombrarEmpresa, guardarSello, deshaciblesDe, deshacerCambio, soyDesmontaje,
   agregarMiembro, cambiarRol, quitarMiembro, guardarEtiquetas, resolverSolicitud, desvincularWhatsApp, salirDeEmpresa, eliminarEmpresa, crearEmpresa, elegirEmpresa,
-  actualizarPerfil, salir, mensajeError, llamarAdmin, soloDesmontaje, pedirUnion, linksCompartidos, getVehiculo, soloVer, soySacabollos, guardarOrdenOps, cambiarEstado
+  actualizarPerfil, salir, mensajeError, llamarAdmin, soloDesmontaje, pedirUnion, linksCompartidos, getVehiculo, soloVer, soySacabollos, guardarOrdenOps, cambiarEstado, usaClientes
 } from "./data.js";
 import { cargarExcelJS } from "./excel.js";
 import { ESTADOS, ESTADO, ROLES, estadoActual, esAnulado, repartirTurnos } from "./domain.js";
@@ -597,6 +597,7 @@ export function vistaAjustes(view) {
     <section class="aj-grupo"><h3>Cuenta</h3><div class="aj-lista">
       ${fila("editar-perfil", "edit", "Perfil", esc(p.name))}
       ${WHATSAPP_BOT ? `<a class="aj-item" href="https://wa.me/${WHATSAPP_BOT}?text=ayuda" target="_blank" rel="noopener">${icon("chat")}<span class="aj-txt">Chat con el bot</span><span class="aj-val"></span>${icon("next")}</a>` : ""}
+      ${usaClientes() && S.company ? fila("mt-abrir", "calendar", "Mensajes y turnos") : ""}
     </div></section>
 
     <section class="aj-grupo"><h3>Apariencia</h3><div class="aj-lista">
@@ -626,6 +627,7 @@ export function vistaAjustes(view) {
     try { localStorage.setItem("fechaVista", b.dataset.fv); } catch { /* sin almacenamiento */ }
     $$(".seg-btn", $("#fecha-vista", view)).forEach(x => x.classList.toggle("on", x === b));
   };
+  $("#mt-abrir", view)?.addEventListener("click", mensajesYTurnos);
   $("#salir", view).onclick = async () => { if (await confirmar({ title: "¿Cerrar sesión?", ok: "Cerrar sesión" })) salir(); };
   // Versión: tocar fuerza la actualización; mantener apretado muestra las novedades
   const vb = $("#version-btn", view); let largo = false, t = 0;
@@ -852,6 +854,12 @@ export async function panelCreador() {
           <button type="button" class="btn btn-primary btn-sm" id="adm-masivo">${icon("chat")}Mensajes y turnos</button></span>
         <div id="adm-cli-qr"></div>
       </div>
+      <details class="adm-toggles">
+        <summary><b>Quién usa Mensajes y turnos</b> <small class="muted">${(datos.config?.usanClientes || []).length ? (datos.config.usanClientes.length + " además de vos") : "solo vos"}</small></summary>
+        ${usuarios.filter(u => u.username !== "gzmatte" && u.aprobado).map(u => `<label class="toggle"><input type="checkbox" data-usa="${esc(u.uid)}" ${(datos.config?.usanClientes || []).includes(u.uid) ? "checked" : ""}>
+          <span>${esc(u.name || "Sin nombre")} <small class="muted">@${esc(u.username)}</small></span></label>`).join("")}
+        <small class="muted">Lo ven en Ajustes y solo pueden usarlo en los operativos donde son miembros. Conectar el número sigue siendo solo tuyo.</small>
+      </details>
       <details class="adm-toggles adm-accesos" ${accAbierto ? "open" : ""}>
         <summary><b>Quién ve las planillas</b> <small class="muted">Vehículos · Técnicos · Gastos · Fijos · Facturación · Cierre</small></summary>
         ${(() => { const op = opAcc(); if (!op) return `<small class="muted">No hay operativos.</small>`;
@@ -906,6 +914,13 @@ export async function panelCreador() {
       return;
     }
     if (e.target.id === "adm-acc-op") { accOp = e.target.value; pintar(); return; }
+    if (e.target.dataset.usa) {
+      const uid = e.target.dataset.usa, on = e.target.checked, l = (datos.config?.usanClientes || []).filter(x => x !== uid);
+      e.target.disabled = true;
+      try { const r = await llamarAdmin("config", { usanClientes: on ? [...l, uid] : l }); datos.config = r.config; e.target.disabled = false; toast("Guardado", "success"); }
+      catch (err) { e.target.checked = !on; e.target.disabled = false; toast(err.message, "error"); }
+      return;
+    }
     const sec = e.target.dataset.accSec;
     if (sec) {
       const uid = e.target.closest("[data-acc]").dataset.acc, on = e.target.checked, op = opAcc();
@@ -1078,7 +1093,7 @@ function mensajesYTurnos() {
       try {
         if (modo === "turnos") await cambiarEstado(v, "turnado", f[i], { turnoConfirmado: false, horaTurno: "" });
         if (v.telefono && plantilla) {
-          await llamarAdmin("enviar-cliente", { cid: S.company.id, vid: v.id, texto: textoWa(plantilla, conTurno(v, f[i])) });
+          await llamarAdmin("enviar-cliente", { cid: S.company.id, vid: v.id, texto: textoWa(plantilla, conTurno(v, f[i])), por: S.profile?.name || "" });
           if (i < l.length - 1) await new Promise(r => setTimeout(r, PAUSA_MS));
         }
         ok++;
