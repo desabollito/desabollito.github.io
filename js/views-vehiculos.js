@@ -358,8 +358,8 @@ export function vistaVehiculos(view, selId = null) {
       <section class="fo-sec fo-compacto"><h3>Turnos</h3><div class="fo-seg" id="fo-turno"></div></section>
       <section class="fo-sec"><h3>Cliente</h3><div class="fo-seg" id="fo-cliente"></div></section>
       ${lector ? "" : `<section class="fo-sec"><h3>Cargado</h3><div class="fo-seg" id="fo-cargado"></div></section>`}
-      <section class="fo-sec"><h3>Opciones</h3><div class="fo-switches">${lector ? "" : `<label class="fo-switch"><span>Cargados por mí</span><input type="checkbox" id="fo-mios" ${F.mios ? "checked" : ""}></label>`}
-        <label class="fo-switch"><span>Ocultar anulados</span><input type="checkbox" id="fo-anul" ${F.sinAnul ? "checked" : ""}></label></div></section>
+      <div class="fo-switches">${lector ? "" : `<label class="fo-switch"><span>Cargados por mí</span><input type="checkbox" id="fo-mios" ${F.mios ? "checked" : ""}></label>`}
+        <label class="fo-switch"><span>Ocultar anulados</span><input type="checkbox" id="fo-anul" ${F.sinAnul ? "checked" : ""}></label></div>
       <button type="button" class="btn btn-ghost btn-block" data-close id="fo-pdf">${icon("file")}Exportar PDF</button>
       <div class="fo-pie"><button type="button" class="btn btn-ghost" data-close id="fo-reset">Limpiar</button><button type="button" class="btn btn-primary" data-close id="fo-ver"></button></div>
     </div>` });

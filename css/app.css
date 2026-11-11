@@ -2257,7 +2257,7 @@ body[data-solo-ver="1"] :is(.step, .etapa-item) { pointer-events: none; }
 /* ── Ajustes y hojas en grupos (como la configuración del celular): título chico y filas dentro de una caja ── */
 .ajustes { display: flex; flex-direction: column; gap: 18px; }
 .aj-perfil { display: flex; align-items: center; gap: 14px; padding: 4px 4px 0; }
-.aj-grupo > h3, .fo-sec > h3 { margin: 0 0 6px 4px; font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+.aj-grupo > h3 { margin: 0 0 6px 4px; font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
 .aj-lista { display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); overflow: hidden; }
 .aj-item { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 52px; padding: 8px 14px; border: 0; background: none; color: var(--ink); text-align: left; font-weight: 600; text-decoration: none; }
 .aj-item + .aj-item { border-top: 1px solid var(--line); }
@@ -2273,21 +2273,6 @@ button.aj-item:hover, a.aj-item:hover { background: var(--surface-2); }
 .aj-peligro, .aj-peligro > .ic:first-child { color: var(--danger); }
 .aj-peligro > .ic:last-child { display: none; }
 
-/* Filtrar y ordenar, en grupos como Ajustes: cada fila es una caja con opciones en pastillas que se acomodan solas */
-.fo { gap: 18px; }
-.fo .fo-seg { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px; background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r-lg); }
-.fo .fo-seg.fo-grad { background: var(--surface-2); }
-.fo .fo-seg .fo-op, .fo .fo-grados .fo-seg .fo-op, .fo .fo-compacto .fo-seg .fo-op { flex: 0 0 auto; flex-direction: row; gap: 6px; height: 38px; min-height: 38px; padding: 0 12px; line-height: 1;
-  border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--ink-2); outline: 0; box-shadow: none; white-space: nowrap; font-size: 13.5px; }
-.fo .fo-seg .fo-op b, .fo .fo-grados .fo-seg .fo-op b { font-size: 12px; font-weight: 700; color: var(--muted); line-height: 1; }
-.fo .fo-seg .f-dot { display: inline-block; width: 8px; height: 8px; }
-.fo .fo-seg .fo-op.on { background: var(--primary-soft); border-color: var(--primary); color: var(--ink); }
-.fo .fo-seg .fo-op[style].on { background: color-mix(in srgb, var(--c) 18%, var(--surface)); border-color: var(--c); }
-.fo .fo-seg .fo-op.on b { color: var(--ink); }
-.fo .fo-seg.fo-cias { flex-wrap: nowrap; overflow-x: auto; }
-.fo .fo-switches { flex-direction: column; gap: 0; background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r-lg); overflow: hidden; }
-.fo .fo-switches .fo-switch { flex: none; height: auto; min-height: 52px; border: 0; border-radius: 0; }
-.fo .fo-switches .fo-switch + .fo-switch { border-top: 1px solid var(--line); }
 
 /* Celular: mantener apretado un link o botón no abre la vista previa ni el menú del navegador (iPhone no avisa con contextmenu) */
 @media (pointer: coarse) {
@@ -2315,7 +2300,7 @@ button.aj-item:hover, a.aj-item:hover { background: var(--surface-2); }
 
 /* ══ Una sola forma para toda la app (4.4.0) ══ */
 /* Pastillas para elegir: una sola, 36 px y redonda. Elegida = fondo azul suave y borde azul (o del color de la opción) */
-.chip, .p-chip, .est, .filtro-act, .fo .fo-seg .fo-op, .fo .fo-grados .fo-seg .fo-op, .fo .fo-compacto .fo-seg .fo-op {
+.chip, .p-chip, .est, .filtro-act {
   height: 36px; min-height: 36px; border-radius: 999px; font-size: 13.5px; font-weight: 600; }
 .chip, .p-chip { display: inline-flex; align-items: center; gap: 6px; padding: 0 13px; border: 1px solid var(--line-2); background: var(--surface); color: var(--ink-2); }
 .chip.on, .p-chip.on { background: var(--primary-soft); border-color: var(--primary); color: var(--ink); }
