@@ -73,6 +73,9 @@ assert.deepEqual(fechasDeSueldo({ desde: "2026-11-01", hasta: "2026-11-30" }, "2
 assert.deepEqual(fechasDeSueldo({ desde: "2026-11-03" }, "2026-11-03"), ["2026-11-03"], "sin hasta: el mismo día");
 console.log("ok");
 
-// Agenda: 5 autos, 2 por día, lunes a viernes, desde el viernes 2026-11-13 → vie, vie, lun, lun, mar
-assert.deepEqual(repartirTurnos(5, "2026-11-13", 2, [1, 2, 3, 4, 5]), ["2026-11-13", "2026-11-13", "2026-11-16", "2026-11-16", "2026-11-17"]);
-assert.deepEqual(repartirTurnos(3, "2026-11-13", 0, [1]), [], "sin autos por día no reparte");
+// Agenda: 2 por día, lunes a viernes, desde el viernes 13/11 (que ya tiene 1 turno) → vie, lun, lun, mar
+const LV = [1, 2, 3, 4, 5];
+assert.deepEqual(repartirTurnos([1, 1, 1, 1], { desde: "2026-11-13", porDia: 2, dias: LV, ocupados: { "2026-11-13": [2] } }), ["2026-11-13", "2026-11-16", "2026-11-16", "2026-11-17"]);
+assert.deepEqual(repartirTurnos([1, 1, 1], { desde: "2026-11-13", hasta: "2026-11-16", porDia: 1, dias: LV }), ["2026-11-13", "2026-11-16", null], "no pasa la fecha límite");
+// Por grado: 1 de grado 1 y 1 de grado 2 por día; el grado 3 no tiene cupo
+assert.deepEqual(repartirTurnos([1, 1, 2, 3], { desde: "2026-11-16", hasta: "2026-11-20", porGrado: { 1: 1, 2: 1 }, dias: LV }), ["2026-11-16", "2026-11-17", "2026-11-16", null]);

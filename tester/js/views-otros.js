@@ -1023,68 +1023,104 @@ export async function panelCreador() {
   cargar();
 }
 
-// ── Mensajes y turnos (panel del creador): salen del número de la empresa, de a uno y con pausa para que WhatsApp no lo bloquee
-const TXT_TURNO = "{Saludo} {Asegurado}! Te escribimos de {Operativo} por tu {Vehiculo} patente {Patente}: te dimos turno para el {Turno}. Respondé este mensaje para confirmar. ¡Gracias!";
+// ── Mensajes y turnos: salen del número de la empresa, de a uno y con pausa para que WhatsApp no lo bloquee
+const TXT = {
+  turnos: "{Saludo} {Asegurado}! Te escribimos de {Operativo} por tu {Vehiculo} patente {Patente}: te dimos turno para el {Turno}. Respondé este mensaje para confirmar. ¡Gracias!",
+  mensaje: "{Saludo} {Asegurado}! Te escribimos de {Operativo}: tu {Vehiculo} ({Patente}) ya está reparado y listo para retirar. ¡Gracias por confiar en nosotros!"
+};
 const PAUSA_MS = 6000;
 const DIAS_SEM = [[1, "Lu"], [2, "Ma"], [3, "Mi"], [4, "Ju"], [5, "Vi"], [6, "Sá"], [0, "Do"]];
+const GRADOS_T = [[1, "Grado 1"], [2, "Grado 2"], [3, "Grado 3"], [4, "Grado +"], [0, "Sin grado"]];
 function mensajesYTurnos() {
-  let est = "peritado", modo = "turnos", cortar = false, enviando = false;
-  const marcados = new Set(), dias = new Set([1, 2, 3, 4, 5]), txt = { turnos: TXT_TURNO, mensaje: S.config?.mensajeWa || "" };
+  let modo = "turnos", est = "peritado", q = "", cia = "", grado = "", porGradoOn = false, cortar = false, enviando = false;
+  const marcados = new Set(), dias = new Set([1, 2, 3, 4, 5]), txt = { turnos: TXT.turnos, mensaje: S.config?.mensajeWa || TXT.mensaje };
+  const cupoG = { 1: 3, 2: 2, 3: 1, 4: 0, 0: 0 };
   const manana = new Date(Date.now() + 864e5).toLocaleDateString("en-CA");
+  const ciaDe = v => String(v.compania || "").trim() || "Sin compañía";
   const s = openSheet({ title: `Mensajes y turnos · ${S.company?.name || ""}`, wide: true, onClose: () => { cortar = true; }, body: `<div class="adm mt">
-    <div class="seg seg-sm adm-tabs">${[["turnos", "Turnar y avisar"], ["mensaje", "Solo mensaje"]].map(([k, t]) => `<button type="button" class="seg-btn" data-modo="${k}">${t}</button>`).join("")}</div>
-    <label class="field"><span>Vehículos en</span><select id="mt-est">${ESTADOS.map(e => `<option value="${e.key}" ${e.key === est ? "selected" : ""}>${e.label}</option>`).join("")}</select></label>
+    <div class="seg seg-sm adm-tabs">${[["turnos", "Avisar turno"], ["mensaje", "Avisar reparado"]].map(([k, t]) => `<button type="button" class="seg-btn" data-modo="${k}">${t}</button>`).join("")}</div>
+    <div class="adm-toggles">
+      <label class="field"><span>Estado</span><select id="mt-est">${ESTADOS.map(e => `<option value="${e.key}">${e.label}</option>`).join("")}</select></label>
+      <label class="field"><span>Compañía</span><select id="mt-cia"></select></label>
+      <label class="field"><span>Grado</span><select id="mt-grado"><option value="">Todos</option>${GRADOS_T.map(([g, t]) => `<option value="${g}">${t}</option>`).join("")}</select></label>
+      <label class="field"><span>Buscar</span><input type="search" id="mt-q" placeholder="Patente, asegurado, modelo…"></label>
+    </div>
     <p class="small"><button type="button" class="link-btn" id="mt-todos">Marcar todos</button> · <span id="mt-n"></span></p>
     <ul class="adm-list" id="mt-lista"></ul>
     <div id="mt-turnos" class="adm-toggles">
       <label class="field"><span>Desde</span><input type="date" id="mt-desde" value="${manana}"></label>
-      <label class="field"><span>Autos por día</span><input type="number" id="mt-pordia" min="1" max="200" value="5" inputmode="numeric"></label>
+      <label class="field"><span>Fecha límite <small class="muted">(opcional)</small></span><input type="date" id="mt-hasta"></label>
       <span class="row-btns">${DIAS_SEM.map(([d, t]) => `<label class="toggle"><input type="checkbox" data-dia="${d}" ${dias.has(d) ? "checked" : ""}><span>${t}</span></label>`).join("")}</span>
+      <label class="toggle"><input type="checkbox" id="mt-pg"><span>Intercalar grados por día</span></label>
+      <label class="field" id="mt-pordia-f"><span>Autos por día <small class="muted">(contando los turnos que ya hay)</small></span><input type="number" id="mt-pordia" min="1" max="200" value="5" inputmode="numeric"></label>
+      <span class="row-btns" id="mt-pg-f" hidden>${GRADOS_T.map(([g, t]) => `<label class="field"><span>${t}</span><input type="number" min="0" max="50" value="${cupoG[g]}" data-cupo="${g}" inputmode="numeric" style="width:5em"></label>`).join("")}</span>
     </div>
     <label class="field"><span>Mensaje</span><textarea id="mt-txt" rows="4"></textarea></label>
     <small class="muted">Datos: ${["Saludo", "Asegurado", "Vehiculo", "Patente", "Operativo", "Turno", "Compania", "Grado", "Precio"].map(x => `<button type="button" class="chip-var" data-var="{${x}}">{${x}}</button>`).join(" ")}</small>
     <div id="mt-prev" class="muted small"></div>
     <span class="row-btns"><button type="button" class="btn btn-primary" id="mt-ir"></button></span>
   </div>` });
-  const el = q => $(q, s.el);
-  const lista = () => activos().filter(v => estadoActual(v) === est).sort((a, b) => (a.fechas?.peritado || "").localeCompare(b.fechas?.peritado || ""));   // los más viejos primero
+  const el = x => $(x, s.el);
+  const delEstado = () => activos().filter(v => estadoActual(v) === est);
+  const lista = () => delEstado().filter(v => (!cia || ciaDe(v) === cia) && (grado === "" || (v.grado || 0) === Number(grado))
+    && (!q || [v.patente, v.asegurado, v.modelo, v.telefono].some(x => String(x || "").toLowerCase().includes(q))))
+    .sort((a, b) => (b.fechas?.peritado || "").localeCompare(a.fechas?.peritado || ""));   // peritado más reciente primero
   const elegidos = () => lista().filter(v => marcados.has(v.id));
-  const fechas = n => repartirTurnos(n, el("#mt-desde").value, Number(el("#mt-pordia").value), [...dias]);
+  // Turnos que ya hay por día (sin contar los que se están volviendo a turnar), para no sobreturnar
+  const fechas = l => {
+    const ids = new Set(l.map(v => v.id)), ocupados = {};
+    activos().filter(v => estadoActual(v) === "turnado" && v.fechas?.turnado && !ids.has(v.id)).forEach(v => (ocupados[v.fechas.turnado] ||= []).push(v.grado || 0));
+    return repartirTurnos(l.map(v => v.grado || 0), { desde: el("#mt-desde").value, hasta: el("#mt-hasta").value, porDia: Number(el("#mt-pordia").value),
+      porGrado: porGradoOn ? Object.fromEntries($$("[data-cupo]", s.el).map(i => [i.dataset.cupo, Number(i.value) || 0])) : null, dias: [...dias], ocupados });
+  };
   const conTurno = (v, f) => f ? { ...v, fechas: { ...v.fechas, turnado: f }, horaTurno: "" } : v;
   const pintarLista = () => {
+    const cias = [...new Set(delEstado().map(ciaDe))].sort();
+    if (cia && !cias.includes(cia)) cia = "";
+    el("#mt-est").value = est;
+    el("#mt-cia").innerHTML = `<option value="">Todas</option>` + cias.map(c => `<option ${c === cia ? "selected" : ""}>${esc(c)}</option>`).join("");
     el("#mt-lista").innerHTML = lista().map(v => `<li><label class="toggle"><input type="checkbox" data-v="${esc(v.id)}" ${marcados.has(v.id) ? "checked" : ""}>
-      <span>${plate(v.patente, "sm")} ${esc(v.asegurado || v.modelo || "")} <small class="muted">${v.telefono ? esc(v.telefono) : "sin teléfono: no se le escribe"}</small></span></label></li>`).join("") || `<li class="muted">No hay vehículos en ${ESTADO[est].label}.</li>`;
+      <span>${plate(v.patente, "sm")} ${esc(v.asegurado || v.modelo || "")} <small class="muted">${v.grado ? `G${v.grado === 4 ? "+" : v.grado} · ` : ""}${esc(fechaCorta(v.fechas?.peritado) || "")} · ${v.telefono ? esc(v.telefono) : "sin teléfono: no se le escribe"}</small></span></label></li>`).join("")
+      || `<li class="muted">No hay vehículos con ese filtro.</li>`;
     resumen();
   };
   const resumen = () => {
-    const l = elegidos(), f = modo === "turnos" ? fechas(l.length) : [];
-    s.el.querySelectorAll("[data-modo]").forEach(b => b.classList.toggle("on", b.dataset.modo === modo));
+    const l = elegidos(), f = modo === "turnos" ? fechas(l) : [], faltan = f.filter(x => !x).length;
+    $$("[data-modo]", s.el).forEach(b => b.classList.toggle("on", b.dataset.modo === modo));
     el("#mt-turnos").hidden = modo !== "turnos";
+    el("#mt-pordia-f").hidden = porGradoOn; el("#mt-pg-f").hidden = !porGradoOn;
     if (el("#mt-txt").value !== txt[modo]) el("#mt-txt").value = txt[modo];
     el("#mt-n").textContent = `${l.length} de ${lista().length} marcados`;
     el("#mt-ir").textContent = modo === "turnos" ? `Turnar ${l.length} y avisar` : `Enviar a ${l.filter(v => v.telefono).length}`;
-    el("#mt-ir").disabled = enviando || !l.length || (modo === "turnos" && f.length < l.length);
-    el("#mt-prev").innerHTML = !l.length ? "" : (modo === "turnos" ? `<p>${l.map((v, i) => `${esc(v.patente || v.modelo || "")} → ${esc(fechaLarga(f[i]))}`).join(" · ")}</p>` : "")
+    el("#mt-ir").disabled = enviando || !l.length || faltan > 0;
+    el("#mt-prev").innerHTML = !l.length ? "" : (modo === "turnos" ? (faltan ? `<p style="color:var(--danger)">No entran ${faltan} antes de la fecha límite: desmarcá autos, subí el cupo o mové la fecha.</p>` : "")
+      + `<p>${l.map((v, i) => `${esc(v.patente || v.modelo || "")} → ${f[i] ? esc(fechaLarga(f[i])) : "no entra"}`).join(" · ")}</p>` : "")
       + `<p><b>Ejemplo:</b> ${esc(textoWa(txt[modo], conTurno(l[0], f[0])))}</p>`;
   };
   s.el.addEventListener("input", e => {
-    if (e.target.id === "mt-txt") txt[modo] = e.target.value;
-    if (e.target.id === "mt-est") { est = e.target.value; marcados.clear(); return pintarLista(); }
-    if (e.target.dataset.v) e.target.checked ? marcados.add(e.target.dataset.v) : marcados.delete(e.target.dataset.v);
-    if (e.target.dataset.dia) e.target.checked ? dias.add(Number(e.target.dataset.dia)) : dias.delete(Number(e.target.dataset.dia));
+    const t = e.target;
+    if (t.id === "mt-txt") txt[modo] = t.value;
+    if (t.id === "mt-est") { est = t.value; marcados.clear(); return pintarLista(); }
+    if (t.id === "mt-cia") { cia = t.value; return pintarLista(); }
+    if (t.id === "mt-grado") { grado = t.value; return pintarLista(); }
+    if (t.id === "mt-q") { q = t.value.trim().toLowerCase(); return pintarLista(); }
+    if (t.id === "mt-pg") porGradoOn = t.checked;
+    if (t.dataset.v) t.checked ? marcados.add(t.dataset.v) : marcados.delete(t.dataset.v);
+    if (t.dataset.dia) t.checked ? dias.add(Number(t.dataset.dia)) : dias.delete(Number(t.dataset.dia));
     resumen();
   });
   s.el.addEventListener("click", async e => {
     const m = e.target.closest("[data-modo]");
-    if (m) { modo = m.dataset.modo; return resumen(); }
+    if (m) { if (modo !== m.dataset.modo) { modo = m.dataset.modo; est = modo === "turnos" ? "peritado" : "reparado"; marcados.clear(); } return pintarLista(); }
     if (e.target.closest("#mt-todos")) { const l = lista(), todos = l.every(v => marcados.has(v.id)); l.forEach(v => todos ? marcados.delete(v.id) : marcados.add(v.id)); return pintarLista(); }
     const chip = e.target.closest("[data-var]");
     if (chip) { const ta = el("#mt-txt"), i = ta.selectionStart ?? ta.value.length; ta.value = ta.value.slice(0, i) + chip.dataset.var + ta.value.slice(ta.selectionEnd ?? i); txt[modo] = ta.value; ta.focus(); return resumen(); }
     if (!e.target.closest("#mt-ir")) return;
-    const l = elegidos(), f = modo === "turnos" ? fechas(l.length) : [], plantilla = txt[modo].trim();
+    const l = elegidos(), f = modo === "turnos" ? fechas(l) : [], plantilla = txt[modo].trim();
     if (!plantilla && modo === "mensaje") return toast("Escribí el mensaje", "error");
+    const orden = [...f].sort();
     if (!(await confirmar({ title: modo === "turnos" ? `¿Turnar ${l.length} vehículos?` : `¿Enviar ${l.filter(v => v.telefono).length} mensajes?`,
-      message: `${modo === "turnos" ? `Pasan a Turnado del ${fechaLarga(f[0])} al ${fechaLarga(f[f.length - 1])}${plantilla ? " y a cada cliente con teléfono le llega su turno" : " (sin mensaje)"}.` : "Le llega uno a cada cliente."} Sale del número de la empresa, uno cada ${PAUSA_MS / 1000} segundos: dejá esta ventana abierta.`, ok: "Empezar" }))) return;
+      message: `${modo === "turnos" ? `Pasan a Turnado del ${fechaLarga(orden[0])} al ${fechaLarga(orden[orden.length - 1])}${plantilla ? " y a cada cliente con teléfono le llega su turno" : " (sin mensaje)"}.` : "Le llega uno a cada cliente."} Sale del número de la empresa, uno cada ${PAUSA_MS / 1000} segundos: dejá esta ventana abierta.`, ok: "Empezar" }))) return;
     enviando = true; cortar = false; resumen();
     const fallas = []; let ok = 0;
     for (let i = 0; i < l.length && !cortar; i++) {
