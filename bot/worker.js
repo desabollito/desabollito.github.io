@@ -44,7 +44,7 @@ export default {
     if (url.pathname === "/diagnostico") return diagnostico(url, env);
     if (url.pathname === "/evolution") return webhookEvolution(req, url, env, ctx);
     const API = { "/registro": nuevoRegistro, "/avisar": avisarCliente, "/solicitud": avisarSolicitud, "/agregado": avisarAgregado, "/pedido-union": avisarPedidoUnion,
-      "/admin/datos": adminDatos, "/admin/borrar-usuario": adminBorrarUsuario, "/admin/config": adminConfig, "/admin/padron": adminPadron, "/admin/fotos-wa": adminFotosWa, "/admin/foto-usuario": adminFotoUsuario, "/mover-vehiculo": moverVehiculo,
+      "/admin/datos": adminDatos, "/admin/borrar-usuario": adminBorrarUsuario, "/admin/config": adminConfig, "/admin/padron": adminPadron, "/admin/fotos-wa": adminFotosWa, "/admin/foto-usuario": adminFotoUsuario, "/admin/clientes-qr": adminClientesQr, "/admin/enviar-cliente": adminEnviarCliente,"/mover-vehiculo": moverVehiculo,
       "/borrar-media": borrarMediaApi, "/eliminar-vehiculo": eliminarVehiculoApi,
       "/compartir": compartirApi, "/compartido": compartidoApi, "/aviso-planilla": avisoPlanilla,
       "/aviso-version": avisoVersion, "/pedir-borrar-operativo": pedirBorrarOperativo,
@@ -2570,6 +2570,38 @@ async function avisarCliente(env, { idToken, cid, vid, por }) {
   const quien = String(por || "").slice(0, 60);
   await fsMerge(env, ruta, { avisoReparado: { t: Date.now(), por: quien } });
   await fsAppend(env, ruta, "historial", { t: Date.now(), uid: "", por: quien, txt: "Le avisó al cliente por WhatsApp que el auto está listo" }).catch(() => {});
+  return json({ ok: true });
+}
+
+// Panel del creador: estado y QR del número de la empresa ("clientes"). Si la conexión no existe, la crea; salir = desvincular el número
+async function adminClientesQr(env, { idToken, salir }) {
+  if (!(await soloCreador(env, idToken))) return json({ ok: false, error: "No autorizado" }, 403);
+  if (!env.EVOLUTION_URL) return json({ ok: false, error: "Falta EVOLUTION_URL en el bot" });
+  const base = String(env.EVOLUTION_URL).replace(/\/+$/, ""), inst = instanciaClientes(env);
+  const h = { apikey: env.EVOLUTION_APIKEY, "Content-Type": "application/json" };
+  if (salir) await fetch(`${base}/instance/logout/${inst}`, { method: "DELETE", headers: h }).catch(() => {});
+  const estado = await estadoEvolution(env, inst);
+  if (estado === "open") return json({ ok: true, estado });
+  const r = estado === null
+    ? await fetch(`${base}/instance/create`, { method: "POST", headers: h, body: JSON.stringify({ instanceName: inst, integration: "WHATSAPP-BAILEYS", qrcode: true }) })
+    : await fetch(`${base}/instance/connect/${inst}`, { headers: h });
+  const j = await r.json().catch(() => ({}));
+  return json({ ok: true, estado: estado || "creada", qr: j?.qrcode?.base64 || j?.base64 || "" });
+}
+
+// Panel del creador: un mensaje a un cliente desde el número de la empresa (envío masivo y turnos; la app los manda de a uno con pausa)
+async function adminEnviarCliente(env, { idToken, cid, vid, texto }) {
+  if (!(await soloCreador(env, idToken))) return json({ ok: false, error: "No autorizado" }, 403);
+  if (!idValido(cid) || !idValido(vid) || typeof texto !== "string" || !texto.trim() || texto.length > 2000) return json({ ok: false, error: "Datos inválidos" }, 400);
+  const ruta = `companies/${cid}/vehicles/${vid}`;
+  const v = await fsGet(env, ruta);
+  if (!v || v.deleted) return json({ ok: false, error: "No encontré el vehículo" }, 404);
+  const tel = telefonoAR(v.telefono);   // el teléfono sale del vehículo, no de la app
+  if (!tel) return json({ ok: false, error: "Teléfono no válido" });
+  if (await estadoEvolution(env, instanciaClientes(env)) !== "open") return json({ ok: false, error: "El número de la empresa no está conectado" });
+  const r = await enviarEvolution(env, `evo:${tel}`, { type: "text", text: { body: texto.trim() }, _inst: instanciaClientes(env) });
+  if (!r?.ok) return json({ ok: false, error: "WhatsApp no aceptó el mensaje" });
+  await fsAppend(env, ruta, "historial", { t: Date.now(), uid: "", por: CREADOR, txt: "Mensaje al cliente por WhatsApp: " + texto.trim().slice(0, 200) }).catch(() => {});
   return json({ ok: true });
 }
 

@@ -1,6 +1,6 @@
 // node tests/versiones.test.mjs
 import assert from "node:assert/strict";
-import { estadoEn, marcarVianda, valoresVianda, fechaRep, tocarTec, cambiarGrupo, grupoSolo, fechasDeSueldo } from "../tester/js/domain.js";
+import { estadoEn, marcarVianda, valoresVianda, fechaRep, tocarTec, cambiarGrupo, grupoSolo, fechasDeSueldo, repartirTurnos } from "../tester/js/domain.js";
 
 // Más nueva primero: c cambió B, b borró A... cada una guarda cómo estaba antes
 const actual = { cfg: { v: 3 }, fila: { t: ["x"] } };
@@ -72,3 +72,7 @@ assert.deepEqual(fechasDeSueldo({ desde: "2026-11-01", hasta: "2026-11-30" }, "2
 assert.deepEqual(fechasDeSueldo({ desde: "2026-11-01", hasta: "2026-11-30" }, "2026-11-30"), ["2026-11-01"]);
 assert.deepEqual(fechasDeSueldo({ desde: "2026-11-03" }, "2026-11-03"), ["2026-11-03"], "sin hasta: el mismo día");
 console.log("ok");
+
+// Agenda: 5 autos, 2 por día, lunes a viernes, desde el viernes 2026-11-13 → vie, vie, lun, lun, mar
+assert.deepEqual(repartirTurnos(5, "2026-11-13", 2, [1, 2, 3, 4, 5]), ["2026-11-13", "2026-11-13", "2026-11-16", "2026-11-16", "2026-11-17"]);
+assert.deepEqual(repartirTurnos(3, "2026-11-13", 0, [1]), [], "sin autos por día no reparte");

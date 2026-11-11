@@ -1,10 +1,10 @@
 import {
   S, activos, papelera, restaurar, eliminarDefinitivo, soyAdmin, miRol, renombrarEmpresa, guardarSello, deshaciblesDe, deshacerCambio, soyDesmontaje,
   agregarMiembro, cambiarRol, quitarMiembro, guardarEtiquetas, resolverSolicitud, desvincularWhatsApp, salirDeEmpresa, eliminarEmpresa, crearEmpresa, elegirEmpresa,
-  actualizarPerfil, salir, mensajeError, llamarAdmin, soloDesmontaje, pedirUnion, linksCompartidos, getVehiculo, soloVer, soySacabollos, guardarOrdenOps
+  actualizarPerfil, salir, mensajeError, llamarAdmin, soloDesmontaje, pedirUnion, linksCompartidos, getVehiculo, soloVer, soySacabollos, guardarOrdenOps, cambiarEstado
 } from "./data.js";
 import { cargarExcelJS } from "./excel.js";
-import { ESTADOS, ESTADO, ROLES, estadoActual, esAnulado } from "./domain.js";
+import { ESTADOS, ESTADO, ROLES, estadoActual, esAnulado, repartirTurnos } from "./domain.js";
 import {
   $, $$, esc, money, fechaCorta, fechaLarga, hoyISO, plate, estadoPill, icon, toast, openSheet, confirmar,
   pedirTexto, busy, debounce, avatarUsuario, tsToISO, elegirDescarga, horaDe
@@ -16,7 +16,7 @@ import { planillaPDF } from "./pdf.js";
 import { exportarExcel } from "./excel.js";
 import { setTopbar, go, logoOperativo, pintarLateral } from "./shell.js";
 import { APP_VERSION, WHATSAPP_BOT, BOT_API } from "./config.js";
-import { renderDetalle } from "./views-vehiculos.js";
+import { renderDetalle, textoWa } from "./views-vehiculos.js";
 
 // ═════════════════════════════════════════════════════════════
 //  PLANILLA
@@ -589,12 +589,13 @@ export function vistaAjustes(view) {
   <div class="page narrow ajustes">
     <section class="aj-perfil">
       ${avatarUsuario(p.username, p.name, "lg", p.foto)}
-      <div class="profile-meta"><h2>${esc(p.name)}</h2><p class="muted">@${esc(p.username)}</p></div>
+      <div class="profile-meta"><h2>${esc(p.name)}</h2><p class="muted">@${esc(p.username)}</p>
+        ${p.whatsapp ? `<p class="perfil-wa" title="WhatsApp vinculado al bot">${icon("chat")}${esc(wa)}</p>`
+          : `<button type="button" class="btn btn-primary btn-sm aj-vincular" id="vincular-wa">${icon("chat")}Vincular WhatsApp</button>`}</div>
     </section>
 
     <section class="aj-grupo"><h3>Cuenta</h3><div class="aj-lista">
       ${fila("editar-perfil", "edit", "Perfil", esc(p.name))}
-      ${p.whatsapp ? fila("ver-wa", "chat", "WhatsApp", esc(wa)) : fila("vincular-wa", "chat", "WhatsApp", `<b class="aj-pend">Vincular</b>`)}
       ${WHATSAPP_BOT ? `<a class="aj-item" href="https://wa.me/${WHATSAPP_BOT}?text=ayuda" target="_blank" rel="noopener">${icon("chat")}<span class="aj-txt">Chat con el bot</span><span class="aj-val"></span>${icon("next")}</a>` : ""}
     </div></section>
 
@@ -605,9 +606,8 @@ export function vistaAjustes(view) {
         <div class="seg seg-sm" id="fecha-vista">${[["peritado", "Peritación"], ["estado", "Último estado"]].map(([k, t]) => `<button class="seg-btn ${fv === k ? "on" : ""}" data-fv="${k}">${t}</button>`).join("")}</div></div>`}
     </div></section>
 
-    <section class="aj-grupo"><h3>General</h3><div class="aj-lista">
+    <section class="aj-grupo"><div class="aj-lista">
       ${soySacabollos() ? "" : `<a class="aj-item" href="#/papelera">${icon("trash")}<span class="aj-txt">Papelera</span><span class="aj-val">${nPap || ""}</span>${icon("next")}</a>`}
-      ${fila("ver-novedades", "bell", "Novedades", esc(APP_VERSION))}
       ${fila("salir", "logout", "Cerrar sesión", "", "aj-peligro")}
     </div></section>
 
@@ -617,8 +617,6 @@ export function vistaAjustes(view) {
 
   $("#editar-perfil", view).onclick = () => editarPerfil(() => vistaAjustes(view));
   if ($("#vincular-wa", view)) $("#vincular-wa", view).onclick = () => vincularWhatsApp(() => vistaAjustes(view));
-  if ($("#ver-wa", view)) $("#ver-wa", view).onclick = () => editarPerfil(() => vistaAjustes(view));
-  $("#ver-novedades", view).onclick = verNovedades;
   $("#tema", view).onclick = e => {
     const b = e.target.closest("[data-t]"); if (!b) return;
     aplicarTema(b.dataset.t); $$(".seg-btn", $("#tema", view)).forEach(x => x.classList.toggle("on", x === b));
@@ -848,6 +846,12 @@ export async function panelCreador() {
         <span><b>Fotos de perfil</b><br><small class="muted">Vuelve a buscar la foto de WhatsApp de todos los vinculados y te dice qué pasó con cada uno. Las puestas a mano (📷 en Usuarios) no se tocan.</small></span>
         <span class="row-btns"><button type="button" class="btn btn-ghost btn-sm" id="adm-fotos">${icon("image")}Traer fotos</button></span>
       </div>
+      <div class="adm-toggles">
+        <span><b>Número de la empresa</b> <small class="muted">(conexión «clientes»: avisos, mensajes y turnos)</small><br><small class="muted" id="adm-cli-est">Tocá Conectar para ver el estado.</small></span>
+        <span class="row-btns"><button type="button" class="btn btn-ghost btn-sm" id="adm-cli">${icon("phone")}Conectar</button>
+          <button type="button" class="btn btn-primary btn-sm" id="adm-masivo">${icon("chat")}Mensajes y turnos</button></span>
+        <div id="adm-cli-qr"></div>
+      </div>
       <details class="adm-toggles adm-accesos" ${accAbierto ? "open" : ""}>
         <summary><b>Quién ve las planillas</b> <small class="muted">Vehículos · Técnicos · Gastos · Fijos · Facturación · Cierre</small></summary>
         ${(() => { const op = opAcc(); if (!op) return `<small class="muted">No hay operativos.</small>`;
@@ -939,6 +943,21 @@ export async function panelCreador() {
       return openSheet({ title: `Fotos: ${detalle.filter(d => d.foto).length} de ${detalle.length}`, body: `<ul class="adm-list">${detalle.map(d =>
         `<li><div><strong>@${esc(d.usuario)}</strong><small class="${d.foto ? "" : "muted"}">${d.foto ? "✓ " : ""}${esc(d.motivo)}</small></div></li>`).join("")}</ul>` });
     }
+    const cli = e.target.closest("#adm-cli, #adm-cli-salir");
+    if (cli) {   // estado del número de la empresa; sin conectar, muestra el QR (WhatsApp → Dispositivos vinculados)
+      const salir = cli.id === "adm-cli-salir";
+      if (salir && !(await confirmar({ title: "¿Desvincular el número de la empresa?", message: "Dejan de salir los avisos y mensajes a clientes hasta que vuelvas a escanear el QR.", ok: "Desvincular" }))) return;
+      busy(cli, true, "…");
+      try {
+        const r = await llamarAdmin("clientes-qr", { salir });
+        $("#adm-cli-est", caja).textContent = r.estado === "open" ? "✓ Conectado" : r.qr ? "Escaneá el QR desde WhatsApp → Dispositivos vinculados y tocá Conectar de nuevo." : `Estado: ${r.estado}. Tocá Conectar de nuevo.`;
+        $("#adm-cli-qr", caja).innerHTML = r.estado === "open" ? `<button type="button" class="btn btn-ghost btn-sm danger" id="adm-cli-salir">Desvincular número</button>`
+          : r.qr ? `<img src="${esc(r.qr)}" alt="QR para vincular el número de la empresa" style="width:240px;max-width:100%;background:#fff;border-radius:var(--r);padding:8px">` : "";
+      } catch (err) { toast(err.message, "error"); }
+      if (cli.isConnected) busy(cli, false);
+      return;
+    }
+    if (e.target.closest("#adm-masivo")) return mensajesYTurnos();
     const fu = e.target.closest("[data-foto-u]");
     if (fu) {   // foto a mano para un usuario: se elige la imagen, se achica y se sube
       const inp = Object.assign(document.createElement("input"), { type: "file", accept: "image/*" });
@@ -987,6 +1006,91 @@ export async function panelCreador() {
     catch (err) { b.disabled = false; toast(err.message, "error"); }
   });
   cargar();
+}
+
+// ── Mensajes y turnos (panel del creador): salen del número de la empresa, de a uno y con pausa para que WhatsApp no lo bloquee
+const TXT_TURNO = "{Saludo} {Asegurado}! Te escribimos de {Operativo} por tu {Vehiculo} patente {Patente}: te dimos turno para el {Turno}. Respondé este mensaje para confirmar. ¡Gracias!";
+const PAUSA_MS = 6000;
+const DIAS_SEM = [[1, "Lu"], [2, "Ma"], [3, "Mi"], [4, "Ju"], [5, "Vi"], [6, "Sá"], [0, "Do"]];
+function mensajesYTurnos() {
+  let est = "peritado", modo = "turnos", cortar = false, enviando = false;
+  const marcados = new Set(), dias = new Set([1, 2, 3, 4, 5]), txt = { turnos: TXT_TURNO, mensaje: S.config?.mensajeWa || "" };
+  const manana = new Date(Date.now() + 864e5).toLocaleDateString("en-CA");
+  const s = openSheet({ title: `Mensajes y turnos · ${S.company?.name || ""}`, wide: true, onClose: () => { cortar = true; }, body: `<div class="adm mt">
+    <div class="seg seg-sm adm-tabs">${[["turnos", "Turnar y avisar"], ["mensaje", "Solo mensaje"]].map(([k, t]) => `<button type="button" class="seg-btn" data-modo="${k}">${t}</button>`).join("")}</div>
+    <label class="field"><span>Vehículos en</span><select id="mt-est">${ESTADOS.map(e => `<option value="${e.key}" ${e.key === est ? "selected" : ""}>${e.label}</option>`).join("")}</select></label>
+    <p class="small"><button type="button" class="link-btn" id="mt-todos">Marcar todos</button> · <span id="mt-n"></span></p>
+    <ul class="adm-list" id="mt-lista"></ul>
+    <div id="mt-turnos" class="adm-toggles">
+      <label class="field"><span>Desde</span><input type="date" id="mt-desde" value="${manana}"></label>
+      <label class="field"><span>Autos por día</span><input type="number" id="mt-pordia" min="1" max="200" value="5" inputmode="numeric"></label>
+      <span class="row-btns">${DIAS_SEM.map(([d, t]) => `<label class="toggle"><input type="checkbox" data-dia="${d}" ${dias.has(d) ? "checked" : ""}><span>${t}</span></label>`).join("")}</span>
+    </div>
+    <label class="field"><span>Mensaje</span><textarea id="mt-txt" rows="4"></textarea></label>
+    <small class="muted">Datos: ${["Saludo", "Asegurado", "Vehiculo", "Patente", "Operativo", "Turno", "Compania", "Grado", "Precio"].map(x => `<button type="button" class="chip-var" data-var="{${x}}">{${x}}</button>`).join(" ")}</small>
+    <div id="mt-prev" class="muted small"></div>
+    <span class="row-btns"><button type="button" class="btn btn-primary" id="mt-ir"></button></span>
+  </div>` });
+  const el = q => $(q, s.el);
+  const lista = () => activos().filter(v => estadoActual(v) === est).sort((a, b) => (a.fechas?.peritado || "").localeCompare(b.fechas?.peritado || ""));   // los más viejos primero
+  const elegidos = () => lista().filter(v => marcados.has(v.id));
+  const fechas = n => repartirTurnos(n, el("#mt-desde").value, Number(el("#mt-pordia").value), [...dias]);
+  const conTurno = (v, f) => f ? { ...v, fechas: { ...v.fechas, turnado: f }, horaTurno: "" } : v;
+  const pintarLista = () => {
+    el("#mt-lista").innerHTML = lista().map(v => `<li><label class="toggle"><input type="checkbox" data-v="${esc(v.id)}" ${marcados.has(v.id) ? "checked" : ""}>
+      <span>${plate(v.patente, "sm")} ${esc(v.asegurado || v.modelo || "")} <small class="muted">${v.telefono ? esc(v.telefono) : "sin teléfono: no se le escribe"}</small></span></label></li>`).join("") || `<li class="muted">No hay vehículos en ${ESTADO[est].label}.</li>`;
+    resumen();
+  };
+  const resumen = () => {
+    const l = elegidos(), f = modo === "turnos" ? fechas(l.length) : [];
+    s.el.querySelectorAll("[data-modo]").forEach(b => b.classList.toggle("on", b.dataset.modo === modo));
+    el("#mt-turnos").hidden = modo !== "turnos";
+    if (el("#mt-txt").value !== txt[modo]) el("#mt-txt").value = txt[modo];
+    el("#mt-n").textContent = `${l.length} de ${lista().length} marcados`;
+    el("#mt-ir").textContent = modo === "turnos" ? `Turnar ${l.length} y avisar` : `Enviar a ${l.filter(v => v.telefono).length}`;
+    el("#mt-ir").disabled = enviando || !l.length || (modo === "turnos" && f.length < l.length);
+    el("#mt-prev").innerHTML = !l.length ? "" : (modo === "turnos" ? `<p>${l.map((v, i) => `${esc(v.patente || v.modelo || "")} → ${esc(fechaLarga(f[i]))}`).join(" · ")}</p>` : "")
+      + `<p><b>Ejemplo:</b> ${esc(textoWa(txt[modo], conTurno(l[0], f[0])))}</p>`;
+  };
+  s.el.addEventListener("input", e => {
+    if (e.target.id === "mt-txt") txt[modo] = e.target.value;
+    if (e.target.id === "mt-est") { est = e.target.value; marcados.clear(); return pintarLista(); }
+    if (e.target.dataset.v) e.target.checked ? marcados.add(e.target.dataset.v) : marcados.delete(e.target.dataset.v);
+    if (e.target.dataset.dia) e.target.checked ? dias.add(Number(e.target.dataset.dia)) : dias.delete(Number(e.target.dataset.dia));
+    resumen();
+  });
+  s.el.addEventListener("click", async e => {
+    const m = e.target.closest("[data-modo]");
+    if (m) { modo = m.dataset.modo; return resumen(); }
+    if (e.target.closest("#mt-todos")) { const l = lista(), todos = l.every(v => marcados.has(v.id)); l.forEach(v => todos ? marcados.delete(v.id) : marcados.add(v.id)); return pintarLista(); }
+    const chip = e.target.closest("[data-var]");
+    if (chip) { const ta = el("#mt-txt"), i = ta.selectionStart ?? ta.value.length; ta.value = ta.value.slice(0, i) + chip.dataset.var + ta.value.slice(ta.selectionEnd ?? i); txt[modo] = ta.value; ta.focus(); return resumen(); }
+    if (!e.target.closest("#mt-ir")) return;
+    const l = elegidos(), f = modo === "turnos" ? fechas(l.length) : [], plantilla = txt[modo].trim();
+    if (!plantilla && modo === "mensaje") return toast("Escribí el mensaje", "error");
+    if (!(await confirmar({ title: modo === "turnos" ? `¿Turnar ${l.length} vehículos?` : `¿Enviar ${l.filter(v => v.telefono).length} mensajes?`,
+      message: `${modo === "turnos" ? `Pasan a Turnado del ${fechaLarga(f[0])} al ${fechaLarga(f[f.length - 1])}${plantilla ? " y a cada cliente con teléfono le llega su turno" : " (sin mensaje)"}.` : "Le llega uno a cada cliente."} Sale del número de la empresa, uno cada ${PAUSA_MS / 1000} segundos: dejá esta ventana abierta.`, ok: "Empezar" }))) return;
+    enviando = true; cortar = false; resumen();
+    const fallas = []; let ok = 0;
+    for (let i = 0; i < l.length && !cortar; i++) {
+      const v = getVehiculo(l[i].id) || l[i];
+      busy(el("#mt-ir"), true, `${i + 1} de ${l.length}…`);
+      try {
+        if (modo === "turnos") await cambiarEstado(v, "turnado", f[i], { turnoConfirmado: false, horaTurno: "" });
+        if (v.telefono && plantilla) {
+          await llamarAdmin("enviar-cliente", { cid: S.company.id, vid: v.id, texto: textoWa(plantilla, conTurno(v, f[i])) });
+          if (i < l.length - 1) await new Promise(r => setTimeout(r, PAUSA_MS));
+        }
+        ok++;
+      } catch (err) { fallas.push(`${v.patente || v.modelo || v.id}: ${err.message || mensajeError(err)}`); }
+    }
+    enviando = false;
+    if (!s.el.isConnected) return toast(`Listo: ${ok} de ${l.length}${cortar ? " (se cortó al cerrar)" : ""}`, fallas.length ? "error" : "success");
+    busy(el("#mt-ir"), false); marcados.clear(); pintarLista();
+    toast(`Listo: ${ok} de ${l.length}`, fallas.length ? "error" : "success");
+    if (fallas.length) openSheet({ title: `${fallas.length} con problemas`, body: `<ul class="adm-list">${fallas.map(x => `<li>${esc(x)}</li>`).join("")}</ul>` });
+  });
+  pintarLista();
 }
 
 // Lee la planilla de asegurados (CSV o Excel) → [{ patente, nombre }]

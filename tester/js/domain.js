@@ -120,3 +120,14 @@ export function piezasMarcadas(v) {
   const p = v?.piezas || {};
   return ORDEN_PIEZAS.filter(k => p[k]);
 }
+
+// Agenda: una fecha por auto, desde "desde" (YYYY-MM-DD), solo en los días de la semana elegidos (0 = domingo), porDia autos por día
+export function repartirTurnos(n, desde, porDia, dias) {
+  const out = [], f = new Date(desde + "T12:00:00");
+  if (!(porDia > 0) || !dias.length) return out;
+  while (out.length < n) {
+    if (dias.includes(f.getDay())) for (let i = 0; i < porDia && out.length < n; i++) out.push(f.toISOString().slice(0, 10));
+    f.setDate(f.getDate() + 1);
+  }
+  return out;
+}

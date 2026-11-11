@@ -99,15 +99,6 @@ export function contar(el, hasta = +el.textContent, ms = 1100) {
   requestAnimationFrame(paso);
 }
 
-// Fade Content: un velo con desenfoque sobre la pantalla que se disipa al cambiar de pestaña
-export function veloCambio() {
-  if (quieto()) return;
-  document.querySelector(".velo-cambio")?.remove();
-  const v = document.createElement("div");
-  v.className = "velo-cambio";
-  v.addEventListener("animationend", () => v.remove(), { once: true });
-  document.body.appendChild(v);
-}
 
 // Glow que sigue al mouse por toda la app (se mueve con transform: no recalcula estilos)
 if (matchMedia("(hover: hover) and (pointer: fine)").matches) {

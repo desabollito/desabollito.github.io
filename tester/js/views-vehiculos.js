@@ -351,15 +351,15 @@ export function vistaVehiculos(view, selId = null) {
     const lector = soyLector();
     const hoja = openSheet({ title: "Filtrar y ordenar", body: `<div class="fo">
       <section class="fo-sec"><h3>Ordenar por</h3><div class="fo-seg" id="fo-orden"></div></section>
-      ${lector ? "" : `<section class="fo-sec"><h3>Compañías</h3><div class="fo-cias-caja"><button type="button" class="icon-btn fo-cias-flecha" data-mover="-1" aria-label="Ver compañías anteriores">${icon("back")}</button><div class="fo-seg fo-cias" id="fo-cias"></div><button type="button" class="icon-btn fo-cias-flecha" data-mover="1" aria-label="Ver más compañías">${icon("next")}</button></div></section>`}
+      ${lector ? "" : `<section class="fo-sec"><h3>Compañías</h3><div class="fo-cias-caja"><div class="fo-seg fo-cias" id="fo-cias"></div></div></section>`}
       <section class="fo-sec fo-grados"><h3>Grado</h3><div class="fo-seg" id="fo-grado"></div></section>
       <section class="fo-sec"><h3>Pintura</h3><div class="fo-seg" id="fo-pintura"></div></section>
       <section class="fo-sec"><h3>Repuestos</h3><div class="fo-seg" id="fo-repuestos"></div></section>
       <section class="fo-sec fo-compacto"><h3>Turnos</h3><div class="fo-seg" id="fo-turno"></div></section>
       <section class="fo-sec"><h3>Cliente</h3><div class="fo-seg" id="fo-cliente"></div></section>
       ${lector ? "" : `<section class="fo-sec"><h3>Cargado</h3><div class="fo-seg" id="fo-cargado"></div></section>`}
-      <section class="fo-sec"><h3>Opciones</h3><div class="fo-switches">${lector ? "" : `<label class="fo-switch"><span>Cargados por mí</span><input type="checkbox" id="fo-mios" ${F.mios ? "checked" : ""}></label>`}
-        <label class="fo-switch"><span>Ocultar anulados</span><input type="checkbox" id="fo-anul" ${F.sinAnul ? "checked" : ""}></label></div></section>
+      <div class="fo-switches">${lector ? "" : `<label class="fo-switch"><span>Cargados por mí</span><input type="checkbox" id="fo-mios" ${F.mios ? "checked" : ""}></label>`}
+        <label class="fo-switch"><span>Ocultar anulados</span><input type="checkbox" id="fo-anul" ${F.sinAnul ? "checked" : ""}></label></div>
       <button type="button" class="btn btn-ghost btn-block" data-close id="fo-pdf">${icon("file")}Exportar PDF</button>
       <div class="fo-pie"><button type="button" class="btn btn-ghost" data-close id="fo-reset">Limpiar</button><button type="button" class="btn btn-primary" data-close id="fo-ver"></button></div>
     </div>` });
@@ -391,14 +391,10 @@ export function vistaVehiculos(view, selId = null) {
       marcarBoton();
     };
     const aplicar = () => { pintar(); pintarHoja(); };
-    // Compañías: flechas, rueda del mouse y flechas apagadas en las puntas (en computadora no se podía deslizar)
-    const cias = el("#fo-cias"), flechas = () => { if (!cias) return; const fin = cias.scrollWidth - cias.clientWidth;
-      $$(".fo-cias-flecha", hoja.el).forEach(b => { b.disabled = b.dataset.mover < 0 ? cias.scrollLeft <= 2 : cias.scrollLeft >= fin - 2; b.hidden = fin <= 2; }); };
-    cias?.addEventListener("scroll", flechas, { passive: true });
+    // Compañías: se deslizan con la barra de abajo o con la rueda del mouse (en computadora no se podía)
+    const cias = el("#fo-cias");
     cias?.addEventListener("wheel", e => { if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) { e.preventDefault(); cias.scrollLeft += e.deltaY; } }, { passive: false });
     hoja.el.addEventListener("click", e => {
-      const m = e.target.closest("[data-mover]");
-      if (m) return cias.scrollBy({ left: m.dataset.mover * cias.clientWidth * 0.7, behavior: "smooth" });
       const c = e.target.closest("[data-cia]");
       if (c) { const k = c.dataset.cia; F.cias.has(k) ? F.cias.delete(k) : F.cias.add(k); return aplicar(); }
       if (e.target.closest("#fo-reset")) { F.mios = false; F.sinAnul = false; F.cargado.clear(); F.grado.clear(); F.repuestos.clear(); F.pintura.clear(); F.turno.clear(); F.cliente.clear(); F.cias.clear(); F.orden = "fecha"; F.dir = -1;
@@ -413,7 +409,7 @@ export function vistaVehiculos(view, selId = null) {
     });
     el("#fo-mios")?.addEventListener("change", e => { F.mios = e.target.checked; aplicar(); });
     el("#fo-anul").addEventListener("change", e => { F.sinAnul = e.target.checked; aplicar(); });
-    pintarHoja(); requestAnimationFrame(flechas);
+    pintarHoja();
   });
   pintar();
 
@@ -499,14 +495,19 @@ const claveItem = x => sinTildesJS(x).toLowerCase().replace(/[^a-z0-9]+/g, "_").
 const sinTildesJS = t => String(t).normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 const etapaItem = (v, tipo, x) => ETAPAS[tipo].find(e => e[0] === v[CAMPO_ETAPAS[tipo]]?.[claveItem(x)]) || ETAPAS[tipo][0];
 // Con las fotos de esa sección (fotosRepuestos / fotosPintura) abajo de los ítems
+// Misma grilla de fotos que el resto: si no entran, el último cuadro dice "+N" (abre el visor) y al final va el cuadro "+" para agregar
+const grillaFotos = (fotos, campo, soloVer) => {
+  const max = soloVer ? 8 : 7, ver = fotos.length > max ? fotos.slice(0, max - 1) : fotos, resto = fotos.length - ver.length;
+  const cuadro = (f, extra = "") => `<button type="button" data-pfoto="${esc(f.url)}" data-campo="${campo}"><img src="${esc(thumb(f.url, 200))}" alt="" loading="lazy">${extra}</button>`;
+  return `<div class="desm-fotos">${ver.map(f => cuadro(f)).join("")}${resto ? cuadro(fotos[ver.length], `<span class="ft-resto">+${resto}</span>`) : ""}${soloVer ? "" : `<button type="button" class="ft-mas" data-fsec="${campo}" aria-label="Agregar fotos">${icon("plus")}</button>`}</div>`;
+};
 const chipsSec = (titulo, v, tipo, soloVer) => {
   const items = itemsTexto(v[tipo]), campo = tipo === "pintura" ? "fotosPintura" : "fotosRepuestos", fotos = v[campo] || [];
   if (!items.length && !fotos.length) return "";
-  return `<section class="d-sec"><div class="sec-head"><h3>${titulo}${fotos.length ? ` <small>${fotos.length} ${fotos.length === 1 ? "foto" : "fotos"}</small>` : ""}</h3>
-    ${soloVer || !fotos.length ? "" : `<button type="button" class="btn btn-ghost btn-sm" data-fsec="${campo}">${icon("plus")}Fotos</button>`}</div>
+  return `<section class="d-sec"><div class="sec-head"><h3>${titulo}${fotos.length ? ` <small>${fotos.length} ${fotos.length === 1 ? "foto" : "fotos"}</small>` : ""}</h3></div>
   ${items.length ? `<ul class="piezas-list pintura-list etapas">${items.map(x => { const [, label, color] = etapaItem(v, tipo, x);
     return `<li><button type="button" class="etapa-item" data-tipo="${tipo}" data-item="${esc(x)}" style="--c:${color}"><span>${esc(x)}</span><small>${label}</small></button></li>`; }).join("")}</ul>` : ""}
-  ${fotos.length ? `<div class="desm-fotos">${fotos.map(f => `<button type="button" data-pfoto="${esc(f.url)}" data-campo="${campo}"><img src="${esc(thumb(f.url, 200))}" alt="" loading="lazy"></button>`).join("")}</div>` : ""}</section>`;
+  ${fotos.length ? grillaFotos(fotos, campo, soloVer) : ""}</section>`;
 };
 
 function elegirEtapa(v, tipo, item) {
