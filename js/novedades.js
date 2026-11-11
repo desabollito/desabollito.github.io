@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.4.4", items: ["Filtros: Compañías sin flechas, con la barra de abajo y a todo el ancho como el resto."] },
   { v: "4.4.3", items: ["Ajustes: Papelera y Cerrar sesión otra vez como filas, al final.", "Arreglo: apagar la planilla de vehículos desde el panel del creador ahora queda apagado al recargar."] },
   { v: "4.4.2", items: ["Filtrar y ordenar vuelve al diseño de antes (filas de botones), con la selección múltiple y las flechas de compañías."] },
   { v: "4.4.1", items: ["Ajustes: WhatsApp dentro del perfil; Papelera y Cerrar sesión más chicos al pie; las novedades, manteniendo apretada la versión."] },

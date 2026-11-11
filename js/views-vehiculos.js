@@ -351,7 +351,7 @@ export function vistaVehiculos(view, selId = null) {
     const lector = soyLector();
     const hoja = openSheet({ title: "Filtrar y ordenar", body: `<div class="fo">
       <section class="fo-sec"><h3>Ordenar por</h3><div class="fo-seg" id="fo-orden"></div></section>
-      ${lector ? "" : `<section class="fo-sec"><h3>Compañías</h3><div class="fo-cias-caja"><button type="button" class="icon-btn fo-cias-flecha" data-mover="-1" aria-label="Ver compañías anteriores">${icon("back")}</button><div class="fo-seg fo-cias" id="fo-cias"></div><button type="button" class="icon-btn fo-cias-flecha" data-mover="1" aria-label="Ver más compañías">${icon("next")}</button></div></section>`}
+      ${lector ? "" : `<section class="fo-sec"><h3>Compañías</h3><div class="fo-cias-caja"><div class="fo-seg fo-cias" id="fo-cias"></div></div></section>`}
       <section class="fo-sec fo-grados"><h3>Grado</h3><div class="fo-seg" id="fo-grado"></div></section>
       <section class="fo-sec"><h3>Pintura</h3><div class="fo-seg" id="fo-pintura"></div></section>
       <section class="fo-sec"><h3>Repuestos</h3><div class="fo-seg" id="fo-repuestos"></div></section>
@@ -391,14 +391,10 @@ export function vistaVehiculos(view, selId = null) {
       marcarBoton();
     };
     const aplicar = () => { pintar(); pintarHoja(); };
-    // Compañías: flechas, rueda del mouse y flechas apagadas en las puntas (en computadora no se podía deslizar)
-    const cias = el("#fo-cias"), flechas = () => { if (!cias) return; const fin = cias.scrollWidth - cias.clientWidth;
-      $$(".fo-cias-flecha", hoja.el).forEach(b => { b.disabled = b.dataset.mover < 0 ? cias.scrollLeft <= 2 : cias.scrollLeft >= fin - 2; b.hidden = fin <= 2; }); };
-    cias?.addEventListener("scroll", flechas, { passive: true });
+    // Compañías: se deslizan con la barra de abajo o con la rueda del mouse (en computadora no se podía)
+    const cias = el("#fo-cias");
     cias?.addEventListener("wheel", e => { if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) { e.preventDefault(); cias.scrollLeft += e.deltaY; } }, { passive: false });
     hoja.el.addEventListener("click", e => {
-      const m = e.target.closest("[data-mover]");
-      if (m) return cias.scrollBy({ left: m.dataset.mover * cias.clientWidth * 0.7, behavior: "smooth" });
       const c = e.target.closest("[data-cia]");
       if (c) { const k = c.dataset.cia; F.cias.has(k) ? F.cias.delete(k) : F.cias.add(k); return aplicar(); }
       if (e.target.closest("#fo-reset")) { F.mios = false; F.sinAnul = false; F.cargado.clear(); F.grado.clear(); F.repuestos.clear(); F.pintura.clear(); F.turno.clear(); F.cliente.clear(); F.cias.clear(); F.orden = "fecha"; F.dir = -1;
@@ -413,7 +409,7 @@ export function vistaVehiculos(view, selId = null) {
     });
     el("#fo-mios")?.addEventListener("change", e => { F.mios = e.target.checked; aplicar(); });
     el("#fo-anul").addEventListener("change", e => { F.sinAnul = e.target.checked; aplicar(); });
-    pintarHoja(); requestAnimationFrame(flechas);
+    pintarHoja();
   });
   pintar();
 

@@ -1732,12 +1732,10 @@ a.g-bar-fijo { text-decoration: none; color: inherit; }
 /* Compañías: los mismos botones que "Ordenar por", de a 4 por fila */
 .fo-seg.fo-cias { grid-auto-columns: max-content; overflow-x: auto; scroll-snap-type: x proximity; overscroll-behavior-x: contain; }   /* una fila que se desliza al costado */
 .fo-seg.fo-cias .fo-op { padding-inline: 10px; white-space: nowrap; min-width: 84px; }   /* columna del ancho del nombre: con minmax se quedaban en 84px y se pisaban */
-.fo-cias-caja { display: flex; align-items: center; gap: 4px; }
-.fo-cias-caja .fo-cias { flex: 1; min-width: 0; scrollbar-width: thin; scrollbar-color: var(--line) transparent; padding-bottom: 6px; }
-.fo-cias-caja .fo-cias::-webkit-scrollbar { height: 6px; }
+.fo-cias-caja { display: block; }
+.fo-cias-caja .fo-cias { width: 100%; grid-auto-columns: minmax(max-content, 1fr); scrollbar-width: thin; scrollbar-color: var(--line) transparent; padding-bottom: 6px; }
+.fo-cias-caja .fo-cias::-webkit-scrollbar { display: block; height: 6px; }   /* .fo-seg la esconde: acá la barra se ve */
 .fo-cias-caja .fo-cias::-webkit-scrollbar-thumb { background: var(--line); border-radius: 3px; }
-.fo-cias-flecha { flex: 0 0 auto; width: 32px; height: 32px; }
-.fo-cias-flecha:disabled { opacity: .3; cursor: default; }
 .fo .fo-switch { padding-block: 0; }
 
 /* ── Transiciones entre pantallas ── */
