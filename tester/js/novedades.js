@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.5.5", items: ["Avisar turno: los que no entran antes de la fecha límite se pueden poner todos en un día que elijas (sobreturno)."] },
   { v: "4.5.4", items: ["Avisar turno: si no entran todos antes de la fecha límite, se turnan los que entran y avisa cuántos quedan sin turnar."] },
   { v: "4.5.3", items: ["Avisar reparado marca el auto como avisado: el aviso de Contactado ya no le vuelve a escribir."] },
   { v: "4.5.2", items: ["Mensajes y turnos: «Avisar turno» y «Avisar reparado». Los turnos respetan los que ya hay cada día, con fecha límite opcional y la opción de intercalar grados por día (ej. 3 de grado 1, 2 de grado 2 y 1 de grado 3).", "Filtros por estado, compañía, grado y búsqueda; la lista ordenada por el peritaje más reciente."] },
