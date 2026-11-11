@@ -79,3 +79,5 @@ assert.deepEqual(repartirTurnos([1, 1, 1, 1], { desde: "2026-11-13", porDia: 2, 
 assert.deepEqual(repartirTurnos([1, 1, 1], { desde: "2026-11-13", hasta: "2026-11-16", porDia: 1, dias: LV }), ["2026-11-13", "2026-11-16", null], "no pasa la fecha límite");
 // Por grado: 1 de grado 1 y 1 de grado 2 por día; el grado 3 no tiene cupo
 assert.deepEqual(repartirTurnos([1, 1, 2, 3], { desde: "2026-11-16", hasta: "2026-11-20", porGrado: { 1: 1, 2: 1 }, dias: LV }), ["2026-11-16", "2026-11-17", "2026-11-16", null]);
+// Sobreturno: 1 por día lun a mié, 5 autos → los 2 que sobran van a lun y mar
+assert.deepEqual(repartirTurnos([1, 1, 1, 1, 1], { desde: "2026-11-16", hasta: "2026-11-18", porDia: 1, dias: LV, sobreturno: true }), ["2026-11-16", "2026-11-17", "2026-11-18", "2026-11-16", "2026-11-17"]);

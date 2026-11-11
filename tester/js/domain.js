@@ -123,17 +123,24 @@ export function piezasMarcadas(v) {
 
 // Agenda: una fecha por auto, en el mismo orden (null = no entra antes de "hasta"). Solo los días de la semana elegidos (0 = domingo),
 // contando los turnos que ya hay (ocupados[fecha] = [grados]). Cupo por día: porDia autos, o porGrado = { grado: autos } si se reparte por grado.
-export function repartirTurnos(grados, { desde, hasta = "", porDia = 0, porGrado = null, dias = [], ocupados = {} }) {
-  const out = grados.map(() => null), f = new Date(desde + "T12:00:00");
+// sobreturno: los que no entran se reparten de a uno en los días con menos autos del período.
+export function repartirTurnos(grados, { desde, hasta = "", porDia = 0, porGrado = null, dias = [], ocupados = {}, sobreturno = false }) {
+  const out = grados.map(() => null), f = new Date(desde + "T12:00:00"), cuenta = {};
   if (isNaN(f)) return out;
   const iso = () => f.toISOString().slice(0, 10), tope = hasta || new Date(f.getTime() + 730 * 864e5).toISOString().slice(0, 10);   // sin fecha límite: hasta 2 años
-  for (; iso() <= tope && out.includes(null); f.setDate(f.getDate() + 1)) {
+  for (; iso() <= tope && (out.includes(null) || (sobreturno && hasta)); f.setDate(f.getDate() + 1)) {
     if (!dias.includes(f.getDay())) continue;
-    const dia = [...(ocupados[iso()] || [])];
+    const dia = cuenta[iso()] = [...(ocupados[iso()] || [])];
     grados.forEach((g, i) => {
       if (out[i] || (porGrado ? dia.filter(x => x === g).length >= (porGrado[g] || 0) : dia.length >= porDia)) return;
       out[i] = iso(); dia.push(g);
     });
   }
+  const libres = Object.keys(cuenta);
+  if (sobreturno && libres.length) out.forEach((x, i) => {
+    if (x) return;
+    const d = libres.reduce((m, k) => cuenta[k].length < cuenta[m].length ? k : m);   // empate: el primero
+    out[i] = d; cuenta[d].push(grados[i]);
+  });
   return out;
 }

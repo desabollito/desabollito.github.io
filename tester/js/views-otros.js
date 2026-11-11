@@ -1053,7 +1053,7 @@ function mensajesYTurnos() {
       <span class="row-btns">${DIAS_SEM.map(([d, t]) => `<label class="toggle"><input type="checkbox" data-dia="${d}" ${dias.has(d) ? "checked" : ""}><span>${t}</span></label>`).join("")}</span>
       <label class="toggle"><input type="checkbox" id="mt-pg"><span>Intercalar grados por día</span></label>
       <label class="field" id="mt-pordia-f"><span>Autos por día <small class="muted">(contando los turnos que ya hay)</small></span><input type="number" id="mt-pordia" min="1" max="200" value="5" inputmode="numeric"></label>
-      <label class="field" id="mt-extra-f" hidden><span>Los que no entran, ponerlos el <small class="muted">(vacío = quedan sin turnar)</small></span><input type="date" id="mt-extra"></label>
+      <label class="toggle" id="mt-extra-f" hidden><input type="checkbox" id="mt-extra"><span>Repartir los que no entran entre los días (sobreturno)</span></label>
       <span class="row-btns" id="mt-pg-f" hidden>${GRADOS_T.map(([g, t]) => `<label class="field"><span>${t}</span><input type="number" min="0" max="50" value="${cupoG[g]}" data-cupo="${g}" inputmode="numeric" style="width:5em"></label>`).join("")}</span>
     </div>
     <label class="field"><span>Mensaje</span><textarea id="mt-txt" rows="4"></textarea></label>
@@ -1071,11 +1071,11 @@ function mensajesYTurnos() {
   const fechas = l => {
     const ids = new Set(l.map(v => v.id)), ocupados = {};
     activos().filter(v => estadoActual(v) === "turnado" && v.fechas?.turnado && !ids.has(v.id)).forEach(v => (ocupados[v.fechas.turnado] ||= []).push(v.grado || 0));
-    const r = repartirTurnos(l.map(v => v.grado || 0), { desde: el("#mt-desde").value, hasta: el("#mt-hasta").value, porDia: Number(el("#mt-pordia").value),
-      porGrado: porGradoOn ? Object.fromEntries($$("[data-cupo]", s.el).map(i => [i.dataset.cupo, Number(i.value) || 0])) : null, dias: [...dias], ocupados });
+    const op = { desde: el("#mt-desde").value, hasta: el("#mt-hasta").value, porDia: Number(el("#mt-pordia").value),
+      porGrado: porGradoOn ? Object.fromEntries($$("[data-cupo]", s.el).map(i => [i.dataset.cupo, Number(i.value) || 0])) : null, dias: [...dias], ocupados };
+    const g = l.map(v => v.grado || 0), r = repartirTurnos(g, op);
     sinLugar = r.filter(x => !x).length;
-    const extra = el("#mt-extra").value;   // sobreturno: los que no entran van todos a ese día
-    return extra ? r.map(x => x || extra) : r;
+    return sinLugar && el("#mt-extra").checked ? repartirTurnos(g, { ...op, sobreturno: true }) : r;
   };
   const conTurno = (v, f) => f ? { ...v, fechas: { ...v.fechas, turnado: f }, horaTurno: "" } : v;
   const pintarLista = () => {
@@ -1098,7 +1098,7 @@ function mensajesYTurnos() {
     el("#mt-n").textContent = `${l.length} de ${lista().length} marcados`;
     el("#mt-ir").textContent = modo === "turnos" ? `Turnar ${l.length - faltan} y avisar` : `Enviar a ${l.filter(v => v.telefono).length}`;
     el("#mt-ir").disabled = enviando || !l.length || (modo === "turnos" && faltan === l.length);
-    el("#mt-prev").innerHTML = !l.length ? "" : (modo === "turnos" ? (sinLugar ? `<p style="color:var(--danger)">⚠️ No entran ${sinLugar} antes de la fecha límite: ${faltan ? "quedan sin turnar. Abajo de los días podés elegir un día para ponerlos." : "van al " + esc(fechaLarga(el("#mt-extra").value)) + " (sobreturno)."}</p>` : "")
+    el("#mt-prev").innerHTML = !l.length ? "" : (modo === "turnos" ? (sinLugar ? `<p style="color:var(--danger)">⚠️ No entran ${sinLugar} antes de la fecha límite: ${faltan ? "quedan sin turnar. Abajo de los días podés repartirlos como sobreturno." : "se reparten como sobreturno en los días con menos autos."}</p>` : "")
       + `<p>${l.map((v, i) => `${esc(v.patente || v.modelo || "")} → ${f[i] ? esc(fechaLarga(f[i])) : "no entra"}`).join(" · ")}</p>` : "")
       + `<p><b>Ejemplo:</b> ${esc(textoWa(txt[modo], conTurno(l[0], f[0])))}</p>`;
   };
