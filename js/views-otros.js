@@ -589,12 +589,13 @@ export function vistaAjustes(view) {
   <div class="page narrow ajustes">
     <section class="aj-perfil">
       ${avatarUsuario(p.username, p.name, "lg", p.foto)}
-      <div class="profile-meta"><h2>${esc(p.name)}</h2><p class="muted">@${esc(p.username)}</p></div>
+      <div class="profile-meta"><h2>${esc(p.name)}</h2><p class="muted">@${esc(p.username)}</p>
+        ${p.whatsapp ? `<p class="perfil-wa" title="WhatsApp vinculado al bot">${icon("chat")}${esc(wa)}</p>`
+          : `<button type="button" class="btn btn-primary btn-sm aj-vincular" id="vincular-wa">${icon("chat")}Vincular WhatsApp</button>`}</div>
     </section>
 
     <section class="aj-grupo"><h3>Cuenta</h3><div class="aj-lista">
       ${fila("editar-perfil", "edit", "Perfil", esc(p.name))}
-      ${p.whatsapp ? fila("ver-wa", "chat", "WhatsApp", esc(wa)) : fila("vincular-wa", "chat", "WhatsApp", `<b class="aj-pend">Vincular</b>`)}
       ${WHATSAPP_BOT ? `<a class="aj-item" href="https://wa.me/${WHATSAPP_BOT}?text=ayuda" target="_blank" rel="noopener">${icon("chat")}<span class="aj-txt">Chat con el bot</span><span class="aj-val"></span>${icon("next")}</a>` : ""}
     </div></section>
 
@@ -605,11 +606,10 @@ export function vistaAjustes(view) {
         <div class="seg seg-sm" id="fecha-vista">${[["peritado", "Peritación"], ["estado", "Último estado"]].map(([k, t]) => `<button class="seg-btn ${fv === k ? "on" : ""}" data-fv="${k}">${t}</button>`).join("")}</div></div>`}
     </div></section>
 
-    <section class="aj-grupo"><h3>General</h3><div class="aj-lista">
-      ${soySacabollos() ? "" : `<a class="aj-item" href="#/papelera">${icon("trash")}<span class="aj-txt">Papelera</span><span class="aj-val">${nPap || ""}</span>${icon("next")}</a>`}
-      ${fila("ver-novedades", "bell", "Novedades", esc(APP_VERSION))}
-      ${fila("salir", "logout", "Cerrar sesión", "", "aj-peligro")}
-    </div></section>
+    <div class="aj-pie">
+      ${soySacabollos() ? "" : `<a class="btn btn-ghost btn-sm" href="#/papelera">${icon("trash")}Papelera${nPap ? ` (${nPap})` : ""}</a>`}
+      <button type="button" class="btn btn-danger-ghost btn-sm" id="salir">${icon("logout")}Cerrar sesión</button>
+    </div>
 
     <p class="center aj-version"><button type="button" class="version-btn" id="version-btn"
       title="Tocá para forzar la actualización · mantené apretado para ver las novedades">Desabollito ${APP_VERSION} ${icon("rotate")}</button></p>
@@ -617,8 +617,6 @@ export function vistaAjustes(view) {
 
   $("#editar-perfil", view).onclick = () => editarPerfil(() => vistaAjustes(view));
   if ($("#vincular-wa", view)) $("#vincular-wa", view).onclick = () => vincularWhatsApp(() => vistaAjustes(view));
-  if ($("#ver-wa", view)) $("#ver-wa", view).onclick = () => editarPerfil(() => vistaAjustes(view));
-  $("#ver-novedades", view).onclick = verNovedades;
   $("#tema", view).onclick = e => {
     const b = e.target.closest("[data-t]"); if (!b) return;
     aplicarTema(b.dataset.t); $$(".seg-btn", $("#tema", view)).forEach(x => x.classList.toggle("on", x === b));
