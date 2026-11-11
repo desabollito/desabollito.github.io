@@ -1129,7 +1129,7 @@ function mensajesYTurnos() {
       try {
         if (modo === "turnos") await cambiarEstado(v, "turnado", f[i], { turnoConfirmado: false, horaTurno: "" });
         if (v.telefono && plantilla) {
-          await llamarAdmin("enviar-cliente", { cid: S.company.id, vid: v.id, texto: textoWa(plantilla, conTurno(v, f[i])), por: S.profile?.name || "" });
+          await llamarAdmin("enviar-cliente", { cid: S.company.id, vid: v.id, texto: textoWa(plantilla, conTurno(v, f[i])), por: S.profile?.name || "", reparado: modo === "mensaje" });
           if (i < l.length - 1) await new Promise(r => setTimeout(r, PAUSA_MS));
         }
         ok++;

@@ -2590,7 +2590,7 @@ async function adminClientesQr(env, { idToken, salir }) {
 }
 
 // Panel del creador: un mensaje a un cliente desde el número de la empresa (envío masivo y turnos; la app los manda de a uno con pausa)
-async function adminEnviarCliente(env, { idToken, cid, vid, texto, por }) {
+async function adminEnviarCliente(env, { idToken, cid, vid, texto, por, reparado }) {
   // El creador, o quien él habilitó (config/app.usanClientes) si es miembro de ese operativo
   if (!(await soloCreador(env, idToken))) {
     const [m, cfg] = await Promise.all([miembroDe(env, idToken, cid), fsGet(env, "config/app").catch(() => null)]);
@@ -2605,6 +2605,7 @@ async function adminEnviarCliente(env, { idToken, cid, vid, texto, por }) {
   if (await estadoEvolution(env, instanciaClientes(env)) !== "open") return json({ ok: false, error: "El número de la empresa no está conectado" });
   const r = await enviarEvolution(env, `evo:${tel}`, { type: "text", text: { body: texto.trim() }, _inst: instanciaClientes(env) });
   if (!r?.ok) return json({ ok: false, error: "WhatsApp no aceptó el mensaje" });
+  if (reparado === true) await fsMerge(env, ruta, { avisoReparado: { t: Date.now(), por: String(por || CREADOR).slice(0, 60) } });   // así el aviso de Contactado no le vuelve a escribir
   await fsAppend(env, ruta, "historial", { t: Date.now(), uid: "", por: String(por || CREADOR).slice(0, 60), txt: "Mensaje al cliente por WhatsApp: " + texto.trim().slice(0, 200) }).catch(() => {});
   return json({ ok: true });
 }

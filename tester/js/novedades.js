@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.5.3", items: ["Avisar reparado marca el auto como avisado: el aviso de Contactado ya no le vuelve a escribir."] },
   { v: "4.5.2", items: ["Mensajes y turnos: «Avisar turno» y «Avisar reparado». Los turnos respetan los que ya hay cada día, con fecha límite opcional y la opción de intercalar grados por día (ej. 3 de grado 1, 2 de grado 2 y 1 de grado 3).", "Filtros por estado, compañía, grado y búsqueda; la lista ordenada por el peritaje más reciente."] },
   { v: "4.5.1", items: ["Creador: elegir en el panel quiénes usan «Mensajes y turnos» (por defecto solo vos). Ellos lo ven en Ajustes."] },
   { v: "4.5.0", items: ["Creador: conectar el número de la empresa con QR desde el panel.", "Creador: «Mensajes y turnos»: marcar vehículos y mandarles un WhatsApp a cada uno, o turnarlos en los días y con los autos por día que elijas y avisarle a cada cliente su turno."] },
