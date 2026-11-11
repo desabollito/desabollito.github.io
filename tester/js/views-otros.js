@@ -1091,9 +1091,9 @@ function mensajesYTurnos() {
     el("#mt-pordia-f").hidden = porGradoOn; el("#mt-pg-f").hidden = !porGradoOn;
     if (el("#mt-txt").value !== txt[modo]) el("#mt-txt").value = txt[modo];
     el("#mt-n").textContent = `${l.length} de ${lista().length} marcados`;
-    el("#mt-ir").textContent = modo === "turnos" ? `Turnar ${l.length} y avisar` : `Enviar a ${l.filter(v => v.telefono).length}`;
-    el("#mt-ir").disabled = enviando || !l.length || faltan > 0;
-    el("#mt-prev").innerHTML = !l.length ? "" : (modo === "turnos" ? (faltan ? `<p style="color:var(--danger)">No entran ${faltan} antes de la fecha límite: desmarcá autos, subí el cupo o mové la fecha.</p>` : "")
+    el("#mt-ir").textContent = modo === "turnos" ? `Turnar ${l.length - faltan} y avisar` : `Enviar a ${l.filter(v => v.telefono).length}`;
+    el("#mt-ir").disabled = enviando || !l.length || (modo === "turnos" && faltan === l.length);
+    el("#mt-prev").innerHTML = !l.length ? "" : (modo === "turnos" ? (faltan ? `<p style="color:var(--danger)">⚠️ No entran ${faltan} antes de la fecha límite: quedan sin turnar.</p>` : "")
       + `<p>${l.map((v, i) => `${esc(v.patente || v.modelo || "")} → ${f[i] ? esc(fechaLarga(f[i])) : "no entra"}`).join(" · ")}</p>` : "")
       + `<p><b>Ejemplo:</b> ${esc(textoWa(txt[modo], conTurno(l[0], f[0])))}</p>`;
   };
@@ -1116,11 +1116,12 @@ function mensajesYTurnos() {
     const chip = e.target.closest("[data-var]");
     if (chip) { const ta = el("#mt-txt"), i = ta.selectionStart ?? ta.value.length; ta.value = ta.value.slice(0, i) + chip.dataset.var + ta.value.slice(ta.selectionEnd ?? i); txt[modo] = ta.value; ta.focus(); return resumen(); }
     if (!e.target.closest("#mt-ir")) return;
-    const l = elegidos(), f = modo === "turnos" ? fechas(l) : [], plantilla = txt[modo].trim();
+    const todos = elegidos(), fs = modo === "turnos" ? fechas(todos) : [], afuera = fs.filter(x => !x).length;
+    const l = modo === "turnos" ? todos.filter((v, i) => fs[i]) : todos, f = fs.filter(Boolean), plantilla = txt[modo].trim();   // los que no entran quedan sin turnar
     if (!plantilla && modo === "mensaje") return toast("Escribí el mensaje", "error");
-    const orden = [...f].sort();
+    const orden = [...f].sort(), aviso = afuera ? ` ⚠️ ${afuera} no entran antes de la fecha límite y quedan sin turnar.` : "";
     if (!(await confirmar({ title: modo === "turnos" ? `¿Turnar ${l.length} vehículos?` : `¿Enviar ${l.filter(v => v.telefono).length} mensajes?`,
-      message: `${modo === "turnos" ? `Pasan a Turnado del ${fechaLarga(orden[0])} al ${fechaLarga(orden[orden.length - 1])}${plantilla ? " y a cada cliente con teléfono le llega su turno" : " (sin mensaje)"}.` : "Le llega uno a cada cliente."} Sale del número de la empresa, uno cada ${PAUSA_MS / 1000} segundos: dejá esta ventana abierta.`, ok: "Empezar" }))) return;
+      message: `${modo === "turnos" ? `Pasan a Turnado del ${fechaLarga(orden[0])} al ${fechaLarga(orden[orden.length - 1])}${plantilla ? " y a cada cliente con teléfono le llega su turno" : " (sin mensaje)"}.${aviso}` : "Le llega uno a cada cliente."} Sale del número de la empresa, uno cada ${PAUSA_MS / 1000} segundos: dejá esta ventana abierta.`, ok: "Empezar" }))) return;
     enviando = true; cortar = false; resumen();
     const fallas = []; let ok = 0;
     for (let i = 0; i < l.length && !cortar; i++) {
