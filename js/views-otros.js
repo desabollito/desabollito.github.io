@@ -606,10 +606,10 @@ export function vistaAjustes(view) {
         <div class="seg seg-sm" id="fecha-vista">${[["peritado", "Peritación"], ["estado", "Último estado"]].map(([k, t]) => `<button class="seg-btn ${fv === k ? "on" : ""}" data-fv="${k}">${t}</button>`).join("")}</div></div>`}
     </div></section>
 
-    <div class="aj-pie">
-      ${soySacabollos() ? "" : `<a class="btn btn-ghost btn-sm" href="#/papelera">${icon("trash")}Papelera${nPap ? ` (${nPap})` : ""}</a>`}
-      <button type="button" class="btn btn-danger-ghost btn-sm" id="salir">${icon("logout")}Cerrar sesión</button>
-    </div>
+    <section class="aj-grupo"><div class="aj-lista">
+      ${soySacabollos() ? "" : `<a class="aj-item" href="#/papelera">${icon("trash")}<span class="aj-txt">Papelera</span><span class="aj-val">${nPap || ""}</span>${icon("next")}</a>`}
+      ${fila("salir", "logout", "Cerrar sesión", "", "aj-peligro")}
+    </div></section>
 
     <p class="center aj-version"><button type="button" class="version-btn" id="version-btn"
       title="Tocá para forzar la actualización · mantené apretado para ver las novedades">Desabollito ${APP_VERSION} ${icon("rotate")}</button></p>

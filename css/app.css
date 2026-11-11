@@ -2328,7 +2328,6 @@ button.aj-item:hover, a.aj-item:hover { background: var(--surface-2); }
 .desm-fotos .ft-mas { display: grid; place-items: center; aspect-ratio: 1; border: 1.5px dashed var(--line-2); background: var(--surface); color: var(--primary); }
 .desm-fotos .ft-mas .ic { width: 24px; height: 24px; }
 .desm-fotos .ft-mas:hover { border-color: var(--primary); }
-/* Ajustes: Papelera y Cerrar sesión chicos, al pie; WhatsApp dentro del perfil */
-.aj-pie { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
 .aj-perfil .perfil-wa { margin-top: 2px; }
 .aj-vincular { margin-top: 8px; }
+/* Ajustes: WhatsApp dentro del perfil */
