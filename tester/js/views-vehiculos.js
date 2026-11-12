@@ -1102,19 +1102,20 @@ export function elegirVehiculoDesmontaje() {
   });
 }
 
-// Aviso al cliente por WhatsApp cuando el auto queda reparado (se confirma dos veces)
+// Aviso al cliente por WhatsApp al marcar Contactado, desde el número de la empresa: el mensaje del panel del creador o, sin él, este
 function textoAviso(v) {
+  const propio = textoWa(S.config?.mensajeWa, v);
+  if (propio) return propio;
   const nombre = String(v.asegurado || "").trim().split(/\s+/)[0];
   return `Hola${nombre ? " " + nombre : ""}! 👋 Te escribimos de ${S.company?.name || "Desabollito"}: tu ${v.modelo || "vehículo"}${v.patente ? ` (${v.patente})` : ""} ya está reparado y listo para retirar. ¡Gracias por confiar en nosotros!`;
 }
 async function ofrecerAvisoCliente(v) {
   v = getVehiculo(v.id) || v;
-  if (!v.telefono || S.config?.avisoReparado === false) return;   // el creador puede apagar esta función
-  if (!(await confirmar({ title: "¿Avisarle al cliente?", message: `Le mandamos un WhatsApp a ${v.asegurado || "el cliente"} (${v.telefono}) diciendo que el auto está listo.`, ok: "Sí, avisar" }))) return;
-  if (!(await confirmar({ title: "¿Confirmás el envío?", message: `Se va a enviar este mensaje a ${v.telefono}:\n\n“${textoAviso(v)}”`, ok: "Enviar mensaje" }))) return;
+  if (!v.telefono || v.avisoReparado || S.config?.avisoReparado === false) return;   // una sola vez; el creador puede apagar esta función
+  if (!(await confirmar({ title: "¿Avisarle al cliente desde el teléfono de la empresa?", message: `Le llega este WhatsApp a ${v.asegurado || "el cliente"} (${v.telefono}):\n\n“${textoAviso(v)}”`, ok: "Enviar mensaje" }))) return;
   try {
     const r = await fetch(`${BOT_API}/avisar`, { method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ idToken: await S.user.getIdToken(), cid: S.company.id, vid: v.id, por: S.profile?.name || "" }) });
+      body: JSON.stringify({ idToken: await S.user.getIdToken(), cid: S.company.id, vid: v.id, por: S.profile?.name || "", texto: textoAviso(v) }) });
     const d = await r.json().catch(() => ({}));
     if (!r.ok || !d.ok) throw new Error(d.error || "No se pudo enviar");
     toast("Aviso enviado al cliente", "success");

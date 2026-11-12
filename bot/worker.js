@@ -2551,7 +2551,7 @@ export function telefonoAR(t) {
 }
 
 // Aviso al cliente cuando su auto queda reparado (una sola vez por vehículo)
-async function avisarCliente(env, { idToken, cid, vid, por }) {
+async function avisarCliente(env, { idToken, cid, vid, por, texto: propio }) {
   if (!(await miembroDe(env, idToken, cid))) return json({ ok: false, error: "No autorizado. Actualizá la app y probá de nuevo." }, 403);
   if (!/^[A-Za-z0-9_-]{1,60}$/.test(cid || "") || !/^[A-Za-z0-9_-]{1,60}$/.test(vid || "")) return json({ ok: false, error: "Datos inválidos" }, 400);
   const ruta = `companies/${cid}/vehicles/${vid}`;
@@ -2564,7 +2564,8 @@ async function avisarCliente(env, { idToken, cid, vid, por }) {
   if (!tel) return json({ ok: false, error: "El teléfono del cliente no parece un celular válido" });
   const c = await fsGet(env, `companies/${cid}`);
   const nombre = String(v.asegurado || "").trim().split(/\s+/)[0];
-  const texto = `Hola${nombre ? " " + nombre : ""}! 👋 Te escribimos de ${c?.name || "Desabollito"}: tu ${v.modelo || "vehículo"}${v.patente ? ` (${v.patente})` : ""} ya está reparado y listo para retirar. ¡Gracias por confiar en nosotros!`;
+  // El mensaje del panel del creador, armado por la app con los datos del auto; si no viene, el de siempre
+  const texto = typeof propio === "string" && propio.trim() && propio.length <= 2000 ? propio.trim() : `Hola${nombre ? " " + nombre : ""}! 👋 Te escribimos de ${c?.name || "Desabollito"}: tu ${v.modelo || "vehículo"}${v.patente ? ` (${v.patente})` : ""} ya está reparado y listo para retirar. ¡Gracias por confiar en nosotros!`;
   // Los avisos a clientes salen desde el número de la empresa (conexión "clientes" de Evolution), no desde Desabollito
   if (!env.EVOLUTION_URL) return json({ ok: false, error: "Falta conectar el número de la empresa" });
   const est = await estadoEvolution(env, instanciaClientes(env));
@@ -2594,7 +2595,7 @@ async function adminClientesQr(env, { idToken, salir }) {
 }
 
 // Panel del creador: un mensaje a un cliente desde el número de la empresa (envío masivo y turnos; la app los manda de a uno con pausa)
-async function adminEnviarCliente(env, { idToken, cid, vid, texto, por, reparado }) {
+async function adminEnviarCliente(env, { idToken, cid, vid, texto, por }) {
   // El creador, o quien él habilitó (config/app.usanClientes) si es miembro de ese operativo
   if (!(await soloCreador(env, idToken))) {
     const [m, cfg] = await Promise.all([miembroDe(env, idToken, cid), fsGet(env, "config/app").catch(() => null)]);
@@ -2609,7 +2610,6 @@ async function adminEnviarCliente(env, { idToken, cid, vid, texto, por, reparado
   if (await estadoEvolution(env, instanciaClientes(env)) !== "open") return json({ ok: false, error: "El número de la empresa no está conectado" });
   const r = await enviarEvolution(env, `evo:${tel}`, { type: "text", text: { body: texto.trim() }, _inst: instanciaClientes(env) });
   if (!r?.ok) return json({ ok: false, error: "WhatsApp no aceptó el mensaje" });
-  if (reparado === true) await fsMerge(env, ruta, { avisoReparado: { t: Date.now(), por: String(por || CREADOR).slice(0, 60) } });   // así el aviso de Contactado no le vuelve a escribir
   await fsAppend(env, ruta, "historial", { t: Date.now(), uid: "", por: String(por || CREADOR).slice(0, 60), txt: "Mensaje al cliente por WhatsApp: " + texto.trim().slice(0, 200) }).catch(() => {});
   return json({ ok: true });
 }

@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.5.7", items: ["Contactado: un solo aviso, «¿Avisarle al cliente desde el teléfono de la empresa?», con el mensaje del panel del creador. Sale igual con el botón o deslizando.", "Mensajes y turnos: se sacó «Avisar reparado»; queda solo Avisar turno."] },
   { v: "4.5.6", items: ["Avisar turno: los que no entran se reparten como sobreturno entre los días con menos autos del período."] },
   { v: "4.5.5", items: ["Avisar turno: los que no entran antes de la fecha límite se pueden poner todos en un día que elijas (sobreturno)."] },
   { v: "4.5.4", items: ["Avisar turno: si no entran todos antes de la fecha límite, se turnan los que entran y avisa cuántos quedan sin turnar."] },
