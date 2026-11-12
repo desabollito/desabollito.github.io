@@ -13,9 +13,9 @@
   --muted: #68788d;
   --line: #dce2ea;
   --line-2: #c9d2dd;
-  --primary: #2b5ce6;
-  --primary-2: #1f47bd;
-  --primary-soft: #e6edff;
+  --primary: #d9480f;
+  --primary-2: #b03a0a;
+  --primary-soft: #fff0e6;
   --on-primary: #ffffff;
   --danger: #d93a40;
   --danger-soft: #fdecec;
@@ -41,16 +41,16 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #0e0e10; --surface: #17171a; --surface-2: #1f1f23; --ink: #ececef; --ink-2: #bcbcc3;
-    --muted: #8d8d96; --line: #2a2a2f; --line-2: #38383e; --primary: #5c86ff; --primary-2: #86a5ff;
-    --primary-soft: #1d2540; --danger: #f0676b; --danger-soft: #3a1a1e; --glass: #2c2c31;
+    --muted: #8d8d96; --line: #2a2a2f; --line-2: #38383e; --primary: #ff8a3d; --primary-2: #ffaa70;
+    --primary-soft: #3a2414; --danger: #f0676b; --danger-soft: #3a1a1e; --glass: #2c2c31;
     --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px -14px rgba(0,0,0,.6); --shadow-lg: 0 28px 70px -18px rgba(0,0,0,.7);
     color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
   --bg: #0e0e10; --surface: #17171a; --surface-2: #1f1f23; --ink: #ececef; --ink-2: #bcbcc3;
-  --muted: #8d8d96; --line: #2a2a2f; --line-2: #38383e; --primary: #5c86ff; --primary-2: #86a5ff;
-  --primary-soft: #1d2540; --danger: #f0676b; --danger-soft: #3a1a1e; --glass: #2c2c31;
+  --muted: #8d8d96; --line: #2a2a2f; --line-2: #38383e; --primary: #ff8a3d; --primary-2: #ffaa70;
+  --primary-soft: #3a2414; --danger: #f0676b; --danger-soft: #3a1a1e; --glass: #2c2c31;
   --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px -14px rgba(0,0,0,.6); --shadow-lg: 0 28px 70px -18px rgba(0,0,0,.7);
   color-scheme: dark;
 }
@@ -1534,7 +1534,7 @@ a.g-bar-fijo { text-decoration: none; color: inherit; }
 .est-acc { display: inline-flex; gap: 12px; align-items: center; }
 .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .switch-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-weight: 600; font-size: 14px; }
-.switch-row input { width: 22px; height: 22px; accent-color: var(--brand, #2b5ce6); }
+.switch-row input { width: 22px; height: 22px; accent-color: var(--brand, var(--primary)); }
 .tec-desc { align-items: center; }
 .tec-aparte { opacity: .55; border-left: 2px dashed var(--line); padding-left: 8px; margin: 4px 0; }
 .tec-aparte .tec-linea b { text-decoration: none; }
@@ -1544,7 +1544,7 @@ a.g-bar-fijo { text-decoration: none; color: inherit; }
 .adm-acc-head { margin-top: 10px; color: var(--ink-2); font-weight: 700; text-align: center; }
 .adm-acc-fila { padding: 7px 0; border-top: 1px solid var(--line); }
 .adm-acc-fila > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.adm-acc-fila input { justify-self: center; width: 20px; height: 20px; accent-color: var(--brand, #2b5ce6); }
+.adm-acc-fila input { justify-self: center; width: 20px; height: 20px; accent-color: var(--brand, var(--primary)); }
 /* Computadora: los estados en una fila a lo ancho, arriba de la lista y el detalle */
 .estado-fila { margin-bottom: 14px; }
 .estado-fila .estado-strip { margin: 0; padding: 0 0 2px; display: flex; flex-wrap: nowrap; overflow-x: auto; }
@@ -1843,8 +1843,8 @@ h3 { letter-spacing: -.015em; }
 .splash.intro { overflow: hidden; gap: 10px; color: var(--ink); }
 .aurora { position: absolute; inset: 0; z-index: -1; }
 .aurora i { position: absolute; width: 55vmax; height: 45vmax; border-radius: 50%; filter: blur(70px) saturate(130%); opacity: .5; animation: aurora 16s ease-in-out infinite alternate; }
-.aurora i:nth-child(1) { background: #2b5ce6; left: -15vmax; top: -10vmax; }
-.aurora i:nth-child(2) { background: #5c86ff; right: -18vmax; top: 10vh; animation-duration: 19s; }
+.aurora i:nth-child(1) { background: #d9480f; left: -15vmax; top: -10vmax; }
+.aurora i:nth-child(2) { background: #ff8a3d; right: -18vmax; top: 10vh; animation-duration: 19s; }
 .aurora i:nth-child(3) { background: #0e1b2c; left: 10vw; bottom: -20vmax; animation-duration: 14s; }
 .aurora i:nth-child(4) { background: #cfe0ff; right: 5vw; bottom: -15vmax; opacity: .22; animation-duration: 20s; }
 @keyframes aurora { to { transform: translate(6vmax, 4vmax) scale(1.15); } }
