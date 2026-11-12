@@ -292,3 +292,58 @@ import("https://cdn.jsdelivr.net/npm/blobatar@2.7.0/+esm").then(({ blobatar }) =
   new MutationObserver(ms => ms.forEach(m => m.addedNodes.forEach(n => n.nodeType === 1 && pintar(n.parentNode || n))))
     .observe(document.body, { childList: true, subtree: true });
 }).catch(() => {});
+
+// ── Desplegables: todos los <select> se muestran con el menú de la app (glideMenu), no el del navegador ──
+// El select queda oculto en el formulario (sigue mandando su valor); el botón muestra la opción elegida.
+function lindo(sel) {
+  if (sel.dataset.lindo || sel.multiple) return;
+  sel.dataset.lindo = "1";
+  const b = document.createElement("button");
+  b.type = "button"; b.className = "sel-btn " + (sel.className || ""); b.setAttribute("aria-haspopup", "listbox");
+  if (sel.getAttribute("aria-label")) b.setAttribute("aria-label", sel.getAttribute("aria-label"));
+  const pintar = () => { b.innerHTML = `<span>${esc(sel.selectedOptions[0]?.textContent || "—")}</span>${icon("next")}`; b.disabled = sel.disabled; };
+  pintar(); sel.after(b); sel.classList.add("sel-oculto");
+  sel.addEventListener("change", pintar);
+  new MutationObserver(pintar).observe(sel, { childList: true, subtree: true, attributes: true });
+  b.addEventListener("click", () => {
+    glideMenu(b, [...sel.options].map(o => [o.value, o.textContent]), sel.value, v => { sel.value = v; sel.dispatchEvent(new Event("input", { bubbles: true })); sel.dispatchEvent(new Event("change", { bubbles: true })); });
+    const m = document.querySelector(".gs-menu"); if (m) m.style.minWidth = b.offsetWidth + "px";
+  });
+}
+// Campos con sugerencias (<input list>): la lista sale debajo del campo, filtrada con lo que se escribe, en vez de la del navegador
+const sinTilde = t => String(t).normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+function sugerir(inp) {
+  if (inp.dataset.lista) return;
+  inp.dataset.lista = inp.getAttribute("list"); inp.removeAttribute("list");
+  let caja = null, act = -1;
+  const cerrar = () => { caja?.remove(); caja = null; act = -1; };
+  const marcar = i => { const ops = caja ? [...caja.children] : []; act = i; ops.forEach((o, j) => o.classList.toggle("on", j === i)); ops[i]?.scrollIntoView({ block: "nearest" }); };
+  const poner = t => { inp.value = t; inp.dispatchEvent(new Event("input", { bubbles: true })); inp.dispatchEvent(new Event("change", { bubbles: true })); cerrar(); };
+  const abrir = () => {
+    const q = sinTilde(inp.value.trim());
+    const ops = [...(document.getElementById(inp.dataset.lista)?.options || [])].map(o => o.value).filter(v => v && (!q || sinTilde(v).includes(q)) && sinTilde(v) !== q).slice(0, 8);
+    if (!ops.length) return cerrar();
+    if (!caja) { caja = document.createElement("div"); caja.className = "sug-lista"; caja.setAttribute("role", "listbox"); document.body.appendChild(caja);
+      caja.addEventListener("pointerdown", e => e.preventDefault());   // no le saca el foco al campo
+      caja.addEventListener("click", e => { const o = e.target.closest(".sug-op"); if (o) poner(o.textContent); }); }
+    caja.innerHTML = ops.map(v => `<div class="sug-op" role="option">${esc(v)}</div>`).join(""); act = -1;
+    const r = inp.getBoundingClientRect(), abajo = innerHeight - r.bottom > 220 || r.top < 220;
+    Object.assign(caja.style, { left: r.left + "px", width: r.width + "px", top: abajo ? r.bottom + 4 + "px" : "", bottom: abajo ? "" : innerHeight - r.top + 4 + "px" });
+  };
+  inp.addEventListener("input", e => { if (e.isTrusted) abrir(); });
+  inp.addEventListener("focus", abrir);
+  inp.addEventListener("blur", () => setTimeout(cerrar, 120));
+  inp.addEventListener("keydown", e => {
+    if (!caja) return;
+    const n = caja.children.length;
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); marcar((act + (e.key === "ArrowDown" ? 1 : n - 1)) % n); }
+    else if (e.key === "Enter" && act >= 0) { e.preventDefault(); poner(caja.children[act].textContent); }
+    else if (e.key === "Escape") { e.stopPropagation(); cerrar(); }
+  });
+  addEventListener("scroll", e => { if (caja && !caja.contains(e.target)) cerrar(); }, true);
+}
+new MutationObserver(ms => { for (const m of ms) for (const n of m.addedNodes) if (n.nodeType === 1) {
+  (n.matches("select") ? [n] : n.querySelectorAll("select")).forEach(lindo);
+  (n.matches("input[list]") ? [n] : n.querySelectorAll("input[list]")).forEach(sugerir);
+} })
+  .observe(document.documentElement, { childList: true, subtree: true });

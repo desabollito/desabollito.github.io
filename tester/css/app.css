@@ -1638,12 +1638,22 @@ a.g-bar-fijo { text-decoration: none; color: inherit; }
   font-size: 10.5px; font-weight: 800; line-height: 16px; text-align: center; box-shadow: 0 0 0 2px var(--bg); }
 .notif-sub { margin: -4px 0 10px; }
 .notif-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-.notif-item { display: grid; grid-template-columns: auto 1fr; grid-template-areas: "veh time" "txt txt"; gap: 4px 10px; align-items: center;
-  padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--r); color: var(--ink); background: var(--surface); }
+.notif-item { display: grid; grid-template-columns: auto 1fr auto; grid-template-areas: "veh time acc" "txt txt acc"; gap: 4px 10px; align-items: center;
+  padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--r); color: var(--ink); background: var(--bg); position: relative; z-index: 1; touch-action: pan-y; transition: transform .18s var(--ease), background .2s; }
 .notif-item:hover { border-color: var(--line-2); }
-.notif-item.nueva { border-color: color-mix(in srgb, var(--primary) 55%, var(--line)); background: color-mix(in srgb, var(--primary) 7%, var(--surface)); }
+.notif-item.nueva { border-color: color-mix(in srgb, var(--primary) 55%, var(--line)); background: color-mix(in srgb, var(--primary) 16%, var(--surface)); }
 .notif-item.nueva .notif-veh::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--primary); flex-shrink: 0; }
-.notif-item.abierta { border-color: color-mix(in srgb, var(--warn) 60%, var(--line)); background: color-mix(in srgb, var(--warn) 14%, var(--surface)); }
+.notif-item:not(.nueva) .notif-txt, .notif-item:not(.nueva) .notif-txt b { color: var(--muted); }
+.notif-item.desliza { transition: none; }
+.notif-li { position: relative; border-radius: var(--r); }
+.notif-li::before { content: ""; position: absolute; inset: 0; border-radius: var(--r); opacity: 0; transition: opacity .15s; background: var(--primary); }
+.notif-li[data-lado="archivar"]::before { background: var(--muted); }
+.notif-li.armado::before { opacity: .35; }
+.notif-pin { display: inline-grid; color: var(--primary); } .notif-pin .ic { width: 15px; height: 15px; }
+.notif-item.fijada { border-color: color-mix(in srgb, var(--primary) 35%, var(--line)); }
+.notif-acc { grid-area: acc; display: none; gap: 2px; }
+@media (hover: hover) and (pointer: fine) { .notif-item:hover .notif-acc { display: flex; } }
+.notif-ver-arch { margin-top: 10px; color: var(--muted); }
 .notif-todas { width: 100%; margin-bottom: 10px; }
 .notif-veh { grid-area: veh; display: flex; align-items: center; gap: 8px; min-width: 0; }
 .notif-veh small { color: var(--muted); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -1843,8 +1853,8 @@ h3 { letter-spacing: -.015em; }
 .splash.intro { overflow: hidden; gap: 10px; color: var(--ink); }
 .aurora { position: absolute; inset: 0; z-index: -1; }
 .aurora i { position: absolute; width: 55vmax; height: 45vmax; border-radius: 50%; filter: blur(70px) saturate(130%); opacity: .5; animation: aurora 16s ease-in-out infinite alternate; }
-.aurora i:nth-child(1) { background: #d9480f; left: -15vmax; top: -10vmax; }
-.aurora i:nth-child(2) { background: #ff8a3d; right: -18vmax; top: 10vh; animation-duration: 19s; }
+.aurora i:nth-child(1) { background: var(--aurora-1, #d9480f); left: -15vmax; top: -10vmax; }
+.aurora i:nth-child(2) { background: var(--aurora-2, #ff8a3d); right: -18vmax; top: 10vh; animation-duration: 19s; }
 .aurora i:nth-child(3) { background: #0e1b2c; left: 10vw; bottom: -20vmax; animation-duration: 14s; }
 .aurora i:nth-child(4) { background: #cfe0ff; right: 5vw; bottom: -15vmax; opacity: .22; animation-duration: 20s; }
 @keyframes aurora { to { transform: translate(6vmax, 4vmax) scale(1.15); } }
@@ -2329,3 +2339,69 @@ button.aj-item:hover, a.aj-item:hover { background: var(--surface-2); }
 .aj-perfil .perfil-wa { margin-top: 2px; }
 .aj-vincular { margin-top: 8px; }
 /* Ajustes: WhatsApp dentro del perfil */
+/* Editar perfil: la foto con sus botones (agregar, WhatsApp, eliminar) */
+.perfil-foto { display: flex; align-items: center; gap: 14px; }
+.perfil-foto-btns { display: flex; gap: 6px; }
+.perfil-foto-btns .icon-btn { border: 1px solid var(--line-2); }
+/* Color de la app: la ruedita al lado del tema y la hoja para elegir */
+.color-rueda { display: block; width: 26px; height: 26px; border-radius: 50%; background: conic-gradient(#e5484d, #e0a526, #84cc16, #22b07d, #0ea5a4, #4f8ff7, #9b7bf2, #d9559b, #e5484d);
+  box-shadow: inset 0 0 0 3px var(--surface), 0 0 0 2px var(--primary); }
+.color-btn { border: 0; background: none; padding: 4px; margin-left: 4px; border-radius: 50%; display: grid; place-items: center; }
+.color-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(52px, 1fr)); gap: 10px; }
+.color-op { border: 0; background: none; padding: 4px; display: flex; flex-direction: column; align-items: center; gap: 4px; color: var(--muted); cursor: pointer; position: relative; }
+.color-op:first-child { grid-column: 1 / -1; flex-direction: row; justify-content: flex-start; gap: 10px; padding: 6px 4px; }
+.color-op > i { width: 40px; height: 40px; border-radius: 50%; display: block; box-shadow: inset 0 0 0 1px rgb(0 0 0 / .15); transition: transform .15s var(--ease); }
+.color-op .color-rueda { box-shadow: none; }
+.color-op.on > i { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--ink); }
+.color-op:active > i { transform: scale(.92); }
+.color-op input[type=color] { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; }
+/* Desplegables propios (ui.js → lindo): el select queda oculto y se ve este botón */
+.sel-oculto { display: none !important; }
+.sel-btn { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 46px; padding: 10px 12px; border-radius: var(--r); border: 1px solid var(--line-2);
+  background: var(--surface); text-align: left; font-size: 16px; }
+.sel-btn span { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sel-btn .ic { width: 16px; height: 16px; color: var(--muted); transform: rotate(90deg); transition: transform .15s; }
+.sel-btn[aria-expanded="true"] { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-soft); }
+.sel-btn[aria-expanded="true"] .ic { transform: rotate(-90deg); }
+.field.inline .sel-btn { min-height: 40px; padding: 6px 10px; font-size: 15px; width: auto; }
+.gs-menu { max-height: min(60vh, 360px); overflow-y: auto; }
+.sug-lista { position: fixed; z-index: 300; max-height: 220px; overflow-y: auto; padding: 4px; border-radius: var(--r); background: var(--surface); border: 1px solid var(--line-2);
+  box-shadow: 0 8px 24px rgb(0 0 0 / .25); animation: sug-in .12s var(--ease); }
+@keyframes sug-in { from { opacity: 0; transform: translateY(-4px); } }
+.sug-op { padding: 9px 10px; border-radius: var(--r-sm); font-size: 15px; cursor: pointer; }
+.sug-op:hover, .sug-op.on { background: var(--primary-soft); }
+.sel-btn.rol-sel { min-height: 34px; padding: 4px 8px; font-size: 14px; width: auto; border-radius: var(--r-sm); background: var(--surface-2); border-color: var(--line); }
+.members .sel-btn, .add-member .sel-btn, .p-sort .sel-btn { width: auto; }
+.p-sort .sel-btn { flex: 1; min-height: 38px; padding: 4px 10px; font-size: 15px; }
+/* Operativos: + debajo de la lista para unirse o crear uno */
+.op-nuevo { display: grid; place-items: center; width: 100%; height: 44px; margin: -4px 0 12px; border-radius: var(--r); border: 1px dashed var(--line-2); background: none; color: var(--muted); }
+.op-nuevo:hover { color: var(--primary); border-color: var(--primary); }
+.op-nuevo .ic { transition: transform .2s var(--ease); }
+.op-nuevo.abierto .ic { transform: rotate(45deg); }
+.op-elegir { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: -4px 0 12px; animation: sug-in .15s var(--ease); }
+.op-elegir[hidden] { display: none; }
+/* Filtros: secciones desplegables y opciones sin fondo de color (el color queda en el texto) */
+.fo-plega > summary { display: flex; align-items: center; justify-content: space-between; list-style: none; cursor: pointer; padding: 4px 0; -webkit-tap-highlight-color: transparent; }
+.fo-plega > summary::-webkit-details-marker { display: none; }
+.fo-plega > summary h3 { margin: 0; }
+.fo-plega > summary .ic { width: 16px; height: 16px; color: var(--muted); transition: transform .2s var(--ease); }
+.fo-plega[open] > summary .ic { transform: rotate(90deg); }
+.fo-plega[open] > .fo-seg { margin-top: 8px; animation: sug-in .18s var(--ease); }
+.fo-seg .fo-op[style], .fo-seg .fo-op[style].on { background: transparent; color: var(--c); }
+.fo-seg .fo-op[style].on { background: var(--surface); }
+.fo-seg.fo-grad { background: var(--surface-2); }
+/* Cargados por mí / Ocultar anulados: botón que se contornea cuando está prendido */
+.fo .fo-switch { background: none; color: var(--ink-2); justify-content: center; font: inherit; font-weight: 650; transition: border-color .15s, color .15s, box-shadow .15s; }
+.fo .fo-switch.on { border-color: var(--primary); color: var(--primary); box-shadow: inset 0 0 0 1px var(--primary); }
+/* Celular: los puntitos quedan centrados bajo el número; el "+N" va al costado sin correrlos */
+@media (max-width: 600px) {
+  .cd-ev { position: relative; }
+  .cd-ev i.more { position: absolute; left: 100%; top: 50%; transform: translateY(-50%); margin-left: 2px; }
+}
+.color-def { background: #ff8a3d; }
+[data-theme="light"] .color-def { background: #d9480f; }
+/* Fluidez: el cambio de pantalla se mueve con transform (left recalculaba todo en cada cuadro) y el fondo de las hojas no anima el desenfoque */
+@keyframes anim-push { from { opacity: 0; transform: translateX(40px); } to { opacity: 1; transform: none; } }
+@keyframes anim-pop { from { opacity: 0; transform: translateX(-30px); } to { opacity: 1; transform: none; } }
+.sheet-backdrop { transition: opacity .22s; -webkit-backdrop-filter: none; backdrop-filter: none; }
+.sheet-backdrop.in { -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px); }

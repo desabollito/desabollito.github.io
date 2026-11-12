@@ -1,13 +1,13 @@
 import {
   S, activos, papelera, restaurar, eliminarDefinitivo, soyAdmin, miRol, renombrarEmpresa, guardarSello, deshaciblesDe, deshacerCambio, soyDesmontaje,
   agregarMiembro, cambiarRol, quitarMiembro, guardarEtiquetas, resolverSolicitud, desvincularWhatsApp, salirDeEmpresa, eliminarEmpresa, crearEmpresa, elegirEmpresa,
-  actualizarPerfil, salir, mensajeError, llamarAdmin, soloDesmontaje, pedirUnion, linksCompartidos, getVehiculo, soloVer, soySacabollos, guardarOrdenOps, cambiarEstado, usaClientes
+  actualizarPerfil, ponerMiFoto, salir, mensajeError, llamarAdmin, soloDesmontaje, pedirUnion, linksCompartidos, getVehiculo, soloVer, soySacabollos, guardarOrdenOps, cambiarEstado, usaClientes
 } from "./data.js";
 import { cargarExcelJS } from "./excel.js";
 import { ESTADOS, ESTADO, ROLES, estadoActual, esAnulado, repartirTurnos } from "./domain.js";
 import {
   $, $$, esc, money, fechaCorta, fechaLarga, hoyISO, plate, estadoPill, icon, toast, openSheet, confirmar,
-  pedirTexto, busy, debounce, avatarUsuario, tsToISO, elegirDescarga, horaDe
+  pedirTexto, busy, debounce, avatarUsuario, elegirDescarga, horaDe
 } from "./ui.js";
 import { ruidoMotor, SONIDOS_AUTO } from "./sonidos.js";
 import { NOVEDADES } from "./novedades.js";
@@ -16,7 +16,7 @@ import { planillaPDF } from "./pdf.js";
 import { exportarExcel } from "./excel.js";
 import { setTopbar, go, logoOperativo, pintarLateral } from "./shell.js";
 import { APP_VERSION, WHATSAPP_BOT, BOT_API } from "./config.js";
-import { renderDetalle, textoWa } from "./views-vehiculos.js";
+import { renderDetalle, textoWa, abrirFiltros, botonFiltros, filtrarCalendario } from "./views-vehiculos.js";
 
 // ═════════════════════════════════════════════════════════════
 //  PLANILLA
@@ -192,7 +192,8 @@ try { C.vista = localStorage.getItem("calVista") === "txt" ? "txt" : "pat"; } ca
 export function calendarioAlEntrar() { if (!C.dia) C.auto = true; }
 // Tocar de nuevo la pestaña Calendario: vuelve al día automático
 export function reiniciarCalendario() { C.dia = null; C.auto = true; }
-const delCal = () => activos().filter(v => !esAnulado(v));   // los anulados no figuran en el calendario
+// Los anulados no figuran en el calendario; los filtros son los mismos de Vehículos y la búsqueda es aparte
+const delCal = () => filtrarCalendario(activos(), C.q).filter(v => !esAnulado(v));
 function elegirDiaAuto() {
   const hoy = hoyISO();
   const dias = [...new Set(delCal().map(v => v.fechas?.[C.campo]).filter(Boolean))].sort();
@@ -205,7 +206,17 @@ const MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "
 // Computadora: con selId, el vehículo tocado en la lista del día reemplaza al calendario (como en Vehículos)
 export function vistaCalendario(view, selId = null) {
   const sel = selId ? getVehiculo(selId) : null;
-  setTopbar({ title: "Calendario", back: sel ? "#/calendario" : null });
+  const foco = document.activeElement?.id === "cal-q";
+  setTopbar({ title: "Calendario", sinTitulo: true, back: sel ? "#/calendario" : null, actions: sel ? "" : botonFiltros() });
+  if (!sel) {
+    // Buscador y filtros en la barra, como en Vehículos (en celular el botón de filtros va dentro del buscador)
+    $("#topbar .tb-title").insertAdjacentHTML("afterend", `<label class="search">${icon("search")}<input type="search" id="cal-q" placeholder="Buscar patente, modelo…" value="${esc(C.q || "")}" autocomplete="off"></label>`);
+    if (!matchMedia("(min-width: 1100px)").matches) $("#topbar > .search").append($("#tb-filtros"));
+    const q = $("#cal-q");
+    if (foco) { q.focus(); q.setSelectionRange(q.value.length, q.value.length); }
+    q.addEventListener("input", debounce(e => { C.q = e.target.value; vistaCalendario(view); }, 200));
+    $("#tb-filtros").addEventListener("click", () => abrirFiltros(() => vistaCalendario(view)));
+  }
   if (C.auto && !S.loadingVehicles) { C.auto = false; elegirDiaAuto(); }
   const iso = d => `${C.y}-${String(C.m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
   const sinConf = v => estadoActual(v) === "turnado" && !v.turnoConfirmado;
@@ -539,7 +550,7 @@ function ordenable(ul, alSoltar) {
 }
 
 export function elegirEmpresaSheet() {
-  // Lista de operativos; abajo un solo botón con las opciones (gestionar / unirme / crear) y, en celular, Ajustes
+  // Lista de operativos; arriba la ruedita para gestionar el actual (donde iba la X), abajo el + para unirse o crear uno y, en celular, Ajustes
   const s = openSheet({
     title: "Tus operativos",
     body: `<ul class="company-list">${S.companies.map(c => `
@@ -547,21 +558,22 @@ export function elegirEmpresaSheet() {
         ${logoOperativo("", c.name)}
         <span><strong>${esc(c.name)}</strong><small>${ROLES[c.roles?.[S.user.uid]]?.label || ""} · ${c.members.length} ${c.members.length === 1 ? "persona" : "personas"}</small></span>
         ${c.id === S.company?.id ? icon("check") : ""}</button></li>`).join("")}</ul>
-      <div class="op-menu">
-        <button type="button" class="op-mas" id="op-mas" aria-expanded="false">${icon("settings")}<span><strong>Gestión</strong><small>Administrar, unirme a otro o crear uno</small></span>${icon("next")}</button>
-        <div class="op-opciones" id="op-opciones" hidden>
-          ${S.company ? `<a class="op-opc" href="#/operativo" data-close>${icon("settings")}<span><strong>Gestionar ${esc(S.company.name)}</strong><small>Usuarios, roles, sello y links</small></span></a>` : ""}
-          <button type="button" class="op-opc" id="unir-op">${icon("swap")}<span><strong>Unirme a un operativo</strong><small>Pedir unirme a uno que ya existe</small></span></button>
-          ${soloDesmontaje() ? "" : `<button type="button" class="op-opc" id="nuevo-op">${icon("plus")}<span><strong>Crear un operativo</strong><small>Empezá uno nuevo</small></span></button>`}
-        </div>
-        <a class="op-mas op-ajustes only-mobile" href="#/ajustes" data-close>${icon("settings")}<span><strong>Ajustes</strong></span>${icon("next")}</a>
+      <button type="button" class="op-nuevo" id="op-nuevo" aria-label="Unirme o crear un operativo">${icon("plus")}</button>
+      <div class="op-elegir" id="op-elegir" hidden>
+        <button type="button" class="btn btn-ghost" id="unir-op">Unirme a uno</button>
+        ${soloDesmontaje() ? "" : `<button type="button" class="btn btn-ghost" id="nuevo-op">Crear uno</button>`}
+      </div>
+      <div class="op-menu only-mobile">
+        <a class="op-mas op-ajustes" href="#/ajustes" data-close>${icon("settings")}<span><strong>Ajustes</strong></span>${icon("next")}</a>
       </div>`
   });
+  const x = $(".sheet-head [data-close]", s.el);
+  if (S.company && x) x.outerHTML = `<a class="icon-btn" href="#/operativo" data-close aria-label="Gestionar ${esc(S.company.name)}" title="Gestionar ${esc(S.company.name)}">${icon("settings")}</a>`;
   ordenable($(".company-list", s.el), ids => guardarOrdenOps(ids).then(() => toast("Orden guardado", "success")).catch(err => toast(mensajeError(err), "error")));
   s.body.addEventListener("click", e => {
     const b = e.target.closest("[data-id]");
     if (b) { elegirEmpresa(b.dataset.id); s.close(); go("#/"); }
-    if (e.target.closest("#op-mas")) { const o = $("#op-opciones", s.el), m = $("#op-mas", s.el); o.hidden = !o.hidden; m.setAttribute("aria-expanded", String(!o.hidden)); m.classList.toggle("abierto", !o.hidden); }
+    if (e.target.closest("#op-nuevo")) { const o = $("#op-elegir", s.el); o.hidden = !o.hidden; $("#op-nuevo", s.el).classList.toggle("abierto", !o.hidden); }
     if (e.target.closest("#nuevo-op")) { s.close(); crearOperativo(); }
     if (e.target.closest("#unir-op")) { s.close(); unirOperativo(); }
   });
@@ -570,6 +582,23 @@ export function elegirEmpresaSheet() {
 // ═════════════════════════════════════════════════════════════
 //  AJUSTES
 // ═════════════════════════════════════════════════════════════
+// Color de la app: vacío = el de siempre. Lo pinta window.pintarColor (index.html), así también la intro sale de ese color
+const COLORES = ["#ff8a3d", "#e5484d", "#d9559b", "#9b7bf2", "#4f8ff7", "#0ea5a4", "#22b07d", "#84cc16", "#e0a526", "#8d8d96"];
+function elegirColor(alTerminar) {
+  const actual = (() => { try { return localStorage.getItem("color") || ""; } catch { return ""; } })();
+  const s = openSheet({ title: "Color de la app", body: `<div class="color-grid">
+      <button type="button" class="color-op ${actual ? "" : "on"}" data-c="" aria-label="Predeterminado"><i class="color-def"></i><small>Predeterminado</small></button>
+      ${COLORES.map(c => `<button type="button" class="color-op ${actual === c ? "on" : ""}" data-c="${c}" aria-label="Color ${c}"><i style="background:${c}"></i></button>`).join("")}
+      <label class="color-op ${actual && !COLORES.includes(actual) ? "on" : ""}" aria-label="Otro color"><i class="color-rueda"></i><input type="color" value="${actual || "#ff8a3d"}"></label>
+    </div>` });
+  const poner = c => {
+    try { c ? localStorage.setItem("color", c) : localStorage.removeItem("color"); } catch { /* sin almacenamiento */ }
+    window.pintarColor?.(c); alTerminar?.();
+  };
+  s.body.addEventListener("click", e => { const b = e.target.closest("button[data-c]"); if (b) { poner(b.dataset.c); s.close(); } });
+  $("input[type=color]", s.el).addEventListener("input", e => poner(e.target.value));
+}
+
 export function aplicarTema(t) {
   localStorage.setItem("tema", t);
   document.documentElement.setAttribute("data-theme", t === "light" ? "light" : "dark");
@@ -602,7 +631,8 @@ export function vistaAjustes(view) {
 
     <section class="aj-grupo"><h3>Apariencia</h3><div class="aj-lista">
       <div class="aj-item aj-ctrl">${icon("image")}<span class="aj-txt">Tema</span>
-        <div class="seg seg-sm" id="tema"><button class="seg-btn ${oscuro ? "" : "on"}" data-t="light">Claro</button><button class="seg-btn ${oscuro ? "on" : ""}" data-t="dark">Oscuro</button></div></div>
+        <div class="seg seg-sm" id="tema"><button class="seg-btn ${oscuro ? "" : "on"}" data-t="light">Claro</button><button class="seg-btn ${oscuro ? "on" : ""}" data-t="dark">Oscuro</button></div>
+        <button type="button" class="color-btn" id="color-app" aria-label="Color de la app" title="Color de la app"><i class="color-rueda"></i></button></div>
       ${S.config?.fechaVista === false ? "" : `<div class="aj-item aj-ctrl">${icon("calendar")}<span class="aj-txt">Fecha en la lista</span>
         <div class="seg seg-sm" id="fecha-vista">${[["peritado", "Peritación"], ["estado", "Último estado"]].map(([k, t]) => `<button class="seg-btn ${fv === k ? "on" : ""}" data-fv="${k}">${t}</button>`).join("")}</div></div>`}
     </div></section>
@@ -618,6 +648,7 @@ export function vistaAjustes(view) {
 
   $("#editar-perfil", view).onclick = () => editarPerfil(() => vistaAjustes(view));
   if ($("#vincular-wa", view)) $("#vincular-wa", view).onclick = () => vincularWhatsApp(() => vistaAjustes(view));
+  $("#color-app", view).onclick = () => elegirColor();
   $("#tema", view).onclick = e => {
     const b = e.target.closest("[data-t]"); if (!b) return;
     aplicarTema(b.dataset.t); $$(".seg-btn", $("#tema", view)).forEach(x => x.classList.toggle("on", x === b));
@@ -648,9 +679,9 @@ function compartirPerito() {
   const url = t => `${location.origin}/v/?${t}`;
   const s = openSheet({ title: "Compartir con un perito", body: `<div class="stack">
     <p class="muted small">El link muestra solo los vehículos de esa compañía en <strong>${esc(S.company?.name || "")}</strong>: estado, turnos, fechas, fotos y todo el detalle, pero sin poder cambiar nada. Se actualiza solo.</p>
-    <form class="row-btns" id="cp-form"><input name="cia" list="cp-cias" required placeholder="Compañía (ej: SMG)" autocomplete="off" style="flex:1">
+    <form class="stack cp-form" id="cp-form"><label class="field"><span>Compañía</span><input name="cia" list="cp-cias" required placeholder="Ej: SMG" autocomplete="off"></label>
       <datalist id="cp-cias">${cias.map(c => `<option value="${esc(c)}">`).join("")}</datalist>
-      <button class="btn btn-primary" type="submit">Crear link</button></form>
+      <button class="btn btn-primary btn-block" type="submit">${icon("share")}Crear link</button></form>
     <div id="cp-lista"><div class="skeleton" style="height:60px"></div></div></div>` });
   const lista = $("#cp-lista", s.el);
   const pintar = ls => {
@@ -707,23 +738,39 @@ function editarPerfil(alTerminar) {
   const s = openSheet({
     title: "Editar perfil",
     body: `<form class="stack" id="perfil-form">
+      <div class="perfil-foto">${avatarUsuario(p.username, p.name, "lg", p.foto)}
+        <div class="perfil-foto-btns">
+          <button type="button" class="icon-btn" id="foto-subir" aria-label="Agregar foto" title="Agregar foto">${icon("camera")}</button>
+          ${p.whatsapp ? `<button type="button" class="icon-btn" id="wa-foto" aria-label="Usar mi foto de WhatsApp" title="Usar mi foto de WhatsApp">${icon("chat")}</button>` : ""}
+          ${p.foto ? `<button type="button" class="icon-btn danger" id="foto-borrar" aria-label="Eliminar foto" title="Eliminar foto">${icon("trash")}</button>` : ""}
+        </div></div>
       <label class="field"><span>Nombre</span>
         <input name="nombre" value="${esc(p.name)}" required autocomplete="name"></label>
-      <label class="field"><span>Usuario</span>
-        <input value="@${esc(p.username)}" readonly disabled>
-        <small class="muted">El usuario no se puede cambiar. Es el que usan para sumarte a un operativo.</small></label>
-      <button class="btn btn-primary btn-block btn-lg">Guardar perfil</button>
-      ${p.whatsapp ? `<button type="button" class="btn btn-ghost btn-block" id="wa-foto">${icon("image")}Usar mi foto de WhatsApp</button>
-        <button type="button" class="btn btn-danger-ghost btn-block" id="wa-desv">${icon("chat")}Desvincular WhatsApp</button>` : ""}
+      ${p.whatsapp ? `<button type="button" class="btn btn-danger-ghost btn-block" id="wa-desv">${icon("chat")}Desvincular WhatsApp</button>` : ""}
+      <button class="btn btn-primary btn-block btn-lg">Guardar cambios</button>
     </form>`
   });
+  const listo = msg => { toast(msg, "success"); s.close(); alTerminar?.(); pintarLateral(); };
   $("#wa-foto", s.el)?.addEventListener("click", async e => {
-    const b = e.currentTarget; busy(b, true, "Buscando tu foto…");
+    const b = e.currentTarget; b.disabled = true;
     const j = await llamarBot("foto-wa");
-    busy(b, false);
+    b.disabled = false;
     if (!j.ok) return toast(j.error || "No se pudo", "warning");
-    S.profile.foto = j.foto; toast("Foto actualizada", "success"); s.close(); alTerminar?.();
-    pintarLateral();
+    S.profile.foto = j.foto; listo("Foto actualizada");
+  });
+  $("#foto-subir", s.el).addEventListener("click", () => {
+    const inp = Object.assign(document.createElement("input"), { type: "file", accept: "image/*" });
+    inp.onchange = async () => {
+      const file = inp.files[0]; if (!file) return;
+      toast("Subiendo foto…");
+      try { const r = await subir(await comprimir(file, 480, 0.85), "perfiles"); await ponerMiFoto(r.url); listo("Foto actualizada"); }
+      catch (err) { toast(err.message || mensajeError(err), "error"); }
+    };
+    inp.click();
+  });
+  $("#foto-borrar", s.el)?.addEventListener("click", async () => {
+    if (!(await confirmar({ title: "¿Eliminar tu foto?", ok: "Eliminar", danger: true }))) return;
+    ponerMiFoto("").then(() => listo("Foto eliminada")).catch(e => toast(mensajeError(e), "error"));
   });
   $("#wa-desv", s.el)?.addEventListener("click", async () => {
     if (!(await confirmar({ title: "¿Desvincular tu WhatsApp?", message: "Para volver a usar el bot vas a tener que vincularlo de nuevo con un código desde Ajustes.", ok: "Desvincular", danger: true }))) return;
@@ -747,12 +794,6 @@ function editarPerfil(alTerminar) {
 const QUE_PIDE = { eliminar: "pide eliminarlo", foto: "pide quitar una foto", documento: "pide quitar el documento", editar: "pide acceso para editarlo" };
 const BOTON_OK = { eliminar: "Eliminar", foto: "Quitar foto", documento: "Quitar", editar: "Dar acceso" };
 const HECHO = { eliminar: "Vehículo eliminado", foto: "Foto quitada", documento: "Documento quitado", editar: "Acceso de edición otorgado" };
-const quedan = v => {
-  const t = v.deletedAt?.toMillis ? v.deletedAt.toMillis() : Date.parse(tsToISO(v.deletedAt) || "");
-  if (!t) return "Se elimina en 48 hs";
-  const h = Math.ceil((t + 48 * 3600_000 - Date.now()) / 3600_000);
-  return h <= 1 ? "Se elimina en menos de 1 h" : `Se elimina en ${h} hs`;
-};
 export function vistaPapelera(view) {
   setTopbar({ title: "Papelera", back: "#/ajustes" });
   const items = papelera();
@@ -773,7 +814,7 @@ export function vistaPapelera(view) {
     ${items.length ? `<p class="muted small">Los vehículos se eliminan solos (con sus fotos) a las 48 hs de borrados.</p>
     <ul class="trash">${items.map(v => `
       <li><span class="t-meta"><strong>${esc(v.modelo || "Sin modelo")}</strong>
-        <span>${plate(v.patente, "sm")}<small class="muted">${quedan(v)}</small></span></span>
+        <span>${plate(v.patente, "sm")}</span></span>
         <button class="btn btn-ghost btn-sm" data-r="${v.id}">${icon("restore")}Restaurar</button>
         <button class="icon-btn sm danger" data-x="${v.id}" aria-label="Eliminar para siempre">${icon("trash")}</button>
       </li>`).join("")}</ul>`

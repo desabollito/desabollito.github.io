@@ -1,5 +1,16 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.6.0", items: [
+    "Notificaciones: las sin leer en el color de la app y las leídas oscuras. Deslizá a la derecha para fijarla arriba y a la izquierda para archivarla (en computadora, con los botones al pasar el mouse).",
+    "Ajustes: ruedita de color al lado del tema para cambiar el color de toda la app (también la intro), con «Predeterminado».",
+    "Editar perfil: sin el usuario; foto con botones para agregar, traer la de WhatsApp o eliminarla; «Guardar cambios».",
+    "Operativos: la ruedita de arriba gestiona el actual y el + de abajo es para unirte o crear uno.",
+    "Filtros: Ordenar, Pintura, Repuestos, Turnos, Cliente y Cargado como desplegables, sin fondos de color; «Cargados por mí» y «Ocultar anulados» son botones.",
+    "Exportar PDF: sale lo que estás viendo con los filtros puestos; elegís Repuestos Sí/No y Pintura Sí/No.",
+    "Limpiar filtros ya no borra lo que escribiste en la búsqueda. Los estados de arriba responden al instante.",
+    "Calendario: buscador y filtros como en Vehículos; los puntitos en el celular quedan centrados; el vehículo abierto en el calendario queda abierto aparte del de Vehículos.",
+    "Desplegables propios (Rol, compañía, localidad…) en vez de los del navegador. Agregar vehículo: sin la fecha de peritaje (es la del día).",
+    "Historial: los «Deshizo» ya no se pueden volver a deshacer. Papelera sin el «se elimina en…». Cambios de pantalla más fluidos."] },
   { v: "4.5.8", items: ["Contactado: si no se puede avisar al cliente, dice por qué (sin teléfono, ya avisado o aviso apagado)."] },
   { v: "4.5.7", items: ["Contactado: un solo aviso, «¿Avisarle al cliente desde el teléfono de la empresa?», con el mensaje del panel del creador. Sale igual con el botón o deslizando.", "Mensajes y turnos: se sacó «Avisar reparado»; queda solo Avisar turno."] },
   { v: "4.5.6", items: ["Avisar turno: los que no entran se reparten como sobreturno entre los días con menos autos del período."] },

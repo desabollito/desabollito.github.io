@@ -93,7 +93,7 @@ document.addEventListener("pointerdown", e => {
   f.addEventListener("animationend", () => f.classList.remove("pulsa"), { once: true });
 });
 
-function render({ conservarScroll = false, reabrir = false } = {}) {
+function render({ conservarScroll = false, reabrir = false, reabrirCal = false } = {}) {
   if (!S.user || !S.profile || S.sinOperativo) return;
   const h = location.hash || "#/";
   let hit = RUTAS.find(([re]) => re.test(h)) || RUTAS[0];
@@ -121,13 +121,19 @@ function render({ conservarScroll = false, reabrir = false } = {}) {
   if (plAntes) memScroll.pane = plAntes.scrollTop;
   if (!mismaRuta && ["lista", "calendario"].includes(claveScroll(previa.nombre, previa.arg))) memScroll[claveScroll(previa.nombre, previa.arg)] = scrollY;
   const nuevaClave = claveScroll(hit[1], arg);
-  // Computadora: al volver a Vehículos desde otra sección, se reabre el último vehículo
-  if (nuevaClave === "lista" && esAncho() && S.ultimoVid && previa.nombre && previa.nombre !== "vehiculos" && previa.nombre !== "editar" && getVehiculo(S.ultimoVid)) {
+  // Computadora: al volver a Vehículos desde otra sección, se reabre el último vehículo (y en el calendario, el que estaba abierto ahí: cada uno el suyo)
+  const previaEnCal = previa.nombre === "vehiculos" && previa.arg && S.volverA === "#/calendario";
+  if (nuevaClave === "calendario" && previaEnCal) S.ultimoVidCal = null;   // lo cerró con la flecha
+  else if (nuevaClave === "calendario" && esAncho() && S.ultimoVidCal && previa.nombre && previa.nombre !== "calendario" && getVehiculo(S.ultimoVidCal)) {
+    history.replaceState(null, "", `#/v/${S.ultimoVidCal}`);
+    return render({ reabrirCal: true });
+  }
+  if (nuevaClave === "lista" && esAncho() && S.ultimoVid && previa.nombre && (previa.nombre !== "vehiculos" || previaEnCal) && previa.nombre !== "editar" && getVehiculo(S.ultimoVid)) {
     history.replaceState(null, "", `#/v/${S.ultimoVid}`);
     return render({ reabrir: true });
   }
   // Vehículo abierto desde el calendario: al salir vuelve al calendario (no a la lista)
-  if (hit[1] === "vehiculos" && arg) { if (reabrir) S.volverA = null; else if (["calendario", "tecnicos", "facturacion"].includes(ruta.nombre)) S.volverA = "#/" + ruta.nombre; else if (ruta.nombre === "vehiculos" && !ruta.arg) S.volverA = null; }
+  if (hit[1] === "vehiculos" && arg) { if (reabrir) S.volverA = null; else if (reabrirCal) S.volverA = "#/calendario"; else if (["calendario", "tecnicos", "facturacion"].includes(ruta.nombre)) S.volverA = "#/" + ruta.nombre; else if (ruta.nombre === "vehiculos" && !ruta.arg) S.volverA = null; }
   else if (hit[1] !== "editar") S.volverA = null;
   const y = conservarScroll && mismaRuta ? scrollY : 0;
   ruta = { nombre: hit[1], arg };
@@ -156,7 +162,7 @@ function render({ conservarScroll = false, reabrir = false } = {}) {
   const panel = eraCal && esAncho() && $(".cal-page > :first-child", view);
   if (panel && !mismaRuta) panel.classList.add("anim-fade");
   else if (!mismaRuta && !reabrir) animarCambio(previa, ruta);
-  if (hit[1] === "vehiculos" && arg) S.ultimoVid = arg;
+  if (hit[1] === "vehiculos" && arg) S.volverA === "#/calendario" ? S.ultimoVidCal = arg : S.ultimoVid = arg;
   // Último vehículo abierto: marcado en la lista y el calendario
   const marcar = () => { if (!S.ultimoVid) return null;
     const el = $(`a[href="#/v/${S.ultimoVid}"]`, view); el?.classList.add("sel"); return el; };
@@ -190,7 +196,7 @@ let ultimoRender = 0;
 function reiniciarSeccion(cual) {
   S.ultimoVid = null;
   delete memScroll.lista; delete memScroll.pane; delete memScroll.calendario;
-  if (cual === "calendario") reiniciarCalendario();
+  if (cual === "calendario") { reiniciarCalendario(); S.ultimoVidCal = null; }
   $$(".vcard.sel", view).forEach(el => el.classList.remove("sel"));
 }
 // Tocar de nuevo la pestaña en la que ya estás

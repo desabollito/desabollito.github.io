@@ -256,6 +256,14 @@ export async function actualizarPerfil({ nombre }) {
   emit("profile");
 }
 
+// Foto de perfil puesta a mano (url) o borrada (""): fotoManual evita que el bot la pise con la de WhatsApp
+export async function ponerMiFoto(url) {
+  const uid = S.user.uid;
+  await updateDoc(doc(db, "users", uid), { foto: url, fotoManual: true });
+  await Promise.all(S.companies.map(c => updateDoc(doc(db, "companies", c.id), { [`memberPhotos.${uid}`]: url }).catch(e => console.warn("foto en operativo", e))));
+  S.profile = { ...S.profile, foto: url, fotoManual: true }; emit("profile");
+}
+
 // Cada miembro deja su @usuario en el operativo (para mostrar "cargado por @usuario")
 const usuarioSincronizado = new Set();
 async function sincronizarUsuario() {
@@ -494,7 +502,7 @@ function revertir(ahora, antes, despues) {
 // Cambios que se pueden deshacer (que no se hayan deshecho ya), el más nuevo primero
 export function deshaciblesDe(v) {
   const h = v?.historial || [], hechos = new Set(h.filter(e => e.deshace).map(e => e.deshace));
-  return [...h].sort((a, b) => (b.t || 0) - (a.t || 0)).filter(e => e.antes && !hechos.has(e.t));   // un "Deshizo" nuevo guarda su "antes": también se puede revertir
+  return [...h].sort((a, b) => (b.t || 0) - (a.t || 0)).filter(e => e.antes && !e.deshace && !hechos.has(e.t));   // un "Deshizo" no se vuelve a deshacer (era un bucle)
 }
 export async function deshacerCambio(v, e) {
   const campos = {}, valores = {}, ahora = getVehiculo(v.id) || v;
