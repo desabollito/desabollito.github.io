@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.6.3", items: ["Notificaciones: los botones de fijar y archivar aparecen sobre la hora sin mover nada; se sacó «Últimos 30 días»."] },
   { v: "4.6.2", items: ["Notificaciones: el aviso al cliente por WhatsApp ahora dice «Cliente contactado»."] },
   { v: "4.6.1", items: [
     "Notificaciones: al deslizar se ve el ícono (pin a la derecha para fijar, caja a la izquierda para archivar y marcarla como vista). Arriba solo dice Últimos 30 días.",

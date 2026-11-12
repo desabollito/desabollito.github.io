@@ -2481,3 +2481,6 @@ button.aj-item:hover, a.aj-item:hover { background: var(--surface-2); }
 .mt-burbuja small { display: block; margin-bottom: 4px; opacity: .7; font-size: 11.5px; }
 .mt-pie { position: sticky; bottom: 0; display: flex; padding: 10px 0 2px; background: linear-gradient(transparent, var(--surface) 35%); }
 .mt-pie .btn { flex: 1; }
+/* Botones de fijar/archivar al pasar el mouse: flotan sobre la hora, sin correr el contenido */
+.notif-item { grid-template-columns: auto 1fr; grid-template-areas: "veh time" "txt txt"; }
+.notif-acc { position: absolute; right: 8px; top: 6px; padding: 2px; border-radius: var(--r); background: var(--surface); box-shadow: 0 2px 10px rgb(0 0 0 / .25); }
