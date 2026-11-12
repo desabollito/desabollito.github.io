@@ -36,7 +36,7 @@ function calcularNotifs() {
     for (const e of v.historial || []) {
       if (!e.t || e.t < desde || e.uid === yo) continue;
       if (!avisable(e.txt)) continue;
-      out.push({ ...base, t: e.t, por: e.por || "Alguien", txt: e.txt || "Modificó el vehículo" });
+      out.push(/^Le avisó al cliente/.test(e.txt || "") ? { ...base, t: e.t, por: "", txt: "Cliente contactado" } : { ...base, t: e.t, por: e.por || "Alguien", txt: e.txt || "Modificó el vehículo" });
     }
     // Fotos que subió otro: una línea por persona y por tanda (10 min)
     const tandas = new Map();
@@ -131,7 +131,7 @@ export function abrirNotifs(verArchivadas = false) {
         ${nuevas && !verArchivadas ? `<button class="btn btn-ghost notif-todas" type="button">Marcar todas como vistas</button>` : ""}
         <ul class="notif-list">${vis.map(n => { const k = clave(n); return `<li class="notif-li"><i class="notif-lado l-fijar">${ICO_PIN}</i><i class="notif-lado l-arch">${ICO_ARCH}</i><a href="#/v/${esc(n.vid)}" data-k="${esc(k)}" class="notif-item ${!ab.has(k) && n.t > v0 ? "nueva" : ""} ${fij.has(k) ? "fijada" : ""}" ${n.foto ? `data-foto-url="${esc(n.foto)}" ${n.desm ? "data-desm" : ""}` : ""}>
           <span class="notif-veh">${fij.has(k) ? `<i class="notif-pin">${ICO_PIN}</i>` : ""}${plate(n.patente, "sm")}<small>${esc(n.modelo || "")}</small></span>
-          <span class="notif-txt"><b>${esc(n.por)}</b> ${esc(minus(String(n.txt).replace(/ por WhatsApp/g, "")))}</span>
+          <span class="notif-txt">${n.por ? `<b>${esc(n.por)}</b> ${esc(minus(String(n.txt).replace(/ por WhatsApp/g, "")))}` : esc(n.txt)}</span>
           <time>${cuando(n.t)}</time>
           <span class="notif-acc">${verArchivadas ? "" : `<button type="button" class="icon-btn sm" data-acc="fijar" aria-label="${fij.has(k) ? "Desfijar" : "Fijar arriba"}">${ICO_PIN}</button>`}<button type="button" class="icon-btn sm" data-acc="archivar" aria-label="${verArchivadas ? "Sacar de archivadas" : "Archivar"}">${ICO_ARCH}</button></span></a></li>`; }).join("")}</ul>`
       : `<div class="empty small">${icon("bell")}<p>${verArchivadas ? "No hay notificaciones archivadas." : `No hay cambios nuevos de otros en los últimos ${DIAS} días.`}</p></div>`;
