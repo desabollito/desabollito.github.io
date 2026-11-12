@@ -2720,7 +2720,8 @@ async function textoResumenDiario(env, uid, hoy, cfg = { todos: true }) {
   }
   const tit = `📋 *Resumen del día · ${fechaCortaAR(hoy)}*`;
   if (!total && !totalEnt) return `${tit}\n\nHoy no se peritaron ni se entregaron vehículos.`;
-  return `${tit}\nPeritados: *${total}* · Entregados: *${totalEnt}*\n\n` + bloques.join("\n");
+  // Un solo operativo: los totales ya lo dicen todo
+  return `${tit}\nPeritados: *${total}* · Entregados: *${totalEnt}*` + (bloques.length > 1 ? "\n\n" + bloques.join("\n") : "");
 }
 // Turnos del día: auto y patente; precio y detalles adicionales solo si tienen
 async function textoTurnosDiario(env, uid, hoy, cfg = { todos: true }) {
