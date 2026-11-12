@@ -4,19 +4,22 @@ const quieto = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 // Logo dibujado por líneas: el logo se arma trazo por trazo; después una mancha azul oscura difuminada crece detrás
 // hasta llenar la pantalla (zoom in) y el logo se disuelve. Se usa al abrir la app.
-// shortcut: trazos calcados a mano de img/logo-*.png (sin el grosor variable); si cambia el logo, recalcarlos.
+// shortcut: trazos calcados a mano de img/logo-*.png (1024×1024, logo con martillo y varilla, sin el grosor variable); si cambia el logo, recalcarlos.
 const LOGO_TRAZOS = [
-  "M68 402 C68 360 68 320 74 300 C84 272 96 250 100 232 C104 220 120 214 140 208 C162 200 176 178 196 146 C212 120 226 104 252 98 C320 86 400 82 473 80",
-  "M473 106 C390 110 300 114 262 126 C236 136 214 168 180 214 C270 206 380 199 473 197",
-  "M146 186 C120 178 86 180 64 190 C46 200 48 218 66 228",
-  "M256 306 C214 288 168 266 136 274 C114 282 112 308 126 326"
+  "M72 760 C72 660 68 600 92 560 C112 528 120 480 130 440 C142 405 180 400 220 388 C262 374 280 345 380 192 C400 166 430 158 470 150 C600 132 740 128 868 128",
+  "M874 180 C760 184 520 196 420 236 C390 250 360 300 290 402 C480 378 700 360 874 360",
+  "M218 334 C170 322 110 328 70 346 C30 368 34 400 66 418",
+  "M424 576 C340 548 270 510 210 516 C160 524 150 560 162 596",
+  "M72 790 L72 892 L856 892 L936 816",
+  "M936 780 L936 146",
+  "M896 131 L948 131 L994 131"
 ];
 function animacionLogo() {
   if (quieto()) return Promise.resolve();
   const capa = document.createElement("div");
   capa.className = "expande";
   capa.innerHTML = `<div class="ex-media"></div>
-    <svg class="ex-logo" viewBox="30 50 470 380" aria-hidden="true">${LOGO_TRAZOS.map(d => `<path d="${d}" pathLength="1"/>`).join("")}</svg>`;
+    <svg class="ex-logo" viewBox="0 0 1024 1024" aria-hidden="true">${LOGO_TRAZOS.map(d => `<path d="${d}" pathLength="1"/>`).join("")}</svg>`;
   document.body.appendChild(capa);
   const W = innerWidth, H = innerHeight, w = Math.min(320, W * .7), h = Math.min(220, H * .3);
   const S = Math.max(W / w, H / h) * 2, DUR = 2700, curva = "cubic-bezier(.76,0,.24,1)";   // de más, así el borde difuminado queda fuera de pantalla

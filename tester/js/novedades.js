@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.6.9", items: ["Logo nuevo con martillo y varilla en toda la app: intro, ingreso, modo claro y oscuro, ícono instalado, pestaña, vista previa de links y la animación del auto."] },
   { v: "4.6.8", items: ["Calendario: el día elegido se marca solo con el borde y el número, sin fondo de color."] },
   { v: "4.6.7", items: ["Ícono nuevo: fondo oscuro con el logo blanco (pestaña, instalada y al compartir el link).", "Operativos: el actual va primero y el + tiene el mismo borde que los demás."] },
   { v: "4.6.6", items: ["La animación del auto al actualizar termina con el color de la app que elegiste (antes quedaba azul)."] },

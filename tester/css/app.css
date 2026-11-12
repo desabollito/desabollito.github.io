@@ -2492,3 +2492,4 @@ button.aj-item:hover, a.aj-item:hover { background: var(--surface-2); }
 .aurora i:nth-child(4) { background: color-mix(in srgb, var(--primary) 30%, #fff); }
 .op-nuevo { border-style: solid; border-color: var(--line); background: var(--surface); margin-top: 0; }   /* + con el mismo contorno que los operativos */
 .cd.sel { background: var(--surface-2); border-color: var(--primary); } .cd.sel .cd-n { color: var(--primary); font-weight: 800; }   /* día elegido: solo borde y número */
+.ex-logo { aspect-ratio: 1; width: min(240px, 60vw); stroke-width: 26; }   /* logo con martillo: cuadrado 1024 */
