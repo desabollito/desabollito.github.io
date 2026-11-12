@@ -1111,7 +1111,9 @@ function textoAviso(v) {
 }
 async function ofrecerAvisoCliente(v) {
   v = getVehiculo(v.id) || v;
-  if (!v.telefono || v.avisoReparado || S.config?.avisoReparado === false) return;   // una sola vez; el creador puede apagar esta función
+  // Si no se puede avisar, se dice por qué (antes no pasaba nada y parecía roto)
+  const no = S.config?.avisoReparado === false ? "El aviso al cliente está apagado en el panel del creador" : !v.telefono ? "Sin teléfono: no se le puede avisar al cliente" : v.avisoReparado ? "A este cliente ya se le avisó" : "";
+  if (no) return toast(no);
   if (!(await confirmar({ title: "¿Avisarle al cliente desde el teléfono de la empresa?", message: `Le llega este WhatsApp a ${v.asegurado || "el cliente"} (${v.telefono}):\n\n“${textoAviso(v)}”`, ok: "Enviar mensaje" }))) return;
   try {
     const r = await fetch(`${BOT_API}/avisar`, { method: "POST", headers: { "Content-Type": "application/json" },
