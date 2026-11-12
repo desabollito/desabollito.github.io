@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.7.1", items: ["Chats de clientes: arreglo, ahora se guardan los mensajes. Los mensajes a clientes ya no salen en Notificaciones."] },
   { v: "4.7.0", items: ["Chats de clientes (Ajustes): lo que les mandás desde el número de la empresa y lo que te responden, en vivo. Desde ahí podés contestarles con un mensaje propio."] },
   { v: "4.6.11", items: ["Vehículo abierto: manda el último que abriste. Si lo abriste en el calendario, al ir a Vehículos queda ese; si después abrís otro en Vehículos, el calendario ya no reabre el anterior."] },
   { v: "4.6.10", items: ["Calendario: con un vehículo abierto sigue el buscador, con la flecha para volver a su izquierda."] },

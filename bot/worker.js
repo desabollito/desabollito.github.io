@@ -1948,11 +1948,11 @@ async function registrar(env, datos) {
   try { await fsMerge(env, "bot_estado/diagnostico", datos); } catch (e) { console.error("No se pudo registrar estado:", e.message); }
 }
 
-async function fsMerge(env, ruta, data) {
+async function fsMerge(env, ruta, data, { crear = false } = {}) {
   const campos = Object.keys(data);
   let qs = campos.map(c => "updateMask.fieldPaths=" + encodeURIComponent(c)).join("&");
   // Nunca crear operativos ni vehículos "a medias" por escribir sobre uno que ya no existe
-  if (/^companies\//.test(ruta)) qs += "&currentDocument.exists=true";
+  if (/^companies\//.test(ruta) && !crear) qs += "&currentDocument.exists=true";   // crear: documentos que nacen acá (chats)
   const r = await fs(env, `${base(env)}/${ruta}?${qs}`, {
     method: "PATCH",
     body: JSON.stringify({ fields: Object.fromEntries(Object.entries(data).map(([k, v]) => [k, aValor(v)])) })
@@ -2627,7 +2627,7 @@ async function adminEnviarCliente(env, { idToken, cid, vid, texto, por }) {
 async function guardarChat(env, cid, vid, v, tel, msg) {
   const ruta = `companies/${cid}/chats/${tel}`;
   await fsSet(env, `chat_idx/${tel}`, { cid, vid });
-  await fsMerge(env, ruta, { tel, vid, patente: v?.patente || "", nombre: v?.asegurado || "", modelo: v?.modelo || "", t: msg.t, ult: String(msg.txt).slice(0, 140), ultYo: !!msg.yo });
+  await fsMerge(env, ruta, { tel, vid, patente: v?.patente || "", nombre: v?.asegurado || "", modelo: v?.modelo || "", t: msg.t, ult: String(msg.txt).slice(0, 140), ultYo: !!msg.yo }, { crear: true });
   await fsAppend(env, ruta, "msgs", msg);
   asegurarWebhookClientes(env).catch(e => console.error("webhook clientes", e));
 }
