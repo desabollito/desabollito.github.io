@@ -2491,3 +2491,4 @@ button.aj-item:hover, a.aj-item:hover { background: var(--surface-2); }
 [data-theme="light"] .ex-media { background: radial-gradient(closest-side, color-mix(in srgb, var(--primary) 25%, #fff), color-mix(in srgb, var(--primary) 12%, #fff) 45%, rgb(238 241 245 / .85) 72%, transparent); }
 .aurora i:nth-child(4) { background: color-mix(in srgb, var(--primary) 30%, #fff); }
 .op-nuevo { border-style: solid; border-color: var(--line); background: var(--surface); margin-top: 0; }   /* + con el mismo contorno que los operativos */
+.cd.sel { background: var(--surface-2); border-color: var(--primary); } .cd.sel .cd-n { color: var(--primary); font-weight: 800; }   /* día elegido: solo borde y número */
