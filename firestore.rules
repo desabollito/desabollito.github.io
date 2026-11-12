@@ -172,6 +172,11 @@ service cloud.firestore {
         allow create: if accede() && request.resource.data.uid == uid() && request.resource.data.at == request.time && request.resource.data.txt is string;
       }
 
+      // ── Chats con clientes (número de la empresa): los escribe solo el bot; los leen administradores y quienes usan Mensajes y turnos ──
+      match /chats/{tel} {
+        allow read: if isAdmin(cid) || (isMember(cid) && uid() in get(/databases/$(database)/documents/config/app).data.get('usanClientes', []));
+      }
+
       // ── Facturación (documentos firmados por vehículo): solo administradores, Sacabollos no lo ve ──
       match /factura/{d} {
         allow read, write: if puede(cid, 'facturacion', isAdmin(cid));

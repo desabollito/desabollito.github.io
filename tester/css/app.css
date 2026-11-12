@@ -2493,3 +2493,25 @@ button.aj-item:hover, a.aj-item:hover { background: var(--surface-2); }
 .op-nuevo { border-style: solid; border-color: var(--line); background: var(--surface); margin-top: 0; }   /* + con el mismo contorno que los operativos */
 .cd.sel { background: var(--surface-2); border-color: var(--primary); } .cd.sel .cd-n { color: var(--primary); font-weight: 800; }   /* día elegido: solo borde y número */
 .ex-logo { aspect-ratio: 1; width: min(240px, 60vw); stroke-width: 26; }   /* logo con martillo: cuadrado 1024 */
+/* Chats de clientes: lista de conversaciones y el chat con burbujas como WhatsApp */
+.chat-lista { display: flex; flex-direction: column; gap: 6px; }
+.chat-fila { display: flex; flex-direction: column; gap: 4px; width: 100%; text-align: left; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--r); background: var(--surface); color: var(--ink); }
+.chat-fila:hover { border-color: var(--line-2); }
+.chat-fila-top { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.chat-fila-top strong { flex: 1; min-width: 0; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chat-fila-top time { font-size: 12px; color: var(--muted); }
+.chat-fila-ult { font-size: 13.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chat-fila.nuevo { border-color: color-mix(in srgb, var(--primary) 55%, var(--line)); background: color-mix(in srgb, var(--primary) 12%, var(--surface)); }
+.chat-fila.nuevo .chat-fila-ult { color: var(--ink); font-weight: 600; }
+.chat-fila.nuevo time { color: var(--primary); font-weight: 700; }
+.sheet-head h2 .plate { vertical-align: middle; margin-right: 6px; }
+.chat { display: flex; flex-direction: column; gap: 10px; height: min(70vh, 620px); }
+.chat-msgs { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding: 4px 2px; overscroll-behavior: contain; }
+.chat-msg { align-self: flex-start; max-width: 82%; padding: 7px 11px 6px; border-radius: 12px 12px 12px 3px; background: var(--surface-2); border: 1px solid var(--line); white-space: pre-wrap; word-break: break-word; font-size: 14.5px; line-height: 1.4; }
+.chat-msg.yo { align-self: flex-end; border-radius: 12px 12px 3px 12px; background: #1f5c4a; border-color: transparent; color: #e9f5ef; }
+[data-theme="light"] .chat-msg.yo { background: #dcf8c6; color: #10251a; }
+.chat-msg small { display: block; margin-top: 3px; text-align: right; font-size: 11px; opacity: .65; }
+.chat-form { display: flex; align-items: flex-end; gap: 8px; }
+.chat-form textarea { flex: 1; min-height: 44px; max-height: 140px; padding: 10px 12px; border-radius: var(--r-lg); border: 1px solid var(--line-2); background: var(--surface); font-size: 16px; line-height: 1.4; resize: none; }
+.chat-form textarea:focus { outline: none; border-color: var(--primary); }
+.chat-enviar { width: 44px; height: 44px; padding: 0; border-radius: 50%; flex: none; }

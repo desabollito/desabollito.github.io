@@ -4,6 +4,7 @@ import {
   actualizarPerfil, ponerMiFoto, salir, mensajeError, llamarAdmin, soloDesmontaje, pedirUnion, linksCompartidos, getVehiculo, soloVer, soySacabollos, guardarOrdenOps, cambiarEstado, usaClientes
 } from "./data.js";
 import { cargarExcelJS } from "./excel.js";
+import { db, collection, doc, onSnapshot } from "./firebase.js";
 import { colorPeritado, ESTADOS, ESTADO, ROLES, estadoActual, esAnulado, repartirTurnos } from "./domain.js";
 import {
   $, $$, esc, money, fechaCorta, fechaLarga, hoyISO, plate, estadoPill, icon, toast, openSheet, confirmar,
@@ -653,7 +654,7 @@ export function vistaAjustes(view) {
     <section class="aj-grupo"><h3>Cuenta</h3><div class="aj-lista">
       ${fila("editar-perfil", "edit", "Perfil", esc(p.name))}
       ${WHATSAPP_BOT ? `<a class="aj-item" href="https://wa.me/${WHATSAPP_BOT}?text=ayuda" target="_blank" rel="noopener">${icon("chat")}<span class="aj-txt">Chat con el bot</span><span class="aj-val"></span>${icon("next")}</a>` : ""}
-      ${usaClientes() && S.company ? fila("mt-abrir", "calendar", "Mensajes y turnos") : ""}
+      ${usaClientes() && S.company ? fila("mt-abrir", "calendar", "Mensajes y turnos") + fila("chats-abrir", "chat", "Chats de clientes") : ""}
     </div></section>
 
     <section class="aj-grupo"><h3>Apariencia</h3><div class="aj-lista">
@@ -686,6 +687,7 @@ export function vistaAjustes(view) {
     $$(".seg-btn", $("#fecha-vista", view)).forEach(x => x.classList.toggle("on", x === b));
   };
   $("#mt-abrir", view)?.addEventListener("click", mensajesYTurnos);
+  $("#chats-abrir", view)?.addEventListener("click", chatsClientes);
   $("#salir", view).onclick = async () => { if (await confirmar({ title: "¿Cerrar sesión?", ok: "Cerrar sesión" })) salir(); };
   // Versión: tocar fuerza la actualización; mantener apretado muestra las novedades
   const vb = $("#version-btn", view); let largo = false, t = 0;
@@ -1240,4 +1242,62 @@ async function leerPadron(file) {
     if (RE_PAT.test(patente) && nombre) vistas.set(patente, nombre);
   }
   return [...vistas].map(([patente, nombre]) => ({ patente, nombre }));
+}
+
+// ═════════════════════════════════════════════════════════════
+//  CHATS CON CLIENTES: lo que se le mandó desde el número de la empresa y lo que respondieron (lo guarda el bot)
+//  Lo no leído se recuerda en este equipo (chatVisto:{cid}:{tel} = hora del último mensaje visto)
+// ═════════════════════════════════════════════════════════════
+const claveVisto = tel => `chatVisto:${S.company?.id}:${tel}`;
+const vistoChat = tel => { try { return Number(localStorage.getItem(claveVisto(tel))) || 0; } catch { return 0; } };
+const sinLeer = c => !c.ultYo && (c.t || 0) > vistoChat(c.tel);
+const horaChat = t => { const d = new Date(t), hoy = new Date().toDateString() === d.toDateString();
+  return hoy ? d.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", hourCycle: "h23" }) : d.toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit" }); };
+
+function chatsClientes() {
+  const cid = S.company?.id; if (!cid) return;
+  let chats = [];
+  const s = openSheet({ title: "Chats de clientes", onClose: () => unsub(), body: `<div class="chat-lista" id="chat-lista"><div class="skeleton" style="height:60px"></div></div>` });
+  const pintar = () => {
+    const caja = $("#chat-lista", s.el); if (!caja) return;
+    caja.innerHTML = chats.length ? chats.map(c => `<button type="button" class="chat-fila ${sinLeer(c) ? "nuevo" : ""}" data-tel="${esc(c.tel)}">
+        <span class="chat-fila-top">${plate(c.patente, "sm")}<strong>${esc(c.nombre || c.modelo || "")}</strong><time>${horaChat(c.t)}</time></span>
+        <span class="chat-fila-ult">${c.ultYo ? "Vos: " : ""}${esc(c.ult || "")}</span></button>`).join("")
+      : `<div class="empty small">${icon("chat")}<p>Todavía no hay chats. Aparecen cuando le escribís a un cliente desde el número de la empresa.</p></div>`;
+  };
+  const unsub = onSnapshot(collection(db, "companies", cid, "chats"), snap => {
+    chats = snap.docs.map(d => ({ tel: d.id, ...d.data() })).sort((a, b) => (b.t || 0) - (a.t || 0)); pintar();
+  }, e => { $("#chat-lista", s.el).innerHTML = `<p class="muted small">${esc(mensajeError(e))}</p>`; });
+  s.body.addEventListener("click", e => { const b = e.target.closest("[data-tel]"); if (b) abrirChat(cid, b.dataset.tel, pintar); });
+}
+
+function abrirChat(cid, tel, alCerrar) {
+  let c = null, enviando = false;
+  const s = openSheet({ title: "Chat", onClose: () => { unsub(); alCerrar?.(); }, body: `<div class="chat">
+      <div class="chat-msgs" id="chat-msgs"><div class="skeleton" style="height:60px"></div></div>
+      <form class="chat-form" id="chat-form"><textarea name="txt" rows="1" placeholder="Escribí una respuesta…" maxlength="2000" required></textarea>
+        <button class="btn btn-primary chat-enviar" type="submit" aria-label="Enviar">${icon("next")}</button></form></div>` });
+  const caja = $("#chat-msgs", s.el), form = $("#chat-form", s.el), ta = form.txt;
+  const pintar = () => {
+    if (!c) return;
+    $(".sheet-head h2", s.el).innerHTML = `${plate(c.patente, "sm")} ${esc(c.nombre || c.modelo || "")}`;
+    const abajo = caja.scrollHeight - caja.scrollTop - caja.clientHeight < 40;
+    caja.innerHTML = (c.msgs || []).slice().sort((a, b) => a.t - b.t).map(m => `<div class="chat-msg ${m.yo ? "yo" : ""}">${esc(m.txt)}
+      <small>${m.yo && m.por ? esc(m.por) + " · " : ""}${horaChat(m.t)}</small></div>`).join("") || `<p class="muted small center">Sin mensajes.</p>`;
+    if (abajo || !caja.dataset.listo) { caja.scrollTop = caja.scrollHeight; caja.dataset.listo = "1"; }
+    try { localStorage.setItem(claveVisto(tel), String(c.t || Date.now())); } catch { /* sin almacenamiento */ }
+  };
+  const unsub = onSnapshot(doc(db, "companies", cid, "chats", tel), d => { c = d.exists() ? { tel, ...d.data() } : null; pintar(); }, () => {});
+  // Enter manda, Shift+Enter baja de línea; el campo crece con el texto
+  ta.addEventListener("input", () => { ta.style.height = "auto"; ta.style.height = Math.min(ta.scrollHeight, 140) + "px"; });
+  ta.addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey && !matchMedia("(pointer: coarse)").matches) { e.preventDefault(); form.requestSubmit(); } });
+  form.onsubmit = async e => {
+    e.preventDefault();
+    const texto = ta.value.trim(); if (!texto || enviando) return;
+    enviando = true; const b = $(".chat-enviar", form); b.disabled = true;
+    const j = await llamarBot("responder-cliente", { cid, tel, texto, por: S.profile?.name || "" });
+    enviando = false; b.disabled = false;
+    if (!j.ok) return toast(j.error || "No se pudo enviar", "error");
+    ta.value = ""; ta.style.height = "auto";
+  };
 }

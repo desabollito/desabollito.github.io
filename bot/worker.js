@@ -46,7 +46,7 @@ export default {
     const API = { "/registro": nuevoRegistro, "/avisar": avisarCliente, "/solicitud": avisarSolicitud, "/agregado": avisarAgregado, "/pedido-union": avisarPedidoUnion,
       "/admin/datos": adminDatos, "/admin/borrar-usuario": adminBorrarUsuario, "/admin/config": adminConfig, "/admin/padron": adminPadron, "/admin/fotos-wa": adminFotosWa, "/admin/foto-usuario": adminFotoUsuario, "/admin/clientes-qr": adminClientesQr, "/admin/enviar-cliente": adminEnviarCliente,"/mover-vehiculo": moverVehiculo,
       "/borrar-media": borrarMediaApi, "/eliminar-vehiculo": eliminarVehiculoApi,
-      "/compartir": compartirApi, "/compartido": compartidoApi, "/aviso-planilla": avisoPlanilla,
+      "/compartir": compartirApi, "/compartido": compartidoApi, "/aviso-planilla": avisoPlanilla, "/responder-cliente": responderCliente,
       "/aviso-version": avisoVersion, "/pedir-borrar-operativo": pedirBorrarOperativo,
       "/recuperar": recuperarApi, "/restablecer": restablecerApi, "/usuarios-app": usuariosAppApi, "/codigo-wa": codigoWaApi, "/foto-wa": fotoWaApi,
       "/admin/resumen-ahora": async (env, { idToken, forzar }) => (await soloCreador(env, idToken)) ? json({ ok: true, enviados: await enviarDiarios(env, "resumen", forzar) }) : json({ ok: false }, 403) };
@@ -2153,6 +2153,11 @@ async function webhookEvolution(req, url, env, ctx) {
   try { body = await req.json(); } catch { return new Response("ok"); }
   const evento = String(body.event || "").toLowerCase().replace("_", ".");
   const lista = Array.isArray(body.data) ? body.data : [body.data];
+  // Número de la empresa: lo que escriben los clientes va a su chat en la app (no son comandos para el bot)
+  if (body.instance === instanciaClientes(env)) {
+    if (evento === "messages.upsert") ctx.waitUntil(Promise.all(lista.map(d => respuestaCliente(env, d).catch(e => console.error("chat cliente", e?.stack || e)))));
+    return new Response("ok");
+  }
   ctx.waitUntil(asegurarEventosEvo(env, body.instance).catch(() => {}));
   ctx.waitUntil(aprenderIdentidad(env, body).catch(e => registrar(env, { ultimoError: `${new Date().toISOString()} · identidad · ${e.message}` }).catch(() => {})));
   // Mensajes editados: llegan como upsert (protocolMessage), messages.update o messages.edited
@@ -2573,6 +2578,7 @@ async function avisarCliente(env, { idToken, cid, vid, por, texto: propio }) {
   const r = await enviarEvolution(env, `evo:${tel}`, { type: "text", text: { body: texto }, _inst: instanciaClientes(env) });
   if (!r?.ok) return json({ ok: false, error: "WhatsApp no aceptó el mensaje" });
   const quien = String(por || "").slice(0, 60);
+  await guardarChat(env, cid, vid, v, tel, { t: Date.now(), txt: texto, yo: true, por: quien }).catch(e => console.error("chat", e));
   await fsMerge(env, ruta, { avisoReparado: { t: Date.now(), por: quien } });
   await fsAppend(env, ruta, "historial", { t: Date.now(), uid: "", por: quien, txt: "Le avisó al cliente por WhatsApp que el auto está listo" }).catch(() => {});
   return json({ ok: true });
@@ -2586,7 +2592,7 @@ async function adminClientesQr(env, { idToken, salir }) {
   const h = { apikey: env.EVOLUTION_APIKEY, "Content-Type": "application/json" };
   if (salir) await fetch(`${base}/instance/logout/${inst}`, { method: "DELETE", headers: h }).catch(() => {});
   const estado = await estadoEvolution(env, inst);
-  if (estado === "open") return json({ ok: true, estado });
+  if (estado === "open") { webhookClientesOk = false; await asegurarWebhookClientes(env).catch(() => {}); return json({ ok: true, estado }); }   // conectado: que le pase al bot las respuestas
   const r = estado === null
     ? await fetch(`${base}/instance/create`, { method: "POST", headers: h, body: JSON.stringify({ instanceName: inst, integration: "WHATSAPP-BAILEYS", qrcode: true }) })
     : await fetch(`${base}/instance/connect/${inst}`, { headers: h });
@@ -2610,7 +2616,56 @@ async function adminEnviarCliente(env, { idToken, cid, vid, texto, por }) {
   if (await estadoEvolution(env, instanciaClientes(env)) !== "open") return json({ ok: false, error: "El número de la empresa no está conectado" });
   const r = await enviarEvolution(env, `evo:${tel}`, { type: "text", text: { body: texto.trim() }, _inst: instanciaClientes(env) });
   if (!r?.ok) return json({ ok: false, error: "WhatsApp no aceptó el mensaje" });
+  await guardarChat(env, cid, vid, v, tel, { t: Date.now(), txt: texto.trim(), yo: true, por: String(por || "").slice(0, 60) }).catch(e => console.error("chat", e));
   await fsAppend(env, ruta, "historial", { t: Date.now(), uid: "", por: String(por || CREADOR).slice(0, 60), txt: "Mensaje al cliente por WhatsApp: " + texto.trim().slice(0, 200) }).catch(() => {});
+  return json({ ok: true });
+}
+
+// ── Chats con clientes (número de la empresa) ──
+// Cada número al que se le escribió queda en chat_idx/{tel} → { cid, vid }; lo que se manda y lo que responden va a companies/{cid}/chats/{tel}.
+// shortcut: los mensajes van en un array del documento (tope 1 MB ≈ miles de mensajes); si un chat crece mucho, pasar a subcolección
+async function guardarChat(env, cid, vid, v, tel, msg) {
+  const ruta = `companies/${cid}/chats/${tel}`;
+  await fsSet(env, `chat_idx/${tel}`, { cid, vid });
+  await fsMerge(env, ruta, { tel, vid, patente: v?.patente || "", nombre: v?.asegurado || "", modelo: v?.modelo || "", t: msg.t, ult: String(msg.txt).slice(0, 140), ultYo: !!msg.yo });
+  await fsAppend(env, ruta, "msgs", msg);
+  asegurarWebhookClientes(env).catch(e => console.error("webhook clientes", e));
+}
+// Respuesta de un cliente: solo se guarda si es un número al que la empresa ya le escribió
+async function respuestaCliente(env, d) {
+  const m = deEvolution(d); if (!m || m._grupo) return;
+  const tel = telefonoAR(m.from); if (!tel) return;
+  const idx = await fsGet(env, `chat_idx/${tel}`).catch(() => null); if (!idx?.cid) return;
+  const txt = m.type === "text" ? m.text.body : m.type === "image" ? "📷 Foto" + (m.image.caption ? ": " + m.image.caption : "")
+    : m.type === "video" ? "🎥 Video" : m.type === "document" ? "📄 " + m.document.filename : "🎤 Audio u otro mensaje (abrilo en el celular de la empresa)";
+  const v = await fsGet(env, `companies/${idx.cid}/vehicles/${idx.vid}`).catch(() => null);
+  await guardarChat(env, idx.cid, idx.vid, v, tel, { t: Number(m.timestamp) * 1000 || Date.now(), txt: String(txt).slice(0, 2000), yo: false, id: m.id });
+}
+// El número de la empresa le pasa al bot los mensajes que recibe (una vez por instancia del Worker)
+let webhookClientesOk = false;
+async function asegurarWebhookClientes(env) {
+  if (webhookClientesOk || !env.EVOLUTION_URL) return;
+  const base = String(env.EVOLUTION_URL).replace(/\/+$/, "");
+  const r = await fetch(`${base}/webhook/set/${instanciaClientes(env)}`, { method: "POST", headers: { apikey: env.EVOLUTION_APIKEY, "Content-Type": "application/json" },
+    body: JSON.stringify({ webhook: { enabled: true, url: `${WORKER_URL}/evolution?token=${encodeURIComponent(env.EVOLUTION_APIKEY)}`, byEvents: false, base64: false, events: ["MESSAGES_UPSERT"] } }) });
+  webhookClientesOk = r.ok;
+  if (!r.ok) console.error("webhook clientes", r.status, (await r.text()).slice(0, 300));
+}
+const WORKER_URL = "https://desabollito-bot.desabollito.workers.dev";
+// Responder desde la app: el creador o quien él habilitó para Mensajes y turnos, miembro de ese operativo
+async function responderCliente(env, { idToken, cid, tel, texto, por }) {
+  if (!(await soloCreador(env, idToken))) {
+    const [m, cfg] = await Promise.all([miembroDe(env, idToken, cid), fsGet(env, "config/app").catch(() => null)]);
+    if (!m || !(cfg?.usanClientes || []).includes(m.uid)) return json({ ok: false, error: "No autorizado" }, 403);
+  }
+  if (!idValido(cid) || !/^549\d{10}$/.test(String(tel || "")) || typeof texto !== "string" || !texto.trim() || texto.length > 2000) return json({ ok: false, error: "Datos inválidos" }, 400);
+  const idx = await fsGet(env, `chat_idx/${tel}`).catch(() => null);
+  if (idx?.cid !== cid) return json({ ok: false, error: "No encontré ese chat en este operativo" }, 404);
+  if (await estadoEvolution(env, instanciaClientes(env)) !== "open") return json({ ok: false, error: "El número de la empresa no está conectado" });
+  const r = await enviarEvolution(env, `evo:${tel}`, { type: "text", text: { body: texto.trim() }, _inst: instanciaClientes(env) });
+  if (!r?.ok) return json({ ok: false, error: "WhatsApp no aceptó el mensaje" });
+  const v = await fsGet(env, `companies/${cid}/vehicles/${idx.vid}`).catch(() => null);
+  await guardarChat(env, cid, idx.vid, v, tel, { t: Date.now(), txt: texto.trim(), yo: true, por: String(por || "").slice(0, 60) });
   return json({ ok: true });
 }
 
@@ -3300,7 +3355,7 @@ async function avisarPedidoUnion(env, { uid }) {
   return json({ ok: !!r?.ok });
 }
 
-// Conexión de Evolution del número de la empresa (el que usan los clientes). Solo envía avisos: no tiene webhook.
+// Conexión de Evolution del número de la empresa (el que usan los clientes): envía avisos y sus respuestas llegan a /evolution (chats en la app)
 const instanciaClientes = env => env.EVOLUTION_INSTANCE_CLIENTES || "clientes";
 async function estadoEvolution(env, inst) {
   try {
