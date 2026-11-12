@@ -560,8 +560,8 @@ export function elegirEmpresaSheet() {
         ${c.id === S.company?.id ? icon("check") : ""}</button></li>`).join("")}</ul>
       <button type="button" class="op-nuevo" id="op-nuevo" aria-label="Unirme o crear un operativo">${icon("plus")}</button>
       <div class="op-elegir" id="op-elegir" hidden>
-        <button type="button" class="btn btn-ghost" id="unir-op">Unirme a uno</button>
-        ${soloDesmontaje() ? "" : `<button type="button" class="btn btn-ghost" id="nuevo-op">Crear uno</button>`}
+        <button type="button" class="btn btn-ghost" id="unir-op">Unirme a un operativo existente</button>
+        ${soloDesmontaje() ? "" : `<button type="button" class="btn btn-ghost" id="nuevo-op">Crear nuevo operativo</button>`}
       </div>
       <div class="op-menu only-mobile">
         <a class="op-mas op-ajustes" href="#/ajustes" data-close>${icon("user")}<span><strong>Mi perfil</strong></span>${icon("next")}</a>

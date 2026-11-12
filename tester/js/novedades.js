@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.6.5", items: ["Operativos: «Unirme a un operativo existente» y «Crear nuevo operativo», uno abajo del otro."] },
   { v: "4.6.4", items: ["Calendario: el día elegido con un color más tenue."] },
   { v: "4.6.3", items: ["Notificaciones: los botones de fijar y archivar aparecen sobre la hora sin mover nada; se sacó «Últimos 30 días»."] },
   { v: "4.6.2", items: ["Notificaciones: el aviso al cliente por WhatsApp ahora dice «Cliente contactado»."] },
