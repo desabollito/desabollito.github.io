@@ -2486,3 +2486,7 @@ button.aj-item:hover, a.aj-item:hover { background: var(--surface-2); }
 .notif-acc { position: absolute; right: 8px; top: 6px; padding: 2px; border-radius: var(--r); background: var(--surface); box-shadow: 0 2px 10px rgb(0 0 0 / .25); }
 .cd.sel { background: color-mix(in srgb, var(--primary) 10%, var(--surface-2)); border-color: color-mix(in srgb, var(--primary) 45%, transparent); }   /* día elegido: tenue */
 .op-elegir { grid-template-columns: 1fr; }
+/* Animación del auto (actualización): el brillo toma el color de la app, no un azul fijo */
+.ex-media { background: radial-gradient(closest-side, color-mix(in srgb, var(--primary) 45%, #0e0e10), color-mix(in srgb, var(--primary) 18%, #0e0e10) 45%, rgb(14 14 16 / .85) 72%, transparent); }
+[data-theme="light"] .ex-media { background: radial-gradient(closest-side, color-mix(in srgb, var(--primary) 25%, #fff), color-mix(in srgb, var(--primary) 12%, #fff) 45%, rgb(238 241 245 / .85) 72%, transparent); }
+.aurora i:nth-child(4) { background: color-mix(in srgb, var(--primary) 30%, #fff); }

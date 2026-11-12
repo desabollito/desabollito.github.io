@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.6.6", items: ["La animación del auto al actualizar termina con el color de la app que elegiste (antes quedaba azul)."] },
   { v: "4.6.5", items: ["Operativos: «Unirme a un operativo existente» y «Crear nuevo operativo», uno abajo del otro."] },
   { v: "4.6.4", items: ["Calendario: el día elegido con un color más tenue."] },
   { v: "4.6.3", items: ["Notificaciones: los botones de fijar y archivar aparecen sobre la hora sin mover nada; se sacó «Últimos 30 días»."] },
