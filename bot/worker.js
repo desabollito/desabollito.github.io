@@ -2728,18 +2728,22 @@ async function textoTurnosDiario(env, uid, hoy, cfg = { todos: true }) {
   const bloques = [];
   let total = 0;
   const linea = v => [[v.modelo || "Sin modelo", v.patente].filter(Boolean).map(x => "`" + x + "`").join(" "),
-    v.precio ? `💲 $${Number(v.precio).toLocaleString("es-AR")}` : "",
-    String(v.observaciones || "").trim() ? `📝 ${String(v.observaciones).trim()}` : ""].filter(Boolean).join("\n");
+    v.precio ? `💲 $${Number(v.precio).toLocaleString("es-AR")}` : ""].filter(Boolean).join("\n");
+  const det = v => String(v.observaciones || "").trim();
   for (const o of ops) {
     const vs = (await fsQuery(env, `companies/${o.cid}`, "vehicles", { field: "fechas.turnado", op: "EQUAL", value: hoy }, 300).catch(() => [])).filter(okDiario);
     if (!vs.length) continue;
     total += vs.length;
     vs.sort((a, b) => String(a.horaTurno || "99").localeCompare(String(b.horaTurno || "99")));
-    bloques.push(`*${o.operativo}* · ${vs.length} ${vs.length === 1 ? "turno" : "turnos"}\n\n` + vs.map(linea).join("\n\n"));
+    const adic = vs.filter(det).map(v => `\`${v.patente || v.modelo || "Sin patente"}\` ${det(v)}`);
+    bloques.push({ cab: `*${o.operativo}* · ${vs.length} ${vs.length === 1 ? "turno" : "turnos"}`,
+      cuerpo: vs.map(linea).join("\n\n") + (adic.length ? "\n\n*Adicionales*\n" + adic.join("\n") : "") });
   }
   const tit = `📅 *Turnos de hoy · ${fechaCortaAR(hoy)}*`;
   if (!total) return `${tit}\n\nHoy no hay autos turnados.`;
-  return `${tit}\nTotal: *${total}*\n\n` + bloques.join("\n\n━━━━━━━━━━\n\n");
+  // Un solo operativo con turnos: sin su nombre ni la cuenta
+  if (bloques.length === 1) return `${tit}\nTotal: *${total}*\n\n` + bloques[0].cuerpo;
+  return `${tit}\nTotal: *${total}*\n\n` + bloques.map(b => `${b.cab}\n\n${b.cuerpo}`).join("\n\n━━━━━━━━━━\n\n");
 }
 async function enviarDiarios(env, tipo, forzar = false) {
   const hoy = hoyAR(), d = DIARIO[tipo];
