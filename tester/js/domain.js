@@ -69,6 +69,9 @@ export const ESTADOS = [
 ];
 export const PASO_REP = ["enreparacion", "reparado", "llamado", "entregado"];   // un solo paso en el seguimiento
 export const ESTADO = Object.fromEntries(ESTADOS.map(e => [e.key, e]));
+// "Peritado" toma el color de la app que eligió el usuario (Ajustes → color); el resto de los estados no cambia
+export const colorPeritado = c => { ESTADO.peritado.color = c || "#4f8ff7"; };
+try { colorPeritado(globalThis.localStorage?.getItem("color")); } catch { /* sin almacenamiento */ }
 export const SECUENCIA = ["peritado", "turnado", "reparado", "llamado", "entregado", "facturado"];
 
 // Piezas de carrocería. La geometría (x,y,w,h en un lienzo 200×400,

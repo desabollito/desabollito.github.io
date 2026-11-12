@@ -4,10 +4,10 @@ import {
   actualizarPerfil, ponerMiFoto, salir, mensajeError, llamarAdmin, soloDesmontaje, pedirUnion, linksCompartidos, getVehiculo, soloVer, soySacabollos, guardarOrdenOps, cambiarEstado, usaClientes
 } from "./data.js";
 import { cargarExcelJS } from "./excel.js";
-import { ESTADOS, ESTADO, ROLES, estadoActual, esAnulado, repartirTurnos } from "./domain.js";
+import { colorPeritado, ESTADOS, ESTADO, ROLES, estadoActual, esAnulado, repartirTurnos } from "./domain.js";
 import {
   $, $$, esc, money, fechaCorta, fechaLarga, hoyISO, plate, estadoPill, icon, toast, openSheet, confirmar,
-  pedirTexto, busy, debounce, avatarUsuario, elegirDescarga, horaDe
+  pedirTexto, busy, debounce, avatarUsuario, glideMenu, elegirDescarga, horaDe
 } from "./ui.js";
 import { ruidoMotor, SONIDOS_AUTO } from "./sonidos.js";
 import { NOVEDADES } from "./novedades.js";
@@ -564,7 +564,7 @@ export function elegirEmpresaSheet() {
         ${soloDesmontaje() ? "" : `<button type="button" class="btn btn-ghost" id="nuevo-op">Crear uno</button>`}
       </div>
       <div class="op-menu only-mobile">
-        <a class="op-mas op-ajustes" href="#/ajustes" data-close>${icon("settings")}<span><strong>Ajustes</strong></span>${icon("next")}</a>
+        <a class="op-mas op-ajustes" href="#/ajustes" data-close>${icon("user")}<span><strong>Mi perfil</strong></span>${icon("next")}</a>
       </div>`
   });
   const x = $(".sheet-head [data-close]", s.el);
@@ -589,15 +589,42 @@ function elegirColor(alTerminar) {
   const s = openSheet({ title: "Color de la app", body: `<div class="color-grid">
       <button type="button" class="color-op ${actual ? "" : "on"}" data-c="" aria-label="Predeterminado"><i class="color-def"></i><small>Predeterminado</small></button>
       ${COLORES.map(c => `<button type="button" class="color-op ${actual === c ? "on" : ""}" data-c="${c}" aria-label="Color ${c}"><i style="background:${c}"></i></button>`).join("")}
-      <label class="color-op ${actual && !COLORES.includes(actual) ? "on" : ""}" aria-label="Otro color"><i class="color-rueda"></i><input type="color" value="${actual || "#ff8a3d"}"></label>
-    </div>` });
+      <button type="button" class="color-op ${actual && !COLORES.includes(actual) ? "on" : ""}" id="color-otro" aria-label="Otro color"><i class="color-rueda"></i></button>
+    </div>
+    <div class="rueda-caja" id="rueda" hidden><canvas width="440" height="440" aria-label="Rueda de color"></canvas>
+      <div class="rueda-pie"><i class="rueda-prev"></i><input class="rueda-hex" maxlength="7" spellcheck="false" autocomplete="off" aria-label="Color en hex">
+        <button type="button" class="btn btn-primary btn-sm" id="rueda-ok">Usar</button></div></div>` });
   const poner = c => {
     try { c ? localStorage.setItem("color", c) : localStorage.removeItem("color"); } catch { /* sin almacenamiento */ }
-    window.pintarColor?.(c); alTerminar?.();
+    window.pintarColor?.(c); colorPeritado(c); document.dispatchEvent(new Event("color-app")); alTerminar?.();
   };
   s.body.addEventListener("click", e => { const b = e.target.closest("button[data-c]"); if (b) { poner(b.dataset.c); s.close(); } });
-  $("input[type=color]", s.el).addEventListener("input", e => poner(e.target.value));
+  // Rueda propia (tono alrededor, intensidad hacia el centro) con el código hex al lado
+  const caja = $("#rueda", s.el), cv = $("canvas", caja), cx = cv.getContext("2d"), R = cv.width / 2, hex = $(".rueda-hex", caja), prev = $(".rueda-prev", caja);
+  const img = cx.createImageData(cv.width, cv.height);
+  for (let y = 0; y < cv.height; y++) for (let x = 0; x < cv.width; x++) {
+    const dx = x - R, dy = y - R, d = Math.hypot(dx, dy) / R, i = (y * cv.width + x) * 4; if (d > 1) continue;
+    const [r, g, b] = hsv((Math.atan2(dy, dx) / Math.PI * 180 + 360) % 360, d);
+    img.data.set([r, g, b, 255], i);
+  }
+  cx.putImageData(img, 0, 0);
+  const elegir = c => { hex.value = c; prev.style.background = c; };
+  elegir(actual || "#ff8a3d");
+  $("#color-otro", s.el).onclick = () => { caja.hidden = !caja.hidden; };
+  const tocar = e => { const b = cv.getBoundingClientRect(), x = (e.clientX - b.left) / b.width * cv.width - R, y = (e.clientY - b.top) / b.height * cv.height - R;
+    const d = Math.min(1, Math.hypot(x, y) / R); elegir(aHex(hsv((Math.atan2(y, x) / Math.PI * 180 + 360) % 360, d))); };
+  cv.addEventListener("pointerdown", e => { cv.setPointerCapture(e.pointerId); tocar(e); });
+  cv.addEventListener("pointermove", e => { if (e.buttons) tocar(e); });
+  hex.addEventListener("input", () => { if (/^#?[0-9a-f]{6}$/i.test(hex.value)) prev.style.background = "#" + hex.value.replace("#", ""); });
+  $("#rueda-ok", s.el).onclick = () => { const v = "#" + hex.value.replace("#", "").toLowerCase(); if (!/^#[0-9a-f]{6}$/.test(v)) return toast("Color no válido", "error"); poner(v); s.close(); };
 }
+// Tono (0-360) e intensidad (0-1) a RGB, con brillo al máximo
+function hsv(h, sat) {
+  const f = n => { const k = (n + h / 60) % 6; return Math.round(255 * (1 - sat * Math.max(0, Math.min(k, 4 - k, 1)))); };
+  return [f(5), f(3), f(1)];
+}
+const aHex = rgb => "#" + rgb.map(x => x.toString(16).padStart(2, "0")).join("");
+{ console.assert(aHex(hsv(0, 1)) === "#ff0000" && aHex(hsv(120, 1)) === "#00ff00" && aHex(hsv(0, 0)) === "#ffffff", "rueda de color"); }
 
 export function aplicarTema(t) {
   localStorage.setItem("tema", t);
@@ -741,7 +768,6 @@ function editarPerfil(alTerminar) {
       <div class="perfil-foto">${avatarUsuario(p.username, p.name, "lg", p.foto)}
         <div class="perfil-foto-btns">
           <button type="button" class="icon-btn" id="foto-subir" aria-label="Agregar foto" title="Agregar foto">${icon("camera")}</button>
-          ${p.whatsapp ? `<button type="button" class="icon-btn" id="wa-foto" aria-label="Usar mi foto de WhatsApp" title="Usar mi foto de WhatsApp">${icon("chat")}</button>` : ""}
           ${p.foto ? `<button type="button" class="icon-btn danger" id="foto-borrar" aria-label="Eliminar foto" title="Eliminar foto">${icon("trash")}</button>` : ""}
         </div></div>
       <label class="field"><span>Nombre</span>
@@ -751,14 +777,18 @@ function editarPerfil(alTerminar) {
     </form>`
   });
   const listo = msg => { toast(msg, "success"); s.close(); alTerminar?.(); pintarLateral(); };
-  $("#wa-foto", s.el)?.addEventListener("click", async e => {
-    const b = e.currentTarget; b.disabled = true;
+  const deWhatsApp = async () => {
+    toast("Buscando tu foto de WhatsApp…");
     const j = await llamarBot("foto-wa");
-    b.disabled = false;
     if (!j.ok) return toast(j.error || "No se pudo", "warning");
     S.profile.foto = j.foto; listo("Foto actualizada");
+  };
+  // La cámara pregunta de dónde: galería o la foto de WhatsApp (si está vinculado)
+  $("#foto-subir", s.el).addEventListener("click", e => {
+    if (p.whatsapp) return glideMenu(e.currentTarget, [["galeria", "Elegir de la galería"], ["wa", "Usar mi foto de WhatsApp"]], "", k => k === "wa" ? deWhatsApp() : galeria());
+    galeria();
   });
-  $("#foto-subir", s.el).addEventListener("click", () => {
+  const galeria = () => {
     const inp = Object.assign(document.createElement("input"), { type: "file", accept: "image/*" });
     inp.onchange = async () => {
       const file = inp.files[0]; if (!file) return;
@@ -767,7 +797,7 @@ function editarPerfil(alTerminar) {
       catch (err) { toast(err.message || mensajeError(err), "error"); }
     };
     inp.click();
-  });
+  };
   $("#foto-borrar", s.el)?.addEventListener("click", async () => {
     if (!(await confirmar({ title: "¿Eliminar tu foto?", ok: "Eliminar", danger: true }))) return;
     ponerMiFoto("").then(() => listo("Foto eliminada")).catch(e => toast(mensajeError(e), "error"));
@@ -811,8 +841,7 @@ export function vistaPapelera(view) {
           <button class="icon-btn sm" data-no="${x.id}" aria-label="Rechazar">${icon("x")}</button>
         </li>`).join("")}</ul>
     </section>` : ""}
-    ${items.length ? `<p class="muted small">Los vehículos se eliminan solos (con sus fotos) a las 48 hs de borrados.</p>
-    <ul class="trash">${items.map(v => `
+    ${items.length ? `    <ul class="trash">${items.map(v => `
       <li><span class="t-meta"><strong>${esc(v.modelo || "Sin modelo")}</strong>
         <span>${plate(v.patente, "sm")}</span></span>
         <button class="btn btn-ghost btn-sm" data-r="${v.id}">${icon("restore")}Restaurar</button>
@@ -1076,28 +1105,34 @@ function mensajesYTurnos() {
   const cupoG = { 1: 3, 2: 2, 3: 1, 4: 0, 0: 0 };
   const manana = new Date(Date.now() + 864e5).toLocaleDateString("en-CA");
   const ciaDe = v => String(v.compania || "").trim() || "Sin compañía";
-  const s = openSheet({ title: `Mensajes y turnos · ${S.company?.name || ""}`, wide: true, onClose: () => { cortar = true; }, body: `<div class="adm mt">
-    <div class="adm-toggles">
-      <label class="field"><span>Estado</span><select id="mt-est">${ESTADOS.map(e => `<option value="${e.key}">${e.label}</option>`).join("")}</select></label>
-      <label class="field"><span>Compañía</span><select id="mt-cia"></select></label>
-      <label class="field"><span>Grado</span><select id="mt-grado"><option value="">Todos</option>${GRADOS_T.map(([g, t]) => `<option value="${g}">${t}</option>`).join("")}</select></label>
-      <label class="field"><span>Buscar</span><input type="search" id="mt-q" placeholder="Patente, asegurado, modelo…"></label>
-    </div>
-    <p class="small"><button type="button" class="link-btn" id="mt-todos">Marcar todos</button> · <span id="mt-n"></span></p>
-    <ul class="adm-list" id="mt-lista"></ul>
-    <div id="mt-turnos" class="adm-toggles">
-      <label class="field"><span>Desde</span><input type="date" id="mt-desde" value="${manana}"></label>
-      <label class="field"><span>Fecha límite <small class="muted">(opcional)</small></span><input type="date" id="mt-hasta"></label>
-      <span class="row-btns">${DIAS_SEM.map(([d, t]) => `<label class="toggle"><input type="checkbox" data-dia="${d}" ${dias.has(d) ? "checked" : ""}><span>${t}</span></label>`).join("")}</span>
-      <label class="toggle"><input type="checkbox" id="mt-pg"><span>Intercalar grados por día</span></label>
+  const s = openSheet({ title: `Mensajes y turnos · ${S.company?.name || ""}`, wide: true, onClose: () => { cortar = true; }, body: `<div class="mt2">
+    <section class="mt-paso"><h3><b>1</b>Vehículos <small id="mt-n"></small></h3>
+      <div class="mt-filtros">
+        <label class="search mt-buscar">${icon("search")}<input type="search" id="mt-q" placeholder="Patente, asegurado, modelo…" autocomplete="off"></label>
+        <label class="field"><span>Estado</span><select id="mt-est">${ESTADOS.map(e => `<option value="${e.key}">${e.label}</option>`).join("")}</select></label>
+        <label class="field"><span>Compañía</span><select id="mt-cia"></select></label>
+        <label class="field"><span>Grado</span><select id="mt-grado"><option value="">Todos</option>${GRADOS_T.map(([g, t]) => `<option value="${g}">${t}</option>`).join("")}</select></label>
+      </div>
+      <button type="button" class="btn btn-ghost btn-sm" id="mt-todos">${icon("check")}Marcar todos</button>
+      <ul class="mt-lista" id="mt-lista"></ul>
+    </section>
+    <section class="mt-paso" id="mt-turnos"><h3><b>2</b>Turnos</h3>
+      <div class="grid-2 mt-fechas">
+        <label class="field"><span>Desde</span><input type="date" id="mt-desde" value="${manana}"></label>
+        <label class="field"><span>Hasta <small class="muted">(opcional)</small></span><input type="date" id="mt-hasta"></label>
+      </div>
+      <div class="mt-dias" role="group" aria-label="Días">${DIAS_SEM.map(([d, t]) => `<label class="mt-pill"><input type="checkbox" data-dia="${d}" ${dias.has(d) ? "checked" : ""}><span>${t}</span></label>`).join("")}</div>
+      <label class="mt-pill mt-ancho"><input type="checkbox" id="mt-pg"><span>Intercalar grados por día</span></label>
       <label class="field" id="mt-pordia-f"><span>Autos por día <small class="muted">(contando los turnos que ya hay)</small></span><input type="number" id="mt-pordia" min="1" max="200" value="5" inputmode="numeric"></label>
-      <label class="toggle" id="mt-extra-f" hidden><input type="checkbox" id="mt-extra"><span>Repartir los que no entran entre los días (sobreturno)</span></label>
-      <span class="row-btns" id="mt-pg-f" hidden>${GRADOS_T.map(([g, t]) => `<label class="field"><span>${t}</span><input type="number" min="0" max="50" value="${cupoG[g]}" data-cupo="${g}" inputmode="numeric" style="width:5em"></label>`).join("")}</span>
-    </div>
-    <label class="field"><span>Mensaje</span><textarea id="mt-txt" rows="4"></textarea></label>
-    <small class="muted">Datos: ${["Saludo", "Asegurado", "Vehiculo", "Patente", "Operativo", "Turno", "Compania", "Grado", "Precio"].map(x => `<button type="button" class="chip-var" data-var="{${x}}">{${x}}</button>`).join(" ")}</small>
-    <div id="mt-prev" class="muted small"></div>
-    <span class="row-btns"><button type="button" class="btn btn-primary" id="mt-ir"></button></span>
+      <div class="mt-cupos" id="mt-pg-f" hidden>${GRADOS_T.map(([g, t]) => `<label class="field"><span>${t}</span><input type="number" min="0" max="50" value="${cupoG[g]}" data-cupo="${g}" inputmode="numeric"></label>`).join("")}</div>
+      <label class="mt-pill mt-ancho" id="mt-extra-f" hidden><input type="checkbox" id="mt-extra"><span>Repartir los que no entran (sobreturno)</span></label>
+    </section>
+    <section class="mt-paso"><h3><b>3</b>Mensaje</h3>
+      <textarea id="mt-txt" rows="4" class="mt-txt"></textarea>
+      <div class="mt-vars">${["Saludo", "Asegurado", "Vehiculo", "Patente", "Operativo", "Turno", "Compania", "Grado", "Precio"].map(x => `<button type="button" class="chip-var" data-var="{${x}}">${x}</button>`).join("")}</div>
+      <div id="mt-prev" class="mt-prev"></div>
+    </section>
+    <div class="mt-pie"><button type="button" class="btn btn-primary btn-lg" id="mt-ir"></button></div>
   </div>` });
   const el = x => $(x, s.el);
   const delEstado = () => activos().filter(v => estadoActual(v) === est);
@@ -1121,9 +1156,10 @@ function mensajesYTurnos() {
     if (cia && !cias.includes(cia)) cia = "";
     el("#mt-est").value = est;
     el("#mt-cia").innerHTML = `<option value="">Todas</option>` + cias.map(c => `<option ${c === cia ? "selected" : ""}>${esc(c)}</option>`).join("");
-    el("#mt-lista").innerHTML = lista().map(v => `<li><label class="toggle"><input type="checkbox" data-v="${esc(v.id)}" ${marcados.has(v.id) ? "checked" : ""}>
-      <span>${plate(v.patente, "sm")} ${esc(v.asegurado || v.modelo || "")} <small class="muted">${v.grado ? `G${v.grado === 4 ? "+" : v.grado} · ` : ""}${esc(fechaCorta(v.fechas?.peritado) || "")} · ${v.telefono ? esc(v.telefono) : "sin teléfono: no se le escribe"}</small></span></label></li>`).join("")
-      || `<li class="muted">No hay vehículos con ese filtro.</li>`;
+    el("#mt-lista").innerHTML = lista().map(v => `<li><label class="mt-veh"><input type="checkbox" data-v="${esc(v.id)}" ${marcados.has(v.id) ? "checked" : ""}><i class="mt-chk">${icon("check")}</i>
+      <span class="mt-veh-txt"><span>${plate(v.patente, "sm")}<strong>${esc(v.asegurado || v.modelo || "")}</strong></span>
+      <small class="muted">${v.grado ? `G${v.grado === 4 ? "+" : v.grado} · ` : ""}${esc(fechaCorta(v.fechas?.peritado) || "")} · ${v.telefono ? esc(v.telefono) : "sin teléfono"}</small></span></label></li>`).join("")
+      || `<li class="muted small">No hay vehículos con ese filtro.</li>`;
     resumen();
   };
   const resumen = () => {
@@ -1131,12 +1167,12 @@ function mensajesYTurnos() {
     el("#mt-extra-f").hidden = !sinLugar;
     el("#mt-pordia-f").hidden = porGradoOn; el("#mt-pg-f").hidden = !porGradoOn;
     if (el("#mt-txt").value !== txt) el("#mt-txt").value = txt;
-    el("#mt-n").textContent = `${l.length} de ${lista().length} marcados`;
+    el("#mt-n").textContent = `${l.length} de ${lista().length}`;
     el("#mt-ir").textContent = `Turnar ${l.length - faltan} y avisar`;
     el("#mt-ir").disabled = enviando || !l.length || faltan === l.length;
     el("#mt-prev").innerHTML = !l.length ? "" : (sinLugar ? `<p style="color:var(--danger)">⚠️ No entran ${sinLugar} antes de la fecha límite: ${faltan ? "quedan sin turnar. Abajo de los días podés repartirlos como sobreturno." : "se reparten como sobreturno en los días con menos autos."}</p>` : "")
-      + `<p>${l.map((v, i) => `${esc(v.patente || v.modelo || "")} → ${f[i] ? esc(fechaLarga(f[i])) : "no entra"}`).join(" · ")}</p>`
-      + `<p><b>Ejemplo:</b> ${esc(textoWa(txt, conTurno(l[0], f[0])))}</p>`;
+      + `<ul class="mt-agenda">${l.map((v, i) => `<li>${plate(v.patente, "sm")}<span>${f[i] ? esc(fechaLarga(f[i])) : "no entra"}</span></li>`).join("")}</ul>`
+      + `<div class="mt-burbuja"><small>Así le llega a ${esc(l[0].asegurado || l[0].patente || "")}</small>${esc(textoWa(txt, conTurno(l[0], f[0])))}</div>`;
   };
   s.el.addEventListener("input", e => {
     const t = e.target;

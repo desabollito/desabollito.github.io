@@ -3350,29 +3350,30 @@ async function abrirParaGrupo(env, m, s) {
 // Al terminar cada deploy de la app (lo llama un workflow de GitHub): avisa al creador "✅ 2.45.34".
 // Lee la versión publicada en la web y avisa una sola vez por versión.
 async function avisoVersion(env) {
-  await avisoTester(env).catch(e => console.error("aviso tester", e));
+  const tester = await avisoTester(env).catch(e => ({ error: String(e?.message || e) }));
   const r = await fetch(`${APP_URL}/js/config.js?t=${Date.now()}`, { cf: { cacheTtl: 0 } });
   const v = r.ok ? ((await r.text()).match(/APP_VERSION\s*=\s*"([^"]+)"/) || [])[1] : "";
-  if (!v) return json({ ok: false, error: "Sin versión" });
+  if (!v) return json({ ok: false, error: "Sin versión", tester });
   const prev = await fsGet(env, "bot_meta/deploy").catch(() => null);
-  if (prev?.version === v) return json({ ok: true, version: v, avisado: false });
+  if (prev?.version === v) return json({ ok: true, version: v, avisado: false, tester });
   await fsSet(env, "bot_meta/deploy", { version: v, fecha: new Date().toISOString() });
   await enviar(env, destinoNumero(env, numeroAdmin(env)), { type: "text", text: { body: `✅ ${v}` } });
-  return json({ ok: true, version: v, avisado: true });
+  return json({ ok: true, version: v, avisado: true, tester });
 }
 
 // Versión nueva del tester: al creador le llega la versión con sus novedades (las saca de tester/js/novedades.js), una sola vez por versión
 async function avisoTester(env) {
   const leer = async f => { const r = await fetch(`${APP_URL}/tester/js/${f}?t=${Date.now()}`, { cf: { cacheTtl: 0 } }); return r.ok ? r.text() : ""; };
   const v = ((await leer("config.js")).match(/APP_VERSION\s*=\s*"([^"]+)"/) || [])[1];
-  if (!v) return;
+  if (!v) return { error: "sin versión del tester" };
   const prev = await fsGet(env, "bot_meta/deployTester").catch(() => null);
-  if (prev?.version === v) return;
-  await fsSet(env, "bot_meta/deployTester", { version: v, fecha: new Date().toISOString() });
+  if (prev?.version === v) return { version: v, avisado: false };
   // La entrada de esa versión: { v: "x", items: ["…", …] } (los textos van entre comillas dobles, sin comillas adentro)
   const entrada = (await leer("novedades.js")).split(/\{\s*v:\s*"/).find(b => b.startsWith(v + '"')) || "";
   const items = [...entrada.matchAll(/"((?:[^"\\]|\\.)*)"/g)].map(m => m[1]).slice(1);
-  await enviar(env, destinoNumero(env, numeroAdmin(env)), { type: "text", text: { body: `🧪 Tester ${v} listo\n\n${items.map(i => `• ${i}`).join("\n")}`.slice(0, 3900) } });
+  const r = await enviar(env, destinoNumero(env, numeroAdmin(env)), { type: "text", text: { body: `🧪 Tester ${v} listo\n\n${items.map(i => `• ${i}`).join("\n")}`.slice(0, 3900) } });
+  if (r?.ok) await fsSet(env, "bot_meta/deployTester", { version: v, fecha: new Date().toISOString() });   // si no salió, se reintenta en el próximo aviso
+  return { version: v, avisado: !!r?.ok, items: items.length };
 }
 
 // ── Eliminar un operativo: solo con confirmación del creador por WhatsApp ──

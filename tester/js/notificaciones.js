@@ -127,9 +127,9 @@ export function abrirNotifs(verArchivadas = false) {
     const vis = lista.filter(n => arch.has(clave(n)) === verArchivadas).sort((a, b) => fij.has(clave(b)) - fij.has(clave(a)));
     const nuevas = cuantasNuevas(), nArch = lista.filter(n => arch.has(clave(n))).length;
     s.body.innerHTML = vis.length
-      ? `<p class="muted small notif-sub">${verArchivadas ? "Deslizá a la izquierda para sacarla de archivadas" : `${nuevas ? `${nuevas} ${nuevas === 1 ? "nueva" : "nuevas"} · ` : ""}Cambios de los últimos ${DIAS} días hechos por otros`}</p>
+      ? `<p class="muted small notif-sub">${verArchivadas ? "Deslizá a la izquierda para sacarla de archivadas" : `Últimos ${DIAS} días`}</p>
         ${nuevas && !verArchivadas ? `<button class="btn btn-ghost notif-todas" type="button">Marcar todas como vistas</button>` : ""}
-        <ul class="notif-list">${vis.map(n => { const k = clave(n); return `<li class="notif-li"><a href="#/v/${esc(n.vid)}" data-k="${esc(k)}" class="notif-item ${!ab.has(k) && n.t > v0 ? "nueva" : ""} ${fij.has(k) ? "fijada" : ""}" ${n.foto ? `data-foto-url="${esc(n.foto)}" ${n.desm ? "data-desm" : ""}` : ""}>
+        <ul class="notif-list">${vis.map(n => { const k = clave(n); return `<li class="notif-li"><i class="notif-lado l-fijar">${ICO_PIN}</i><i class="notif-lado l-arch">${ICO_ARCH}</i><a href="#/v/${esc(n.vid)}" data-k="${esc(k)}" class="notif-item ${!ab.has(k) && n.t > v0 ? "nueva" : ""} ${fij.has(k) ? "fijada" : ""}" ${n.foto ? `data-foto-url="${esc(n.foto)}" ${n.desm ? "data-desm" : ""}` : ""}>
           <span class="notif-veh">${fij.has(k) ? `<i class="notif-pin">${ICO_PIN}</i>` : ""}${plate(n.patente, "sm")}<small>${esc(n.modelo || "")}</small></span>
           <span class="notif-txt"><b>${esc(n.por)}</b> ${esc(minus(String(n.txt).replace(/ por WhatsApp/g, "")))}</span>
           <time>${cuando(n.t)}</time>
@@ -142,7 +142,7 @@ export function abrirNotifs(verArchivadas = false) {
   const accion = (a, que) => {
     const k = a.dataset.k;
     if (que === "fijar") marcar("notifFijadas", k, lista, marcadas("notifFijadas").includes(k));
-    else { marcar("notifArchivadas", k, lista, verArchivadas); marcar("notifFijadas", k, lista, true); }
+    else { marcar("notifArchivadas", k, lista, verArchivadas); marcar("notifFijadas", k, lista, true); if (!verArchivadas) marcar("notifAbiertas", k, lista); }
     lista = pintar();
   };
   s.el.addEventListener("click", e => {
@@ -173,7 +173,7 @@ export function abrirNotifs(verArchivadas = false) {
     if (!g) return; const x = g; g = null; if (!x.on) return;
     x.a.dataset.deslizado = "1"; x.a.classList.remove("desliza"); x.a.style.transform = "";
     if (Math.abs(x.dx) > 90) { navigator.vibrate?.(15); setTimeout(() => accion(x.a, x.dx > 0 ? "fijar" : "archivar"), 180); }
-    else x.a.parentElement.classList.remove("armado");
+    else { x.a.parentElement.classList.remove("armado"); delete x.a.parentElement.dataset.lado; }
   };
   s.body.addEventListener("pointerup", fin); s.body.addEventListener("pointercancel", fin);
 }

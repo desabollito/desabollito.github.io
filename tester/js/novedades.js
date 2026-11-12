@@ -1,5 +1,13 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.6.1", items: [
+    "Notificaciones: al deslizar se ve el ícono (pin a la derecha para fijar, caja a la izquierda para archivar y marcarla como vista). Arriba solo dice Últimos 30 días.",
+    "Calendario en el celular: los puntitos se adaptan al ancho y quedan centrados en la celda.",
+    "Color de la app: rueda propia con código hex; el estado Peritado toma ese color.",
+    "Editar perfil: la cámara pregunta si querés una foto de la galería o la de WhatsApp.",
+    "Filtros: cada sección es un botón que se despliega; todos los botones iguales y la hoja más sólida.",
+    "Mensajes y turnos rediseñado en 3 pasos: vehículos, turnos y mensaje, con la vista de cómo le llega al cliente.",
+    "Menú de operativos: «Mi perfil» con ícono de persona. Papelera sin textos de explicación."] },
   { v: "4.6.0", items: [
     "Notificaciones: las sin leer en el color de la app y las leídas oscuras. Deslizá a la derecha para fijarla arriba y a la izquierda para archivarla (en computadora, con los botones al pasar el mouse).",
     "Ajustes: ruedita de color al lado del tema para cambiar el color de toda la app (también la intro), con «Predeterminado».",
