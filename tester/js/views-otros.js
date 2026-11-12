@@ -553,7 +553,7 @@ export function elegirEmpresaSheet() {
   // Lista de operativos; arriba la ruedita para gestionar el actual (donde iba la X), abajo el + para unirse o crear uno y, en celular, Ajustes
   const s = openSheet({
     title: "Tus operativos",
-    body: `<ul class="company-list">${S.companies.map(c => `
+    body: `<ul class="company-list">${[...S.companies].sort((a, b) => (b.id === S.company?.id) - (a.id === S.company?.id)).map(c => `
       <li><button class="company-opt ${c.id === S.company?.id ? "on" : ""}" data-id="${c.id}">
         ${logoOperativo("", c.name)}
         <span><strong>${esc(c.name)}</strong><small>${ROLES[c.roles?.[S.user.uid]]?.label || ""} · ${c.members.length} ${c.members.length === 1 ? "persona" : "personas"}</small></span>
