@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.6.11", items: ["Vehículo abierto: manda el último que abriste. Si lo abriste en el calendario, al ir a Vehículos queda ese; si después abrís otro en Vehículos, el calendario ya no reabre el anterior."] },
   { v: "4.6.10", items: ["Calendario: con un vehículo abierto sigue el buscador, con la flecha para volver a su izquierda."] },
   { v: "4.6.9", items: ["Logo nuevo con martillo y varilla en toda la app: intro, ingreso, modo claro y oscuro, ícono instalado, pestaña, vista previa de links y la animación del auto."] },
   { v: "4.6.8", items: ["Calendario: el día elegido se marca solo con el borde y el número, sin fondo de color."] },

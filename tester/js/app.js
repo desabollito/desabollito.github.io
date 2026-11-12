@@ -123,7 +123,7 @@ function render({ conservarScroll = false, reabrir = false, reabrirCal = false }
   const nuevaClave = claveScroll(hit[1], arg);
   // Computadora: al volver a Vehículos desde otra sección, se reabre el último vehículo (y en el calendario, el que estaba abierto ahí: cada uno el suyo)
   const previaEnCal = previa.nombre === "vehiculos" && previa.arg && S.volverA === "#/calendario";
-  if (nuevaClave === "calendario" && previaEnCal) S.ultimoVidCal = null;   // lo cerró con la flecha
+  if (nuevaClave === "calendario" && previaEnCal) { S.ultimoVidCal = null; S.ultimoVid = null; }   // lo cerró con la flecha
   else if (nuevaClave === "calendario" && esAncho() && S.ultimoVidCal && previa.nombre && previa.nombre !== "calendario" && getVehiculo(S.ultimoVidCal)) {
     history.replaceState(null, "", `#/v/${S.ultimoVidCal}`);
     return render({ reabrirCal: true });
@@ -162,7 +162,8 @@ function render({ conservarScroll = false, reabrir = false, reabrirCal = false }
   const panel = eraCal && esAncho() && $(".cal-page > :first-child", view);
   if (panel && !mismaRuta) panel.classList.add("anim-fade");
   else if (!mismaRuta && !reabrir) animarCambio(previa, ruta);
-  if (hit[1] === "vehiculos" && arg) S.volverA === "#/calendario" ? S.ultimoVidCal = arg : S.ultimoVid = arg;
+  // Un solo "último vehículo": Vehículos reabre el último abierto (de donde sea); el calendario, solo si ese último se abrió en el calendario
+  if (hit[1] === "vehiculos" && arg) { S.ultimoVid = arg; S.ultimoVidCal = S.volverA === "#/calendario" ? arg : null; }
   // Último vehículo abierto: marcado en la lista y el calendario
   const marcar = () => { if (!S.ultimoVid) return null;
     const el = $(`a[href="#/v/${S.ultimoVid}"]`, view); el?.classList.add("sel"); return el; };
