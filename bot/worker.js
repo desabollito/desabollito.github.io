@@ -2653,13 +2653,18 @@ async function asegurarWebhookClientes(env) {
 }
 const WORKER_URL = "https://desabollito-bot.desabollito.workers.dev";
 // Responder desde la app: el creador o quien él habilitó para Mensajes y turnos, miembro de ese operativo
-async function responderCliente(env, { idToken, cid, tel, texto, por }) {
+async function responderCliente(env, { idToken, cid, tel, texto, por, vid }) {
   if (!(await soloCreador(env, idToken))) {
     const [m, cfg] = await Promise.all([miembroDe(env, idToken, cid), fsGet(env, "config/app").catch(() => null)]);
     if (!m || !(cfg?.usanClientes || []).includes(m.uid)) return json({ ok: false, error: "No autorizado" }, 403);
   }
   if (!idValido(cid) || !/^549\d{10}$/.test(String(tel || "")) || typeof texto !== "string" || !texto.trim() || texto.length > 2000) return json({ ok: false, error: "Datos inválidos" }, 400);
-  const idx = await fsGet(env, `chat_idx/${tel}`).catch(() => null);
+  // Chat que ya existe en este operativo, o uno nuevo desde un vehículo (el número tiene que ser el de ese vehículo)
+  let idx = await fsGet(env, `chat_idx/${tel}`).catch(() => null);
+  if (idx?.cid !== cid && idValido(vid)) {
+    const vv = await fsGet(env, `companies/${cid}/vehicles/${vid}`).catch(() => null);
+    if (vv && !vv.deleted && telefonoAR(vv.telefono) === tel) idx = { cid, vid };
+  }
   if (idx?.cid !== cid) return json({ ok: false, error: "No encontré ese chat en este operativo" }, 404);
   if (await estadoEvolution(env, instanciaClientes(env)) !== "open") return json({ ok: false, error: "El número de la empresa no está conectado" });
   const r = await enviarEvolution(env, `evo:${tel}`, { type: "text", text: { body: texto.trim() }, _inst: instanciaClientes(env) });

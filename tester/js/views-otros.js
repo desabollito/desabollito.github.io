@@ -1271,7 +1271,29 @@ function chatsClientes() {
   s.body.addEventListener("click", e => { const b = e.target.closest("[data-tel]"); if (b) abrirChat(cid, b.dataset.tel, pintar); });
 }
 
-function abrirChat(cid, tel, alCerrar) {
+// Teléfono del vehículo → número de WhatsApp (549 + área + número), igual que telefonoAR del bot
+export function telWa(t) {
+  let d = String(t || "").replace(/\D/g, "");
+  if (d.startsWith("549")) d = d.slice(3); else if (d.startsWith("54")) d = d.slice(2);
+  d = d.replace(/^0/, "");
+  if (d.length === 12) for (const a of [2, 3, 4]) if (d.slice(a, a + 2) === "15") { d = d.slice(0, a) + d.slice(a + 2); break; }
+  if (d.length === 8) d = "11" + d;
+  return d.length === 10 ? "549" + d : null;
+}
+console.assert(telWa("351 15 123-4567") === "5493511234567" && telWa("11 3770 9755") === "5491137709755" && telWa("123") === null, "telWa");
+// Chat en vivo desde un vehículo (Contactar)
+export function abrirChatDe(v) {
+  const tel = telWa(v.telefono);
+  if (!tel) return toast("El teléfono no parece un celular válido", "error");
+  abrirChat(S.company.id, tel, null, v);
+}
+// Avisar el turno por el chat en vivo (el mismo mensaje de Mensajes y turnos)
+export function avisarTurnoChat(v, fecha) {
+  const texto = textoWa(TXT_TURNO, { ...v, fechas: { ...v.fechas, turnado: fecha }, horaTurno: "" });
+  return llamarAdmin("enviar-cliente", { cid: S.company.id, vid: v.id, texto, por: S.profile?.name || "" });
+}
+
+function abrirChat(cid, tel, alCerrar, v = null) {
   let c = null, enviando = false;
   const s = openSheet({ title: "Chat", onClose: () => { unsub(); alCerrar?.(); }, body: `<div class="chat">
       <div class="chat-msgs" id="chat-msgs"><div class="skeleton" style="height:60px"></div></div>
@@ -1287,7 +1309,9 @@ function abrirChat(cid, tel, alCerrar) {
     if (abajo || !caja.dataset.listo) { caja.scrollTop = caja.scrollHeight; caja.dataset.listo = "1"; }
     try { localStorage.setItem(claveVisto(tel), String(c.t || Date.now())); } catch { /* sin almacenamiento */ }
   };
-  const unsub = onSnapshot(doc(db, "companies", cid, "chats", tel), d => { c = d.exists() ? { tel, ...d.data() } : null; pintar(); }, () => {});
+  // Sin mensajes todavía (abierto desde un vehículo): se muestra con los datos del vehículo
+  const vacio = v ? { tel, vid: v.id, patente: v.patente, nombre: v.asegurado, modelo: v.modelo, msgs: [] } : null;
+  const unsub = onSnapshot(doc(db, "companies", cid, "chats", tel), d => { c = d.exists() ? { tel, ...d.data() } : vacio; pintar(); }, () => { c = vacio; pintar(); });
   // Enter manda, Shift+Enter baja de línea; el campo crece con el texto
   ta.addEventListener("input", () => { ta.style.height = "auto"; ta.style.height = Math.min(ta.scrollHeight, 140) + "px"; });
   ta.addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey && !matchMedia("(pointer: coarse)").matches) { e.preventDefault(); form.requestSubmit(); } });
@@ -1295,7 +1319,7 @@ function abrirChat(cid, tel, alCerrar) {
     e.preventDefault();
     const texto = ta.value.trim(); if (!texto || enviando) return;
     enviando = true; const b = $(".chat-enviar", form); b.disabled = true;
-    const j = await llamarBot("responder-cliente", { cid, tel, texto, por: S.profile?.name || "" });
+    const j = await llamarBot("responder-cliente", { cid, tel, texto, por: S.profile?.name || "", vid: c?.vid || v?.id });
     enviando = false; b.disabled = false;
     if (!j.ok) return toast(j.error || "No se pudo enviar", "error");
     ta.value = ""; ta.style.height = "auto";

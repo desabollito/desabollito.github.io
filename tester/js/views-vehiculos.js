@@ -4,7 +4,7 @@ import {
   S, activos, getVehiculo, guardarVehiculo, actualizarVehiculo, cambiarEstado, moverAPapelera,
   solicitarEliminacion, cargadoPor, esDeWhatsApp, puedoEditar, esMioV, crearSolicitud, yaPedi,
   nuevoIdVehiculo, soyAdmin, mensajeError, deshaciblesDe, deshacerCambio, aseguradoDePadron,
-  soyDesmontaje, agregarDesmontaje, elegirDesmontador, borrarMedia, soyLector, linkVehiculo, soloVer, soySacabollos
+  soyDesmontaje, agregarDesmontaje, elegirDesmontador, borrarMedia, soyLector, linkVehiculo, soloVer, soySacabollos, usaClientes
 } from "./data.js";
 import { ESTADOS, ESTADO, SECUENCIA, PASO_REP, PIEZA, ORDEN_PIEZAS, estadoActual, esAnulado, piezasMarcadas } from "./domain.js";
 import {
@@ -16,6 +16,7 @@ import { subir, comprimir, borrarConToken, thumb, grande, cloudinaryListo, esVid
 import { presupuestoPDF, nombreArchivo, tablaPDF } from "./pdf.js";
 import { armarZip } from "./zip.js";
 import { setTopbar, go, esAncho } from "./shell.js";
+import { abrirChatDe, avisarTurnoChat } from "./views-otros.js";
 
 // Filtros de la lista (se conservan al navegar)
 const F = { estado: new Set(), q: "", mios: false, sinAnul: false, orden: "fecha", dir: -1, grado: new Set(), repuestos: new Set(), pintura: new Set(), turno: new Set(), cliente: new Set(), cargado: new Set(), cias: new Set() }; // cada filtro: Set vacío = todos (se pueden marcar varias opciones de cada uno); grado 0 = sin grado
@@ -566,7 +567,8 @@ export function renderDetalle(root, v, embebido) {
       ${v.telefono ? `<div class="d-contacto">
         <button class="btn btn-ghost" data-act="contactar" aria-haspopup="true" aria-expanded="false">${icon("phone")}Contactar</button>
         <div class="d-menu" hidden>
-          <a ${soySacabollos() ? `role="button"` : `href="${waLink(v.telefono, soyLector() ? "" : mensajeWa(v))}" target="_blank" rel="noopener"`}>${icon("chat")}WhatsApp</a>   <!-- Sacabollos: se puede tocar pero no hace nada -->
+          ${usaClientes() && !soyLector() ? `<a role="button" data-act="chat">${icon("chat")}Chat en vivo</a>` : ""}
+          <a ${soySacabollos() ? `role="button"` : `href="${waLink(v.telefono, soyLector() ? "" : mensajeWa(v))}" target="_blank" rel="noopener"`}>${icon("share")}Contactar por privado</a>   <!-- Sacabollos: se puede tocar pero no hace nada -->
           <a ${soySacabollos() ? `role="button"` : `href="tel:${esc(v.telefono)}"`}>${icon("phone")}Llamar</a>
         </div></div>` : ""}
       ${embebido && !soloVer ? `<a class="btn btn-ghost btn-icon" href="#/editar/${v.id}" aria-label="Editar" title="Editar">${icon("edit")}</a>` : ""}
@@ -780,6 +782,7 @@ ${[...PASO_REP, "facturado"].includes(est) && !soyLector() && (soyAdmin() || soy
     if (act === "pdf") return compartir(v);
     if (act === "galeria") return visor(v.fotos, 0, v);
     if (act === "firma") return firmar(v);
+    if (act === "chat") return abrirChatDe(v);
     if (act === "contactar") {
       const m = $(".d-menu", root), abrir = m.hidden;
       const btn = t.closest("[data-act]");
@@ -1154,6 +1157,7 @@ function fechasReparacion(v) {
   };
 }
 
+const telWaOk = v => /\d{8}/.test(String(v.telefono || "").replace(/\D/g, ""));
 function elegirFechaEstado(v, estado) {
   const e = ESTADO[estado];
   const s = openSheet({
@@ -1161,24 +1165,26 @@ function elegirFechaEstado(v, estado) {
     body: `<form class="stack">
       <label class="field"><span>${estado === "turnado" ? "Fecha del turno" : "Fecha"}</span>
         <input type="date" name="f" value="${v.fechas?.[estado] || hoyISO()}" required></label>
-      ${estado === "turnado" ? `<div class="turno-hora">
-        <button type="button" class="link-btn" id="t-hora-btn" ${v.horaTurno ? "hidden" : ""}>${icon("clock")}Agregar horario del turno (opcional)</button>
-        <label class="field" id="t-hora" ${v.horaTurno ? "" : "hidden"}><span>Horario del turno</span>
-          <input type="time" name="h" value="${esc(v.horaTurno || "")}"></label></div>` : ""}
       ${estado === "turnado" ? `<div class="turno-conf"><span>¿El cliente confirmó el turno?</span>
         <button type="button" class="switch ${v.turnoConfirmado === true ? "on" : ""}" id="t-conf" role="switch" aria-checked="${v.turnoConfirmado === true}">
+          <span class="sw-txt sw-si">Sí</span><span class="sw-txt sw-no">No</span><i class="sw-bola"></i></button></div>` : ""}
+      ${estado === "turnado" && usaClientes() && telWaOk(v) ? `<div class="turno-conf"><span>Avisar el turno por chat en vivo</span>
+        <button type="button" class="switch" id="t-avisar" role="switch" aria-checked="false">
           <span class="sw-txt sw-si">Sí</span><span class="sw-txt sw-no">No</span><i class="sw-bola"></i></button></div>` : ""}
       <button class="btn btn-primary btn-block" style="--btn:${e.color}">Guardar</button></form>`
   });
   let confirmado = v.turnoConfirmado === true;
-  $("#t-hora-btn", s.el)?.addEventListener("click", e => { e.currentTarget.hidden = true; $("#t-hora", s.el).hidden = false; $("#t-hora input", s.el).focus(); });
+  let avisar = false;
+  $("#t-avisar", s.el)?.addEventListener("click", e => { avisar = !avisar; e.currentTarget.classList.toggle("on", avisar); e.currentTarget.setAttribute("aria-checked", avisar); });
   $("#t-conf", s.el)?.addEventListener("click", e => {
     confirmado = !confirmado;
     e.currentTarget.classList.toggle("on", confirmado); e.currentTarget.setAttribute("aria-checked", confirmado);
   });
   $("form", s.el).onsubmit = ev => {
     ev.preventDefault();
-    cambiarEstado(v, estado, ev.target.f.value, estado === "turnado" ? { turnoConfirmado: confirmado, horaTurno: ev.target.h?.value || "" } : {}).catch(err => toast(mensajeError(err), "error"));
+    const fecha = ev.target.f.value;
+    cambiarEstado(v, estado, fecha, estado === "turnado" ? { turnoConfirmado: confirmado } : {}).catch(err => toast(mensajeError(err), "error"));
+    if (avisar) avisarTurnoChat(getVehiculo(v.id) || v, fecha).then(() => toast("Turno avisado por chat", "success")).catch(err => toast(err.message || mensajeError(err), "error"));
     toast(`${e.label} · ${fechaCorta(ev.target.f.value)}`, "success");
     s.close();
 
