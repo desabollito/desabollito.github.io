@@ -3350,6 +3350,7 @@ async function abrirParaGrupo(env, m, s) {
 // Al terminar cada deploy de la app (lo llama un workflow de GitHub): avisa al creador "✅ 2.45.34".
 // Lee la versión publicada en la web y avisa una sola vez por versión.
 async function avisoVersion(env) {
+  await avisoTester(env).catch(e => console.error("aviso tester", e));
   const r = await fetch(`${APP_URL}/js/config.js?t=${Date.now()}`, { cf: { cacheTtl: 0 } });
   const v = r.ok ? ((await r.text()).match(/APP_VERSION\s*=\s*"([^"]+)"/) || [])[1] : "";
   if (!v) return json({ ok: false, error: "Sin versión" });
@@ -3358,6 +3359,20 @@ async function avisoVersion(env) {
   await fsSet(env, "bot_meta/deploy", { version: v, fecha: new Date().toISOString() });
   await enviar(env, destinoNumero(env, numeroAdmin(env)), { type: "text", text: { body: `✅ ${v}` } });
   return json({ ok: true, version: v, avisado: true });
+}
+
+// Versión nueva del tester: al creador le llega la versión con sus novedades (las saca de tester/js/novedades.js), una sola vez por versión
+async function avisoTester(env) {
+  const leer = async f => { const r = await fetch(`${APP_URL}/tester/js/${f}?t=${Date.now()}`, { cf: { cacheTtl: 0 } }); return r.ok ? r.text() : ""; };
+  const v = ((await leer("config.js")).match(/APP_VERSION\s*=\s*"([^"]+)"/) || [])[1];
+  if (!v) return;
+  const prev = await fsGet(env, "bot_meta/deployTester").catch(() => null);
+  if (prev?.version === v) return;
+  await fsSet(env, "bot_meta/deployTester", { version: v, fecha: new Date().toISOString() });
+  // La entrada de esa versión: { v: "x", items: ["…", …] } (los textos van entre comillas dobles, sin comillas adentro)
+  const entrada = (await leer("novedades.js")).split(/\{\s*v:\s*"/).find(b => b.startsWith(v + '"')) || "";
+  const items = [...entrada.matchAll(/"((?:[^"\\]|\\.)*)"/g)].map(m => m[1]).slice(1);
+  await enviar(env, destinoNumero(env, numeroAdmin(env)), { type: "text", text: { body: `🧪 Tester ${v} listo\n\n${items.map(i => `• ${i}`).join("\n")}`.slice(0, 3900) } });
 }
 
 // ── Eliminar un operativo: solo con confirmación del creador por WhatsApp ──

@@ -162,7 +162,7 @@ function exportarPDF() {
     const filas = vs.flatMap(v => { const cols = tipos.map(tp => items(v, tp)), n = Math.max(1, ...cols.map(c => c.length));
       return Array.from({ length: n }, (_, i) => [i ? "" : v.modelo || "", i ? "" : v.patente || "", ...cols.map(c => c[i] || "")]); });
     tablaPDF(S.company, t, [{ titulo: "Vehículo", ancho: 60 }, { titulo: "Patente", ancho: 28 }, ...tipos.map(tp => ({ titulo: tp === "pintura" ? "Pintura" : "Repuestos", ancho: 90 }))], filas)
-      .save(`${t.replace(/s+/g, "_")}_${hoyISO()}.pdf`);
+      .save(`${t.replace(/\s+/g, "_")}_${hoyISO()}.pdf`);
     s.close();
   });
 }
