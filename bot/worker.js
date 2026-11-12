@@ -49,7 +49,7 @@ export default {
       "/compartir": compartirApi, "/compartido": compartidoApi, "/aviso-planilla": avisoPlanilla,
       "/aviso-version": avisoVersion, "/pedir-borrar-operativo": pedirBorrarOperativo,
       "/recuperar": recuperarApi, "/restablecer": restablecerApi, "/usuarios-app": usuariosAppApi, "/codigo-wa": codigoWaApi, "/foto-wa": fotoWaApi,
-      "/admin/resumen-ahora": async (env, { idToken, forzar }) => (await soloCreador(env, idToken)) ? json({ ok: true, enviados: await enviarResumenesDiarios(env, forzar) }) : json({ ok: false }, 403) };
+      "/admin/resumen-ahora": async (env, { idToken, forzar }) => (await soloCreador(env, idToken)) ? json({ ok: true, enviados: await enviarDiarios(env, "resumen", forzar) }) : json({ ok: false }, 403) };
     if (API[url.pathname]) {
       if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
       if (req.method !== "POST") return json({ ok: false, error: "Método no permitido" }, 405);
@@ -106,11 +106,14 @@ export default {
   // Cada hora: vacía la papelera (vehículos borrados hace más de 48 hs, con sus fotos en Cloudinary)
   async scheduled(ev, env, ctx) {
     // 23:00 UTC = 20:00 Argentina: resumen diario
-    if (ev.cron === "0 23 * * *") return ctx.waitUntil(enviarResumenesDiarios(env).catch(e => console.error("resumen", e?.stack || e)));
+    if (ev.cron === "0 23 * * *") return ctx.waitUntil(enviarDiarios(env, "resumen").catch(e => console.error("resumen", e?.stack || e)));
+    // 10:00 UTC = 07:00 Argentina: turnos del día
+    if (ev.cron === "0 10 * * *") return ctx.waitUntil(enviarDiarios(env, "turnos").catch(e => console.error("turnos", e?.stack || e)));
     ctx.waitUntil(vaciarPapelera(env).catch(e => console.error("papelera", e?.stack || e)));
-    // Respaldo: si a las 20 no salió el resumen, sale en la pasada siguiente (hasta las 23)
+    // Respaldo: si no salió a horario, sale en la pasada siguiente (resumen hasta las 23, turnos hasta las 10)
     const horaAR = new Date(Date.now() - 3 * 3600 * 1000).getUTCHours();
-    if (horaAR >= 20 && horaAR <= 23) ctx.waitUntil(enviarResumenesDiarios(env).catch(e => console.error("resumen", e?.stack || e)));
+    if (horaAR >= 20 && horaAR <= 23) ctx.waitUntil(enviarDiarios(env, "resumen").catch(e => console.error("resumen", e?.stack || e)));
+    if (horaAR >= 7 && horaAR <= 10) ctx.waitUntil(enviarDiarios(env, "turnos").catch(e => console.error("turnos", e?.stack || e)));
   }
 };
 
@@ -744,7 +747,7 @@ async function alRecibirTexto(env, m, quien, texto) {
   const hora = horaDe(m);
   const s = await leerSesion(env, numero);
 
-  // "!resumendiario": este chat recibe todos los días a las 20 hs el resumen de los peritados del día
+  // "!resumen" (20 hs) y "!turnos" (07 hs): resúmenes diarios del chat
   // "!operativo" en un grupo: asigna un operativo al grupo (todo lo que se cargue ahí va a ese operativo)
   // "!pintura": explica cómo se cargan las fotos de pintura
   if (/^!\s*pintura\s*$/i.test(String(texto).trim())) return responder(env, dest(m), AYUDA_PINTURA);
@@ -756,9 +759,10 @@ async function alRecibirTexto(env, m, quien, texto) {
   if (quien.grupoDesm && (/^!\s*ayuda\s*$/i.test(texto) || (mencion && esAyuda(sinMencion)))) return responder(env, dest(m), AYUDA_DESM);
   if (grupo && s?.grupoOpMenu?.t && Date.now() - s.grupoOpMenu.t < 10 * 60_000 && s.grupoOpMenu.to === dest(m) && /^\s*\d{1,2}\s*$/.test(texto))
     return elegirOperativoGrupo(env, m, quien, Number(texto.trim()), s.grupoOpMenu);
-  const cmdRes = String(texto).trim().match(/^!\s*resumen\s*diario\b\s*(.*)$/i);
-  if (cmdRes) return comandoResumenDiario(env, m, quien, cmdRes[1]);
-  // Respuesta al menú del resumen diario: "1", "1,3", "T" (todos) o "0" (apagar)
+  // "!resumen" / "!turnos": lo manda ahora · "setup": menú de operativos · "on" / "off"
+  const cmdRes = String(texto).trim().match(/^!\s*(resumen|turnos)(?:\s*diario)?\b\s*(.*)$/i);
+  if (cmdRes) return comandoDiario(env, m, quien, cmdRes[1].toLowerCase(), cmdRes[2]);
+  // Respuesta al menú del resumen / turnos: "1", "1,3", "T" (todos) o "0" (apagar)
   if (s?.resumenMenu?.t && Date.now() - s.resumenMenu.t < 10 * 60_000 && s.resumenMenu.to === dest(m) && /^\s*(t|todos|0|\d+(\s*(,|y|-|\s)\s*\d+)*)\s*$/i.test(texto))
     return elegirResumenDiario(env, m, quien, texto, s.resumenMenu);
 
@@ -976,7 +980,7 @@ async function alRecibirTexto(env, m, quien, texto) {
   if ((s?.tanda?.length && (grupo ? esCierreGrupo(texto) : esCierre(texto))) || (!grupo && fotosDelActual > 0)) {
     // El OK de quien lo abrió también cierra el vehículo compartido del grupo
     if (grupo) { const g = await grupoAbierto(env, m); if (g?.por === numero) await fsDelete(env, `bot_grupos/${idGrupo(m)}`); }
-    // Sin resumen: el OK solo cierra la tanda (el resumen del día llega a las 20 hs con !resumendiario)
+    // Sin resumen: el OK solo cierra la tanda (el resumen del día llega a las 20 hs con !resumen)
     await resumenDeTanda(env, numero, s, hora);
     return tilde(env, m);
   }
@@ -2650,79 +2654,109 @@ async function soloCreador(env, idToken) {
 
 // Mover un vehículo a otro operativo (copia exacta y borra el original, en una sola operación).
 // Puede quien lo cargó o un administrador del operativo de origen, si también es miembro del destino.
-// ── Resumen diario (20 hs Argentina) ─────────────────────────
+// ── Resumen diario (20 hs) y turnos del día (07 hs), hora Argentina ──
 // Se guarda en bot_resumen/{chat}: a dónde mandarlo y de quién son los operativos.
-// "!resumendiario" → menú: elegir uno, varios o todos los operativos, o apagarlo en este chat
-async function comandoResumenDiario(env, m, quien, arg) {
-  const id = String(dest(m)).replace(/[^A-Za-z0-9_-]/g, "_");
-  if (/^(off|no|parar|stop|cancelar|baja|apagar)$/i.test(String(arg || "").trim())) {
-    await fsDelete(env, `bot_resumen/${id}`);
-    return responder(env, dest(m), "🔕 Listo, no mando más el resumen diario a este chat.");
+// resumen → todos/cids; turnos → turnosTodos/turnosCids (si no están, usa los del resumen).
+// Apagados con resumen:false / turnos:false; sin el campo = prendido (los chats que ya tenían resumen reciben turnos).
+const DIARIO = { resumen: { nombre: "el resumen diario", hora: "20:00", ultimo: "ultimo" }, turnos: { nombre: "los turnos del día", hora: "07:00", ultimo: "ultimoTurnos" } };
+const cfgDiario = (r, tipo) => tipo === "turnos" ? { todos: r.turnosTodos ?? r.todos, cids: r.turnosCids ?? r.cids } : r;
+const hoyAR = () => new Date(Date.now() - 3 * 3600 * 1000).toISOString().slice(0, 10);
+async function comandoDiario(env, m, quien, tipo, arg) {
+  const id = String(dest(m)).replace(/[^A-Za-z0-9_-]/g, "_"), d = DIARIO[tipo];
+  const a = String(arg || "").trim().toLowerCase();
+  const actual = await fsGet(env, `bot_resumen/${id}`).catch(() => null);
+  if (/^(off|no|parar|stop|cancelar|baja|apagar)$/.test(a)) {
+    if (actual) await fsMerge(env, `bot_resumen/${id}`, { [tipo]: false });
+    return responder(env, dest(m), `🔕 Listo, no mando más ${d.nombre} a este chat.`);
   }
   if (!quien.uid) return responder(env, dest(m), "Primero vinculá tu número con la app.");
+  if (/^(on|si|sí|activar|prender)$/.test(a) && actual?.uid) {
+    await fsMerge(env, `bot_resumen/${id}`, { [tipo]: true });
+    return responder(env, dest(m), `✅ Listo: todos los días a las *${d.hora}* mando acá ${d.nombre}.`);
+  }
+  if (!a) {   // "!resumen" / "!turnos" solos: lo manda ahora, con los operativos de este chat (o todos)
+    const cfg = actual ? cfgDiario(actual, tipo) : { todos: true };
+    return responder(env, dest(m), await (tipo === "turnos" ? textoTurnosDiario : textoResumenDiario)(env, quien.uid, hoyAR(), cfg));
+  }
+  // "setup" (o "on" sin configurar): menú de operativos
   const ops = await listaOperativos(env, quien.uid);
   if (!ops.length) return responder(env, dest(m), "No estás en ningún operativo.");
-  const actual = await fsGet(env, `bot_resumen/${id}`).catch(() => null);
-  const estado = !actual ? "Ahora está *apagado*." : actual.todos ? "Ahora manda *todos* los operativos."
-    : `Ahora manda: *${ops.filter(o => (actual.cids || []).includes(o.cid)).map(o => o.operativo).join(", ") || "—"}*.`;
-  await fsMerge(env, `bot_sesiones/${quien.numero}`, { resumenMenu: { t: Date.now(), to: dest(m), ops }, ts: Date.now() });
-  return responder(env, dest(m), `🗓️ *Resumen diario (20:00)*\n${estado}\n\n¿Qué operativos mando en este chat?\n\n` +
+  const c = actual && cfgDiario(actual, tipo);
+  const estado = !actual?.uid || actual[tipo] === false ? "Ahora está *apagado*." : c.todos ? "Ahora manda *todos* los operativos."
+    : `Ahora manda: *${ops.filter(o => (c.cids || []).includes(o.cid)).map(o => o.operativo).join(", ") || "—"}*.`;
+  await fsMerge(env, `bot_sesiones/${quien.numero}`, { resumenMenu: { t: Date.now(), to: dest(m), ops, tipo, nuevo: !actual?.uid }, ts: Date.now() });
+  return responder(env, dest(m), `🗓️ *${tipo === "turnos" ? "Turnos del día" : "Resumen diario"} (${d.hora})*\n${estado}\n\n¿Qué operativos mando en este chat?\n\n` +
     ops.map((o, i) => `${i + 1}. ${o.operativo}`).join("\n") +
     `\n\n*T.* Todos\n*0.* Apagar\n\nRespondé con un número, varios separados por coma (ej: 1,3), *T* o *0*.`);
 }
 async function elegirResumenDiario(env, m, quien, texto, menu) {
-  const id = String(menu.to).replace(/[^A-Za-z0-9_-]/g, "_");
+  const id = String(menu.to).replace(/[^A-Za-z0-9_-]/g, "_"), tipo = menu.tipo || "resumen", d = DIARIO[tipo];
   await fsMerge(env, `bot_sesiones/${quien.numero}`, { resumenMenu: null }).catch(() => {});
   const t = texto.trim().toLowerCase();
-  if (t === "0") { await fsDelete(env, `bot_resumen/${id}`); return responder(env, dest(m), "🔕 Resumen diario apagado en este chat."); }
+  if (t === "0") { await fsMerge(env, `bot_resumen/${id}`, { [tipo]: false }); return responder(env, dest(m), `🔕 Listo, apagué ${d.nombre} en este chat.`); }
   const ops = menu.ops || [];
-  if (/^t/.test(t)) {
-    await fsSet(env, `bot_resumen/${id}`, { to: menu.to, uid: quien.uid, por: quien.nombre || "", todos: true, cids: [], t: Date.now() });
-    return responder(env, dest(m), `✅ Listo: todos los días a las *20:00* mando acá el resumen de *todos* tus operativos.`);
-  }
-  const elegidos = [...new Set(t.match(/\d+/g).map(Number))].map(n => ops[n - 1]).filter(Boolean);
-  if (!elegidos.length) return responder(env, dest(m), `Elegí números del 1 al ${ops.length}. Mandá *!resumendiario* de nuevo.`);
-  await fsSet(env, `bot_resumen/${id}`, { to: menu.to, uid: quien.uid, por: quien.nombre || "", todos: false, cids: elegidos.map(o => o.cid), t: Date.now() });
-  return responder(env, dest(m), `✅ Listo: todos los días a las *20:00* mando acá el resumen de *${elegidos.map(o => o.operativo).join(", ")}*.`);
+  const elegidos = /^t/.test(t) ? null : [...new Set(t.match(/\d+/g).map(Number))].map(n => ops[n - 1]).filter(Boolean);
+  if (elegidos && !elegidos.length) return responder(env, dest(m), `Elegí números del 1 al ${ops.length}. Mandá *!${tipo} setup* de nuevo.`);
+  const [kTodos, kCids] = tipo === "turnos" ? ["turnosTodos", "turnosCids"] : ["todos", "cids"];
+  // Chat nuevo configurado desde !turnos: no prende el resumen solo
+  const otro = menu.nuevo && tipo === "turnos" ? { resumen: false } : {};
+  await fsMerge(env, `bot_resumen/${id}`, { to: menu.to, uid: quien.uid, por: quien.nombre || "", [kTodos]: !elegidos, [kCids]: (elegidos || []).map(o => o.cid), [tipo]: true, ...otro, t: Date.now() });
+  return responder(env, dest(m), `✅ Listo: todos los días a las *${d.hora}* mando acá ${d.nombre} de *${elegidos ? elegidos.map(o => o.operativo).join(", ") : "todos tus operativos"}*.`);
 }
 const fechaCortaAR = iso => iso.split("-").reverse().slice(0, 2).join("/");
+const okDiario = v => !v.deleted && !["anular", "anulado"].includes(v.estado) && !v.fechas?.anulado;
 async function textoResumenDiario(env, uid, hoy, cfg = { todos: true }) {
   const ops = (await listaOperativos(env, uid, { cargar: false })).filter(o => cfg.todos !== false || (cfg.cids || []).includes(o.cid));
   const bloques = [];
   let total = 0, totalEnt = 0;
-  const ok = v => !v.deleted && !["anular", "anulado"].includes(v.estado) && !v.fechas?.anulado;
   for (const o of ops) {
     const [vs, ent] = await Promise.all([
       fsQuery(env, `companies/${o.cid}`, "vehicles", { field: "fechas.peritado", op: "EQUAL", value: hoy }, 300).catch(() => []),
       fsQuery(env, `companies/${o.cid}`, "vehicles", { field: "fechas.entregado", op: "EQUAL", value: hoy }, 300).catch(() => [])]);
-    const per = vs.filter(ok), nEnt = ent.filter(ok).length;
-    if (!per.length && !nEnt) continue;
-    total += per.length; totalEnt += nEnt;
-    per.sort((a, b) => String(a.horas?.peritado || "99").localeCompare(String(b.horas?.peritado || "99")));
-    const linea = v => [v.modelo || "Sin modelo", v.patente, ciaCorta(v.compania)].filter(Boolean).map(x => "`" + x + "`").join(" ");
-    bloques.push(`*${o.operativo}* · ${per.length} ${per.length === 1 ? "peritado" : "peritados"} · ${nEnt} ${nEnt === 1 ? "entregado" : "entregados"}` +
-      (per.length ? "\n\n" + per.map(linea).join("\n\n") : ""));
+    const nPer = vs.filter(okDiario).length, nEnt = ent.filter(okDiario).length;
+    if (!nPer && !nEnt) continue;
+    total += nPer; totalEnt += nEnt;
+    bloques.push(`*${o.operativo}* · ${nPer} ${nPer === 1 ? "peritado" : "peritados"} · ${nEnt} ${nEnt === 1 ? "entregado" : "entregados"}`);
   }
   const tit = `📋 *Resumen del día · ${fechaCortaAR(hoy)}*`;
   if (!total && !totalEnt) return `${tit}\n\nHoy no se peritaron ni se entregaron vehículos.`;
-  return `${tit}\nPeritados: *${total}* · Entregados: *${totalEnt}*\n\n` + bloques.join("\n\n━━━━━━━━━━\n\n");
+  return `${tit}\nPeritados: *${total}* · Entregados: *${totalEnt}*\n\n` + bloques.join("\n");
 }
-async function enviarResumenesDiarios(env, forzar = false) {
-  const hoy = new Date(Date.now() - 3 * 3600 * 1000).toISOString().slice(0, 10);
+// Turnos del día: auto y patente; precio y detalles adicionales solo si tienen
+async function textoTurnosDiario(env, uid, hoy, cfg = { todos: true }) {
+  const ops = (await listaOperativos(env, uid, { cargar: false })).filter(o => cfg.todos !== false || (cfg.cids || []).includes(o.cid));
+  const bloques = [];
+  let total = 0;
+  const linea = v => [[v.modelo || "Sin modelo", v.patente].filter(Boolean).map(x => "`" + x + "`").join(" "),
+    v.precio ? `💲 $${Number(v.precio).toLocaleString("es-AR")}` : "",
+    String(v.observaciones || "").trim() ? `📝 ${String(v.observaciones).trim()}` : ""].filter(Boolean).join("\n");
+  for (const o of ops) {
+    const vs = (await fsQuery(env, `companies/${o.cid}`, "vehicles", { field: "fechas.turnado", op: "EQUAL", value: hoy }, 300).catch(() => [])).filter(okDiario);
+    if (!vs.length) continue;
+    total += vs.length;
+    vs.sort((a, b) => String(a.horaTurno || "99").localeCompare(String(b.horaTurno || "99")));
+    bloques.push(`*${o.operativo}* · ${vs.length} ${vs.length === 1 ? "turno" : "turnos"}\n\n` + vs.map(linea).join("\n\n"));
+  }
+  const tit = `📅 *Turnos de hoy · ${fechaCortaAR(hoy)}*`;
+  if (!total) return `${tit}\n\nHoy no hay autos turnados.`;
+  return `${tit}\nTotal: *${total}*\n\n` + bloques.join("\n\n━━━━━━━━━━\n\n");
+}
+async function enviarDiarios(env, tipo, forzar = false) {
+  const hoy = hoyAR(), d = DIARIO[tipo];
   const hechos = [];
   for (const r of await fsList(env, "bot_resumen")) {
-    if (!r.to || !r.uid || (r.ultimo === hoy && !forzar)) continue;
+    if (!r.to || !r.uid || r[tipo] === false || (r[d.ultimo] === hoy && !forzar)) continue;
     try {
-      const res = await responder(env, r.to, await textoResumenDiario(env, r.uid, hoy, r));
+      const res = await responder(env, r.to, await (tipo === "turnos" ? textoTurnosDiario : textoResumenDiario)(env, r.uid, hoy, cfgDiario(r, tipo)));
       if (res && res.ok === false) throw new Error("envío rechazado " + res.status);
-      await fsMerge(env, `bot_resumen/${r.__id}`, { ultimo: hoy });
+      await fsMerge(env, `bot_resumen/${r.__id}`, { [d.ultimo]: hoy });
       hechos.push(r.__id);
     } catch (e) {
-      console.error("resumen diario", r.__id, e?.stack || e);
-      await registrar(env, { ultimoErrorResumen: `${new Date().toISOString()} · ${r.__id} · ${String(e?.message || e).slice(0, 300)}` });
+      console.error(tipo, r.__id, e?.stack || e);
+      await registrar(env, { [tipo === "turnos" ? "ultimoErrorTurnos" : "ultimoErrorResumen"]: `${new Date().toISOString()} · ${r.__id} · ${String(e?.message || e).slice(0, 300)}` });
     }
   }
-  await registrar(env, { ultimoResumen: `${new Date().toISOString()} · ${hechos.length} enviado(s)` });
+  await registrar(env, { [tipo === "turnos" ? "ultimosTurnos" : "ultimoResumen"]: `${new Date().toISOString()} · ${hechos.length} enviado(s)` });
   return hechos;
 }
 
