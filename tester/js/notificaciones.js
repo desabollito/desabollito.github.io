@@ -17,10 +17,10 @@ const visto = () => {
   return typeof v === "number" ? v : Date.now() - 24 * 3600_000;   // la primera vez: lo de las últimas 24 h
 };
 
-// Solo se avisan cambios a los datos del vehículo y fotos nuevas: no la carga, ni los estados,
+// Solo se avisan cambios a los datos del vehículo y fotos nuevas: no la carga, ni los estados, ni el desmontaje,
 // ni las etapas de repuestos y pintura (Pedido, Recibido, Pintado…)
 const ETAPAS_TXT = /: (Sin cargar|Sin pedir|Pedido|Recibido|Colocado|Sin pintar|Turnado|Pintado)$/;
-const avisable = txt => !!txt && !/^(Pasó a|Volvió a|Carg[óo] el veh|Mensaje al cliente)/.test(txt) && !ETAPAS_TXT.test(txt);
+const avisable = txt => !!txt && !/^(Pasó a|Volvió a|Carg[óo] el veh|Mensaje al cliente)/.test(txt) && !/^Carg[óo] .*desmontaje/i.test(txt) && !ETAPAS_TXT.test(txt);   // desmontaje (fotos y notas) no se avisa
 const MIN_CARGA = 30 * 60_000;   // fotos de los primeros 30 min = las de la carga, no se avisan
 // Se recalcula solo cuando llega otra lista de vehículos (cada cambio pedía la lista 2 o 3 veces seguidas)
 let memo = { vs: null, uid: null, t: 0, lista: [] };
@@ -59,17 +59,6 @@ function calcularNotifs() {
       x.t = Math.max(x.t, t); x.n++; docs.set(k, x);
     }
     for (const x of docs.values()) out.push({ ...x, txt: x.n === 1 ? `Agregó el documento “${x.nombre || "sin nombre"}”` : `Agregó ${x.n} documentos` });
-    // Desmontaje: fotos y notas que cargó otro (una línea por persona y tanda)
-    const desm = new Map();
-    for (const f of [...(v.desFotos || []).map(x => ({ ...x, foto: 1 })), ...(v.desNotas || []).map(x => ({ ...x, nota: 1 }))]) {
-      const t = f.t || 0; if (!t || t < desde || f.uid === yo) continue;
-      const k = (f.uid || f.por) + "|" + Math.floor(t / 600_000);
-      const x = desm.get(k) || { ...base, t: 0, por: f.por || "Alguien", fotos: 0, notas: 0 };
-      x.t = Math.max(x.t, t); x.fotos += f.foto || 0; x.notas += f.nota || 0;
-      if (f.foto && f.url && (!x.t0 || t < x.t0)) { x.t0 = t; x.foto = f.url; x.desm = true; }
-      desm.set(k, x);
-    }
-    for (const x of desm.values()) out.push({ ...x, txt: "Cargó desmontaje: " + [x.fotos && `${x.fotos} ${x.fotos === 1 ? "foto" : "fotos"}`, x.notas && `${x.notas} ${x.notas === 1 ? "nota" : "notas"}`].filter(Boolean).join(" y ") });
   }
   return out.sort((a, b) => b.t - a.t).slice(0, MAX);
 }
