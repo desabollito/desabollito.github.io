@@ -2585,7 +2585,9 @@ async function avisarCliente(env, { idToken, cid, vid, por, texto: propio }) {
 }
 
 // Panel del creador: estado y QR del número de la empresa ("clientes"). Si la conexión no existe, la crea; salir = desvincular el número
-async function adminClientesQr(env, { idToken, salir }) {
+async function adminClientesQr(env, { idToken, salir, numero }) {
+  const num = String(numero || "").replace(/\D/g, "");   // con número: WhatsApp da un código para vincular en lugar del QR
+  if (num && !/^\d{10,15}$/.test(num)) return json({ ok: false, error: "Número inválido" }, 400);
   if (!(await soloCreador(env, idToken))) return json({ ok: false, error: "No autorizado" }, 403);
   if (!env.EVOLUTION_URL) return json({ ok: false, error: "Falta EVOLUTION_URL en el bot" });
   const base = String(env.EVOLUTION_URL).replace(/\/+$/, ""), inst = instanciaClientes(env);
@@ -2594,10 +2596,10 @@ async function adminClientesQr(env, { idToken, salir }) {
   const estado = await estadoEvolution(env, inst);
   if (estado === "open") { webhookClientesOk = false; await asegurarWebhookClientes(env).catch(() => {}); return json({ ok: true, estado }); }   // conectado: que le pase al bot las respuestas
   const r = estado === null
-    ? await fetch(`${base}/instance/create`, { method: "POST", headers: h, body: JSON.stringify({ instanceName: inst, integration: "WHATSAPP-BAILEYS", qrcode: true }) })
-    : await fetch(`${base}/instance/connect/${inst}`, { headers: h });
+    ? await fetch(`${base}/instance/create`, { method: "POST", headers: h, body: JSON.stringify({ instanceName: inst, integration: "WHATSAPP-BAILEYS", qrcode: true, ...(num ? { number: num } : {}) }) })
+    : await fetch(`${base}/instance/connect/${inst}${num ? "?number=" + num : ""}`, { headers: h });
   const j = await r.json().catch(() => ({}));
-  return json({ ok: true, estado: estado || "creada", qr: j?.qrcode?.base64 || j?.base64 || "" });
+  return json({ ok: true, estado: estado || "creada", qr: j?.qrcode?.base64 || j?.base64 || "", codigo: num ? (j?.qrcode?.pairingCode || j?.pairingCode || "") : "" });
 }
 
 // Panel del creador: un mensaje a un cliente desde el número de la empresa (envío masivo y turnos; la app los manda de a uno con pausa)

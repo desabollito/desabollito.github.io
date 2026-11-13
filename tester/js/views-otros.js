@@ -924,6 +924,7 @@ export async function panelCreador() {
       <div class="adm-toggles">
         <span><b>Número de la empresa</b> <small class="muted">(conexión «clientes»: avisos, mensajes y turnos)</small><br><small class="muted" id="adm-cli-est">Tocá Conectar para ver el estado.</small></span>
         <span class="row-btns"><button type="button" class="btn btn-ghost btn-sm" id="adm-cli">${icon("phone")}Conectar</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="adm-cli-cod">Con código</button>
           <button type="button" class="btn btn-primary btn-sm" id="adm-masivo">${icon("chat")}Mensajes y turnos</button></span>
         <div id="adm-cli-qr"></div>
       </div>
@@ -1031,15 +1032,19 @@ export async function panelCreador() {
       return openSheet({ title: `Fotos: ${detalle.filter(d => d.foto).length} de ${detalle.length}`, body: `<ul class="adm-list">${detalle.map(d =>
         `<li><div><strong>@${esc(d.usuario)}</strong><small class="${d.foto ? "" : "muted"}">${d.foto ? "✓ " : ""}${esc(d.motivo)}</small></div></li>`).join("")}</ul>` });
     }
-    const cli = e.target.closest("#adm-cli, #adm-cli-salir");
-    if (cli) {   // estado del número de la empresa; sin conectar, muestra el QR (WhatsApp → Dispositivos vinculados)
+    const cli = e.target.closest("#adm-cli, #adm-cli-salir, #adm-cli-cod");
+    if (cli) {   // estado del número de la empresa; sin conectar, muestra el QR o un código (WhatsApp → Dispositivos vinculados)
       const salir = cli.id === "adm-cli-salir";
       if (salir && !(await confirmar({ title: "¿Desvincular el número de la empresa?", message: "Dejan de salir los avisos y mensajes a clientes hasta que vuelvas a escanear el QR.", ok: "Desvincular" }))) return;
+      const numero = cli.id === "adm-cli-cod" ? await pedirTexto({ title: "Vincular con código", label: "Número de la empresa, con código de país", placeholder: "5493515551234", ok: "Pedir código" }) : "";
+      if (numero === null) return;
       busy(cli, true, "…");
       try {
-        const r = await llamarAdmin("clientes-qr", { salir });
-        $("#adm-cli-est", caja).textContent = r.estado === "open" ? "✓ Conectado" : r.qr ? "Escaneá el QR desde WhatsApp → Dispositivos vinculados y tocá Conectar de nuevo." : `Estado: ${r.estado}. Tocá Conectar de nuevo.`;
+        const r = await llamarAdmin("clientes-qr", { salir, numero });
+        $("#adm-cli-est", caja).textContent = r.estado === "open" ? "✓ Conectado" : r.codigo ? "En WhatsApp → Dispositivos vinculados → Vincular → Vincular con número de teléfono, poné este código y tocá Conectar de nuevo."
+          : r.qr ? "Escaneá el QR desde WhatsApp → Dispositivos vinculados y tocá Conectar de nuevo." : `Estado: ${r.estado}. Tocá Conectar de nuevo.`;
         $("#adm-cli-qr", caja).innerHTML = r.estado === "open" ? `<button type="button" class="btn btn-ghost btn-sm danger" id="adm-cli-salir">Desvincular número</button>`
+          : r.codigo ? `<b style="font-size:1.6rem;letter-spacing:.15em;user-select:all">${esc(r.codigo)}</b>`
           : r.qr ? `<img src="${esc(r.qr)}" alt="QR para vincular el número de la empresa" style="width:240px;max-width:100%;background:#fff;border-radius:var(--r);padding:8px">` : "";
       } catch (err) { toast(err.message, "error"); }
       if (cli.isConnected) busy(cli, false);
