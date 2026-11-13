@@ -286,18 +286,18 @@ export function abrirFiltros(alCambiar) {
   const tira = (k, titulo, activo, extra = "") => `<details class="fo-sec fo-plega" data-tira="${k}" ${activo || abiertas.includes(k) ? "open" : ""}><summary><h3>${titulo}</h3>${icon("next")}</summary><div class="fo-seg" id="fo-${k}"></div>${extra}</details>`;
   const hoja = openSheet({ title: "Filtros", body: `<div class="fo">
     ${lector ? "" : `<section class="fo-sec"><h3>Compañías</h3><div class="fo-cias-caja"><div class="fo-seg fo-cias" id="fo-cias"></div></div></section>`}
-    <section class="fo-sec fo-grados"><h3>Grado</h3><div class="fo-seg" id="fo-grado"></div></section>
+    ${tira("grado", "Grado", F.grado.size).replace('class="fo-sec fo-plega"', 'class="fo-sec fo-plega fo-grados"')}
     ${tira("pintura", "Pintura", F.pintura.size)}
     ${tira("repuestos", "Repuestos", F.repuestos.size)}
-    ${tira("cliente", "Cliente", F.cliente.size)}
-    ${(() => { const extra = `<div class="fo-extra"><button type="button" class="fo-switch ${F.sinAnul ? "on" : ""}" id="fo-anul" aria-pressed="${F.sinAnul}">Ocultar anulados</button>
+    ${(() => { const extra = `<div class="fo-extra"><button type="button" class="fo-switch fo-conf" id="fo-conf" aria-haspopup="listbox" aria-expanded="false"></button>
       <button type="button" class="btn btn-ghost btn-block" data-close id="fo-pdf">${icon("file")}Exportar PDF</button></div>`;
-      return lector ? extra : tira("cargado", "Adicionales", F.cargado.size || F.sinAnul, extra); })()}
+      return lector ? extra : tira("cargado", "Adicionales", F.cargado.size || F.cliente.size, extra); })()}
+    <div class="fo-switches"><button type="button" class="fo-switch ${F.sinAnul ? "on" : ""}" id="fo-anul" aria-pressed="${F.sinAnul}">Ocultar anulados</button></div>
     <div class="fo-pie"><button type="button" class="btn btn-ghost" data-close id="fo-reset">Limpiar</button><button type="button" class="btn btn-primary" data-close id="fo-ver"></button></div>
   </div>` });
   const el = id => $(id, hoja.el);
-  // Ordenar: botón al lado de la X, con las 4 opciones en un desplegable
-  $(".sheet-head [data-close]", hoja.el)?.insertAdjacentHTML("beforebegin", `<button type="button" class="fo-grado-dd fo-orden-btn" id="fo-orden-btn" aria-haspopup="listbox" aria-expanded="false"></button>`);
+  // Ordenar: en lugar de la X (se cierra tocando afuera, con Limpiar o con Ver), con las 4 opciones en un desplegable
+  $(".sheet-head [data-close]", hoja.el)?.replaceWith(Object.assign(document.createElement("template"), { innerHTML: `<button type="button" class="fo-grado-dd fo-orden-btn" id="fo-orden-btn" aria-haspopup="listbox" aria-expanded="false"></button>` }).content);
   hoja.el.addEventListener("toggle", e => {
     const k = e.target.dataset?.tira; if (!k) return;
     abiertas = abiertas.filter(x => x !== k).concat(e.target.open ? [k] : []);
@@ -311,9 +311,10 @@ export function abrirFiltros(alCambiar) {
     const ob = el("#fo-orden-btn");
     ob.innerHTML = `<span>${ORDENES.find(x => x[0] === F.orden)?.[1] || "Ordenar"} ${F.dir > 0 ? "↑" : "↓"}</span>${icon("next")}`;
     ob.setAttribute("aria-label", "Ordenar por"); ob.classList.toggle("on", F.orden !== "fecha" || F.dir !== -1);
-    const gr = [[0, "–"], [1, "G1"], [2, "G2"], [3, "G3"], [4, "G4"]].filter(([g]) => !(g === 4 && lector) && (g !== 0 || n("grado", v => !v.grado) || F.grado.has(0)));
+    const gr = [[1, "G1"], [2, "G2"], [3, "G3"], [4, "G4"], [0, "–"]].filter(([g]) => !(g === 4 && lector) && (g !== 0 || n("grado", v => !v.grado) || F.grado.has(0)));
     el("#fo-grado").innerHTML = gr.map(([g, t]) => op("grado", g, t, n("grado", v => (v.grado || 0) === g), F.grado.has(g))).join("");
-    el("#fo-cliente").innerHTML = Object.entries(CARAS).map(([k, [t, c]]) => op("cliente", k, t, n("cliente", v => v.conformidad === k), F.cliente.has(k), c)).join("");
+    const cf = el("#fo-conf"), c1 = [...F.cliente][0];
+    if (cf) { cf.innerHTML = `<span>Conformidad del retiro${c1 ? `: ${CARAS[c1]?.[0] || c1}` : ""}</span>${icon("next")}`; cf.classList.toggle("on", F.cliente.size > 0); }
     if (el("#fo-cargado")) el("#fo-cargado").innerHTML = [["desm", "Desmontaje"], ["check", "Chequeo"], ["firma", "Firmados"]].map(([k, t]) => op("cargado", k, t, n("cargado", CARGADO[k]), F.cargado.has(k))).join("");
     ["pintura", "repuestos"].forEach(tipo => {
       el(`#fo-${tipo}`).innerHTML = ETAPAS[tipo].map(([k, t, c]) => op(tipo, k, t, n(tipo, v => tieneEtapa(v, tipo, k)), F[tipo].has(k), c)).join("");
@@ -333,7 +334,10 @@ export function abrirFiltros(alCambiar) {
     const ob = e.target.closest("#fo-orden-btn");
     // Elegir otra opción la pone en su sentido normal; elegir la misma da vuelta el sentido
     if (ob) return glideMenu(ob, ORDENES.map(([k, t]) => [k, F.orden === k ? `${t} ${F.dir > 0 ? "↓" : "↑"} (invertir)` : t]), null,
-      k => { if (F.orden === k) F.dir *= -1; else { F.orden = k; F.dir = k === "fecha" ? -1 : 1; } aplicar(); });
+      k => { if (F.orden === k) F.dir *= -1; else { F.orden = k; F.dir = k === "fecha" ? -1 : 1; } aplicar(); }, "Ordenar por");
+    const cf = e.target.closest("#fo-conf");
+    if (cf) return glideMenu(cf, [["", "Todas"], ...Object.entries(CARAS).map(([k, [t]]) => [k, `${t} (${n("cliente", v => v.conformidad === k)})`])],
+      [...F.cliente][0] || "", k => { F.cliente = k ? new Set([k]) : new Set(); aplicar(); }, "Conformidad del retiro");
     const c = e.target.closest("[data-cia]");
     if (c) { const k = c.dataset.cia; F.cias.has(k) ? F.cias.delete(k) : F.cias.add(k); return aplicar(); }
     if (e.target.closest("#fo-reset")) { F.mios = false; F.sinAnul = false; F.cargado.clear(); F.grado.clear(); F.repuestos.clear(); F.pintura.clear(); F.cliente.clear(); F.cias.clear(); F.orden = "fecha"; F.dir = -1;

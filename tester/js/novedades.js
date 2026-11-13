@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.11.7", items: ["Filtros: «Ordenar por» reemplaza a la X arriba (se cierra tocando afuera, con Limpiar o con Ver) y su desplegable lleva ese título.", "Grado es una tira desplegable como las de abajo, en orden G1, G2, G3, G4 y –.", "Cliente pasó a Adicionales como «Conformidad del retiro»; «Ocultar anulados» quedó abajo de todo."] },
   { v: "4.11.6", items: ["Chat en vivo: el filtro de turnos (sin confirmar / confirmados) es un botón de calendario arriba, al lado de la X, y la búsqueda se abre con la lupa de al lado. En Notificaciones no aparecen.", "Se quitó el título «Notificaciones» de arriba."] },
   { v: "4.11.5", items: ["Notas post-reparación y razón de la anulación: ahora son una tira desplegable; si tienen algo escrito muestran el puntito, como el desmontaje."] },
   { v: "4.11.4", items: ["Filtros: «Ocultar anulados» y «Exportar PDF» pasaron adentro de Adicionales.", "Turno avisado por chat en vivo: queda «sin confirmar» hasta que alguien lo confirme.", "Chat en vivo: si el vehículo está turnado, muestra el estado del turno y el botón «El cliente confirmó el turno»."] },

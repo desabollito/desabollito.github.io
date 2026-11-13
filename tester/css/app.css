@@ -2567,3 +2567,10 @@ button.aj-item:hover, a.aj-item:hover { background: var(--surface-2); }
 /* Chat en vivo: estado del turno y botón para confirmarlo */
 .chat-turno { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
 .chat-turno:empty { display: none; }
+
+/* Título de los desplegables (ej: "Ordenar por") */
+.gs-tit { padding: 6px 10px 4px; font-size: 11.5px; font-weight: 750; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+/* Conformidad del retiro: botón con desplegable dentro de Adicionales */
+.fo .fo-conf { justify-content: space-between; }
+.fo-conf .ic { width: 14px; height: 14px; transform: rotate(90deg); transition: transform .15s; }
+.fo-conf[aria-expanded="true"] .ic { transform: rotate(-90deg); }

@@ -82,11 +82,11 @@ export function icon(name) {
 
 // ── Menú "Glide Select" (como reactbits.dev/micro/glide-select): sale del chip y un resaltado se desliza entre las opciones ──
 // opciones: [[valor, texto], …]. Va fijo sobre la página para que la tabla no lo recorte; se cierra al deslizar.
-export function glideMenu(chip, opciones, actual, alElegir) {
+export function glideMenu(chip, opciones, actual, alElegir, titulo = "") {
   document.querySelector(".gs-menu")?.cerrar?.();
   const m = document.createElement("div");
   m.className = "gs-menu"; m.setAttribute("role", "listbox");
-  m.innerHTML = `<span class="gs-pill" aria-hidden="true"></span>` + opciones.map(([k, t], i) =>
+  m.innerHTML = `<span class="gs-pill" aria-hidden="true"></span>${titulo ? `<div class="gs-tit">${esc(titulo)}</div>` : ""}` + opciones.map(([k, t], i) =>
     `<div class="gs-op" role="option" data-i="${i}" aria-selected="${k === actual}"><span>${esc(t)}</span>${icon("check")}</div>`).join("");
   document.body.appendChild(m);
   const r = chip.getBoundingClientRect(), abajo = r.bottom + m.offsetHeight + 8 < innerHeight;
