@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.14.2", items: ["Notas post-reparación y razón de la anulación vuelven a estar siempre abiertas, sin el puntito."] },
   { v: "4.14.1", items: ["Todos vuelven una vez al color predeterminado (azul); después cada uno puede elegir el suyo."] },
   { v: "4.14.0", items: ["Color de la app: ahora es de cada usuario (te sigue en todos tus equipos) y el predeterminado es azul."] },
   { v: "4.13.8", items: ["Celular: el contorno de color de la tarjeta elegida en Vehículos ya no se corta a los costados.", "«No se pudo enviar desde el bot» aparece en el medio de la pantalla."] },
