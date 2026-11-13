@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.15.2", items: ["Chat en vivo: la papelera muestra solo el ícono, sin número."] },
   { v: "4.15.1", items: ["Contactar: se quitó «Llamar»."] },
   { v: "4.15.0", items: ["Chat en vivo: foto de perfil del cliente (la de WhatsApp), con el nombre y la patente alineados al lado.", "Chat en vivo: mantené apretado un mensaje para borrarlo; va a la papelera de arriba (donde estaba la X), desde donde se puede restaurar.", "Se quitó el «Vos:» de la vista previa.", "Barras de desplazamiento más finas y prolijas en toda la app."] },
   { v: "4.14.9", items: ["Logo de inicio: el martillo vuelve a tener su forma, con la cabeza y la punta como en el logo."] },

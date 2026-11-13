@@ -2602,7 +2602,6 @@ button.aj-item:hover, a.aj-item:hover { background: var(--surface-2); }
 /* Papelera del chat (en lugar de la X) */
 .chat-pap-btn { position: relative; flex: none; }
 .chat-pap-btn.on { color: var(--primary); background: var(--primary-soft); }
-.chat-pap-n { position: absolute; top: 2px; right: 2px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; background: var(--primary); color: var(--on-primary); font-size: 10.5px; display: grid; place-items: center; }
 .chat-form[hidden] { display: none; }
 .chat-msg[data-t] { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 .chat-msg.borrado { opacity: .75; }

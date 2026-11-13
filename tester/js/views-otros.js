@@ -1303,13 +1303,13 @@ function abrirChat(cid, tel, alCerrar, v = null) {
   s.el.classList.add("sheet-centro");   // en el celular, al medio (no desde abajo)
   // En lugar de la X: la papelera de mensajes borrados (se cierra tocando afuera)
   $(".sheet-head [data-close]", s.el)?.replaceWith(Object.assign(document.createElement("template"), { innerHTML:
-    `<button type="button" class="icon-btn chat-pap-btn" id="chat-pap" aria-label="Mensajes borrados" aria-pressed="false">${icon("trash")}<b class="chat-pap-n" hidden></b></button>` }).content);
+    `<button type="button" class="icon-btn chat-pap-btn" id="chat-pap" aria-label="Mensajes borrados" aria-pressed="false">${icon("trash")}</button>` }).content);
   const caja = $("#chat-msgs", s.el), form = $("#chat-form", s.el), ta = form.txt;
   const pintar = () => {
     if (!c) return;
     $(".sheet-head h2", s.el).innerHTML = `<span class="chat-cab">${avatarCliente(c)}<span class="chat-cab-nom">${esc(c.nombre || c.modelo || "Cliente")}</span>${plate(c.patente, "sm")}</span>`;
-    const nPap = (c.papelera || []).length, pb = $("#chat-pap", s.el), nb = $(".chat-pap-n", s.el);
-    nb.hidden = !nPap; nb.textContent = nPap; pb.classList.toggle("on", verPap); pb.setAttribute("aria-pressed", verPap);
+    const pb = $("#chat-pap", s.el);
+    pb.classList.toggle("on", verPap); pb.setAttribute("aria-pressed", verPap);
     form.hidden = verPap;
     if (verPap) {   // papelera: los borrados, cada uno con Restaurar
       caja.innerHTML = `<p class="muted small center">Mensajes borrados en la app (en WhatsApp siguen estando).</p>` + ((c.papelera || []).slice().sort((a, b) => a.t - b.t).map(m => `<div class="chat-msg ${m.yo ? "yo" : ""} borrado">${formatoWa(m.txt)}
