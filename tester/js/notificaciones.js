@@ -5,7 +5,7 @@
 //  así el puntito se apaga en todos los equipos.
 // ═════════════════════════════════════════════════════════════
 import { db, doc, updateDoc } from "./firebase.js";
-import { S, activos, onChange } from "./data.js";
+import { S, activos, onChange, chatsSinLeer } from "./data.js";
 import { $, esc, icon, openSheet, plate } from "./ui.js";
 import { sonidoNotif } from "./sonidos.js";
 
@@ -93,7 +93,7 @@ function marcar(campo, k, lista, sacar = false) {
 // Campanita: el puntito (con la cantidad) se actualiza solo cuando cambian los vehículos
 export function pintarCampana() {
   const b = $("#tb-notif"); if (!b) return;
-  const n = cuantasNuevas(), p = $(".notif-dot", b);
+  const n = cuantasNuevas() + chatsSinLeer().length, p = $(".notif-dot", b);
   if (p) { p.hidden = !n; p.textContent = n > 9 ? "9+" : n || ""; }
   b.setAttribute("aria-label", n ? `Notificaciones: ${n} nuevas` : "Notificaciones");
 }
@@ -101,12 +101,12 @@ export function pintarCampana() {
 let antes = null, cidAntes = null;
 function revisarSonido() {
   if (!S.user || S.invitado || S.loadingVehicles || !S.company) return;
-  const n = cuantasNuevas();
+  const n = cuantasNuevas() + chatsSinLeer().length;
   if (cidAntes !== S.company.id) { cidAntes = S.company.id; if (antes === null && n > 0) sonidoNotif(); antes = n; return; }
   if (antes !== null && n > antes) sonidoNotif();
   antes = n;
 }
-onChange(e => { if (e === "vehicles" || e === "companies" || e === "perfil") { pintarCampana(); if (e === "vehicles") revisarSonido(); } });
+onChange(e => { if (e === "vehicles" || e === "companies" || e === "perfil" || e === "chats") { pintarCampana(); if (e === "vehicles" || e === "chats") revisarSonido(); } });
 
 const cuando = t => {
   const d = Date.now() - t, min = Math.round(d / 60_000);
@@ -126,7 +126,12 @@ export function abrirNotifs(verArchivadas = false) {
     const lista = listaNotifs(), v0 = visto(), ab = new Set(abiertas()), fij = new Set(marcadas("notifFijadas")), arch = new Set(marcadas("notifArchivadas"));
     const vis = lista.filter(n => arch.has(clave(n)) === verArchivadas).sort((a, b) => fij.has(clave(b)) - fij.has(clave(a)));
     const nuevas = cuantasNuevas(), nArch = lista.filter(n => arch.has(clave(n))).length;
-    s.body.innerHTML = vis.length
+    const chats = verArchivadas ? [] : chatsSinLeer();
+    s.body.innerHTML = (chats.length ? `<h4 class="notif-sec">${icon("chat")}Chat en vivo</h4>
+      <ul class="notif-list notif-chats">${chats.map(c => `<li class="notif-li"><a href="#" data-chat="${esc(c.tel)}" class="notif-item nueva">
+        <span class="notif-veh">${plate(c.patente, "sm")}<small>${esc(c.nombre || c.modelo || "")}</small></span>
+        <span class="notif-txt">${esc(c.ult || "Mensaje nuevo")}</span><time>${cuando(c.t)}</time></a></li>`).join("")}</ul>
+      ${vis.length ? `<h4 class="notif-sec">${icon("bell")}Vehículos</h4>` : ""}` : "") + (vis.length
       ? `${verArchivadas ? `<p class="muted small notif-sub">Deslizá a la izquierda para sacarla de archivadas</p>` : ""}
         ${nuevas && !verArchivadas ? `<button class="btn btn-ghost notif-todas" type="button">Marcar todas como vistas</button>` : ""}
         <ul class="notif-list">${vis.map(n => { const k = clave(n); return `<li class="notif-li"><i class="notif-lado l-fijar">${ICO_PIN}</i><i class="notif-lado l-arch">${ICO_ARCH}</i><a href="#/v/${esc(n.vid)}" data-k="${esc(k)}" class="notif-item ${!ab.has(k) && n.t > v0 ? "nueva" : ""} ${fij.has(k) ? "fijada" : ""}" ${n.foto ? `data-foto-url="${esc(n.foto)}" ${n.desm ? "data-desm" : ""}` : ""}>
@@ -134,7 +139,7 @@ export function abrirNotifs(verArchivadas = false) {
           <span class="notif-txt">${n.por ? `<b>${esc(n.por)}</b> ${esc(minus(String(n.txt).replace(/ por WhatsApp/g, "")))}` : esc(n.txt)}</span>
           <time>${cuando(n.t)}</time>
           <span class="notif-acc">${verArchivadas ? "" : `<button type="button" class="icon-btn sm" data-acc="fijar" aria-label="${fij.has(k) ? "Desfijar" : "Fijar arriba"}">${ICO_PIN}</button>`}<button type="button" class="icon-btn sm" data-acc="archivar" aria-label="${verArchivadas ? "Sacar de archivadas" : "Archivar"}">${ICO_ARCH}</button></span></a></li>`; }).join("")}</ul>`
-      : `<div class="empty small">${icon("bell")}<p>${verArchivadas ? "No hay notificaciones archivadas." : `No hay cambios nuevos de otros en los últimos ${DIAS} días.`}</p></div>`;
+      : chats.length ? "" : `<div class="empty small">${icon("bell")}<p>${verArchivadas ? "No hay notificaciones archivadas." : `No hay cambios nuevos de otros en los últimos ${DIAS} días.`}</p></div>`);
     if (!verArchivadas && nArch) s.body.insertAdjacentHTML("beforeend", `<button type="button" class="link-btn notif-ver-arch">${ICO_ARCH}Archivadas (${nArch})</button>`);
     return lista;
   };
@@ -148,6 +153,8 @@ export function abrirNotifs(verArchivadas = false) {
   s.el.addEventListener("click", e => {
     if (e.target.closest(".notif-todas")) { guardarPerfil("notifVisto", Date.now()); lista = pintar(); return; }
     if (e.target.closest(".notif-ver-arch")) { s.close(); abrirNotifs(true); return; }
+    const ch = e.target.closest("[data-chat]");
+    if (ch) { e.preventDefault(); s.close(); import("./views-otros.js").then(m => m.abrirChatTel(ch.dataset.chat)); return; }
     const a = e.target.closest(".notif-item"); if (!a) return;
     e.preventDefault();
     const b = e.target.closest("[data-acc]"); if (b) return accion(a, b.dataset.acc);
@@ -158,7 +165,7 @@ export function abrirNotifs(verArchivadas = false) {
     location.hash = a.getAttribute("href"); });
   // Deslizar con el dedo: más de 90 px suelta la acción
   let g = null;
-  s.body.addEventListener("pointerdown", e => { const a = e.target.closest(".notif-item"); g = a && e.pointerType !== "mouse" ? { a, x0: e.clientX, y0: e.clientY, dx: 0, on: false } : null; });
+  s.body.addEventListener("pointerdown", e => { const a = e.target.closest(".notif-item:not([data-chat])"); g = a && e.pointerType !== "mouse" ? { a, x0: e.clientX, y0: e.clientY, dx: 0, on: false } : null; });
   s.body.addEventListener("pointermove", e => {
     if (!g) return;
     const dx = e.clientX - g.x0, dy = e.clientY - g.y0;

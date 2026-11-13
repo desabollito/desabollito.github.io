@@ -743,6 +743,31 @@ export const borrarGasto = id => deleteDoc(doc(colGastos(), id));
 // ── Panel del creador (@gzmatte): todos los operativos y usuarios ─────
 export const soyCreador = () => S.profile?.username === "gzmatte";
 export const usaClientes = () => soyCreador() || (S.config?.usanClientes || []).includes(S.user?.uid);   // Mensajes y turnos: el creador elige quiénes
+
+// ── Chats en vivo con clientes (companies/{cid}/chats, los guarda el bot) ──
+// Lo no leído se recuerda en este equipo (chatVisto:{cid}:{tel} = hora del último mensaje visto)
+S.chats = [];
+let unsubChats = null, chatsCid = null;
+function escucharChats() {
+  const cid = (S.user && usaClientes() && S.company?.id) || null;
+  if (cid === chatsCid) return;
+  unsubChats?.(); unsubChats = null; chatsCid = cid; S.chats = []; emit("chats");
+  if (!cid) return;
+  unsubChats = onSnapshot(collection(db, "companies", cid, "chats"), snap => {
+    S.chats = snap.docs.map(d => ({ tel: d.id, ...d.data() })).sort((a, b) => (b.t || 0) - (a.t || 0)); emit("chats");
+  }, e => console.warn("chats", e));
+}
+onChange(e => { if (e === "companies" || e === "config" || e === "perfil") escucharChats(); });
+const claveVisto = tel => `chatVisto:${S.company?.id}:${tel}`;
+const vistoChat = tel => { try { return Number(localStorage.getItem(claveVisto(tel))) || 0; } catch { return 0; } };
+export const chatSinLeer = c => !!c && !c.ultYo && (c.t || 0) > vistoChat(c.tel);
+export const chatsSinLeer = () => S.chats.filter(chatSinLeer);
+export const chatDeTel = tel => S.chats.find(c => c.tel === tel);
+export function marcarChatVisto(tel, t) {
+  if (vistoChat(tel) >= t) return;
+  try { localStorage.setItem(claveVisto(tel), String(t)); } catch { /* sin almacenamiento */ }
+  emit("chats");
+}
 // Quién ve cada planilla: lo elige el creador por operativo (config/app.accesosOp[cid][uid][seccion]).
 // Sin elegir: Técnicos y Gastos fijos los ven los administradores; Gastos, todos los miembros. Las reglas de Firestore piden lo mismo.
 export const puedeVer = sec => {

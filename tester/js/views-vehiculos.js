@@ -4,7 +4,8 @@ import {
   S, activos, getVehiculo, guardarVehiculo, actualizarVehiculo, cambiarEstado, moverAPapelera,
   solicitarEliminacion, cargadoPor, esDeWhatsApp, puedoEditar, esMioV, crearSolicitud, yaPedi,
   nuevoIdVehiculo, soyAdmin, mensajeError, deshaciblesDe, deshacerCambio, aseguradoDePadron,
-  soyDesmontaje, agregarDesmontaje, elegirDesmontador, borrarMedia, soyLector, linkVehiculo, soloVer, soySacabollos, usaClientes
+  soyDesmontaje, agregarDesmontaje, elegirDesmontador, borrarMedia, soyLector, linkVehiculo, soloVer, soySacabollos, usaClientes,
+  onChange, chatSinLeer, chatDeTel
 } from "./data.js";
 import { ESTADOS, ESTADO, SECUENCIA, PASO_REP, PIEZA, ORDEN_PIEZAS, estadoActual, esAnulado, piezasMarcadas } from "./domain.js";
 import {
@@ -16,7 +17,10 @@ import { subir, comprimir, borrarConToken, thumb, grande, cloudinaryListo, esVid
 import { presupuestoPDF, nombreArchivo, tablaPDF } from "./pdf.js";
 import { armarZip } from "./zip.js";
 import { setTopbar, go, esAncho } from "./shell.js";
-import { abrirChatDe, avisarTurnoChat } from "./views-otros.js";
+import { abrirChatDe, avisarTurnoChat, telWa } from "./views-otros.js";
+// Chat en vivo con mensajes sin leer: puntito titilando en Contactar (y en "Chat en vivo" al abrir el menú)
+const chatNuevo = tel => !!tel && usaClientes() && chatSinLeer(chatDeTel(tel));
+onChange(e => { if (e === "chats") $$(".d-contacto[data-tel]").forEach(el => el.classList.toggle("chat-nuevo", chatNuevo(el.dataset.tel))); });
 
 // Filtros de la lista (se conservan al navegar)
 const F = { estado: new Set(), q: "", mios: false, sinAnul: false, orden: "fecha", dir: -1, grado: new Set(), repuestos: new Set(), pintura: new Set(), turno: new Set(), cliente: new Set(), cargado: new Set(), cias: new Set() }; // cada filtro: Set vacío = todos (se pueden marcar varias opciones de cada uno); grado 0 = sin grado
@@ -564,7 +568,7 @@ export function renderDetalle(root, v, embebido) {
 
     <div class="d-actions">
       <button class="btn btn-primary" data-act="pdf">${icon("share")}Compartir</button>
-      ${v.telefono ? `<div class="d-contacto">
+      ${v.telefono ? `<div class="d-contacto ${chatNuevo(telWa(v.telefono)) ? "chat-nuevo" : ""}" data-tel="${esc(telWa(v.telefono) || "")}">
         <button class="btn btn-ghost" data-act="contactar" aria-haspopup="true" aria-expanded="false">${icon("phone")}Contactar</button>
         <div class="d-menu" hidden>
           ${usaClientes() && !soyLector() ? `<a role="button" data-act="chat">${icon("chat")}Chat en vivo</a>` : ""}
@@ -1168,7 +1172,7 @@ function elegirFechaEstado(v, estado) {
       ${estado === "turnado" ? `<div class="turno-conf"><span>¿El cliente confirmó el turno?</span>
         <button type="button" class="switch ${v.turnoConfirmado === true ? "on" : ""}" id="t-conf" role="switch" aria-checked="${v.turnoConfirmado === true}">
           <span class="sw-txt sw-si">Sí</span><span class="sw-txt sw-no">No</span><i class="sw-bola"></i></button></div>` : ""}
-      ${estado === "turnado" && usaClientes() && telWaOk(v) ? `<div class="turno-conf"><span>Avisar el turno por chat en vivo</span>
+      ${estado === "turnado" && usaClientes() && telWaOk(v) ? `<div class="turno-conf"><span>¿Avisarle al cliente desde el chat en vivo?<small class="turno-sub">Se le avisará ${v.asegurado ? "a " + esc(v.asegurado) : "al cliente"} el turno que le diste.</small></span>
         <button type="button" class="switch" id="t-avisar" role="switch" aria-checked="false">
           <span class="sw-txt sw-si">Sí</span><span class="sw-txt sw-no">No</span><i class="sw-bola"></i></button></div>` : ""}
       <button class="btn btn-primary btn-block" style="--btn:${e.color}">Guardar</button></form>`
@@ -1184,9 +1188,10 @@ function elegirFechaEstado(v, estado) {
     ev.preventDefault();
     const fecha = ev.target.f.value;
     cambiarEstado(v, estado, fecha, estado === "turnado" ? { turnoConfirmado: confirmado } : {}).catch(err => toast(mensajeError(err), "error"));
-    if (avisar) avisarTurnoChat(getVehiculo(v.id) || v, fecha).then(() => toast("Turno avisado por chat", "success")).catch(err => toast(err.message || mensajeError(err), "error"));
     toast(`${e.label} · ${fechaCorta(ev.target.f.value)}`, "success");
     s.close();
+    // Avisa y abre el chat en vivo, donde aparece el mensaje cuando sale
+    if (avisar) { const vv = getVehiculo(v.id) || v; avisarTurnoChat(vv, fecha).catch(err => toast(err.message || mensajeError(err), "error")); abrirChatDe(vv); }
 
   };
 }
