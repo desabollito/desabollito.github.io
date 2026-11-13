@@ -566,7 +566,7 @@ export function elegirEmpresaSheet() {
         ${soloDesmontaje() ? "" : `<button type="button" class="btn btn-ghost" id="nuevo-op">Crear nuevo operativo</button>`}
       </div>
       <div class="op-menu only-mobile">
-        <a class="op-mas op-ajustes" href="#/ajustes" data-close>${icon("user")}<span><strong>Mi perfil</strong></span>${icon("next")}</a>
+        <a class="op-mas op-ajustes" href="#/ajustes" data-close>${icon("user")}<span><strong>Mis ajustes</strong></span>${icon("next")}</a>
       </div>`
   });
   const x = $(".sheet-head [data-close]", s.el);
@@ -634,7 +634,7 @@ export function aplicarTema(t) {
 }
 
 export function vistaAjustes(view) {
-  setTopbar({ title: "Ajustes", back: "#/" });
+  setTopbar({ title: "Mis ajustes", back: "#/" });
   const p = S.profile;
   const oscuro = document.documentElement.getAttribute("data-theme") !== "light";
   const enPapelera = papelera().length;
