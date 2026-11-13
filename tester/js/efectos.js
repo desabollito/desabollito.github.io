@@ -40,8 +40,8 @@ function animacionLogo() {
     { transform: "none", opacity: 1, filter: "none", offset: .62, easing: curva },
     { transform: "scale(2.2)", opacity: 0, filter: "blur(8px)", offset: 1 }
   ], { duration: DUR, fill: "forwards" });
-  // El logo final queda medio segundo quieto y recién ahí se desvanece mientras se abre la app
-  return crece.finished.catch(() => {}).then(() => new Promise(r => setTimeout(r, 500))).then(() => {
+  // Al terminar, el logo se desvanece mientras se abre la app
+  return crece.finished.catch(() => {}).then(() => {
     capa.classList.add("sale");
     setTimeout(() => capa.remove(), 500);
   });
