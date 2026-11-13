@@ -1746,7 +1746,7 @@ a.g-bar-fijo { text-decoration: none; color: inherit; }
 .fo-cias-caja .fo-cias { width: 100%; grid-auto-columns: minmax(max-content, 1fr); scrollbar-width: thin; scrollbar-color: var(--line) transparent; padding-bottom: 6px; }
 .fo-cias-caja .fo-cias::-webkit-scrollbar { display: block; height: 6px; }   /* .fo-seg la esconde: acá la barra se ve */
 .fo-cias-caja .fo-cias::-webkit-scrollbar-thumb { background: var(--line); border-radius: 3px; }
-.fo .fo-switch { padding-block: 0; }
+:is(.fo, .pdf-exp) .fo-switch { padding-block: 0; }
 
 /* ── Transiciones entre pantallas ── */
 /* Se anima con "left" (no transform) para no mover los botones fijos que hay adentro de la pantalla */
@@ -2391,8 +2391,8 @@ button.aj-item:hover, a.aj-item:hover { background: var(--surface-2); }
 .fo-seg .fo-op[style].on { background: var(--surface); }
 .fo-seg.fo-grad { background: var(--surface-2); }
 /* Cargados por mí / Ocultar anulados: botón que se contornea cuando está prendido */
-.fo .fo-switch { background: none; color: var(--ink-2); justify-content: center; font: inherit; font-weight: 650; transition: border-color .15s, color .15s, box-shadow .15s; }
-.fo .fo-switch.on { border-color: var(--primary); color: var(--primary); box-shadow: inset 0 0 0 1px var(--primary); }
+:is(.fo, .pdf-exp) .fo-switch { min-height: 44px; background: none; color: var(--ink-2); justify-content: center; font: inherit; font-weight: 650; transition: border-color .15s, color .15s, box-shadow .15s; }
+:is(.fo, .pdf-exp) .fo-switch.on { border-color: var(--primary); color: var(--primary); box-shadow: inset 0 0 0 1px var(--primary); }
 /* Celular: los puntitos quedan centrados bajo el número; el "+N" va al costado sin correrlos */
 @media (max-width: 600px) {
   .cd-ev { position: relative; }
@@ -2437,7 +2437,7 @@ button.aj-item:hover, a.aj-item:hover { background: var(--surface-2); }
 .fo-plega > summary:hover, .fo .fo-switch:hover { border-color: var(--ink-2); }
 .fo-plega[open] > summary { border-color: color-mix(in srgb, var(--primary) 55%, var(--line-2)); }
 .fo-sec:not(.fo-plega) { margin-top: 6px; }
-.fo .fo-switch.on { background: color-mix(in srgb, var(--primary) 14%, var(--surface-2)); }
+:is(.fo, .pdf-exp) .fo-switch.on { background: color-mix(in srgb, var(--primary) 14%, var(--surface-2)); }
 .fo-switches { gap: 8px; }
 .fo .fo-pie { background: var(--surface); }
 /* Mensajes y turnos: tres pasos en tarjetas, filas para marcar, días como pastillas y el mensaje como burbuja de WhatsApp */

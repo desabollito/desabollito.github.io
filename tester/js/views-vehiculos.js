@@ -157,7 +157,7 @@ function exportarPDF() {
   const items = (v, tipo) => itemsTexto(v[tipo]).map(x => [x, etapaItem(v, tipo, x)]).filter(([, e]) => !F[tipo].size || F[tipo].has(e[0])).map(([x, e]) => `${x} — ${e[1]}`);
   const quiere = { repuestos: true, pintura: true };
   const elegidos = () => lista().filter(v => ["repuestos", "pintura"].every(t => quiere[t] === items(v, t).length > 0));
-  const s = openSheet({ title: "Exportar PDF", body: `<div class="stack">
+  const s = openSheet({ title: "Exportar PDF", body: `<div class="stack pdf-exp">
     ${["repuestos", "pintura"].map(t => `<div class="aj-item aj-ctrl pdf-op"><span class="aj-txt">${t === "pintura" ? "Pintura" : "Repuestos"}</span>
       <div class="seg seg-sm" data-t="${t}"><button type="button" class="seg-btn on" data-si="1">Sí</button><button type="button" class="seg-btn" data-si="">No</button></div></div>`).join("")}
     <button type="button" class="fo-switch ${sinAnul ? "on" : ""}" id="pdf-anul" aria-pressed="${sinAnul}">Ocultar anulados</button>
