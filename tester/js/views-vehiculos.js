@@ -10,7 +10,7 @@ import {
 import { ESTADOS, ESTADO, SECUENCIA, PASO_REP, PIEZA, ORDEN_PIEZAS, estadoActual, esAnulado, piezasMarcadas } from "./domain.js";
 import {
   $, $$, esc, money, fechaCorta, fechaLarga, hoyISO, plate, estadoPill, icon, toast, openSheet,
-  confirmar, busy, debounce, marcarError, horaDe } from "./ui.js";
+  confirmar, busy, debounce, marcarError, horaDe, glideMenu } from "./ui.js";
 import { carMapSVG, montarMapa, pulsar } from "./carmap.js";
 import { contar } from "./efectos.js";
 import { subir, comprimir, borrarConToken, thumb, grande, cloudinaryListo, esVideo, videoURL } from "./media.js";
@@ -93,7 +93,7 @@ function popupConformidad(v) {
   const s = openSheet({ title: "¿Cómo se fue el cliente?", body: conformidadHTML(getVehiculo(v.id) || v) });
   elegirConformidad(s.el, v, () => setTimeout(() => s.close(), 250));
 }
-const ORDENES = [["fecha", "Fecha"], ["patente", "Patente"], ["modelo", "Modelo"], ["estado", "Estado"]];
+const ORDENES = [["fecha", "Fecha"], ["estado", "Estado"]];
 function ordenar(lista) {
   // Filtrando por estado, la fecha es la de ese estado (en Entregados, el último entregado arriba); sin filtro ya viene por fecha de peritado
   if (F.orden === "fecha" && F.dir === -1 && !F.estado.size) return lista;
@@ -282,9 +282,8 @@ export function filtrarCalendario(lista, q) {
 export function abrirFiltros(alCambiar) {
   const lector = soyLector();
   const hoja = openSheet({ title: "Filtrar y ordenar", body: `<div class="fo">
-    <section class="fo-sec"><h3>Ordenar por</h3><div class="fo-seg" id="fo-orden"></div></section>
+    <section class="fo-sec"><h3>Ordenar por</h3><div class="fo-orden-fila"><div class="fo-seg" id="fo-orden"></div><button type="button" class="fo-grado-dd" id="fo-grado-dd" aria-haspopup="listbox" aria-expanded="false"></button></div></section>
     ${lector ? "" : `<section class="fo-sec"><h3>Compañías</h3><div class="fo-cias-caja"><div class="fo-seg fo-cias" id="fo-cias"></div></div></section>`}
-    <section class="fo-sec fo-grados"><h3>Grado</h3><div class="fo-seg" id="fo-grado"></div></section>
     <details class="fo-sec fo-plega" ${F.pintura.size ? "open" : ""}><summary><h3>Pintura</h3>${icon("next")}</summary><div class="fo-seg" id="fo-pintura"></div></details>
     <details class="fo-sec fo-plega" ${F.repuestos.size ? "open" : ""}><summary><h3>Repuestos</h3>${icon("next")}</summary><div class="fo-seg" id="fo-repuestos"></div></details>
     <details class="fo-sec fo-plega" ${F.cliente.size ? "open" : ""}><summary><h3>Cliente</h3>${icon("next")}</summary><div class="fo-seg" id="fo-cliente"></div></details>
@@ -301,8 +300,9 @@ export function abrirFiltros(alCambiar) {
     <span class="fo-txt">${color ? `<i class="f-dot"></i>` : ""}${txt}</span>${cant !== null && cant !== undefined ? `<b>${cant}</b>` : ""}</button>`;
   const pintarHoja = () => {
     el("#fo-orden").innerHTML = ORDENES.map(([k, t]) => op("orden", k, F.orden === k ? `${t} <i class="fo-flecha">${F.dir > 0 ? "↑" : "↓"}</i>` : t, null, F.orden === k)).join("");
-    const gr = [[0, "–"], [1, "G1"], [2, "G2"], [3, "G3"], [4, "G4"]].filter(([g]) => !(g === 4 && lector) && (g !== 0 || n("grado", v => !v.grado) || F.grado.has(0)));
-    el("#fo-grado").innerHTML = gr.map(([g, t]) => op("grado", g, t, n("grado", v => (v.grado || 0) === g), F.grado.has(g))).join("");
+    const g1 = [...F.grado][0];
+    el("#fo-grado-dd").innerHTML = `<span>${F.grado.size ? (g1 ? `G${g1}` : "Sin grado") : "Grado"}</span>${icon("next")}`;
+    el("#fo-grado-dd").classList.toggle("on", F.grado.size > 0);
     el("#fo-cliente").innerHTML = Object.entries(CARAS).map(([k, [t, c]]) => op("cliente", k, t, n("cliente", v => v.conformidad === k), F.cliente.has(k), c)).join("");
     if (el("#fo-cargado")) el("#fo-cargado").innerHTML = [["desm", "Desmontaje"], ["check", "Check in / out"], ["firma", "Firmados"]].map(([k, t]) => op("cargado", k, t, n("cargado", CARGADO[k]), F.cargado.has(k))).join("");
     if (el("#fo-cargado")) el("#fo-cargado").insertAdjacentHTML("afterbegin", `<button type="button" class="fo-op ${F.mios ? "on" : ""}" id="fo-mios" aria-pressed="${F.mios}"><span class="fo-txt">Cargados por mí</span><b>${n("mios", esMioV)}</b></button>`);
@@ -321,6 +321,12 @@ export function abrirFiltros(alCambiar) {
   const cias = el("#fo-cias");
   cias?.addEventListener("wheel", e => { if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) { e.preventDefault(); cias.scrollLeft += e.deltaY; } }, { passive: false });
   hoja.el.addEventListener("click", e => {
+    const dd = e.target.closest("#fo-grado-dd");
+    if (dd) {   // Grado: desplegable al lado de Ordenar por (uno a la vez), con la cantidad de cada uno
+      const gr = [[0, "Sin grado"], [1, "G1"], [2, "G2"], [3, "G3"], [4, "G4"]].filter(([g]) => !(g === 4 && lector) && (g !== 0 || n("grado", v => !v.grado) || F.grado.has(0)));
+      return glideMenu(dd, [["", "Todos los grados"], ...gr.map(([g, t]) => [String(g), `${t} (${n("grado", v => (v.grado || 0) === g)})`])],
+        F.grado.size ? String([...F.grado][0]) : "", k => { F.grado = k === "" ? new Set() : new Set([Number(k)]); aplicar(); });
+    }
     const c = e.target.closest("[data-cia]");
     if (c) { const k = c.dataset.cia; F.cias.has(k) ? F.cias.delete(k) : F.cias.add(k); return aplicar(); }
     if (e.target.closest("#fo-reset")) { F.mios = false; F.sinAnul = false; F.cargado.clear(); F.grado.clear(); F.repuestos.clear(); F.pintura.clear(); F.cliente.clear(); F.cias.clear(); F.orden = "fecha"; F.dir = -1;
