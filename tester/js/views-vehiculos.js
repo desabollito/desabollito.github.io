@@ -297,7 +297,7 @@ function abrirFiltrosCon(alCambiar, cal) {
     ${tira("grado", "Grado", F.grado.size).replace('class="fo-sec fo-plega"', 'class="fo-sec fo-plega fo-grados"')}
     ${tira("pintura", "Pintura", F.pintura.size)}
     ${tira("repuestos", "Repuestos", F.repuestos.size)}
-    ${cal ? "" : (() => { const extra = `<div class="fo-extra"><button type="button" class="fo-switch fo-conf" id="fo-conf" aria-haspopup="listbox" aria-expanded="false"></button>
+    ${cal ? "" : (() => { const extra = `<div class="fo-extra"><div class="fo-seg" id="fo-cliente" aria-label="Conformidad del retiro"></div>
       <button type="button" class="btn btn-ghost btn-block" data-close id="fo-pdf">${icon("file")}Exportar PDF</button></div>`;
       return lector ? extra : tira("cargado", "Adicionales", F.cargado.size || F.cliente.size, extra); })()}
     ${cal ? "" : `<div class="fo-switches"><button type="button" class="fo-switch ${F.sinAnul ? "on" : ""}" id="fo-anul" aria-pressed="${F.sinAnul}">Ocultar anulados</button></div>`}
@@ -320,8 +320,7 @@ function abrirFiltrosCon(alCambiar, cal) {
     if (ob) { ob.innerHTML = `<span>Ordenar por</span>${icon("next")}`; ob.classList.toggle("on", F.orden !== "fecha" || F.dir !== -1); }
     const gr = [[1, "G1"], [2, "G2"], [3, "G3"], [4, "G4"], [0, "–"]].filter(([g]) => !(g === 4 && lector) && (g !== 0 || n("grado", v => !v.grado) || F.grado.has(0)));
     el("#fo-grado").innerHTML = gr.map(([g, t]) => op("grado", g, t, n("grado", v => (v.grado || 0) === g), F.grado.has(g))).join("");
-    const cf = el("#fo-conf"), c1 = [...F.cliente][0];
-    if (cf) { cf.innerHTML = `<span>Conformidad del retiro${c1 ? `: ${CARAS[c1]?.[0] || c1}` : ""}</span>${icon("next")}`; cf.classList.toggle("on", F.cliente.size > 0); }
+    if (el("#fo-cliente")) el("#fo-cliente").innerHTML = Object.entries(CARAS).map(([k, [t, c]]) => op("cliente", k, t, n("cliente", v => v.conformidad === k), F.cliente.has(k), c)).join("");
     if (el("#fo-cargado")) el("#fo-cargado").innerHTML = [["desm", "Desmontaje"], ["check", "Chequeo"], ["firma", "Firmados"]].map(([k, t]) => op("cargado", k, t, n("cargado", CARGADO[k]), F.cargado.has(k))).join("");
     ["pintura", "repuestos"].forEach(tipo => {
       el(`#fo-${tipo}`).innerHTML = ETAPAS[tipo].map(([k, t, c]) => op(tipo, k, t, n(tipo, v => tieneEtapa(v, tipo, k)), F[tipo].has(k), c)).join("");
@@ -342,9 +341,6 @@ function abrirFiltrosCon(alCambiar, cal) {
     // Elegir otra opción la pone en su sentido normal; elegir la misma da vuelta el sentido
     if (ob) return glideMenu(ob, ORDENES.map(([k, t]) => [k, F.orden === k ? `${t} ${F.dir > 0 ? "↓" : "↑"} (invertir)` : t]), null,
       k => { if (F.orden === k) F.dir *= -1; else { F.orden = k; F.dir = k === "fecha" ? -1 : 1; } aplicar(); });
-    const cf = e.target.closest("#fo-conf");
-    if (cf) return glideMenu(cf, [["", "Todas"], ...Object.entries(CARAS).map(([k, [t]]) => [k, `${t} (${n("cliente", v => v.conformidad === k)})`])],
-      [...F.cliente][0] || "", k => { F.cliente = k ? new Set([k]) : new Set(); aplicar(); }, "Conformidad del retiro");
     const c = e.target.closest("[data-cia]");
     if (c) { const k = c.dataset.cia; F.cias.has(k) ? F.cias.delete(k) : F.cias.add(k); return aplicar(); }
     if (e.target.closest("#fo-reset")) { F.mios = false; F.sinAnul = false; F.cargado.clear(); F.grado.clear(); F.repuestos.clear(); F.pintura.clear(); F.cliente.clear(); F.cias.clear(); F.orden = "fecha"; F.dir = -1;
