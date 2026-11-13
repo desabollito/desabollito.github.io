@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.10.5", items: ["Vehículos: al filtrar por un estado se ordenan por la fecha de ese estado, del más reciente al más viejo (en Entregados, el último entregado arriba)."] },
   { v: "4.10.4", items: ["Chequeo y Desmontaje: ahora es un ícono arriba a la derecha del vehículo (con el puntito si hay algo cargado), junto al lápiz de editar."] },
   { v: "4.10.3", items: ["Chequeo y Desmontaje: vuelve a aparecer solo desde Reparando, y ahora va en la misma fila que Compartir y Contactar, así la pantalla no se corre.", "Computadora: el lápiz de editar pasó arriba a la derecha, a la altura de las fotos."] },
   { v: "4.10.2", items: ["Ícono de la pestaña del navegador: solo el logo, más grande y sin fondo; blanco en tema oscuro y negro en tema claro."] },

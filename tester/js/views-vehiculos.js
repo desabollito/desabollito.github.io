@@ -95,8 +95,9 @@ function popupConformidad(v) {
 }
 const ORDENES = [["fecha", "Fecha"], ["patente", "Patente"], ["modelo", "Modelo"], ["estado", "Estado"]];
 function ordenar(lista) {
-  if (F.orden === "fecha" && F.dir === -1) return lista;   // ya viene ordenada por fecha, la más nueva arriba
-  const clave = v => F.orden === "fecha" ? (v.fechas?.peritado || "") : F.orden === "estado" ? String(ESTADOS.findIndex(e => e.key === estadoActual(v)) + 10)
+  // Filtrando por estado, la fecha es la de ese estado (en Entregados, el último entregado arriba); sin filtro ya viene por fecha de peritado
+  if (F.orden === "fecha" && F.dir === -1 && !F.estado.size) return lista;
+  const clave = v => F.orden === "fecha" ? ((F.estado.size && v.fechas?.[estadoActual(v)]) || v.fechas?.peritado || "") :F.orden === "estado" ? String(ESTADOS.findIndex(e => e.key === estadoActual(v)) + 10)
     : String(v[F.orden] || "").toLowerCase();
   return [...lista].sort((a, b) => clave(a).localeCompare(clave(b), "es", { numeric: true }) * F.dir);
 }
