@@ -729,14 +729,23 @@ export function renderDetalle(root, v, embebido) {
     if (est !== "turnado" && est !== "ausente") return;
     relojPaso = setTimeout(() => {
       pasoLargo = true; navigator.vibrate?.(30);
-      if (est === "turnado") { cambiarEstado(v, "ausente", hoyISO()).catch(err => toast(mensajeError(err), "error")); toast("Marcado como ausente"); }
-      else { cambiarEstado(v, "turnado", v.fechas?.turnado || hoyISO()).catch(err => toast(mensajeError(err), "error")); toast("Volvió a turnado"); }
+      // Ventanita: Ausente (o volver a Turnado) y deshacer ese estado
+      const cur = getVehiculo(v.id) || v, d = pasoDeshacible(cur, [est]);
+      const s = openSheet({ title: ESTADO[est].label, body: `<div class="stack">
+        <button type="button" class="btn btn-ghost btn-block" data-ausente>${est === "turnado" ? "Marcar ausente" : "Volver a turnado"}</button>${botonDeshacer(d)}</div>` });
+      s.el.classList.add("sheet-centro");
+      $("[data-ausente]", s.el).onclick = () => {
+        s.close();
+        if (est === "turnado") { cambiarEstado(cur, "ausente", hoyISO()).catch(err => toast(mensajeError(err), "error")); toast("Marcado como ausente"); }
+        else { cambiarEstado(cur, "turnado", cur.fechas?.turnado || hoyISO()).catch(err => toast(mensajeError(err), "error")); toast("Volvió a turnado"); }
+      };
+      conectarDeshacer(s, cur, d);
     }, 600);
   });
   ["pointerup", "pointerleave", "pointercancel"].forEach(ev => pasoTurno?.addEventListener(ev, () => clearTimeout(relojPaso)));
   pasoTurno?.addEventListener("contextmenu", e => e.preventDefault());
-  // Mantener apretado Reparación o Facturado: cambiar las fechas
-  $$('[data-estado="rep"], [data-estado="facturado"]', root).forEach(paso => {
+  // Mantener apretado Peritado, Reparación o Facturado: cambiar las fechas (y deshacer ese estado si es el actual)
+  $$('[data-estado="peritado"], [data-estado="rep"], [data-estado="facturado"]', root).forEach(paso => {
     let reloj = null;
     paso.addEventListener("pointerdown", () => {
       pasoLargo = false;
@@ -744,7 +753,7 @@ export function renderDetalle(root, v, embebido) {
       reloj = setTimeout(() => {
         pasoLargo = true; navigator.vibrate?.(30);
         const cur = getVehiculo(v.id) || v;
-        if (paso.dataset.estado === "facturado") elegirFechaEstado(cur, "facturado"); else fechasReparacion(cur);
+        if (paso.dataset.estado === "rep") fechasReparacion(cur); else elegirFechaEstado(cur, paso.dataset.estado);
       }, 600);
     });
     ["pointerup", "pointerleave", "pointercancel"].forEach(ev => paso.addEventListener(ev, () => clearTimeout(reloj)));
