@@ -3483,16 +3483,19 @@ async function confirmarBorrado(env, m, codigo, confirmar) {
   return responder(env, dest(m), `✅ Operativo «${p.nombre}» eliminado (${n} ${n === 1 ? "vehículo" : "vehículos"}).`);
 }
 async function borrarOperativoCompleto(env, cid) {
-  const commit = writes => fs(env, `${base(env)}:commit`, { method: "POST", body: JSON.stringify({ writes }) });
+  // fsList no trae la ruta de cada documento: se arma con la colección + __id (antes iba undefined y no se borraba nada de adentro)
+  const commit = async writes => { const r = await fs(env, `${base(env)}:commit`, { method: "POST", body: JSON.stringify({ writes }) }); if (!r.ok) throw new Error(`Firestore borrar: ${r.status} ${await r.text()}`); };
+  const borrar = async rutas => { for (let i = 0; i < rutas.length; i += 400) await commit(rutas.slice(i, i + 400).map(x => ({ delete: nombreDoc(env, x) }))); };
   const media = new Map(); let nVeh = 0;
-  for (const sub of ["vehicles", "gastos", "planTec", "solicitudes", "planHist/tecnicos/cambios", "planHist/fijos/cambios", "planHist/facturacion/cambios"]) {
+  for (const sub of ["vehicles", "gastos", "planTec", "solicitudes", "chats", "factura", "cierre", "planHist/tecnicos/cambios", "planHist/fijos/cambios", "planHist/facturacion/cambios"]) {
     const docs = await fsList(env, `companies/${cid}/${sub}`).catch(() => []);
     if (sub === "vehicles") { nVeh = docs.length; docs.forEach(v => mediaDe(v, media)); }
-    for (let i = 0; i < docs.length; i += 400) await commit(docs.slice(i, i + 400).map(d => ({ delete: nombreDoc(env, d.__ruta) })));
+    await borrar(docs.map(d => `companies/${cid}/${sub}/${d.__id}`));
   }
   await borrarCloudinary(env, [...media.values()].filter(x => x.publicId.startsWith("desabollito/"))).catch(e => console.error("cloudinary operativo", e));
-  const links = (await fsList(env, "compartidos").catch(() => [])).filter(l => l.cid === cid);
-  if (links.length) await commit(links.map(l => ({ delete: nombreDoc(env, l.__ruta) })));
+  // Links compartidos y teléfonos de clientes que apuntaban a este operativo
+  await borrar((await fsList(env, "compartidos").catch(() => [])).filter(l => l.cid === cid).map(l => `compartidos/${l.__id}`));
+  await borrar((await fsList(env, "chat_idx").catch(() => [])).filter(x => x.cid === cid).map(x => `chat_idx/${x.__id}`));
   await fsDelete(env, `companies/${cid}`);
   await registrar(env, { ultimoOperativoBorrado: `${new Date().toISOString()} · ${cid} · ${nVeh} vehículos` }).catch(() => {});
   return nVeh;
