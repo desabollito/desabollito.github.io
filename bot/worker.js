@@ -742,10 +742,16 @@ const tilde = (env, m) => reaccionar(env, dest(m), m.id, "✅", m._key);
 async function alRecibirTexto(env, m, quien, texto) {
   const numero = quien.numero;
   const grupo = !!m._grupo, mencion = mencionaBot(texto);
-  const sinMencion = quitarMencion(texto).replace(ABIERTO_G, " ").trim();
+  let sinMencion = quitarMencion(texto).replace(ABIERTO_G, " ").trim();
   const t = limpio(texto);
   const hora = horaDe(m);
   const s = await leerSesion(env, numero);
+  // Sin patente, "agregar fotos/repuestos/pintura…" o "pintura rota" van al último vehículo de esta persona (10 minutos)
+  if (!buscarPatenteEnTexto(texto) && (RE_AGREGAR.test(sinMencion) || (/(^|\s)pintura\b/i.test(sinMencion) && RE_PINT.test(sinMencion)))) {
+    const u = s?.vid ? s : s?.anterior;
+    const desde = abierta(s) ? ultimaActividad(s) : Number(u?.cerradaEn || 0);
+    if (u?.patente && hora - desde <= 600) { sinMencion += " " + u.patente; texto += " " + u.patente; }
+  }
 
   // "!resumen" (20 hs) y "!turnos" (07 hs): resúmenes diarios del chat
   // "!operativo" en un grupo: asigna un operativo al grupo (todo lo que se cargue ahí va a ese operativo)
@@ -928,7 +934,7 @@ async function alRecibirTexto(env, m, quien, texto) {
   const patenteEnTexto = buscarPatenteEnTexto(texto);
   // (el operativo solo se cambia con el comando "operativo"; nombres en el mensaje no lo cambian)
   // "agregar/añadir AB123CD …": suma los datos a un vehículo ya cargado (no crea uno nuevo)
-  if (RE_AGREGAR.test(sinMencion) && buscarPatenteEnTexto(sinMencion)) {
+  if (RE_AGREGAR.test(sinMencion) && buscarPatenteEnTexto(sinMencion) && !RE_FOTOS_PINT.test(notaDe(sinMencion))) {   // "agregar pintura" sola: fotos de pintura (abajo)
     const fijoA = await operativoFijo(env, numero, quien.uid, quien);
     if (fijoA && await esDesm(env, fijoA.cid, quien.uid)) return responder(env, dest(m), NO_DESM);
     const extra = interpretar(sinMencion.replace(RE_AGREGAR, " "));
@@ -1230,11 +1236,12 @@ async function abrirModoDesm(env, numero, quien, texto, datos, hora) {
 // Fotos de pintura: "Saltó pintura AB123CD" (salto, saltada, despegó, despegada, dañada, rota…) → las fotos de los
 // próximos 5 minutos van a la sección "Fotos de pintura" de ese vehículo
 const RE_PINT = /(^|\s)(salt(?:[oóa]|ad[ao])|despeg(?:[oóa]|ad[ao])|da[ñn]ad[ao]|rot[ao])(?=\s|$|[:,.!])/i;
+const RE_FOTOS_PINT = /^(?:agreg[a-záéíóúñ]*|a[nñ]ad[a-záéíóúñ]*)\s+(?:fotos?\s+(?:de|a)\s+)?(?:la\s+)?pintura$/i;   // "agregar pintura", "agregar fotos de pintura"
 const adjPint = p => /despeg/i.test(p) ? "despegada" : /salt/i.test(p) ? "saltada" : /rot/i.test(p) ? "rota" : "dañada";
 async function abrirModoPintura(env, numero, quien, texto, datos, hora) {
   // "Observación: pintura rota" es un dato: el comando cuenta solo antes de una etiqueta de detalle
   const cmd = String(texto || "").split(/(?:^|\s)(?:detalles?|adicional(?:es)?|observaci[oó]n(?:es)?|obs)(?![a-záéíóúñ])/i)[0];
-  const pal = /(^|\s)pintura\b/i.test(cmd) && (cmd.match(RE_PINT) || [])[2];
+  const pal = /(^|\s)pintura\b/i.test(cmd) && ((cmd.match(RE_PINT) || [])[2] || (RE_FOTOS_PINT.test(notaDe(cmd)) && "dañada"));
   if (!pal) return null;
   const enc = await buscarPatente(env, datos.patente, quien.uid);
   const fijo = await operativoFijo(env, numero, quien.uid, quien);
