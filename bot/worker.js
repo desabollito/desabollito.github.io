@@ -3438,12 +3438,9 @@ async function avisoTester(env) {
   if (!v) return { error: "sin versión del tester" };
   const prev = await fsGet(env, "bot_meta/deployTester").catch(() => null);
   if (prev?.version === v) return { version: v, avisado: false };
-  // La entrada de esa versión: { v: "x", items: ["…", …] } (los textos van entre comillas dobles, sin comillas adentro)
-  const entrada = (await leer("novedades.js")).split(/\{\s*v:\s*"/).find(b => b.startsWith(v + '"')) || "";
-  const items = [...entrada.matchAll(/"((?:[^"\\]|\\.)*)"/g)].map(m => m[1]).slice(1);
-  const r = await enviar(env, destinoNumero(env, numeroAdmin(env)), { type: "text", text: { body: `🧪 Tester ${v} listo\n\n${items.map(i => `• ${i}`).join("\n")}`.slice(0, 3900) } });
+  const r = await enviar(env, destinoNumero(env, numeroAdmin(env)), { type: "text", text: { body: `🧪 Tester ${v} listo` } });   // solo la versión, sin la lista de novedades
   if (r?.ok) await fsSet(env, "bot_meta/deployTester", { version: v, fecha: new Date().toISOString() });   // si no salió, se reintenta en el próximo aviso
-  return { version: v, avisado: !!r?.ok, items: items.length };
+  return { version: v, avisado: !!r?.ok };
 }
 
 // ── Eliminar un operativo: solo con confirmación del creador por WhatsApp ──
