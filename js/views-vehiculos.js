@@ -610,7 +610,6 @@ export function renderDetalle(root, v, embebido) {
         <div class="d-menu" hidden>
           ${usaClientes() && !soyLector() ? `<a role="button" data-act="chat">${icon("chat")}Chat en vivo</a>` : ""}
           <a ${soySacabollos() ? `role="button"` : `href="${waLink(v.telefono, soyLector() ? "" : mensajeWa(v))}" target="_blank" rel="noopener"`}>${icon("share")}Contactar por privado</a>   <!-- Sacabollos: se puede tocar pero no hace nada -->
-          <a ${soySacabollos() ? `role="button"` : `href="tel:${esc(v.telefono)}"`}>${icon("phone")}Llamar</a>
         </div></div>` : ""}
     </div>
 
