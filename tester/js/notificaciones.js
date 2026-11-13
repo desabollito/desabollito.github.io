@@ -5,7 +5,7 @@
 //  así el puntito se apaga en todos los equipos.
 // ═════════════════════════════════════════════════════════════
 import { db, doc, updateDoc } from "./firebase.js";
-import { S, activos, onChange, chatsSinLeer, usaClientes } from "./data.js";
+import { S, activos, onChange, chatsSinLeer, chatSinLeer, usaClientes } from "./data.js";
 import { $, esc, icon, openSheet, plate } from "./ui.js";
 import { sonidoNotif } from "./sonidos.js";
 
@@ -121,19 +121,25 @@ const ICO_PIN = `<svg class="ic" viewBox="0 0 24 24"><path d="M12 17v5M9 3h6l-1 
 const ICO_ARCH = `<svg class="ic" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="5" rx="1"/><path d="M5 9v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9M10 13h4"/></svg>`;
 // Deslizar a la derecha fija arriba, a la izquierda archiva (en computadora, con los botones que aparecen al pasar el mouse)
 export function abrirNotifs(verArchivadas = false) {
-  const s = openSheet({ title: verArchivadas ? "Archivadas" : "Notificaciones" });
+  const s = openSheet({ title: verArchivadas ? "Archivadas" : "Notificaciones", onClose: () => off() });
+  // Pestañas (como las del check): Notificaciones | Chat en vivo; si solo hay chats nuevos, entra en Chat en vivo
+  let pest = !verArchivadas && usaClientes() && chatsSinLeer().length && !cuantasNuevas() ? "chat" : "notif";
+  const off = onChange(e => { if (e === "chats" && pest === "chat") lista = pintar(); });
   const pintar = () => {
     const lista = listaNotifs(), v0 = visto(), ab = new Set(abiertas()), fij = new Set(marcadas("notifFijadas")), arch = new Set(marcadas("notifArchivadas"));
     const vis = lista.filter(n => arch.has(clave(n)) === verArchivadas).sort((a, b) => fij.has(clave(b)) - fij.has(clave(a)));
     const nuevas = cuantasNuevas(), nArch = lista.filter(n => arch.has(clave(n))).length;
-    const conChat = !verArchivadas && usaClientes(), chats = conChat ? chatsSinLeer() : [];
-    s.body.innerHTML = (conChat ? `<div class="notif-sec-fila"><h4 class="notif-sec">${icon("chat")}Chat en vivo</h4>
-      <button type="button" class="link-btn small notif-ver-chats">Ver todos los chats</button></div>
-      ${chats.length ? "" : `<p class="muted small notif-sin-chats">No hay mensajes nuevos.</p>`}
-      <ul class="notif-list notif-chats">${chats.map(c => `<li class="notif-li"><a href="#" data-chat="${esc(c.tel)}" class="notif-item nueva">
+    const conChat = !verArchivadas && usaClientes(), nChat = conChat ? chatsSinLeer().length : 0;
+    const tabs = conChat ? `<div class="seg notif-tabs">${[["notif", "Notificaciones", nuevas], ["chat", "Chat en vivo", nChat]].map(([k, t, n]) =>
+      `<button type="button" class="seg-btn ${pest === k ? "on" : ""}" data-pest="${k}">${t}${n ? `<b class="notif-tab-n">${n > 9 ? "9+" : n}</b>` : ""}</button>`).join("")}</div>` : "";
+    if (conChat && pest === "chat") {
+      s.body.innerHTML = tabs + (S.chats.length ? `<ul class="notif-list">${S.chats.map(c => `<li class="notif-li"><a href="#" data-chat="${esc(c.tel)}" class="notif-item ${chatSinLeer(c) ? "nueva" : ""}">
         <span class="notif-veh">${plate(c.patente, "sm")}<small>${esc(c.nombre || c.modelo || "")}</small></span>
-        <span class="notif-txt">${esc(c.ult || "Mensaje nuevo")}</span><time>${cuando(c.t)}</time></a></li>`).join("")}</ul>
-      ${vis.length ? `<h4 class="notif-sec">${icon("bell")}Vehículos</h4>` : ""}` : "") + (vis.length
+        <span class="notif-txt">${c.ultYo ? "Vos: " : ""}${esc(c.ult || "")}</span><time>${cuando(c.t)}</time></a></li>`).join("")}</ul>`
+        : `<div class="empty small">${icon("chat")}<p>Todavía no hay chats. Aparecen cuando le escribís a un cliente desde el número de la empresa.</p></div>`);
+      return lista;
+    }
+    s.body.innerHTML = tabs + (vis.length
       ? `${verArchivadas ? `<p class="muted small notif-sub">Deslizá a la izquierda para sacarla de archivadas</p>` : ""}
         ${nuevas && !verArchivadas ? `<button class="btn btn-ghost notif-todas" type="button">Marcar todas como vistas</button>` : ""}
         <ul class="notif-list">${vis.map(n => { const k = clave(n); return `<li class="notif-li"><i class="notif-lado l-fijar">${ICO_PIN}</i><i class="notif-lado l-arch">${ICO_ARCH}</i><a href="#/v/${esc(n.vid)}" data-k="${esc(k)}" class="notif-item ${!ab.has(k) && n.t > v0 ? "nueva" : ""} ${fij.has(k) ? "fijada" : ""}" ${n.foto ? `data-foto-url="${esc(n.foto)}" ${n.desm ? "data-desm" : ""}` : ""}>
@@ -155,7 +161,7 @@ export function abrirNotifs(verArchivadas = false) {
   s.el.addEventListener("click", e => {
     if (e.target.closest(".notif-todas")) { guardarPerfil("notifVisto", Date.now()); lista = pintar(); return; }
     if (e.target.closest(".notif-ver-arch")) { s.close(); abrirNotifs(true); return; }
-    if (e.target.closest(".notif-ver-chats")) { s.close(); import("./views-otros.js").then(m => m.chatsClientes()); return; }
+    const pb = e.target.closest("[data-pest]"); if (pb) { pest = pb.dataset.pest; lista = pintar(); return; }
     const ch = e.target.closest("[data-chat]");
     if (ch) { e.preventDefault(); s.close(); import("./views-otros.js").then(m => m.abrirChatTel(ch.dataset.chat)); return; }
     const a = e.target.closest(".notif-item"); if (!a) return;

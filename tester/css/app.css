@@ -2533,3 +2533,6 @@ button.aj-item:hover, a.aj-item:hover { background: var(--surface-2); }
 .notif-sin-chats { margin: 0 2px 14px; }
 .aviso-cargando { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 18px 0 8px; margin: 0; color: var(--muted); font-weight: 600; }
 .aviso-cargando .spin { color: var(--primary); }
+.notif-tabs { margin-bottom: 12px; }
+.notif-tabs .seg-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.notif-tab-n { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; display: inline-grid; place-items: center; background: var(--primary); color: #fff; font-size: 11px; }

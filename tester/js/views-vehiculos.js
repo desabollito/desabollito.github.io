@@ -579,7 +579,7 @@ export function renderDetalle(root, v, embebido) {
         </div></div>` : ""}
       ${embebido && !soloVer ? `<a class="btn btn-ghost btn-icon" href="#/editar/${v.id}" aria-label="Editar" title="Editar">${icon("edit")}</a>` : ""}
     </div>
-${[...PASO_REP, "facturado"].includes(est) && !soyLector() && (soyAdmin() || soyDesmontaje()) ? `<div class="d-desm-fila"><button class="btn btn-ghost btn-block d-desm" data-act="desmontaje">${icon("table")}Chequeo y Desmontaje${CARGADO.desm(v) || CARGADO.check(v) ? `<i class="d-desm-punto" aria-label="Tiene algo cargado"></i>` : ""}</button></div>` : ""}
+${[...PASO_REP, "facturado"].includes(est) && !soyLector() && (soyAdmin() || soyDesmontaje()) ? `<div class="d-desm-fila"><button class="btn btn-ghost btn-block d-desm" data-act="desmontaje">${icon("table")}Desmontaje y Check in / out${CARGADO.desm(v) || CARGADO.check(v) ? `<i class="d-desm-punto" aria-label="Tiene algo cargado"></i>` : ""}</button></div>` : ""}
 
     <section class="d-sec">
       <div class="seg-head"><h3>Seguimiento</h3>
@@ -735,20 +735,13 @@ ${[...PASO_REP, "facturado"].includes(est) && !soyLector() && (soyAdmin() || soy
   ["pointerup", "pointerleave", "pointercancel"].forEach(ev => tacho?.addEventListener(ev, () => clearTimeout(relojTacho)));
   tacho?.addEventListener("contextmenu", e => e.preventDefault());
 
-  // Check in / out: tocar abre la pantalla del check; mantener apretado abre el desmontaje
-  const chk = $(".d-desm", root);
-  let relojChk = null, chkLargo = false;
-  chk?.addEventListener("pointerdown", () => { chkLargo = false; relojChk = setTimeout(() => { chkLargo = true; navigator.vibrate?.(15); abrirDesmontaje(v); }, 550); });
-  ["pointerup", "pointerleave", "pointercancel"].forEach(ev => chk?.addEventListener(ev, () => clearTimeout(relojChk)));
-  chk?.addEventListener("contextmenu", e => e.preventDefault());
-
   // Acciones
   root.addEventListener("click", async e => {
     const t = e.target;
     // Rol Desmontaje: no modifica nada del vehículo
     if (soloVer && (t.closest("[data-estado], .etapa-item, [data-del-foto], [data-del-doc]") || ["anular", "borrar", "firma", "mover"].includes(t.closest("[data-act]")?.dataset.act))) return;
     if ((soyLector() || soySacabollos()) && [...(soyLector() ? ["desmontaje"] : []), "fotos", "subir", "docs"].includes(t.closest("[data-act]")?.dataset.act)) return;
-    if (t.closest("[data-act]")?.dataset.act === "desmontaje") return chkLargo ? undefined : go(`#/check/${v.id}/in`);
+    if (t.closest("[data-act]")?.dataset.act === "desmontaje") return go(`#/check/${v.id}`);
     const fs = t.closest("[data-fsec]");
     if (fs) return abrirFotosSec(v, fs.dataset.fsec);
     const pf = t.closest("[data-pfoto]");
@@ -917,16 +910,18 @@ const CALIDAD = ["Calidad general de la reparación", "Limpieza interior", "Limp
 const COMBUSTIBLE = ["Reserva", "¼", "½", "¾", "Lleno"];
 const campoCheck = t => t === "in" ? "checkIn" : "checkOut";
 
-// Check a pantalla completa (como cargar un vehículo), con pestañas IN / OUT arriba; entra en IN
+// Desmontaje y check a pantalla completa (como cargar un vehículo), con pestañas Desmontaje / IN / OUT arriba; entra en Desmontaje
 export function vistaCheckForm(view, id, t) {
   const v = getVehiculo(id);
-  setTopbar({ title: "Check in / out", sub: v ? [v.modelo, v.patente].filter(Boolean).join(" · ") : "", back: `#/v/${id}` });
+  setTopbar({ title: "Desmontaje y check", sub: v ? [v.modelo, v.patente].filter(Boolean).join(" · ") : "", back: `#/v/${id}` });
   if (!v) { view.innerHTML = S.loadingVehicles ? `<div class="skeleton tall"></div>` : `<div class="empty"><h2>No encontramos este vehículo</h2></div>`; return; }
+  const tabs = `<div class="seg chk-tabs">${[["desm", "Desmontaje"], ["in", "Check IN"], ["out", "Check OUT"]].map(([k, l]) => `<a class="seg-btn ${k === t ? "on" : ""}" href="#/check/${id}/${k}">${l}</a>`).join("")}</div>`;
+  if (t === "desm") { view.innerHTML = `<div class="page narrow stack">${tabs}<div class="card desm"></div></div>`; return pintarDesmontaje($(".desm", view), v); }
   const c = v[campoCheck(t)] || {}, val = {};
   let files = [];
   const seg = (name, ops, sel) => `<div class="seg seg-sm">${ops.map((o, i) => `<button type="button" class="seg-btn ${sel === i ? "on" : ""}" data-n="${name}" data-v="${i}">${o}</button>`).join("")}</div>`;
   view.innerHTML = `<form class="vform chk-form" novalidate><div class="page narrow stack">
-    <div class="seg chk-tabs">${["in", "out"].map(k => `<a class="seg-btn ${k === t ? "on" : ""}" href="#/check/${id}/${k}">${k.toUpperCase()}</a>`).join("")}</div>
+    ${tabs}
     ${t === "in" ? "" : `<fieldset class="card"><legend>Calidad</legend>${CALIDAD.map((x, i) => `<div class="field"><span>${x}</span>${seg("calidad." + i, NOTAS, c.calidad?.[i])}</div>`).join("")}</fieldset>`}
     ${CHECK[t].map(([k, titulo, ops, items]) => `<fieldset class="card chk-grupo"><legend>${titulo}</legend>
       ${items.map(it => { const x = c[k]?.[it], sel = x?.v ?? ""; return `<div class="chk-fila ${ANOTAR.includes(it) ? "anota" : ""}" data-sel="${sel}"><span>${esc(it)}</span>
@@ -1014,12 +1009,7 @@ export function abrirFotosSec(v0, campo = "fotosPintura") {
   });
 }
 
-// Desmontaje (se abre manteniendo apretado "Check in / out"): técnico, fotos y notas
-export function abrirDesmontaje(v0) {
-  const s = openSheet({ title: `Desmontaje · ${v0.patente || v0.modelo || ""}`, wide: true, body: `<div class="desm"></div>` });
-  pintarDesmontaje($(".desm", s.el), v0);
-}
-
+// Desmontaje (primera pestaña de "Desmontaje y check"): técnico, fotos y notas
 function pintarDesmontaje(caja, v0) {
   const pintar = () => {
     const v = getVehiculo(v0.id) || v0, lotes = lotesDesm(v);
