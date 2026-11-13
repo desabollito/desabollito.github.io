@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.12.0", items: ["Calendario y Vehículos tienen filtros separados: cada pantalla recuerda los suyos.", "Filtros del calendario: solo Compañías, Grado, Pintura y Repuestos.", "Filtros de Vehículos: el botón de arriba dice «Ordenar por» y abre las 4 opciones."] },
   { v: "4.11.9", items: ["Notificaciones: ya no avisan las fotos ni las notas de desmontaje."] },
   { v: "4.11.8", items: ["Notificaciones y Chat en vivo: sin la X de arriba; se cierran tocando afuera."] },
   { v: "4.11.7", items: ["Filtros: «Ordenar por» reemplaza a la X arriba (se cierra tocando afuera, con Limpiar o con Ver) y su desplegable lleva ese título.", "Grado es una tira desplegable como las de abajo, en orden G1, G2, G3, G4 y –.", "Cliente pasó a Adicionales como «Conformidad del retiro»; «Ocultar anulados» quedó abajo de todo."] },

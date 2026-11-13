@@ -209,7 +209,7 @@ const MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "
 export function vistaCalendario(view, selId = null) {
   const sel = selId ? getVehiculo(selId) : null;
   const foco = document.activeElement?.id === "cal-q";
-  setTopbar({ title: "Calendario", sinTitulo: true, back: sel ? "#/calendario" : null, actions: botonFiltros() });
+  setTopbar({ title: "Calendario", sinTitulo: true, back: sel ? "#/calendario" : null, actions: botonFiltros(true) });
   {   // también con un vehículo abierto: la flecha queda a la izquierda del buscador
     // Buscador y filtros en la barra, como en Vehículos (en celular el botón de filtros va dentro del buscador)
     $("#topbar .tb-title").insertAdjacentHTML("afterend", `<label class="search">${icon("search")}<input type="search" id="cal-q" placeholder="Buscar patente, modelo…" value="${esc(C.q || "")}" autocomplete="off"></label>`);
@@ -217,7 +217,7 @@ export function vistaCalendario(view, selId = null) {
     const q = $("#cal-q");
     if (foco) { q.focus(); q.setSelectionRange(q.value.length, q.value.length); }
     q.addEventListener("input", debounce(e => { C.q = e.target.value; vistaCalendario(view, selId); }, 200));
-    $("#tb-filtros").addEventListener("click", () => abrirFiltros(() => vistaCalendario(view, selId)));
+    $("#tb-filtros").addEventListener("click", () => abrirFiltros(() => vistaCalendario(view, selId), true));
   }
   if (C.auto && !S.loadingVehicles) { C.auto = false; elegirDiaAuto(); }
   const iso = d => `${C.y}-${String(C.m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
