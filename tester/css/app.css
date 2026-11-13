@@ -1118,8 +1118,7 @@ details.vform-det .field + .field { margin-top: 12px; }
 /* Detalle: Compartir + Contactar (WhatsApp / Llamar en un menú) */
 .d-actions { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 8px; }
 .d-actions .btn-primary { grid-column: auto; }
-.d-actions:has(.btn-icon) { grid-template-columns: repeat(var(--n, 1), minmax(0, 1fr)) auto; grid-auto-columns: auto; }
-.d-actions:has(.d-contacto):has(.btn-icon) { --n: 2; }
+.d-edit { margin-left: auto; align-self: flex-start; }   /* lápiz arriba a la derecha, a la altura de las fotos */
 .d-contacto { position: relative; }
 .d-contacto > .btn { width: 100%; }
 .d-menu { position: absolute; z-index: 15; top: calc(100% + 6px); left: 0; right: 0; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); box-shadow: var(--shadow-lg); padding: 6px; display: flex; flex-direction: column; }
@@ -1278,8 +1277,10 @@ html, body { overscroll-behavior-y: none; }
 .chip-var { border: 1px solid var(--line); background: transparent; color: inherit; border-radius: 999px; padding: 1px 8px; margin: 2px 0; font-size: 12px; cursor: pointer; }
 
 /* ── Desmontaje ── */
-.d-desm-fila { display: flex; gap: 8px; margin-top: -6px; margin-bottom: 14px; }
-.d-desm { flex: 1; gap: 8px; }
+/* En la misma fila que Compartir y Contactar: al aparecer no corre la pantalla. En celular el texto puede ir en dos líneas sin agrandar el botón */
+.d-desm { gap: 6px; padding: 0 8px; }
+.d-desm span { white-space: normal; line-height: 1.15; text-align: center; }
+@media (max-width: 699px) { .d-desm { font-size: 13px; } .d-desm .ic { display: none; } }
 /* Puntito que titila si hay algo cargado en el chequeo o el desmontaje */
 .d-desm-punto { width: 8px; height: 8px; border-radius: 50%; background: var(--primary); animation: pulse 1.6s ease-in-out infinite; }
 .d-desm small { color: var(--ink-2); font-weight: 600; }
