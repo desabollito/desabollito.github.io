@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.14.4", items: ["Seguimiento: manteniendo apretado Reparación o Facturado, la ventana de fechas tiene un botón para deshacer ese estado."] },
   { v: "4.14.3", items: ["Notificaciones: al final, «Anteriores a 30 días» muestra todas las de antes, desde el inicio del operativo."] },
   { v: "4.14.2", items: ["Notas post-reparación y razón de la anulación vuelven a estar siempre abiertas, sin el puntito."] },
   { v: "4.14.1", items: ["Todos vuelven una vez al color predeterminado (azul); después cada uno puede elegir el suyo."] },
