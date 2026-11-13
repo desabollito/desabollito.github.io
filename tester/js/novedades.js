@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.11.3", items: ["El popup ahora se llama «Filtros»: arriba Compañías y abajo Grado, como antes.", "Ordenar (Fecha, Patente, Modelo, Estado) es un botón al lado de la X; elegir el mismo da vuelta el sentido.", "Las tiras (Pintura, Repuestos, Cliente, Adicionales) se abren y cierran con animación y quedan abiertas si las dejaste así.", "«Cargado» pasó a llamarse «Adicionales» y «Check in / out» ahora es «Chequeo». Se quitó «Cargados por mí»."] },
   { v: "4.11.2", items: ["Filtros: «Ordenar por» queda solo con Fecha y Estado, y al lado un desplegable de Grado (con la cantidad de cada uno)."] },
   { v: "4.11.1", items: ["Exportar PDF: abajo explica qué se va a exportar según lo marcado; botón «Exportar todos» y opción «Ocultar anulados» ahí mismo."] },
   { v: "4.11.0", items: ["Filtros: «Ordenar por» vuelve a estar siempre abierto, arriba de todo; después Compañías y Grado.", "«Cargados por mí» pasó adentro de Cargado.", "Turnos sin confirmar / confirmados: ahora es un filtro de Chat en vivo, que además tiene buscador (patente, cliente o mensaje)."] },

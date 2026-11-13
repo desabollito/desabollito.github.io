@@ -93,7 +93,7 @@ function popupConformidad(v) {
   const s = openSheet({ title: "¿Cómo se fue el cliente?", body: conformidadHTML(getVehiculo(v.id) || v) });
   elegirConformidad(s.el, v, () => setTimeout(() => s.close(), 250));
 }
-const ORDENES = [["fecha", "Fecha"], ["estado", "Estado"]];
+const ORDENES = [["fecha", "Fecha"], ["patente", "Patente"], ["modelo", "Modelo"], ["estado", "Estado"]];
 function ordenar(lista) {
   // Filtrando por estado, la fecha es la de ese estado (en Entregados, el último entregado arriba); sin filtro ya viene por fecha de peritado
   if (F.orden === "fecha" && F.dir === -1 && !F.estado.size) return lista;
@@ -281,31 +281,41 @@ export function filtrarCalendario(lista, q) {
 // Un solo botón "Filtrar y ordenar": cada grupo es una fila de opciones (tocar una la elige; tocarla de nuevo la quita)
 export function abrirFiltros(alCambiar) {
   const lector = soyLector();
-  const hoja = openSheet({ title: "Filtrar y ordenar", body: `<div class="fo">
-    <section class="fo-sec"><h3>Ordenar por</h3><div class="fo-orden-fila"><div class="fo-seg" id="fo-orden"></div><button type="button" class="fo-grado-dd" id="fo-grado-dd" aria-haspopup="listbox" aria-expanded="false"></button></div></section>
+  // Las tiras que cada uno deja abiertas quedan abiertas la próxima vez (en este equipo)
+  let abiertas = []; try { abiertas = JSON.parse(localStorage.getItem("filtrosAbiertos") || "[]"); } catch { /* sin almacenamiento */ }
+  const tira = (k, titulo, activo) => `<details class="fo-sec fo-plega" data-tira="${k}" ${activo || abiertas.includes(k) ? "open" : ""}><summary><h3>${titulo}</h3>${icon("next")}</summary><div class="fo-seg" id="fo-${k}"></div></details>`;
+  const hoja = openSheet({ title: "Filtros", body: `<div class="fo">
     ${lector ? "" : `<section class="fo-sec"><h3>Compañías</h3><div class="fo-cias-caja"><div class="fo-seg fo-cias" id="fo-cias"></div></div></section>`}
-    <details class="fo-sec fo-plega" ${F.pintura.size ? "open" : ""}><summary><h3>Pintura</h3>${icon("next")}</summary><div class="fo-seg" id="fo-pintura"></div></details>
-    <details class="fo-sec fo-plega" ${F.repuestos.size ? "open" : ""}><summary><h3>Repuestos</h3>${icon("next")}</summary><div class="fo-seg" id="fo-repuestos"></div></details>
-    <details class="fo-sec fo-plega" ${F.cliente.size ? "open" : ""}><summary><h3>Cliente</h3>${icon("next")}</summary><div class="fo-seg" id="fo-cliente"></div></details>
-    ${lector ? "" : `<details class="fo-sec fo-plega" ${F.cargado.size || F.mios ? "open" : ""}><summary><h3>Cargado</h3>${icon("next")}</summary><div class="fo-seg" id="fo-cargado"></div></details>`}
+    <section class="fo-sec fo-grados"><h3>Grado</h3><div class="fo-seg" id="fo-grado"></div></section>
+    ${tira("pintura", "Pintura", F.pintura.size)}
+    ${tira("repuestos", "Repuestos", F.repuestos.size)}
+    ${tira("cliente", "Cliente", F.cliente.size)}
+    ${lector ? "" : tira("cargado", "Adicionales", F.cargado.size)}
     <div class="fo-switches">
       <button type="button" class="fo-switch ${F.sinAnul ? "on" : ""}" id="fo-anul" aria-pressed="${F.sinAnul}">Ocultar anulados</button></div>
     <button type="button" class="btn btn-ghost btn-block" data-close id="fo-pdf">${icon("file")}Exportar PDF</button>
     <div class="fo-pie"><button type="button" class="btn btn-ghost" data-close id="fo-reset">Limpiar</button><button type="button" class="btn btn-primary" data-close id="fo-ver"></button></div>
   </div>` });
   const el = id => $(id, hoja.el);
+  // Ordenar: botón al lado de la X, con las 4 opciones en un desplegable
+  $(".sheet-head [data-close]", hoja.el)?.insertAdjacentHTML("beforebegin", `<button type="button" class="fo-grado-dd fo-orden-btn" id="fo-orden-btn" aria-haspopup="listbox" aria-expanded="false"></button>`);
+  hoja.el.addEventListener("toggle", e => {
+    const k = e.target.dataset?.tira; if (!k) return;
+    abiertas = abiertas.filter(x => x !== k).concat(e.target.open ? [k] : []);
+    try { localStorage.setItem("filtrosAbiertos", JSON.stringify(abiertas)); } catch { /* sin almacenamiento */ }
+  }, true);
   const n = (grupo, f) => filtrarSin(grupo, activos()).filter(f).length;
   // Opción de una fila: texto, cantidad y color opcional
   const op = (grupo, val, txt, cant, on, color) => `<button type="button" class="fo-op ${on ? "on" : ""}" data-g="${grupo}" data-v="${esc(String(val))}" ${color ? `style="--c:${color}"` : ""}>
     <span class="fo-txt">${color ? `<i class="f-dot"></i>` : ""}${txt}</span>${cant !== null && cant !== undefined ? `<b>${cant}</b>` : ""}</button>`;
   const pintarHoja = () => {
-    el("#fo-orden").innerHTML = ORDENES.map(([k, t]) => op("orden", k, F.orden === k ? `${t} <i class="fo-flecha">${F.dir > 0 ? "↑" : "↓"}</i>` : t, null, F.orden === k)).join("");
-    const g1 = [...F.grado][0];
-    el("#fo-grado-dd").innerHTML = `<span>${F.grado.size ? (g1 ? `G${g1}` : "Sin grado") : "Grado"}</span>${icon("next")}`;
-    el("#fo-grado-dd").classList.toggle("on", F.grado.size > 0);
+    const ob = el("#fo-orden-btn");
+    ob.innerHTML = `<span>${ORDENES.find(x => x[0] === F.orden)?.[1] || "Ordenar"} ${F.dir > 0 ? "↑" : "↓"}</span>${icon("next")}`;
+    ob.setAttribute("aria-label", "Ordenar por"); ob.classList.toggle("on", F.orden !== "fecha" || F.dir !== -1);
+    const gr = [[0, "–"], [1, "G1"], [2, "G2"], [3, "G3"], [4, "G4"]].filter(([g]) => !(g === 4 && lector) && (g !== 0 || n("grado", v => !v.grado) || F.grado.has(0)));
+    el("#fo-grado").innerHTML = gr.map(([g, t]) => op("grado", g, t, n("grado", v => (v.grado || 0) === g), F.grado.has(g))).join("");
     el("#fo-cliente").innerHTML = Object.entries(CARAS).map(([k, [t, c]]) => op("cliente", k, t, n("cliente", v => v.conformidad === k), F.cliente.has(k), c)).join("");
-    if (el("#fo-cargado")) el("#fo-cargado").innerHTML = [["desm", "Desmontaje"], ["check", "Check in / out"], ["firma", "Firmados"]].map(([k, t]) => op("cargado", k, t, n("cargado", CARGADO[k]), F.cargado.has(k))).join("");
-    if (el("#fo-cargado")) el("#fo-cargado").insertAdjacentHTML("afterbegin", `<button type="button" class="fo-op ${F.mios ? "on" : ""}" id="fo-mios" aria-pressed="${F.mios}"><span class="fo-txt">Cargados por mí</span><b>${n("mios", esMioV)}</b></button>`);
+    if (el("#fo-cargado")) el("#fo-cargado").innerHTML = [["desm", "Desmontaje"], ["check", "Chequeo"], ["firma", "Firmados"]].map(([k, t]) => op("cargado", k, t, n("cargado", CARGADO[k]), F.cargado.has(k))).join("");
     ["pintura", "repuestos"].forEach(tipo => {
       el(`#fo-${tipo}`).innerHTML = ETAPAS[tipo].map(([k, t, c]) => op(tipo, k, t, n(tipo, v => tieneEtapa(v, tipo, k)), F[tipo].has(k), c)).join("");
     });
@@ -321,18 +331,15 @@ export function abrirFiltros(alCambiar) {
   const cias = el("#fo-cias");
   cias?.addEventListener("wheel", e => { if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) { e.preventDefault(); cias.scrollLeft += e.deltaY; } }, { passive: false });
   hoja.el.addEventListener("click", e => {
-    const dd = e.target.closest("#fo-grado-dd");
-    if (dd) {   // Grado: desplegable al lado de Ordenar por (uno a la vez), con la cantidad de cada uno
-      const gr = [[0, "Sin grado"], [1, "G1"], [2, "G2"], [3, "G3"], [4, "G4"]].filter(([g]) => !(g === 4 && lector) && (g !== 0 || n("grado", v => !v.grado) || F.grado.has(0)));
-      return glideMenu(dd, [["", "Todos los grados"], ...gr.map(([g, t]) => [String(g), `${t} (${n("grado", v => (v.grado || 0) === g)})`])],
-        F.grado.size ? String([...F.grado][0]) : "", k => { F.grado = k === "" ? new Set() : new Set([Number(k)]); aplicar(); });
-    }
+    const ob = e.target.closest("#fo-orden-btn");
+    // Elegir otra opción la pone en su sentido normal; elegir la misma da vuelta el sentido
+    if (ob) return glideMenu(ob, ORDENES.map(([k, t]) => [k, F.orden === k ? `${t} ${F.dir > 0 ? "↓" : "↑"} (invertir)` : t]), null,
+      k => { if (F.orden === k) F.dir *= -1; else { F.orden = k; F.dir = k === "fecha" ? -1 : 1; } aplicar(); });
     const c = e.target.closest("[data-cia]");
     if (c) { const k = c.dataset.cia; F.cias.has(k) ? F.cias.delete(k) : F.cias.add(k); return aplicar(); }
     if (e.target.closest("#fo-reset")) { F.mios = false; F.sinAnul = false; F.cargado.clear(); F.grado.clear(); F.repuestos.clear(); F.pintura.clear(); F.cliente.clear(); F.cias.clear(); F.orden = "fecha"; F.dir = -1;
       return aplicar(); }
     if (e.target.closest("#fo-pdf")) return exportarPDF();
-    if (e.target.closest("#fo-mios")) { F.mios = !F.mios; return aplicar(); }
     if (e.target.closest("#fo-anul")) { F.sinAnul = !F.sinAnul; return aplicar(); }
     const b = e.target.closest("[data-g]"); if (!b) return;
     const g = b.dataset.g, v = b.dataset.v;
@@ -356,7 +363,7 @@ export function vistaVehiculos(view, selId = null) {
     F.grado.forEach(g => o.push([g ? `Grado ${g}` : "Sin grado", () => F.grado.delete(g)]));
     ["pintura", "repuestos"].forEach(t => F[t].forEach(k => o.push([`${t === "pintura" ? "Pintura" : "Repuestos"}: ${ETAPAS[t].find(e => e[0] === k)?.[1] || k}`, () => F[t].delete(k)])));
     F.cliente.forEach(k => o.push([`Cliente ${CARAS[k]?.[0].toLowerCase() || k}`, () => F.cliente.delete(k)]));
-    F.cargado.forEach(k => o.push([{ desm: "Con desmontaje", check: "Con check in / out", firma: "Firmados" }[k] || k, () => F.cargado.delete(k)]));
+    F.cargado.forEach(k => o.push([{ desm: "Con desmontaje", check: "Con chequeo", firma: "Firmados" }[k] || k, () => F.cargado.delete(k)]));
     F.cias.forEach(c => o.push([c, () => F.cias.delete(c)]));
     if (F.orden !== "fecha" || F.dir !== -1) o.push([`Orden: ${ORDENES.find(x => x[0] === F.orden)?.[1]} ${F.dir > 0 ? "↑" : "↓"}`, () => { F.orden = "fecha"; F.dir = -1; }]);
     return o; };

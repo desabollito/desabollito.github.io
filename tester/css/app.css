@@ -2547,11 +2547,15 @@ button.aj-item:hover, a.aj-item:hover { background: var(--surface-2); }
 .chat-q { margin-bottom: 10px; }
 .chat-turnos { margin-bottom: 12px; }
 
-/* Ordenar por + desplegable de grado en la misma fila */
-.fo-orden-fila { display: flex; gap: 8px; align-items: stretch; }
-.fo-orden-fila .fo-seg { flex: 1; }
 .fo-grado-dd { display: inline-flex; align-items: center; justify-content: space-between; gap: 6px; min-width: 104px; min-height: 44px; padding: 0 12px;
   border: 1px solid var(--line); border-radius: var(--r); background: var(--surface-2); color: var(--ink-2); font: inherit; font-weight: 650; }
 .fo-grado-dd .ic { width: 14px; height: 14px; transform: rotate(90deg); transition: transform .15s; }
 .fo-grado-dd[aria-expanded="true"] .ic { transform: rotate(-90deg); }
 .fo-grado-dd.on { border-color: var(--primary); color: var(--primary); }
+.sheet-head .fo-orden-btn { margin-left: auto; min-height: 38px; min-width: 0; }
+
+/* Tiras de filtros: se abren y cierran deslizando (donde el navegador lo permite), además de la flecha que gira */
+.fo-plega { interpolate-size: allow-keywords; }
+.fo-plega::details-content { height: 0; overflow: clip; transition: height .25s var(--ease), content-visibility .25s allow-discrete; }
+.fo-plega[open]::details-content { height: auto; }
+@media (prefers-reduced-motion: reduce) { .fo-plega::details-content { transition: none; } }
