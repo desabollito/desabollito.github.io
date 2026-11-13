@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.8.1", items: ["Contactado: «¿Avisarle al cliente desde el chat en vivo?», se le avisa que está listo su vehículo y se abre el chat."] },
   { v: "4.8.0", items: ["Chat en vivo: botón flotante con todos los chats y la cantidad sin leer.", "Notificaciones: apartado propio para los mensajes nuevos del chat en vivo.", "Vehículo: puntito titilando en Contactar (y en Chat en vivo) cuando el cliente escribió.", "Turnar: «¿Avisarle al cliente desde el chat en vivo?»; al guardar se abre el chat."] },
   { v: "4.7.2", items: ["Contactar: Chat en vivo (desde el número de la empresa, con la conversación en la app), Contactar por privado y Llamar.", "Turnar: sin el horario; nuevo interruptor para avisar el turno por chat en vivo."] },
   { v: "4.7.1", items: ["Chats de clientes: arreglo, ahora se guardan los mensajes. Los mensajes a clientes ya no salen en Notificaciones."] },

@@ -1126,13 +1126,16 @@ async function ofrecerAvisoCliente(v) {
   // Si no se puede avisar, se dice por qué (antes no pasaba nada y parecía roto)
   const no = S.config?.avisoReparado === false ? "El aviso al cliente está apagado en el panel del creador" : !v.telefono ? "Sin teléfono: no se le puede avisar al cliente" : v.avisoReparado ? "A este cliente ya se le avisó" : "";
   if (no) return toast(no);
-  if (!(await confirmar({ title: "¿Avisarle al cliente desde el teléfono de la empresa?", message: `Le llega este WhatsApp a ${v.asegurado || "el cliente"} (${v.telefono}):\n\n“${textoAviso(v)}”`, ok: "Enviar mensaje" }))) return;
+  const chat = usaClientes() && !!telWa(v.telefono);
+  if (!(await confirmar({ title: chat ? "¿Avisarle al cliente desde el chat en vivo?" : "¿Avisarle al cliente desde el teléfono de la empresa?",
+    message: `Se le avisará ${v.asegurado ? "a " + v.asegurado : "al cliente"} que está listo su vehículo.\n\n“${textoAviso(v)}”`, ok: "Enviar mensaje" }))) return;
   try {
     const r = await fetch(`${BOT_API}/avisar`, { method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ idToken: await S.user.getIdToken(), cid: S.company.id, vid: v.id, por: S.profile?.name || "", texto: textoAviso(v) }) });
     const d = await r.json().catch(() => ({}));
     if (!r.ok || !d.ok) throw new Error(d.error || "No se pudo enviar");
     toast("Aviso enviado al cliente", "success");
+    if (chat) abrirChatDe(v);   // el aviso queda guardado en el chat en vivo
   } catch (e) {
     if (await confirmar({ title: "No se pudo enviar desde el bot", message: `${e.message}. ¿Abrir WhatsApp para mandarlo vos?`, ok: "Abrir WhatsApp" })) {
       const tel = String(v.telefono).replace(/\D/g, "").replace(/^0/, "");
