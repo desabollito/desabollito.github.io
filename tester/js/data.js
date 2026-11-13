@@ -862,7 +862,12 @@ export async function aseguradoDePadron(patente) {
 // ── Color de la app: es de cada usuario (users/{uid}.color; vacío = azul por defecto) y se recuerda en el equipo para pintarlo antes de la intro ──
 function aplicarColorPerfil(d, uid) {
   let local = ""; try { local = localStorage.getItem("color") || ""; } catch { /* sin almacenamiento */ }
-  if (!("color" in d)) { if (local) updateDoc(doc(db, "users", uid), { color: local }).catch(() => {}); return; }   // shortcut: migra el color que ya tenía en el equipo; borrar cuando todos tengan color en el perfil
+  // shortcut: reinicio único de todos al azul (pedido 13/11/2026); colorV marca que ya se hizo. Borrar cuando todos hayan entrado
+  if (d.colorV !== 2) {
+    try { localStorage.removeItem("color"); } catch { /* sin almacenamiento */ }
+    window.pintarColor?.(""); colorPeritado(""); document.dispatchEvent(new Event("color-app"));
+    updateDoc(doc(db, "users", uid), { color: "", colorV: 2 }).catch(() => {}); return;
+  }
   const c = String(d.color || "");
   if (c === local) return;
   try { c ? localStorage.setItem("color", c) : localStorage.removeItem("color"); } catch { /* sin almacenamiento */ }
