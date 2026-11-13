@@ -1290,6 +1290,7 @@ function abrirChat(cid, tel, alCerrar, v = null) {
       <div class="chat-turno" id="chat-turno"></div>
       <form class="chat-form" id="chat-form"><textarea name="txt" rows="1" placeholder="Escribí una respuesta…" maxlength="2000" required></textarea>
         <button class="btn btn-primary chat-enviar" type="submit" aria-label="Enviar">${icon("next")}</button></form></div>` });
+  s.el.classList.add("sheet-centro");   // en el celular, al medio (no desde abajo)
   const caja = $("#chat-msgs", s.el), form = $("#chat-form", s.el), ta = form.txt;
   const pintar = () => {
     if (!c) return;

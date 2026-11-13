@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.13.1", items: ["Celular: «Enviando mensaje…» y el chat en vivo aparecen en el medio de la pantalla."] },
   { v: "4.13.0", items: ["Facturados digital: ahora es una página propia, con buscador (patente, modelo o compañía) y la columna Facturado con la fecha. Tocando el título se ordena de más recientes a más antiguos o al revés."] },
   { v: "4.12.6", items: ["Ajustes: se quitó «Chats en vivo» (está en la campanita).", "El número de notificaciones sigue el color de la app."] },
   { v: "4.12.5", items: ["Celular: «¿Avisarle al cliente desde el chat en vivo?» aparece en el medio de la pantalla."] },
