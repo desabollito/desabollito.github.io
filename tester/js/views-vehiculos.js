@@ -566,7 +566,8 @@ export function renderDetalle(root, v, embebido) {
         <div class="d-plate">${plate(v.patente, "lg")}</div>
         ${v.precio ? `<div class="d-price"><strong>${money(v.precio)}</strong></div>` : ""}
       </div>
-      ${embebido && !soloVer ? `<a class="btn btn-ghost btn-icon d-edit" href="#/editar/${v.id}" aria-label="Editar" title="Editar">${icon("edit")}</a>` : ""}
+      <span class="d-edit">${[...PASO_REP, "facturado"].includes(est) && !soyLector() && (soyAdmin() || soyDesmontaje()) ? `<button class="btn btn-ghost btn-icon d-desm" data-act="desmontaje" aria-label="Chequeo y Desmontaje" title="Chequeo y Desmontaje">${icon("table")}${CARGADO.desm(v) || CARGADO.check(v) ? `<i class="d-desm-punto" aria-label="Tiene algo cargado"></i>` : ""}</button>` : ""}
+        ${embebido && !soloVer ? `<a class="btn btn-ghost btn-icon" href="#/editar/${v.id}" aria-label="Editar" title="Editar">${icon("edit")}</a>` : ""}</span>
     </header>
 
     <div class="d-actions">
@@ -578,7 +579,6 @@ export function renderDetalle(root, v, embebido) {
           <a ${soySacabollos() ? `role="button"` : `href="${waLink(v.telefono, soyLector() ? "" : mensajeWa(v))}" target="_blank" rel="noopener"`}>${icon("share")}Contactar por privado</a>   <!-- Sacabollos: se puede tocar pero no hace nada -->
           <a ${soySacabollos() ? `role="button"` : `href="tel:${esc(v.telefono)}"`}>${icon("phone")}Llamar</a>
         </div></div>` : ""}
-      ${[...PASO_REP, "facturado"].includes(est) && !soyLector() && (soyAdmin() || soyDesmontaje()) ? `<button class="btn btn-ghost d-desm" data-act="desmontaje">${icon("table")}<span>Chequeo y Desmontaje</span>${CARGADO.desm(v) || CARGADO.check(v) ? `<i class="d-desm-punto" aria-label="Tiene algo cargado"></i>` : ""}</button>` : ""}
     </div>
 
     <section class="d-sec">
