@@ -2574,3 +2574,10 @@ button.aj-item:hover, a.aj-item:hover { background: var(--surface-2); }
 .fo .fo-conf { justify-content: space-between; }
 .fo-conf .ic { width: 14px; height: 14px; transform: rotate(90deg); transition: transform .15s; }
 .fo-conf[aria-expanded="true"] .ic { transform: rotate(-90deg); }
+
+/* Diálogos centrados también en el celular (ej: ¿Avisarle al cliente…?) */
+@media (max-width: 699px) {
+  .sheet-backdrop.sheet-centro { align-items: center; padding: 16px; }
+  .sheet-centro .sheet { border-radius: var(--r-xl); padding-bottom: 18px; }
+  .sheet-centro .sheet-grip { display: none; }
+}

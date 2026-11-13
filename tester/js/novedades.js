@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.12.5", items: ["Celular: «¿Avisarle al cliente desde el chat en vivo?» aparece en el medio de la pantalla."] },
   { v: "4.12.4", items: ["Inicio: el logo final queda medio segundo y ahí se abre la app (sin el segundo en blanco)."] },
   { v: "4.12.3", items: ["Inicio: la app espera 1 segundo más a que termine la animación del logo antes de abrirse, para que no se trabe al final."] },
   { v: "4.12.2", items: ["Mensajes y turnos: ya no queda espacio vacío para scrollear al final.", "Administrador: interruptor para mostrar u ocultar el botón «Mensajes y turnos»."] },

@@ -188,7 +188,7 @@ document.addEventListener("keydown", e => {
   if (!e.target.closest?.("input, textarea, select, [contenteditable]")) document.getElementById("tb-back")?.click();
 });
 
-export function confirmar({ title, message = "", ok = "Confirmar", danger = false }) {
+export function confirmar({ title, message = "", ok = "Confirmar", danger = false, centro = false }) {
   return new Promise(resolve => {
     let done = false;
     const s = openSheet({
@@ -203,6 +203,7 @@ export function confirmar({ title, message = "", ok = "Confirmar", danger = fals
         </div>`,
       onClose: () => { if (!done) resolve(false); }
     });
+    if (centro) s.el.classList.add("sheet-centro");   // en el celular, en el medio de la pantalla en vez de abajo
     $("[data-no]", s.el).onclick = () => { done = true; resolve(false); s.close(); };
     $("[data-yes]", s.el).onclick = () => { done = true; resolve(true); s.close(); };
   });

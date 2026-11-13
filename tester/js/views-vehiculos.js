@@ -1155,7 +1155,7 @@ async function ofrecerAvisoCliente(v) {
   if (no) return toast(no);
   const chat = usaClientes() && !!telWa(v.telefono);
   if (!(await confirmar({ title: chat ? "¿Avisarle al cliente desde el chat en vivo?" : "¿Avisarle al cliente desde el teléfono de la empresa?",
-    message: `Se le avisará ${v.asegurado ? "a " + v.asegurado : "al cliente"} que está listo su vehículo.`, ok: "Enviar mensaje" }))) return;
+    message: `Se le avisará ${v.asegurado ? "a " + v.asegurado : "al cliente"} que está listo su vehículo.`, ok: "Enviar mensaje", centro: true }))) return;
   const espera = openSheet({ title: "Avisando al cliente", body: `<p class="aviso-cargando"><span class="spin"></span>Enviando mensaje…</p>` });
   try {
     const r = await fetch(`${BOT_API}/avisar`, { method: "POST", headers: { "Content-Type": "application/json" },
