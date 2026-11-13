@@ -135,10 +135,12 @@ const ICO_ARCH = `<svg class="ic" viewBox="0 0 24 24"><rect x="3" y="4" width="1
 export function abrirNotifs(verArchivadas = false, pestIni = "") {
   const s = openSheet({ title: verArchivadas ? (pestIni === "chat" ? "Chats archivados" : "Archivadas") : "Notificaciones", onClose: () => off() });
   if (!verArchivadas) $(".sheet-head h2", s.el).textContent = "";   // sin título: las pestañas ya dicen dónde estás (queda como nombre del diálogo)
-  // Chat en vivo: buscar y filtrar por turno con botones arriba, al lado de la X
-  $(".sheet-head [data-close]", s.el).insertAdjacentHTML("beforebegin", `<span class="chat-head-acc" hidden>
+  // Chat en vivo: buscar y filtrar por turno con botones arriba, a la derecha
+  const x = $(".sheet-head [data-close]", s.el);   // sin X: se cierra tocando afuera o deslizando
+  x.insertAdjacentHTML("beforebegin", `<span class="chat-head-acc" hidden>
     <button type="button" class="icon-btn" id="chat-buscar" aria-label="Buscar chats" aria-pressed="false">${icon("search")}</button>
     <button type="button" class="icon-btn" id="chat-turno" aria-label="Filtrar por turno" aria-haspopup="listbox" aria-expanded="false">${icon("calendar")}</button></span>`);
+  x.remove();
   // Pestañas (como las del check): Notificaciones | Chat en vivo; si solo hay chats nuevos, entra en Chat en vivo
   let pest = pestIni || !verArchivadas && usaClientes() && chatsNuevos().length && !cuantasNuevas() ? "chat" : "notif";
   const off = onChange(e => { if ((e === "chats" || e === "vehicles") && pest === "chat") lista = pintar(); });
@@ -153,6 +155,7 @@ export function abrirNotifs(verArchivadas = false, pestIni = "") {
       `<button type="button" class="seg-btn ${pest === k ? "on" : ""}" data-pest="${k}">${t}${n ? `<b class="notif-tab-n">${n > 9 ? "9+" : n}</b>` : ""}</button>`).join("")}</div>` : "";
     const enChat = pest === "chat" && (conChat || verArchivadas), acc = $(".chat-head-acc", s.el);
     acc.hidden = !enChat;
+    $(".sheet-head", s.el).style.display = enChat || verArchivadas ? "" : "none";   // en Notificaciones la cabecera queda vacía
     $("#chat-turno", acc).classList.toggle("on", !!fTurno); $("#chat-buscar", acc).classList.toggle("on", buscando);
     $("#chat-buscar", acc).setAttribute("aria-pressed", buscando);
     if (enChat) {
