@@ -2559,3 +2559,9 @@ button.aj-item:hover, a.aj-item:hover { background: var(--surface-2); }
 .fo-plega::details-content { height: 0; overflow: clip; transition: height .25s var(--ease), content-visibility .25s allow-discrete; }
 .fo-plega[open]::details-content { height: auto; }
 @media (prefers-reduced-motion: reduce) { .fo-plega::details-content { transition: none; } }
+
+/* Adicionales: Ocultar anulados y Exportar PDF adentro de la tira, separados */
+.fo-extra { display: grid; gap: 10px; margin-top: 10px; }
+/* Chat en vivo: estado del turno y botón para confirmarlo */
+.chat-turno { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.chat-turno:empty { display: none; }

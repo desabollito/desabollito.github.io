@@ -2,7 +2,7 @@ import {
   S, activos, papelera, restaurar, eliminarDefinitivo, soyAdmin, miRol, renombrarEmpresa, guardarSello, deshaciblesDe, deshacerCambio, soyDesmontaje,
   agregarMiembro, cambiarRol, quitarMiembro, guardarEtiquetas, resolverSolicitud, desvincularWhatsApp, salirDeEmpresa, eliminarEmpresa, crearEmpresa, elegirEmpresa,
   actualizarPerfil, ponerMiFoto, salir, mensajeError, llamarAdmin, soloDesmontaje, pedirUnion, linksCompartidos, getVehiculo, soloVer, soySacabollos, guardarOrdenOps, cambiarEstado, usaClientes,
-  onChange, chatSinLeer, marcarChatVisto
+  onChange, chatSinLeer, marcarChatVisto, actualizarVehiculo
 } from "./data.js";
 import { cargarExcelJS } from "./excel.js";
 import { db, doc, onSnapshot } from "./firebase.js";
@@ -1297,8 +1297,9 @@ export function avisarTurnoChat(v, fecha) {
 
 function abrirChat(cid, tel, alCerrar, v = null) {
   let c = null, enviando = false;
-  const s = openSheet({ title: "Chat", onClose: () => { unsub(); alCerrar?.(); }, body: `<div class="chat">
+  const s = openSheet({ title: "Chat", onClose: () => { unsub(); offV(); alCerrar?.(); }, body: `<div class="chat">
       <div class="chat-msgs" id="chat-msgs"><div class="skeleton" style="height:60px"></div></div>
+      <div class="chat-turno" id="chat-turno"></div>
       <form class="chat-form" id="chat-form"><textarea name="txt" rows="1" placeholder="Escribí una respuesta…" maxlength="2000" required></textarea>
         <button class="btn btn-primary chat-enviar" type="submit" aria-label="Enviar">${icon("next")}</button></form></div>` });
   const caja = $("#chat-msgs", s.el), form = $("#chat-form", s.el), ta = form.txt;
@@ -1310,7 +1311,20 @@ function abrirChat(cid, tel, alCerrar, v = null) {
       <small>${m.yo && m.por ? esc(m.por) + " · " : ""}${horaChat(m.t)}</small></div>`).join("") || `<p class="muted small center">Sin mensajes.</p>`;
     if (abajo || !caja.dataset.listo) { caja.scrollTop = caja.scrollHeight; caja.dataset.listo = "1"; }
     marcarChatVisto(tel, c.t || Date.now());
+    pintarTurno();
   };
+  // Vehículo turnado: el turno queda sin confirmar hasta que alguien toca que el cliente lo confirmó
+  const pintarTurno = () => {
+    const vv = getVehiculo(c?.vid || v?.id), bt = $("#chat-turno", s.el);
+    bt.innerHTML = vv && estadoActual(vv) === "turnado" ? (vv.turnoConfirmado === true ? `<span class="conf-tag ok">✓ Turno confirmado</span>`
+      : `<span class="conf-tag">Turno sin confirmar</span><button type="button" class="btn btn-ghost btn-sm" id="chat-conf">${icon("check")}El cliente confirmó el turno</button>`) : "";
+  };
+  const offV = onChange(e => { if (e === "vehicles" && c) pintarTurno(); });
+  s.el.addEventListener("click", e => {
+    if (!e.target.closest("#chat-conf")) return;
+    const vid = c?.vid || v?.id;
+    actualizarVehiculo(vid, { turnoConfirmado: true }, "El cliente confirmó el turno").then(() => toast("Turno confirmado", "success")).catch(err => toast(mensajeError(err), "error"));
+  });
   // Sin mensajes todavía (abierto desde un vehículo): se muestra con los datos del vehículo
   const vacio = v ? { tel, vid: v.id, patente: v.patente, nombre: v.asegurado, modelo: v.modelo, msgs: [] } : null;
   const unsub = onSnapshot(doc(db, "companies", cid, "chats", tel), d => { c = d.exists() ? { tel, ...d.data() } : vacio; pintar(); }, () => { c = vacio; pintar(); });

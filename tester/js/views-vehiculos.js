@@ -283,17 +283,16 @@ export function abrirFiltros(alCambiar) {
   const lector = soyLector();
   // Las tiras que cada uno deja abiertas quedan abiertas la próxima vez (en este equipo)
   let abiertas = []; try { abiertas = JSON.parse(localStorage.getItem("filtrosAbiertos") || "[]"); } catch { /* sin almacenamiento */ }
-  const tira = (k, titulo, activo) => `<details class="fo-sec fo-plega" data-tira="${k}" ${activo || abiertas.includes(k) ? "open" : ""}><summary><h3>${titulo}</h3>${icon("next")}</summary><div class="fo-seg" id="fo-${k}"></div></details>`;
+  const tira = (k, titulo, activo, extra = "") => `<details class="fo-sec fo-plega" data-tira="${k}" ${activo || abiertas.includes(k) ? "open" : ""}><summary><h3>${titulo}</h3>${icon("next")}</summary><div class="fo-seg" id="fo-${k}"></div>${extra}</details>`;
   const hoja = openSheet({ title: "Filtros", body: `<div class="fo">
     ${lector ? "" : `<section class="fo-sec"><h3>Compañías</h3><div class="fo-cias-caja"><div class="fo-seg fo-cias" id="fo-cias"></div></div></section>`}
     <section class="fo-sec fo-grados"><h3>Grado</h3><div class="fo-seg" id="fo-grado"></div></section>
     ${tira("pintura", "Pintura", F.pintura.size)}
     ${tira("repuestos", "Repuestos", F.repuestos.size)}
     ${tira("cliente", "Cliente", F.cliente.size)}
-    ${lector ? "" : tira("cargado", "Adicionales", F.cargado.size)}
-    <div class="fo-switches">
-      <button type="button" class="fo-switch ${F.sinAnul ? "on" : ""}" id="fo-anul" aria-pressed="${F.sinAnul}">Ocultar anulados</button></div>
-    <button type="button" class="btn btn-ghost btn-block" data-close id="fo-pdf">${icon("file")}Exportar PDF</button>
+    ${(() => { const extra = `<div class="fo-extra"><button type="button" class="fo-switch ${F.sinAnul ? "on" : ""}" id="fo-anul" aria-pressed="${F.sinAnul}">Ocultar anulados</button>
+      <button type="button" class="btn btn-ghost btn-block" data-close id="fo-pdf">${icon("file")}Exportar PDF</button></div>`;
+      return lector ? extra : tira("cargado", "Adicionales", F.cargado.size || F.sinAnul, extra); })()}
     <div class="fo-pie"><button type="button" class="btn btn-ghost" data-close id="fo-reset">Limpiar</button><button type="button" class="btn btn-primary" data-close id="fo-ver"></button></div>
   </div>` });
   const el = id => $(id, hoja.el);
@@ -1213,7 +1212,8 @@ function elegirFechaEstado(v, estado) {
   $("form", s.el).onsubmit = async ev => {
     ev.preventDefault();
     const fecha = ev.target.f.value;
-    cambiarEstado(v, estado, fecha, estado === "turnado" ? { turnoConfirmado: confirmado } : {}).catch(err => toast(mensajeError(err), "error"));
+    // Avisado por el chat en vivo: queda sin confirmar hasta que el cliente responda y alguien lo confirme
+    cambiarEstado(v, estado, fecha, estado === "turnado" ? { turnoConfirmado: avisar ? false : confirmado } : {}).catch(err => toast(mensajeError(err), "error"));
     toast(`${e.label} · ${fechaCorta(ev.target.f.value)}`, "success");
     if (!avisar) return s.close();
     // Espera a que salga el mensaje (tarda ~1 s) y recién ahí abre el chat, así ya se ve
