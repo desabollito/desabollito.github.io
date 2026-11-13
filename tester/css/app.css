@@ -2536,3 +2536,9 @@ button.aj-item:hover, a.aj-item:hover { background: var(--surface-2); }
 .notif-tabs { margin-bottom: 12px; }
 .notif-tabs .seg-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
 .notif-tab-n { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; display: inline-grid; place-items: center; background: var(--primary); color: #fff; font-size: 11px; }
+
+/* Barra de subida de fotos sobre la portada del vehículo */
+.d-cover-prog { position: absolute; left: 6px; right: 6px; top: 6px; height: 18px; border-radius: 999px; overflow: hidden; background: rgba(0, 0, 0, .6); z-index: 2; pointer-events: none; }
+.d-cover-prog i { display: block; height: 100%; background: var(--primary); transition: width .3s var(--ease); }
+.d-cover-prog small { position: absolute; inset: 0; display: grid; place-items: center; font-size: 11px; font-weight: 700; color: #fff; }
+@media (prefers-reduced-motion: reduce) { .d-cover-prog i { transition: none; } }

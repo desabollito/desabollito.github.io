@@ -557,9 +557,9 @@ export function renderDetalle(root, v, embebido) {
   <article class="detail">
     <header class="d-head">
       ${v.fotos?.length
-        ? `<button class="d-cover" data-act="galeria" aria-label="Ver las ${v.fotos.length} fotos">
-             <img src="${esc(thumb(v.fotos[0].url, 240, v.fotos[0].rot))}" alt=""><span class="d-cover-n">${icon("camera")}${v.fotos.length}</span></button>`
-        : `<div class="d-cover vacio">
+        ? `<button class="d-cover" data-vid="${esc(v.id)}" data-act="galeria" aria-label="Ver las ${v.fotos.length} fotos">
+             <img src="${esc(thumb(v.fotos[0].url, 240, v.fotos[0].rot))}" alt=""><span class="d-cover-n">${icon("camera")}${v.fotos.length}</span>${barraSubida(v.id)}</button>`
+        : `<div class="d-cover vacio" data-vid="${esc(v.id)}">${barraSubida(v.id)}
              ${soloVer ? `<span class="d-cover-cam">${icon("image")}</span>` : `<button type="button" class="d-cover-cam" id="d-cover-fotos" aria-label="Agregar fotos">${icon("image")}<small>Fotos</small></button>`}
            </div>`}
       <div class="d-title">
@@ -1209,12 +1209,25 @@ async function subirMedia(file, carpeta) {
   return subir(await comprimir(file), carpeta);
 }
 
+// Fotos subiéndose por vehículo: barra sobre la portada que se completa con cada foto (sobrevive a que se redibuje el detalle)
+const subidas = new Map();   // vid → { h: hechas, t: total }
+function barraSubida(vid) {
+  const p = subidas.get(vid); if (!p) return "";
+  return `<span class="d-cover-prog" role="progressbar" aria-label="Subiendo fotos" aria-valuemin="0" aria-valuemax="${p.t}" aria-valuenow="${p.h}"><i style="width:${Math.max(8, p.h / p.t * 100)}%"></i><small>${p.h}/${p.t}</small></span>`;
+}
+function pintarSubida(vid) {
+  const c = document.querySelector(`.d-cover[data-vid="${CSS.escape(vid)}"]`); if (!c) return;
+  c.querySelector(".d-cover-prog")?.remove();
+  c.insertAdjacentHTML("beforeend", barraSubida(vid));
+}
+
 async function subirAdjuntos(v, files, tipo, root) {
   if (!cloudinaryListo()) { toast("Falta configurar Cloudinary en js/config.js", "error"); return; }
   const holders = files.map(() => null);
   const est = $("#fotos-estado", root);
   if (est && tipo === "foto") est.innerHTML = `<span class="spin"></span> Subiendo ${files.length} ${files.length === 1 ? "foto" : "fotos"}…`;
-  toast(`Subiendo ${files.length} ${tipo === "foto" ? (files.length === 1 ? "foto" : "fotos") : (files.length === 1 ? "archivo" : "archivos")}…`);
+  if (tipo === "foto") { subidas.set(v.id, { h: 0, t: files.length }); pintarSubida(v.id); }
+  else toast(`Subiendo ${files.length} ${files.length === 1 ? "archivo" : "archivos"}…`);
   const nuevos = [];
   const carpeta = `${S.company.id}/${v.id}`;
   let i = 0;
@@ -1236,9 +1249,11 @@ async function subirAdjuntos(v, files, tipo, root) {
         console.error(e); toast(e.message, "error");
         holders[n]?.remove();
       }
+      const p = subidas.get(v.id); if (tipo === "foto" && p) { p.h++; pintarSubida(v.id); }
     }
   };
   await Promise.all([trabajador(), trabajador(), trabajador()]);
+  if (tipo === "foto") { subidas.delete(v.id); pintarSubida(v.id); }
   if (!nuevos.length) return;
   nuevos.sort((a, b) => a.n - b.n).forEach(x => delete x.n);
   const actual = getVehiculo(v.id) || v;
