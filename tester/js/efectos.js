@@ -42,6 +42,7 @@ function animacionLogo() {
   return crece.finished.catch(() => {}).then(() => {
     capa.classList.add("sale");
     setTimeout(() => capa.remove(), 500);
+    return new Promise(r => setTimeout(r, 1000));   // 1 s más antes de abrir la app: así el final del logo no se traba con la carga
   });
 }
 
