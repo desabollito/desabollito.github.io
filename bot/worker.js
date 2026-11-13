@@ -44,7 +44,7 @@ export default {
     if (url.pathname === "/diagnostico") return diagnostico(url, env);
     if (url.pathname === "/evolution") return webhookEvolution(req, url, env, ctx);
     const API = { "/registro": nuevoRegistro, "/avisar": avisarCliente, "/solicitud": avisarSolicitud, "/agregado": avisarAgregado, "/pedido-union": avisarPedidoUnion,
-      "/admin/datos": adminDatos, "/admin/borrar-usuario": adminBorrarUsuario, "/admin/config": adminConfig, "/admin/padron": adminPadron, "/admin/fotos-wa": adminFotosWa, "/admin/foto-usuario": adminFotoUsuario, "/admin/clientes-qr": adminClientesQr, "/admin/enviar-cliente": adminEnviarCliente,"/mover-vehiculo": moverVehiculo,
+      "/admin/datos": adminDatos, "/admin/borrar-usuario": adminBorrarUsuario, "/admin/config": adminConfig, "/admin/padron": adminPadron, "/admin/fotos-wa": adminFotosWa, "/admin/foto-usuario": adminFotoUsuario, "/admin/clientes-qr": adminClientesQr, "/admin/enviar-cliente": adminEnviarCliente, "/admin/reiniciar-chats": adminReiniciarChats,"/mover-vehiculo": moverVehiculo,
       "/borrar-media": borrarMediaApi, "/eliminar-vehiculo": eliminarVehiculoApi,
       "/compartir": compartirApi, "/compartido": compartidoApi, "/aviso-planilla": avisoPlanilla, "/responder-cliente": responderCliente,
       "/aviso-version": avisoVersion, "/pedir-borrar-operativo": pedirBorrarOperativo,
@@ -2589,6 +2589,16 @@ async function avisarCliente(env, { idToken, cid, vid, por, texto: propio }) {
   await fsMerge(env, ruta, { avisoReparado: { t: Date.now(), por: quien } });
   await fsAppend(env, ruta, "historial", { t: Date.now(), uid: "", por: quien, txt: "Le avisó al cliente por WhatsApp que el auto está listo" }).catch(() => {});
   return json({ ok: true });
+}
+
+// Panel del creador: borra todos los chats en vivo de todos los operativos (y el índice teléfono → vehículo). Los mensajes en WhatsApp no se tocan.
+async function adminReiniciarChats(env, { idToken }) {
+  if (!(await soloCreador(env, idToken))) return json({ ok: false, error: "No autorizado" }, 403);
+  const commit = writes => fs(env, `${base(env)}:commit`, { method: "POST", body: JSON.stringify({ writes }) });
+  const rutas = (await fsList(env, "chat_idx").catch(() => [])).map(d => `chat_idx/${d.__id}`);   // fsList no trae la ruta: se arma acá
+  for (const o of await fsList(env, "companies")) rutas.push(...(await fsList(env, `companies/${o.__id}/chats`).catch(() => [])).map(d => `companies/${o.__id}/chats/${d.__id}`));
+  for (let i = 0; i < rutas.length; i += 400) { const r = await commit(rutas.slice(i, i + 400).map(x => ({ delete: nombreDoc(env, x) }))); if (!r.ok) return json({ ok: false, error: `Firestore: ${r.status}` }, 500); }
+  return json({ ok: true, borrados: rutas.filter(r => r.startsWith("companies/")).length });
 }
 
 // Panel del creador: estado y QR del número de la empresa ("clientes"). Si la conexión no existe, la crea; salir = desvincular el número

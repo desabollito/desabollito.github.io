@@ -926,6 +926,7 @@ export async function panelCreador() {
         <span><b>Número de la empresa</b> <small class="muted">(conexión «clientes»: avisos, mensajes y turnos)</small><br><small class="muted" id="adm-cli-est">Tocá Conectar para ver el estado.</small></span>
         <span class="row-btns"><button type="button" class="btn btn-ghost btn-sm" id="adm-cli">${icon("phone")}Conectar</button>
           <button type="button" class="btn btn-ghost btn-sm" id="adm-cli-cod">Con código</button>
+          <button type="button" class="btn btn-ghost btn-sm danger" id="adm-chats-reset">${icon("rotate")}Reiniciar chats</button>
           ${datos.config?.mensajesTurnos !== false ? `<button type="button" class="btn btn-primary btn-sm" id="adm-masivo">${icon("chat")}Mensajes y turnos</button>` : ""}</span>
         <div id="adm-cli-qr"></div>
       </div>
@@ -1053,6 +1054,15 @@ export async function panelCreador() {
       return;
     }
     if (e.target.closest("#adm-masivo")) return mensajesYTurnos();
+    const rc = e.target.closest("#adm-chats-reset");
+    if (rc) {   // borra los chats en vivo de todos los operativos (en WhatsApp quedan)
+      if (!(await confirmar({ title: "¿Reiniciar todos los chats?", message: "Se borran todos los chats en vivo de la app, de todos los operativos. En WhatsApp los mensajes quedan. No se puede deshacer.", ok: "Borrar chats", danger: true, centro: true }))) return;
+      busy(rc, true, "Borrando…");
+      try { const r = await llamarAdmin("reiniciar-chats"); toast(`Chats reiniciados (${r.borrados})`, "success"); }
+      catch (err) { toast(err.message || mensajeError(err), "error"); }
+      if (rc.isConnected) busy(rc, false);
+      return;
+    }
     const fu = e.target.closest("[data-foto-u]");
     if (fu) {   // foto a mano para un usuario: se elige la imagen, se achica y se sube
       const inp = Object.assign(document.createElement("input"), { type: "file", accept: "image/*" });
@@ -1298,9 +1308,10 @@ function abrirChat(cid, tel, alCerrar, v = null) {
     const abajo = caja.scrollHeight - caja.scrollTop - caja.clientHeight < 40;
     caja.innerHTML = (c.msgs || []).slice().sort((a, b) => a.t - b.t).map(m => `<div class="chat-msg ${m.yo ? "yo" : ""}">${formatoWa(m.txt)}
       <small>${m.yo && m.por ? esc(m.por) + " · " : ""}${horaChat(m.t)}</small></div>`).join("") || `<p class="muted small center">Sin mensajes.</p>`;
-    if (abajo || !caja.dataset.listo) { caja.scrollTop = caja.scrollHeight; caja.dataset.listo = "1"; }
+    // Al entrar (o si ya estaba abajo) baja al último; se repite al siguiente cuadro porque la barra del turno y la ventana todavía cambian de alto
+    if (abajo || !caja.dataset.listo) { pintarTurno(); const bajar = () => { caja.scrollTop = caja.scrollHeight; }; bajar(); requestAnimationFrame(() => requestAnimationFrame(bajar)); setTimeout(bajar, 260); caja.dataset.listo = "1"; }
+    else pintarTurno();
     marcarChatVisto(tel, c.t || Date.now());
-    pintarTurno();
   };
   // Vehículo turnado: el turno queda sin confirmar hasta que alguien toca que el cliente lo confirmó
   const pintarTurno = () => {
