@@ -2542,3 +2542,7 @@ button.aj-item:hover, a.aj-item:hover { background: var(--surface-2); }
 .d-cover-prog i { display: block; height: 100%; background: var(--primary); transition: width .3s var(--ease); }
 .d-cover-prog small { position: absolute; inset: 0; display: grid; place-items: center; font-size: 11px; font-weight: 700; color: #fff; }
 @media (prefers-reduced-motion: reduce) { .d-cover-prog i { transition: none; } }
+
+/* Chat en vivo: buscador y filtro de turnos */
+.chat-q { margin-bottom: 10px; }
+.chat-turnos { margin-bottom: 12px; }

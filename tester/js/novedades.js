@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.11.0", items: ["Filtros: «Ordenar por» vuelve a estar siempre abierto, arriba de todo; después Compañías y Grado.", "«Cargados por mí» pasó adentro de Cargado.", "Turnos sin confirmar / confirmados: ahora es un filtro de Chat en vivo, que además tiene buscador (patente, cliente o mensaje)."] },
   { v: "4.10.6", items: ["Fotos: al subirlas desde la app aparece una barra sobre la portada del vehículo que se va completando (3/10, 4/10…). Al terminar avisa «Fotos guardadas»."] },
   { v: "4.10.5", items: ["Vehículos: al filtrar por un estado se ordenan por la fecha de ese estado, del más reciente al más viejo (en Entregados, el último entregado arriba)."] },
   { v: "4.10.4", items: ["Chequeo y Desmontaje: ahora es un ícono arriba a la derecha del vehículo (con el puntito si hay algo cargado), junto al lápiz de editar."] },

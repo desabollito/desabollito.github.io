@@ -23,7 +23,7 @@ const chatNuevo = tel => !!tel && usaClientes() && chatSinLeer(chatDeTel(tel));
 onChange(e => { if (e === "chats") $$(".d-contacto[data-tel]").forEach(el => el.classList.toggle("chat-nuevo", chatNuevo(el.dataset.tel))); });
 
 // Filtros de la lista (se conservan al navegar)
-const F = { estado: new Set(), q: "", mios: false, sinAnul: false, orden: "fecha", dir: -1, grado: new Set(), repuestos: new Set(), pintura: new Set(), turno: new Set(), cliente: new Set(), cargado: new Set(), cias: new Set() }; // cada filtro: Set vacío = todos (se pueden marcar varias opciones de cada uno); grado 0 = sin grado
+const F = { estado: new Set(), q: "", mios: false, sinAnul: false, orden: "fecha", dir: -1, grado: new Set(), repuestos: new Set(), pintura: new Set(), cliente: new Set(), cargado: new Set(), cias: new Set() }; // cada filtro: Set vacío = todos (se pueden marcar varias opciones de cada uno); grado 0 = sin grado
 
 // Conformidad del cliente al entregar: carita y color de cada opción
 const CARAS = { conforme: ["Conforme", "#22b07d", "M8 14.5c1 1.4 2.4 2 4 2s3-.6 4-2"], regular: ["Regular", "#e0a526", "M8.5 15.5h7"], desconforme: ["Desconforme", "#e0486e", "M8 16.5c1-1.4 2.4-2 4-2s3 .6 4 2"] };
@@ -129,7 +129,6 @@ function filtrar(lista, conAnul) {
     (!F.grado.size || F.grado.has(v.grado || 0)) &&
     (!F.repuestos.size || [...F.repuestos].some(f => tieneEtapa(v, "repuestos", f))) &&   // varias fases = cualquiera de ellas
     (!F.pintura.size || [...F.pintura].some(f => tieneEtapa(v, "pintura", f))) &&
-    (!F.turno.size || (estadoActual(v) === "turnado" && F.turno.has(v.turnoConfirmado === true ? "si" : "no"))) &&
     (!F.cliente.size || F.cliente.has(v.conformidad)) &&
     (!F.cargado.size || [...F.cargado].some(k => CARGADO[k](v))) &&
     (!F.cias.size || F.cias.has(ciaDe(v))) &&
@@ -253,7 +252,7 @@ function tarjeta(v, sel) {
 }
 
 // Cuántos filtros/órdenes distintos de lo normal hay puestos (se ve en el botón)
-const cuantosActivos = () => [F.mios, F.sinAnul, F.grado.size, F.repuestos.size, F.pintura.size, F.turno.size, F.cliente.size, F.cargado.size, F.cias.size, F.orden !== "fecha" || F.dir !== -1].filter(Boolean).length;
+const cuantosActivos = () => [F.mios, F.sinAnul, F.grado.size, F.repuestos.size, F.pintura.size, F.cliente.size, F.cargado.size, F.cias.size, F.orden !== "fecha" || F.dir !== -1].filter(Boolean).length;
 const marcarBoton = () => { const b = $("#tb-filtros"); if (!b) return; const k = cuantosActivos();
   b.classList.toggle("activo", k > 0); const n = $(".fo-badge", b); if (n) { n.textContent = k; n.hidden = !k; } };
 export const botonFiltros = () => `<button class="icon-btn filtro-btn ${cuantosActivos() ? "activo" : ""}" id="tb-filtros" aria-label="Filtrar y ordenar" title="Filtrar y ordenar">${icon("filter")}<span class="fo-badge" ${cuantosActivos() ? "" : "hidden"}>${cuantosActivos()}</span></button>`;
@@ -266,15 +265,14 @@ export function filtrarCalendario(lista, q) {
 export function abrirFiltros(alCambiar) {
   const lector = soyLector();
   const hoja = openSheet({ title: "Filtrar y ordenar", body: `<div class="fo">
-    <details class="fo-sec fo-plega" ${F.orden !== "fecha" || F.dir !== -1 ? "open" : ""}><summary><h3>Ordenar</h3>${icon("next")}</summary><div class="fo-seg" id="fo-orden"></div></details>
+    <section class="fo-sec"><h3>Ordenar por</h3><div class="fo-seg" id="fo-orden"></div></section>
     ${lector ? "" : `<section class="fo-sec"><h3>Compañías</h3><div class="fo-cias-caja"><div class="fo-seg fo-cias" id="fo-cias"></div></div></section>`}
     <section class="fo-sec fo-grados"><h3>Grado</h3><div class="fo-seg" id="fo-grado"></div></section>
     <details class="fo-sec fo-plega" ${F.pintura.size ? "open" : ""}><summary><h3>Pintura</h3>${icon("next")}</summary><div class="fo-seg" id="fo-pintura"></div></details>
     <details class="fo-sec fo-plega" ${F.repuestos.size ? "open" : ""}><summary><h3>Repuestos</h3>${icon("next")}</summary><div class="fo-seg" id="fo-repuestos"></div></details>
-    <details class="fo-sec fo-plega" ${F.turno.size ? "open" : ""}><summary><h3>Turnos</h3>${icon("next")}</summary><div class="fo-seg" id="fo-turno"></div></details>
     <details class="fo-sec fo-plega" ${F.cliente.size ? "open" : ""}><summary><h3>Cliente</h3>${icon("next")}</summary><div class="fo-seg" id="fo-cliente"></div></details>
-    ${lector ? "" : `<details class="fo-sec fo-plega" ${F.cargado.size ? "open" : ""}><summary><h3>Cargado</h3>${icon("next")}</summary><div class="fo-seg" id="fo-cargado"></div></details>`}
-    <div class="fo-switches">${lector ? "" : `<button type="button" class="fo-switch ${F.mios ? "on" : ""}" id="fo-mios" aria-pressed="${F.mios}">Cargados por mí</button>`}
+    ${lector ? "" : `<details class="fo-sec fo-plega" ${F.cargado.size || F.mios ? "open" : ""}><summary><h3>Cargado</h3>${icon("next")}</summary><div class="fo-seg" id="fo-cargado"></div></details>`}
+    <div class="fo-switches">
       <button type="button" class="fo-switch ${F.sinAnul ? "on" : ""}" id="fo-anul" aria-pressed="${F.sinAnul}">Ocultar anulados</button></div>
     <button type="button" class="btn btn-ghost btn-block" data-close id="fo-pdf">${icon("file")}Exportar PDF</button>
     <div class="fo-pie"><button type="button" class="btn btn-ghost" data-close id="fo-reset">Limpiar</button><button type="button" class="btn btn-primary" data-close id="fo-ver"></button></div>
@@ -288,17 +286,16 @@ export function abrirFiltros(alCambiar) {
     el("#fo-orden").innerHTML = ORDENES.map(([k, t]) => op("orden", k, F.orden === k ? `${t} <i class="fo-flecha">${F.dir > 0 ? "↑" : "↓"}</i>` : t, null, F.orden === k)).join("");
     const gr = [[0, "–"], [1, "G1"], [2, "G2"], [3, "G3"], [4, "G4"]].filter(([g]) => !(g === 4 && lector) && (g !== 0 || n("grado", v => !v.grado) || F.grado.has(0)));
     el("#fo-grado").innerHTML = gr.map(([g, t]) => op("grado", g, t, n("grado", v => (v.grado || 0) === g), F.grado.has(g))).join("");
-    el("#fo-turno").innerHTML = [["no", "Sin confirmar", "#e0a526", false], ["si", "Confirmados", "#22b07d", true]].map(([k, t, c, si]) =>
-        op("turno", k, t, n("turno", v => estadoActual(v) === "turnado" && (v.turnoConfirmado === true) === si), F.turno.has(k), c)).join("");
     el("#fo-cliente").innerHTML = Object.entries(CARAS).map(([k, [t, c]]) => op("cliente", k, t, n("cliente", v => v.conformidad === k), F.cliente.has(k), c)).join("");
     if (el("#fo-cargado")) el("#fo-cargado").innerHTML = [["desm", "Desmontaje"], ["check", "Check in / out"], ["firma", "Firmados"]].map(([k, t]) => op("cargado", k, t, n("cargado", CARGADO[k]), F.cargado.has(k))).join("");
+    if (el("#fo-cargado")) el("#fo-cargado").insertAdjacentHTML("afterbegin", `<button type="button" class="fo-op ${F.mios ? "on" : ""}" id="fo-mios" aria-pressed="${F.mios}"><span class="fo-txt">Cargados por mí</span><b>${n("mios", esMioV)}</b></button>`);
     ["pintura", "repuestos"].forEach(tipo => {
       el(`#fo-${tipo}`).innerHTML = ETAPAS[tipo].map(([k, t, c]) => op(tipo, k, t, n(tipo, v => tieneEtapa(v, tipo, k)), F[tipo].has(k), c)).join("");
     });
     if (el("#fo-cias")) el("#fo-cias").innerHTML = ciasDisponibles().map(([c]) => [c, n("cias", v => ciaDe(v) === c)]).map(([c, k]) => `<button type="button" class="fo-op ${F.cias.has(c) ? "on" : ""}" data-cia="${esc(c)}"><span class="fo-txt">${esc(c)}</span><b>${k}</b></button>`).join("")
       || `<span class="muted small">Sin vehículos</span>`;
     const cant = filtrar(activos()).length;
-    [["#fo-mios", F.mios], ["#fo-anul", F.sinAnul]].forEach(([id, on]) => { const b = el(id); if (b) { b.classList.toggle("on", on); b.setAttribute("aria-pressed", on); } });
+    [["#fo-anul", F.sinAnul]].forEach(([id, on]) => { const b = el(id); if (b) { b.classList.toggle("on", on); b.setAttribute("aria-pressed", on); } });
     el("#fo-ver").textContent = `Ver ${cant} ${cant === 1 ? "vehículo" : "vehículos"}`;
     marcarBoton();
   };
@@ -309,7 +306,7 @@ export function abrirFiltros(alCambiar) {
   hoja.el.addEventListener("click", e => {
     const c = e.target.closest("[data-cia]");
     if (c) { const k = c.dataset.cia; F.cias.has(k) ? F.cias.delete(k) : F.cias.add(k); return aplicar(); }
-    if (e.target.closest("#fo-reset")) { F.mios = false; F.sinAnul = false; F.cargado.clear(); F.grado.clear(); F.repuestos.clear(); F.pintura.clear(); F.turno.clear(); F.cliente.clear(); F.cias.clear(); F.orden = "fecha"; F.dir = -1;
+    if (e.target.closest("#fo-reset")) { F.mios = false; F.sinAnul = false; F.cargado.clear(); F.grado.clear(); F.repuestos.clear(); F.pintura.clear(); F.cliente.clear(); F.cias.clear(); F.orden = "fecha"; F.dir = -1;
       return aplicar(); }
     if (e.target.closest("#fo-pdf")) return exportarPDF();
     if (e.target.closest("#fo-mios")) { F.mios = !F.mios; return aplicar(); }
@@ -335,7 +332,6 @@ export function vistaVehiculos(view, selId = null) {
     if (F.sinAnul) o.push(["Sin anulados", () => { F.sinAnul = false; }]);
     F.grado.forEach(g => o.push([g ? `Grado ${g}` : "Sin grado", () => F.grado.delete(g)]));
     ["pintura", "repuestos"].forEach(t => F[t].forEach(k => o.push([`${t === "pintura" ? "Pintura" : "Repuestos"}: ${ETAPAS[t].find(e => e[0] === k)?.[1] || k}`, () => F[t].delete(k)])));
-    F.turno.forEach(k => o.push([k === "si" ? "Turno confirmado" : "Turno sin confirmar", () => F.turno.delete(k)]));
     F.cliente.forEach(k => o.push([`Cliente ${CARAS[k]?.[0].toLowerCase() || k}`, () => F.cliente.delete(k)]));
     F.cargado.forEach(k => o.push([{ desm: "Con desmontaje", check: "Con check in / out", firma: "Firmados" }[k] || k, () => F.cargado.delete(k)]));
     F.cias.forEach(c => o.push([c, () => F.cias.delete(c)]));
@@ -403,7 +399,7 @@ export function vistaVehiculos(view, selId = null) {
          <button class="btn btn-ghost" id="limpiar">Limpiar filtros</button></div>`;
     box.classList.toggle("lista-anim", animar);
     if (animar) [...box.children].forEach((c, i) => c.style.setProperty("--i", i));
-    $("#limpiar", box)?.addEventListener("click", () => { F.estado.clear(); F.mios = false; F.sinAnul = false; F.cias.clear(); F.grado.clear(); F.repuestos.clear(); F.pintura.clear(); F.turno.clear(); F.cliente.clear(); F.cargado.clear(); marcarBoton(); pintar(); });
+    $("#limpiar", box)?.addEventListener("click", () => { F.estado.clear(); F.mios = false; F.sinAnul = false; F.cias.clear(); F.grado.clear(); F.repuestos.clear(); F.pintura.clear(); F.cliente.clear(); F.cargado.clear(); marcarBoton(); pintar(); });
   };
 
   // Computadora: tocar de nuevo el vehículo marcado lo desmarca y cierra el detalle
