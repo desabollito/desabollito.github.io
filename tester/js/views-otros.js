@@ -9,7 +9,7 @@ import { db, doc, onSnapshot } from "./firebase.js";
 import { colorPeritado, ESTADOS, ESTADO, ROLES, estadoActual, esAnulado, repartirTurnos } from "./domain.js";
 import {
   $, $$, esc, money, fechaCorta, fechaLarga, hoyISO, plate, estadoPill, icon, toast, openSheet, confirmar,
-  pedirTexto, busy, debounce, avatarUsuario, glideMenu, elegirDescarga, horaDe
+  pedirTexto, busy, debounce, avatarUsuario, glideMenu, elegirDescarga, horaDe, formatoWa
 } from "./ui.js";
 import { ruidoMotor, SONIDOS_AUTO } from "./sonidos.js";
 import { NOVEDADES } from "./novedades.js";
@@ -1258,12 +1258,6 @@ async function leerPadron(file) {
 // ═════════════════════════════════════════════════════════════
 const horaChat = t => { const d = new Date(t), hoy = new Date().toDateString() === d.toDateString();
   return hoy ? d.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", hourCycle: "h23" }) : d.toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit" }); };
-// Formato de WhatsApp en el chat en vivo: *negrita*, _cursiva_ y ~tachado~ (sobre el texto ya escapado; el signo va pegado al texto, como en WhatsApp)
-const formatoWa = t => [["*", "b"], ["_", "i"], ["~", "s"]].reduce((s, [m, tag]) => {
-  const e = "\\" + m;
-  return s.replace(new RegExp(`(^|[\\s([{¿¡])${e}([^\\s${e}](?:[^${e}\\n]*[^\\s${e}])?)${e}(?=$|[\\s.,;:!?)\\]}])`, "gm"), `$1<${tag}>$2</${tag}>`);
-}, esc(t));
-console.assert(formatoWa("Hola *Juan*, tu _auto_ ~no~ está") === "Hola <b>Juan</b>, tu <i>auto</i> <s>no</s> está" && formatoWa("2*3*4") === "2*3*4" && formatoWa("* suelto *") === "* suelto *", "formatoWa");
 
 export const abrirChatTel = tel => S.company && abrirChat(S.company.id, tel);
 

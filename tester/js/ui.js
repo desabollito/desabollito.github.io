@@ -348,3 +348,9 @@ new MutationObserver(ms => { for (const m of ms) for (const n of m.addedNodes) i
   (n.matches("input[list]") ? [n] : n.querySelectorAll("input[list]")).forEach(sugerir);
 } })
   .observe(document.documentElement, { childList: true, subtree: true });
+// Formato de WhatsApp en el chat en vivo: *negrita*, _cursiva_ y ~tachado~ (sobre el texto ya escapado; el signo va pegado al texto, como en WhatsApp)
+export const formatoWa = t => [["*", "b"], ["_", "i"], ["~", "s"]].reduce((s, [m, tag]) => {
+  const e = "\\" + m;
+  return s.replace(new RegExp(`(^|[\\s([{¿¡])${e}([^\\s${e}](?:[^${e}\\n]*[^\\s${e}])?)${e}(?=$|[\\s.,;:!?)\\]}])`, "gm"), `$1<${tag}>$2</${tag}>`);
+}, esc(t));
+console.assert(formatoWa("Hola *Juan*, tu _auto_ ~no~ está") === "Hola <b>Juan</b>, tu <i>auto</i> <s>no</s> está" && formatoWa("2*3*4") === "2*3*4" && formatoWa("* suelto *") === "* suelto *", "formatoWa");

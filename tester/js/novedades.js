@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.13.3", items: ["Chat en vivo: la vista previa de cada chat también muestra la negrita sin los asteriscos."] },
   { v: "4.13.2", items: ["Chat en vivo: los textos entre *asteriscos* se ven en negrita (y _guiones bajos_ en cursiva, ~virgulillas~ tachado), como en WhatsApp."] },
   { v: "4.13.1", items: ["Celular: «Enviando mensaje…» y el chat en vivo aparecen en el medio de la pantalla."] },
   { v: "4.13.0", items: ["Facturados digital: ahora es una página propia, con buscador (patente, modelo o compañía) y la columna Facturado con la fecha. Tocando el título se ordena de más recientes a más antiguos o al revés."] },
