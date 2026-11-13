@@ -22,10 +22,11 @@ function animacionLogo() {
     <svg class="ex-logo" viewBox="0 0 1024 1024" aria-hidden="true">${LOGO_TRAZOS.map(d => `<path d="${d}" pathLength="1"/>`).join("")}</svg>`;
   document.body.appendChild(capa);
   const W = innerWidth, H = innerHeight, w = Math.min(320, W * .7), h = Math.min(220, H * .3);
-  const S = Math.max(W / w, H / h) * 2, DUR = 2700, curva = "cubic-bezier(.76,0,.24,1)";   // de más, así el borde difuminado queda fuera de pantalla
-  // 1) el logo se arma por líneas, una tras otra
+  const S = Math.max(W / w, H / h) * 2, DUR = 3500, curva = "cubic-bezier(.76,0,.24,1)";   // de más, así el borde difuminado queda fuera de pantalla
+  // 1) el logo se arma por líneas, una tras otra: el auto rápido (5 trazos) y después la varilla y el martillo,
+  //    que terminan ~0,5 s antes de que el logo empiece a disolverse (a .62 de DUR), así se ven completos
   capa.querySelectorAll(".ex-logo path").forEach((p, n) => p.animate([{ strokeDashoffset: 1 }, { strokeDashoffset: 0 }],
-    { duration: 850, delay: 150 + n * 230, easing: "cubic-bezier(.65,0,.35,1)", fill: "both" }));
+    { duration: n < 5 ? 550 : 450, delay: n < 5 ? 150 + n * 120 : 1100 + (n - 5) * 150, easing: "cubic-bezier(.65,0,.35,1)", fill: "both" }));
   // 2) la ventana aparece detrás y se expande; 3) el logo crece con ella y se disuelve
   const media = capa.querySelector(".ex-media");
   media.style.cssText = `width:${w}px;height:${h}px;margin:${-h / 2}px 0 0 ${-w / 2}px`;

@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.13.5", items: ["Inicio: el auto del logo se arma más rápido y la varilla y el martillo quedan completos un momento antes de que el logo se difumine."] },
   { v: "4.13.4", items: ["«Mi perfil» ahora se llama «Mis ajustes»."] },
   { v: "4.13.3", items: ["Chat en vivo: la vista previa de cada chat también muestra la negrita sin los asteriscos."] },
   { v: "4.13.2", items: ["Chat en vivo: los textos entre *asteriscos* se ven en negrita (y _guiones bajos_ en cursiva, ~virgulillas~ tachado), como en WhatsApp."] },
