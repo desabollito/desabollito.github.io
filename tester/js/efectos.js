@@ -53,6 +53,11 @@ let introLista = Promise.resolve();
 if (!quieto()) {
   introLista = animacionLogo();
 } else document.getElementById("splash")?.classList.remove("solo-aurora");
+// Mientras se dibuja el logo, la app no se pinta (la animación usa el mismo hilo y se trababa): se pinta al terminar
+let dibujando = !quieto();
+introLista.then(() => { dibujando = false; });
+export const logoEnCurso = () => dibujando;
+export const trasLogo = fn => introLista.then(fn);
 
 // Intro: al terminar la carga se abre un agujero desde el centro y el texto de la pantalla entra con blur
 export function cerrarSplash() { introLista.then(abrirIntro); }
