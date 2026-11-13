@@ -2289,7 +2289,8 @@ button.aj-item:hover, a.aj-item:hover { background: var(--surface-2); }
 
 /* Deslizar la tarjeta a la izquierda y mantener: próximo estado (solo táctil) */
 @media (pointer: coarse) {
-  .vlist { overflow-x: clip; }
+  /* el recorte deja lugar al contorno y al brillo de la tarjeta elegida (si no, se cortaban a los costados) */
+  .vlist { overflow-x: clip; overflow-clip-margin: 28px; padding-inline: 3px; margin-inline: -3px; }
   .vlist .vcard { touch-action: pan-y; transition: transform .25s var(--ease, ease), box-shadow .3s, border-color .3s; }
   .vlist .vcard.desliza { transition: none; }
 }
@@ -2398,8 +2399,8 @@ button.aj-item:hover, a.aj-item:hover { background: var(--surface-2); }
   .cd-ev { position: relative; }
   .cd-ev i.more { position: absolute; left: 100%; top: 50%; transform: translateY(-50%); margin-left: 2px; }
 }
-.color-def { background: #ff8a3d; }
-[data-theme="light"] .color-def { background: #d9480f; }
+.color-def { background: #4f8ff7; }
+[data-theme="light"] .color-def { background: #4f8ff7; }
 /* Fluidez: el cambio de pantalla se mueve con transform (left recalculaba todo en cada cuadro) y el fondo de las hojas no anima el desenfoque */
 @keyframes anim-push { from { opacity: 0; transform: translateX(40px); } to { opacity: 1; transform: none; } }
 @keyframes anim-pop { from { opacity: 0; transform: translateX(-30px); } to { opacity: 1; transform: none; } }

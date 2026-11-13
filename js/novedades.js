@@ -1,5 +1,10 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.14.0", items: ["Color de la app: ahora es de cada usuario (te sigue en todos tus equipos) y el predeterminado es azul."] },
+  { v: "4.13.8", items: ["Celular: el contorno de color de la tarjeta elegida en Vehículos ya no se corta a los costados.", "«No se pudo enviar desde el bot» aparece en el medio de la pantalla."] },
+  { v: "4.13.7", items: ["Inicio: la app se arma recién cuando termina el logo, para que la animación no se trabe."] },
+  { v: "4.13.6", items: ["Inicio: sin el medio segundo de espera al final del logo."] },
+  { v: "4.13.5", items: ["Inicio: el auto del logo se arma más rápido y la varilla y el martillo quedan completos un momento antes de que el logo se difumine."] },
   { v: "4.13.4", items: ["«Mi perfil» ahora se llama «Mis ajustes»."] },
   { v: "4.13.3", items: ["Chat en vivo: la vista previa de cada chat también muestra la negrita sin los asteriscos."] },
   { v: "4.13.2", items: ["Chat en vivo: los textos entre *asteriscos* se ven en negrita (y _guiones bajos_ en cursiva, ~virgulillas~ tachado), como en WhatsApp."] },

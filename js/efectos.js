@@ -22,10 +22,11 @@ function animacionLogo() {
     <svg class="ex-logo" viewBox="0 0 1024 1024" aria-hidden="true">${LOGO_TRAZOS.map(d => `<path d="${d}" pathLength="1"/>`).join("")}</svg>`;
   document.body.appendChild(capa);
   const W = innerWidth, H = innerHeight, w = Math.min(320, W * .7), h = Math.min(220, H * .3);
-  const S = Math.max(W / w, H / h) * 2, DUR = 2700, curva = "cubic-bezier(.76,0,.24,1)";   // de más, así el borde difuminado queda fuera de pantalla
-  // 1) el logo se arma por líneas, una tras otra
+  const S = Math.max(W / w, H / h) * 2, DUR = 3500, curva = "cubic-bezier(.76,0,.24,1)";   // de más, así el borde difuminado queda fuera de pantalla
+  // 1) el logo se arma por líneas, una tras otra: el auto rápido (5 trazos) y después la varilla y el martillo,
+  //    que terminan ~0,5 s antes de que el logo empiece a disolverse (a .62 de DUR), así se ven completos
   capa.querySelectorAll(".ex-logo path").forEach((p, n) => p.animate([{ strokeDashoffset: 1 }, { strokeDashoffset: 0 }],
-    { duration: 850, delay: 150 + n * 230, easing: "cubic-bezier(.65,0,.35,1)", fill: "both" }));
+    { duration: n < 5 ? 550 : 450, delay: n < 5 ? 150 + n * 120 : 1100 + (n - 5) * 150, easing: "cubic-bezier(.65,0,.35,1)", fill: "both" }));
   // 2) la ventana aparece detrás y se expande; 3) el logo crece con ella y se disuelve
   const media = capa.querySelector(".ex-media");
   media.style.cssText = `width:${w}px;height:${h}px;margin:${-h / 2}px 0 0 ${-w / 2}px`;
@@ -39,8 +40,8 @@ function animacionLogo() {
     { transform: "none", opacity: 1, filter: "none", offset: .62, easing: curva },
     { transform: "scale(2.2)", opacity: 0, filter: "blur(8px)", offset: 1 }
   ], { duration: DUR, fill: "forwards" });
-  // El logo final queda medio segundo quieto y recién ahí se desvanece mientras se abre la app
-  return crece.finished.catch(() => {}).then(() => new Promise(r => setTimeout(r, 500))).then(() => {
+  // Al terminar, el logo se desvanece mientras se abre la app
+  return crece.finished.catch(() => {}).then(() => {
     capa.classList.add("sale");
     setTimeout(() => capa.remove(), 500);
   });
@@ -52,6 +53,11 @@ let introLista = Promise.resolve();
 if (!quieto()) {
   introLista = animacionLogo();
 } else document.getElementById("splash")?.classList.remove("solo-aurora");
+// Mientras se dibuja el logo, la app no se pinta (la animación usa el mismo hilo y se trababa): se pinta al terminar
+let dibujando = !quieto();
+introLista.then(() => { dibujando = false; });
+export const logoEnCurso = () => dibujando;
+export const trasLogo = fn => introLista.then(fn);
 
 // Intro: al terminar la carga se abre un agujero desde el centro y el texto de la pantalla entra con blur
 export function cerrarSplash() { introLista.then(abrirIntro); }

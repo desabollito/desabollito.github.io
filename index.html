@@ -13,13 +13,14 @@
         var t = localStorage.getItem(lector ? "temaLector" : "tema");
         document.documentElement.setAttribute("data-theme", lector ? (t === "dark" ? "dark" : "light") : (sesion && t === "light" ? "light" : "dark"));
       } catch (e) {}
-      // Color de la app elegido en Ajustes (vacío = el de siempre): se pinta antes de la intro, así la animación ya sale con ese color
+      // Color de la app que eligió cada usuario (vacío = azul por defecto): se pinta antes de la intro, así la animación ya sale con ese color
       window.pintarColor = function (c) {
+        c = c || "#4f8ff7";
         var st = document.documentElement.style, v = { "--primary": c, "--primary-2": "color-mix(in srgb, " + c + " 72%, var(--ink))",
           "--primary-soft": "color-mix(in srgb, " + c + " 18%, var(--bg))", "--aurora-1": "color-mix(in srgb, " + c + " 75%, #000)", "--aurora-2": c };
-        for (var k in v) c ? st.setProperty(k, v[k]) : st.removeProperty(k);
+        for (var k in v) st.setProperty(k, v[k]);
       };
-      try { var col = localStorage.getItem("color"); if (col && !/[?&]ver=/.test(location.search)) pintarColor(col); } catch (e) {}
+      try { pintarColor(!/[?&]ver=/.test(location.search) && localStorage.getItem("color") || ""); } catch (e) { pintarColor(""); }
       // La barra del sistema (hora, batería, isla) toma el color de fondo del tema: sin contenido ni desenfoque debajo
       var pintarBarra = function () {
         var m = document.querySelector('meta[name="theme-color"]');

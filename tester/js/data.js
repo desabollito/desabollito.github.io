@@ -6,7 +6,7 @@ import {
 } from "./firebase.js";
 import { USER_DOMAIN, BOT_API } from "./config.js";
 import { hoyISO, horaAhora } from "./ui.js";
-import { SECUENCIA, ESTADO, PIEZA } from "./domain.js";
+import { SECUENCIA, ESTADO, PIEZA, colorPeritado } from "./domain.js";
 
 // ── Estado global muy simple con suscriptores ─────────────────
 export const S = {
@@ -50,7 +50,7 @@ export async function ingresarConGoogle() {
   }
 }
 
-export const salir = () => signOut(auth);
+export const salir = () => { try { localStorage.removeItem("color"); } catch { /* sin almacenamiento */ } window.pintarColor?.(""); colorPeritado(""); return signOut(auth); };
 
 export function mensajeError(e) {
   const m = {
@@ -81,6 +81,7 @@ function escucharPerfil(user) {
     }
     const antes = S.profile?.aprobado, waAntes = S.profile?.whatsapp, d = snap.data();
     S.profile = { ...S.profile, ...d, id: user.uid };
+    aplicarColorPerfil(d, user.uid);
     if (antes !== d.aprobado || waAntes !== d.whatsapp) emit("perfil");
     // Recién aprobada: recién ahí arrancan los operativos
     if (antes === false && d.aprobado === true) escucharEmpresas();
@@ -857,3 +858,14 @@ export async function aseguradoDePadron(patente) {
   const d = await getDoc(doc(db, "padron", p)).catch(() => null);
   return d?.exists() ? d.data().nombre : null;
 }
+
+// ── Color de la app: es de cada usuario (users/{uid}.color; vacío = azul por defecto) y se recuerda en el equipo para pintarlo antes de la intro ──
+function aplicarColorPerfil(d, uid) {
+  let local = ""; try { local = localStorage.getItem("color") || ""; } catch { /* sin almacenamiento */ }
+  if (!("color" in d)) { if (local) updateDoc(doc(db, "users", uid), { color: local }).catch(() => {}); return; }   // shortcut: migra el color que ya tenía en el equipo; borrar cuando todos tengan color en el perfil
+  const c = String(d.color || "");
+  if (c === local) return;
+  try { c ? localStorage.setItem("color", c) : localStorage.removeItem("color"); } catch { /* sin almacenamiento */ }
+  window.pintarColor?.(c); colorPeritado(c); document.dispatchEvent(new Event("color-app"));
+}
+export const guardarColor = c => S.user && updateDoc(doc(db, "users", S.user.uid), { color: c || "" }).catch(e => console.warn("color", e));

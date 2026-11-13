@@ -1,7 +1,7 @@
 import {
   S, onChange, iniciarSesion, ingresar, crearCuenta, mensajeError, elegirEmpresa
 } from "./data.js";
-import { cerrarSplash } from "./efectos.js";
+import { cerrarSplash, logoEnCurso, trasLogo } from "./efectos.js";
 import { $, $$, esc, toast, busy, openSheet, icon, cerrarHojas } from "./ui.js";
 import { FIREBASE, BOT_API } from "./config.js";
 import { iniciarFechas } from "./fecha.js";
@@ -94,7 +94,10 @@ document.addEventListener("pointerdown", e => {
   f.addEventListener("animationend", () => f.classList.remove("pulsa"), { once: true });
 });
 
+let renderPendiente = null;
 function render({ conservarScroll = false, reabrir = false, reabrirCal = false } = {}) {
+  // Durante la animación del logo se junta todo en un solo render al final
+  if (logoEnCurso()) { if (!renderPendiente) trasLogo(() => { const o = renderPendiente; renderPendiente = null; render(o); }); renderPendiente = { conservarScroll, reabrir, reabrirCal }; return; }
   if (!S.user || !S.profile || S.sinOperativo) return;
   const h = location.hash || "#/";
   let hit = RUTAS.find(([re]) => re.test(h)) || RUTAS[0];

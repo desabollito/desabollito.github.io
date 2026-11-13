@@ -2,7 +2,7 @@ import {
   S, activos, papelera, restaurar, eliminarDefinitivo, soyAdmin, miRol, renombrarEmpresa, guardarSello, deshaciblesDe, deshacerCambio, soyDesmontaje,
   agregarMiembro, cambiarRol, quitarMiembro, guardarEtiquetas, resolverSolicitud, desvincularWhatsApp, salirDeEmpresa, eliminarEmpresa, crearEmpresa, elegirEmpresa,
   actualizarPerfil, ponerMiFoto, salir, mensajeError, llamarAdmin, soloDesmontaje, pedirUnion, linksCompartidos, getVehiculo, soloVer, soySacabollos, guardarOrdenOps, cambiarEstado, usaClientes,
-  onChange, chatSinLeer, marcarChatVisto, actualizarVehiculo
+  onChange, chatSinLeer, marcarChatVisto, actualizarVehiculo, guardarColor
 } from "./data.js";
 import { cargarExcelJS } from "./excel.js";
 import { db, doc, onSnapshot } from "./firebase.js";
@@ -598,7 +598,7 @@ function elegirColor(alTerminar) {
         <button type="button" class="btn btn-primary btn-sm" id="rueda-ok">Usar</button></div></div>` });
   const poner = c => {
     try { c ? localStorage.setItem("color", c) : localStorage.removeItem("color"); } catch { /* sin almacenamiento */ }
-    window.pintarColor?.(c); colorPeritado(c); document.dispatchEvent(new Event("color-app")); alTerminar?.();
+    window.pintarColor?.(c); colorPeritado(c); guardarColor(c); document.dispatchEvent(new Event("color-app")); alTerminar?.();
   };
   s.body.addEventListener("click", e => { const b = e.target.closest("button[data-c]"); if (b) { poner(b.dataset.c); s.close(); } });
   // Rueda propia (tono alrededor, intensidad hacia el centro) con el código hex al lado
@@ -611,7 +611,7 @@ function elegirColor(alTerminar) {
   }
   cx.putImageData(img, 0, 0);
   const elegir = c => { hex.value = c; prev.style.background = c; };
-  elegir(actual || "#ff8a3d");
+  elegir(actual || "#4f8ff7");
   $("#color-otro", s.el).onclick = () => { caja.hidden = !caja.hidden; };
   const tocar = e => { const b = cv.getBoundingClientRect(), x = (e.clientX - b.left) / b.width * cv.width - R, y = (e.clientY - b.top) / b.height * cv.height - R;
     const d = Math.min(1, Math.hypot(x, y) / R); elegir(aHex(hsv((Math.atan2(y, x) / Math.PI * 180 + 360) % 360, d))); };
