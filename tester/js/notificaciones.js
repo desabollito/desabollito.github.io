@@ -28,21 +28,22 @@ export function listaNotifs() {
   if (memo.vs !== S.vehicles || memo.uid !== S.user?.uid || Date.now() - memo.t > 60_000) memo = { vs: S.vehicles, uid: S.user?.uid, t: Date.now(), lista: calcularNotifs() };
   return memo.lista;
 }
-function calcularNotifs() {
-  const yo = S.user?.uid, desde = Date.now() - DIAS * 86400_000, out = [];
+// desde/hasta: ventana de tiempo (por defecto los últimos DIAS días); "Anteriores" usa desde 0 hasta el inicio de esa ventana
+function calcularNotifs(desde = Date.now() - DIAS * 86400_000, hasta = Infinity, max = MAX) {
+  const yo = S.user?.uid, out = [];
   if (!yo || S.invitado) return out;
   for (const v of activos()) {
     const base = { vid: v.id, patente: v.patente, modelo: v.modelo };
     const t0h = Math.min(...(v.historial || []).map(e => e.t || Infinity)), tc = ms(v.createdAt) || (Number.isFinite(t0h) ? t0h : 0);
     for (const e of v.historial || []) {
-      if (!e.t || e.t < desde || e.uid === yo) continue;
+      if (!e.t || e.t < desde || e.t >= hasta || e.uid === yo) continue;
       if (!avisable(e.txt)) continue;
       out.push(/^Le avisó al cliente/.test(e.txt || "") ? { ...base, t: e.t, por: "", txt: "Cliente contactado" } : { ...base, t: e.t, por: e.por || "Alguien", txt: e.txt || "Modificó el vehículo" });
     }
     // Fotos que subió otro: una línea por persona y por tanda (10 min)
     const tandas = new Map();
     for (const f of v.fotos || []) {
-      const t = f.at || 0; if (!t || t < desde || f.by === yo || (tc && t - tc < MIN_CARGA)) continue;
+      const t = f.at || 0; if (!t || t < desde || t >= hasta || f.by === yo || (tc && t - tc < MIN_CARGA)) continue;
       const quien = f.byName || f.by || f.byWhatsApp || "?", k = quien + "|" + Math.floor(t / 600_000);
       const x = tandas.get(k) || { ...base, t: 0, t0: Infinity, por: f.byName || S.company?.memberNames?.[f.by] || "Alguien", n: 0, video: 0 };
       x.t = Math.max(x.t, t); x.n++; if (f.tipo === "video") x.video++;
@@ -53,14 +54,14 @@ function calcularNotifs() {
     // Documentos que agregó otro (los viejos sin autor no se avisan)
     const docs = new Map();
     for (const d of v.archivos || []) {
-      const t = d.at || 0; if (!t || t < desde || (!d.by && !d.byWhatsApp) || d.by === yo) continue;
+      const t = d.at || 0; if (!t || t < desde || t >= hasta || (!d.by && !d.byWhatsApp) || d.by === yo) continue;
       const k = (d.by || d.byWhatsApp) + "|" + Math.floor(t / 600_000);
       const x = docs.get(k) || { ...base, t: 0, por: d.byName || "Alguien", n: 0, nombre: d.name || "" };
       x.t = Math.max(x.t, t); x.n++; docs.set(k, x);
     }
     for (const x of docs.values()) out.push({ ...x, txt: x.n === 1 ? `Agregó el documento “${x.nombre || "sin nombre"}”` : `Agregó ${x.n} documentos` });
   }
-  return out.sort((a, b) => b.t - a.t).slice(0, MAX);
+  return out.sort((a, b) => b.t - a.t).slice(0, max);
 }
 // Las que tocó cada uno quedan marcadas (users/{uid}.notifAbiertas[cid] = ["vid|t", …]); igual las fijadas y archivadas
 const clave = n => n.vid + "|" + n.t;
@@ -134,6 +135,7 @@ export function abrirNotifs(verArchivadas = false, pestIni = "") {
   let pest = pestIni || !verArchivadas && usaClientes() && chatsNuevos().length && !cuantasNuevas() ? "chat" : "notif";
   const off = onChange(e => { if ((e === "chats" || e === "vehicles") && pest === "chat") lista = pintar(); });
   let qChat = "", fTurno = "", buscando = false;   // buscador y filtro de turno de Chat en vivo
+  let verViejas = false;   // Notificaciones: lista de las anteriores a DIAS días abierta
   s.body.addEventListener("input", e => { if (e.target.id === "chat-q") { qChat = e.target.value; lista = pintar(); } });
   const pintar = () => {
     const lista = listaNotifs(), v0 = visto(), ab = new Set(abiertas()), fij = new Set(marcadas("notifFijadas")), arch = new Set(marcadas("notifArchivadas"));
@@ -175,6 +177,13 @@ export function abrirNotifs(verArchivadas = false, pestIni = "") {
           <span class="notif-acc">${verArchivadas ? "" : `<button type="button" class="icon-btn sm" data-acc="fijar" aria-label="${fij.has(k) ? "Desfijar" : "Fijar arriba"}">${ICO_PIN}</button>`}<button type="button" class="icon-btn sm" data-acc="archivar" aria-label="${verArchivadas ? "Sacar de archivadas" : "Archivar"}">${ICO_ARCH}</button></span></a></li>`; }).join("")}</ul>`
       : `<div class="empty small">${icon("bell")}<p>${verArchivadas ? "No hay notificaciones archivadas." : `No hay cambios nuevos de otros en los últimos ${DIAS} días.`}</p></div>`);
     if (!verArchivadas && nArch) s.body.insertAdjacentHTML("beforeend", `<button type="button" class="link-btn notif-ver-arch">${ICO_ARCH}Archivadas (${nArch})</button>`);
+    // Al final: todo lo anterior a los últimos DIAS días, desde el inicio del operativo (se calcula recién al tocarlo; sin fijar ni archivar)
+    if (!verArchivadas) s.body.insertAdjacentHTML("beforeend", !verViejas ? `<button type="button" class="btn btn-ghost btn-block notif-viejas-btn">Anteriores a ${DIAS} días</button>`
+      : (() => { const vj = calcularNotifs(0, Date.now() - DIAS * 86400_000, 1000);
+        return `<h3 class="notif-sub notif-viejas-tit">Anteriores a ${DIAS} días</h3>` + (vj.length ? `<ul class="notif-list">${vj.map(n => `<li class="notif-li"><a href="#/v/${esc(n.vid)}" data-k="${esc(clave(n))}" class="notif-item vieja" ${n.foto ? `data-foto-url="${esc(n.foto)}"` : ""}>
+          <span class="notif-veh">${plate(n.patente, "sm")}<small>${esc(n.modelo || "")}</small></span>
+          <span class="notif-txt">${n.por ? `<b>${esc(n.por)}</b> ${esc(minus(String(n.txt).replace(/ por WhatsApp/g, "")))}` : esc(n.txt)}</span>
+          <time>${cuando(n.t)}</time></a></li>`).join("")}</ul>` : `<p class="muted small center">No hay notificaciones anteriores.</p>`); })());
     return lista;
   };
   let lista = pintar();
@@ -192,6 +201,7 @@ export function abrirNotifs(verArchivadas = false, pestIni = "") {
   s.el.addEventListener("click", e => {
     if (e.target.closest(".notif-todas")) { guardarPerfil("notifVisto", Date.now()); lista = pintar(); return; }
     if (e.target.closest(".notif-ver-arch")) { s.close(); abrirNotifs(true, pest); return; }
+    if (e.target.closest(".notif-viejas-btn")) { verViejas = true; lista = pintar(); return; }
     const pb = e.target.closest("[data-pest]"); if (pb) { pest = pb.dataset.pest; lista = pintar(); return; }
     if (e.target.closest("[data-sin-turno]")) { fTurno = ""; lista = pintar(); return; }
     const tb = e.target.closest("#chat-turno");
@@ -220,7 +230,7 @@ export function abrirNotifs(verArchivadas = false, pestIni = "") {
     location.hash = a.getAttribute("href"); });
   // Deslizar con el dedo: más de 90 px suelta la acción
   let g = null;
-  s.body.addEventListener("pointerdown", e => { const a = e.target.closest(".notif-item"); g = a && e.pointerType !== "mouse" ? { a, x0: e.clientX, y0: e.clientY, dx: 0, on: false } : null; });
+  s.body.addEventListener("pointerdown", e => { const a = e.target.closest(".notif-item:not(.vieja)"); g = a && e.pointerType !== "mouse" ? { a, x0: e.clientX, y0: e.clientY, dx: 0, on: false } : null; });
   s.body.addEventListener("pointermove", e => {
     if (!g) return;
     const dx = e.clientX - g.x0, dy = e.clientY - g.y0;
