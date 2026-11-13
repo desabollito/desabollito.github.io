@@ -1183,7 +1183,9 @@ function fechasReparacion(v) {
   const s = openSheet({ title: "Fechas de la reparación", body: `<form class="stack">
     ${entregado ? `<div class="field"><span>Cliente</span>${conformidadHTML(v)}</div>` : ""}
     ${pasos.map(k => `<label class="field"><span>${esc(ESTADO[k].label)}</span><input type="date" name="${k}" value="${esc(v.fechas?.[k] || "")}"></label>`).join("")}
+    ${botonDeshacer(PASO_REP.includes(est) && pasoDeshacible(v, [est]))}
     <button class="btn btn-primary btn-block">Guardar</button></form>` });
+  if (PASO_REP.includes(est)) conectarDeshacer(s, v, pasoDeshacible(v, [est]));
   if (entregado) elegirConformidad(s.el, v);
   $("form", s.el).onsubmit = ev => {
     ev.preventDefault();
@@ -1195,6 +1197,16 @@ function fechasReparacion(v) {
 }
 
 const telWaOk = v => /\d{8}/.test(String(v.telefono || "").replace(/\D/g, ""));
+// Mantener apretado un estado: el último "Pasó a …" de esos estados que se puede deshacer (botón dentro de la ventana de fechas)
+const pasoDeshacible = (v, estados) => deshaciblesDe(getVehiculo(v.id) || v).find(e => estados.some(k => new RegExp(`^Pasó a ${ESTADO[k].label}( \\(|$)`).test(e.txt || "")));
+const botonDeshacer = e => e ? `<button type="button" class="btn btn-ghost btn-block" data-deshacer-estado>${icon("rotate")}Deshacer: ${esc(sinPaso(e.txt))}</button>` : "";
+function conectarDeshacer(s, v, e) {
+  $("[data-deshacer-estado]", s.el)?.addEventListener("click", async () => {
+    if (!(await confirmar({ title: "¿Deshacer este estado?", message: `Se deshace: “${sinPaso(e.txt)}”. El vehículo vuelve a como estaba antes.`, ok: "Deshacer", centro: true }))) return;
+    s.close();
+    deshacerCambio(v, e).then(() => toast("Estado deshecho", "success")).catch(err => toast(mensajeError(err), "error"));
+  });
+}
 function elegirFechaEstado(v, estado) {
   const e = ESTADO[estado];
   const s = openSheet({
@@ -1208,8 +1220,10 @@ function elegirFechaEstado(v, estado) {
       ${estado === "turnado" && usaClientes() && telWaOk(v) ? `<div class="turno-conf"><span>¿Avisarle al cliente desde el chat en vivo?</span>
         <button type="button" class="switch" id="t-avisar" role="switch" aria-checked="false">
           <span class="sw-txt sw-si">Sí</span><span class="sw-txt sw-no">No</span><i class="sw-bola"></i></button></div>` : ""}
+      ${estadoActual(v) === estado ? botonDeshacer(pasoDeshacible(v, [estado])) : ""}
       <button class="btn btn-primary btn-block" style="--btn:${e.color}">Guardar</button></form>`
   });
+  if (estadoActual(v) === estado) conectarDeshacer(s, v, pasoDeshacible(v, [estado]));
   let confirmado = v.turnoConfirmado === true;
   let avisar = false;
   $("#t-avisar", s.el)?.addEventListener("click", e => { avisar = !avisar; e.currentTarget.classList.toggle("on", avisar); e.currentTarget.setAttribute("aria-checked", avisar); });

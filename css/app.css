@@ -2582,3 +2582,7 @@ button.aj-item:hover, a.aj-item:hover { background: var(--surface-2); }
   .sheet-centro .sheet { border-radius: var(--r-xl); padding-bottom: 18px; }
   .sheet-centro .sheet-grip { display: none; }
 }
+
+/* Notificaciones anteriores a 30 días: al final, debajo de las de ahora */
+.notif-viejas-btn { margin-top: 12px; }
+.notif-viejas-tit { margin: 18px 0 8px; font-size: 12.5px; font-weight: 750; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
