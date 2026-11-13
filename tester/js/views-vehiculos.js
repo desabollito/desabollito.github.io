@@ -148,23 +148,40 @@ function filtrarSin(clave, lista) {
 // PDF de la lista filtrada (lo mismo que se ve: estados, anulados, búsqueda…): una fila por repuesto / paño (el vehículo va solo en la primera)
 // Repuestos y Pintura Sí/No: Sí = solo los que tienen y va su columna; No = solo los que no tienen. Los dos en No = sin repuestos ni pintura.
 function exportarPDF() {
-  const lista = ordenar(filtrar(activos()));
+  // Los anulados se deciden acá (arranca como el filtro "Ocultar anulados")
+  const base = ordenar(filtrar(activos(), true));
+  let sinAnul = F.sinAnul;
+  const lista = () => sinAnul ? base.filter(v => !esAnulado(v)) : base;
+  const otrosFiltros = F.estado.size || F.q.trim() || [F.mios, F.grado.size, F.repuestos.size, F.pintura.size, F.cliente.size, F.cargado.size, F.cias.size].some(Boolean);
   // Si hay fases marcadas en el filtro, solo esos ítems
   const items = (v, tipo) => itemsTexto(v[tipo]).map(x => [x, etapaItem(v, tipo, x)]).filter(([, e]) => !F[tipo].size || F[tipo].has(e[0])).map(([x, e]) => `${x} — ${e[1]}`);
   const quiere = { repuestos: true, pintura: true };
-  const elegidos = () => lista.filter(v => ["repuestos", "pintura"].every(t => quiere[t] === items(v, t).length > 0));
+  const elegidos = () => lista().filter(v => ["repuestos", "pintura"].every(t => quiere[t] === items(v, t).length > 0));
   const s = openSheet({ title: "Exportar PDF", body: `<div class="stack">
     ${["repuestos", "pintura"].map(t => `<div class="aj-item aj-ctrl pdf-op"><span class="aj-txt">${t === "pintura" ? "Pintura" : "Repuestos"}</span>
       <div class="seg seg-sm" data-t="${t}"><button type="button" class="seg-btn on" data-si="1">Sí</button><button type="button" class="seg-btn" data-si="">No</button></div></div>`).join("")}
-    <button type="button" class="btn btn-primary btn-block btn-lg" id="pdf-ok"></button></div>` });
-  const contar = () => { const n = elegidos().length; $("#pdf-ok", s.el).innerHTML = `${icon("download")}Exportar ${n} ${n === 1 ? "vehículo" : "vehículos"}`; $("#pdf-ok", s.el).disabled = !n; };
+    <button type="button" class="fo-switch ${sinAnul ? "on" : ""}" id="pdf-anul" aria-pressed="${sinAnul}">Ocultar anulados</button>
+    <p class="muted small" id="pdf-txt" aria-live="polite"></p>
+    <button type="button" class="btn btn-primary btn-block btn-lg" id="pdf-ok"></button>
+    <button type="button" class="btn btn-ghost btn-block" id="pdf-todos"></button></div>` });
+  const contar = () => {
+    const n = elegidos().length, nt = lista().length;
+    const que = quiere.repuestos && quiere.pintura ? "con repuestos y pintura" : quiere.repuestos ? "con repuestos y sin pintura" : quiere.pintura ? "con pintura y sin repuestos" : "sin repuestos ni pintura";
+    $("#pdf-txt", s.el).textContent = `Se exportarán vehículos ${que} únicamente${sinAnul ? ", sin los anulados" : ""}${otrosFiltros ? ", según los filtros puestos" : ""}.`;
+    $("#pdf-ok", s.el).innerHTML = `${icon("download")}Exportar ${n} ${n === 1 ? "vehículo" : "vehículos"}`; $("#pdf-ok", s.el).disabled = !n;
+    $("#pdf-todos", s.el).textContent = `Exportar todos (${nt})`; $("#pdf-todos", s.el).disabled = !nt;
+    const a = $("#pdf-anul", s.el); a.classList.toggle("on", sinAnul); a.setAttribute("aria-pressed", sinAnul);
+  };
   contar();
   s.el.addEventListener("click", e => {
     const b = e.target.closest("[data-si]");
     if (b) { const seg = b.parentElement; quiere[seg.dataset.t] = !!b.dataset.si; seg.querySelectorAll(".seg-btn").forEach(x => x.classList.toggle("on", x === b)); return contar(); }
-    if (!e.target.closest("#pdf-ok")) return;
-    const tipos = ["repuestos", "pintura"].filter(t => quiere[t]), vs = elegidos();
-    const t = tipos.length === 2 ? "Vehículos con repuestos y pintura" : tipos.length ? `Vehículos con ${tipos[0]}` : "Vehículos sin repuestos ni pintura";
+    if (e.target.closest("#pdf-anul")) { sinAnul = !sinAnul; return contar(); }
+    const todos = !!e.target.closest("#pdf-todos");
+    if (!todos && !e.target.closest("#pdf-ok")) return;
+    // "Todos": cada vehículo de la lista, con sus repuestos y su pintura (tenga o no)
+    const tipos = todos ? ["repuestos", "pintura"] : ["repuestos", "pintura"].filter(t => quiere[t]), vs = todos ? lista() : elegidos();
+    const t = todos ? "Vehículos" : tipos.length === 2 ? "Vehículos con repuestos y pintura" : tipos.length ? `Vehículos con ${tipos[0]}` : "Vehículos sin repuestos ni pintura";
     // Math.max con 1: un vehículo sin ítems igual lleva su fila
     const filas = vs.flatMap(v => { const cols = tipos.map(tp => items(v, tp)), n = Math.max(1, ...cols.map(c => c.length));
       return Array.from({ length: n }, (_, i) => [i ? "" : v.modelo || "", i ? "" : v.patente || "", ...cols.map(c => c[i] || "")]); });
