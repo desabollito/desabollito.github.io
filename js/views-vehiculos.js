@@ -1176,7 +1176,7 @@ async function ofrecerAvisoCliente(v) {
     toast("Aviso enviado al cliente", "success");
     if (chat) abrirChatDe(v);   // el aviso queda guardado en el chat en vivo
   } catch (e) { espera.close();
-    if (await confirmar({ title: "No se pudo enviar desde el bot", message: `${e.message}. ¿Abrir WhatsApp para mandarlo vos?`, ok: "Abrir WhatsApp", centro: true })) {
+    if (await confirmar({ title: "No se pudo enviar desde el número de la empresa", message: `${e.message}. ¿Abrir WhatsApp para mandarlo vos?`, ok: "Abrir WhatsApp", centro: true })) {
       const tel = String(v.telefono).replace(/\D/g, "").replace(/^0/, "");
       open(`https://wa.me/${tel.startsWith("54") ? tel : "549" + tel}?text=${encodeURIComponent(textoAviso(v))}`, "_blank");
     }
