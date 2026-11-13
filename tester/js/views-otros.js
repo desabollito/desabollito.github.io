@@ -1267,16 +1267,6 @@ export function chatsClientes() {
   s.body.addEventListener("click", e => { const b = e.target.closest("[data-tel]"); if (b) abrirChat(cid, b.dataset.tel); });
 }
 export const abrirChatTel = tel => S.company && abrirChat(S.company.id, tel);
-// Botón flotante (como el de WhatsApp): abre todos los chats en vivo, con la cantidad sin leer
-function pintarFabChat() {
-  const b = document.getElementById("fab-chat"); if (!b) return;
-  b.hidden = !(S.user && !S.invitado && S.company && usaClientes());
-  const n = S.chats.filter(chatSinLeer).length, x = $(".fab-chat-n", b);
-  x.hidden = !n; x.textContent = n > 9 ? "9+" : n || "";
-  b.setAttribute("aria-label", n ? `Chats en vivo: ${n} sin leer` : "Chats en vivo");
-}
-onChange(e => { if (["chats", "companies", "config", "perfil"].includes(e)) pintarFabChat(); });
-document.addEventListener("click", e => { if (e.target.closest("#fab-chat")) chatsClientes(); });
 
 // Teléfono del vehículo → número de WhatsApp (549 + área + número), igual que telefonoAR del bot
 export function telWa(t) {

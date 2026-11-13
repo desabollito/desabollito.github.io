@@ -5,7 +5,7 @@
 //  así el puntito se apaga en todos los equipos.
 // ═════════════════════════════════════════════════════════════
 import { db, doc, updateDoc } from "./firebase.js";
-import { S, activos, onChange, chatsSinLeer } from "./data.js";
+import { S, activos, onChange, chatsSinLeer, usaClientes } from "./data.js";
 import { $, esc, icon, openSheet, plate } from "./ui.js";
 import { sonidoNotif } from "./sonidos.js";
 
@@ -126,8 +126,10 @@ export function abrirNotifs(verArchivadas = false) {
     const lista = listaNotifs(), v0 = visto(), ab = new Set(abiertas()), fij = new Set(marcadas("notifFijadas")), arch = new Set(marcadas("notifArchivadas"));
     const vis = lista.filter(n => arch.has(clave(n)) === verArchivadas).sort((a, b) => fij.has(clave(b)) - fij.has(clave(a)));
     const nuevas = cuantasNuevas(), nArch = lista.filter(n => arch.has(clave(n))).length;
-    const chats = verArchivadas ? [] : chatsSinLeer();
-    s.body.innerHTML = (chats.length ? `<h4 class="notif-sec">${icon("chat")}Chat en vivo</h4>
+    const conChat = !verArchivadas && usaClientes(), chats = conChat ? chatsSinLeer() : [];
+    s.body.innerHTML = (conChat ? `<div class="notif-sec-fila"><h4 class="notif-sec">${icon("chat")}Chat en vivo</h4>
+      <button type="button" class="link-btn small notif-ver-chats">Ver todos los chats</button></div>
+      ${chats.length ? "" : `<p class="muted small notif-sin-chats">No hay mensajes nuevos.</p>`}
       <ul class="notif-list notif-chats">${chats.map(c => `<li class="notif-li"><a href="#" data-chat="${esc(c.tel)}" class="notif-item nueva">
         <span class="notif-veh">${plate(c.patente, "sm")}<small>${esc(c.nombre || c.modelo || "")}</small></span>
         <span class="notif-txt">${esc(c.ult || "Mensaje nuevo")}</span><time>${cuando(c.t)}</time></a></li>`).join("")}</ul>
@@ -139,7 +141,7 @@ export function abrirNotifs(verArchivadas = false) {
           <span class="notif-txt">${n.por ? `<b>${esc(n.por)}</b> ${esc(minus(String(n.txt).replace(/ por WhatsApp/g, "")))}` : esc(n.txt)}</span>
           <time>${cuando(n.t)}</time>
           <span class="notif-acc">${verArchivadas ? "" : `<button type="button" class="icon-btn sm" data-acc="fijar" aria-label="${fij.has(k) ? "Desfijar" : "Fijar arriba"}">${ICO_PIN}</button>`}<button type="button" class="icon-btn sm" data-acc="archivar" aria-label="${verArchivadas ? "Sacar de archivadas" : "Archivar"}">${ICO_ARCH}</button></span></a></li>`; }).join("")}</ul>`
-      : chats.length ? "" : `<div class="empty small">${icon("bell")}<p>${verArchivadas ? "No hay notificaciones archivadas." : `No hay cambios nuevos de otros en los últimos ${DIAS} días.`}</p></div>`);
+      : `<div class="empty small">${icon("bell")}<p>${verArchivadas ? "No hay notificaciones archivadas." : `No hay cambios nuevos de otros en los últimos ${DIAS} días.`}</p></div>`);
     if (!verArchivadas && nArch) s.body.insertAdjacentHTML("beforeend", `<button type="button" class="link-btn notif-ver-arch">${ICO_ARCH}Archivadas (${nArch})</button>`);
     return lista;
   };
@@ -153,6 +155,7 @@ export function abrirNotifs(verArchivadas = false) {
   s.el.addEventListener("click", e => {
     if (e.target.closest(".notif-todas")) { guardarPerfil("notifVisto", Date.now()); lista = pintar(); return; }
     if (e.target.closest(".notif-ver-arch")) { s.close(); abrirNotifs(true); return; }
+    if (e.target.closest(".notif-ver-chats")) { s.close(); import("./views-otros.js").then(m => m.chatsClientes()); return; }
     const ch = e.target.closest("[data-chat]");
     if (ch) { e.preventDefault(); s.close(); import("./views-otros.js").then(m => m.abrirChatTel(ch.dataset.chat)); return; }
     const a = e.target.closest(".notif-item"); if (!a) return;
