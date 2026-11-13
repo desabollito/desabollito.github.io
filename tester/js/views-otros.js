@@ -655,7 +655,7 @@ export function vistaAjustes(view) {
     <section class="aj-grupo"><h3>Cuenta</h3><div class="aj-lista">
       ${fila("editar-perfil", "edit", "Perfil", esc(p.name))}
       ${WHATSAPP_BOT ? `<a class="aj-item" href="https://wa.me/${WHATSAPP_BOT}?text=ayuda" target="_blank" rel="noopener">${icon("chat")}<span class="aj-txt">Chat con el bot</span><span class="aj-val"></span>${icon("next")}</a>` : ""}
-      ${usaClientes() && S.company ? (S.config?.mensajesTurnos !== false ? fila("mt-abrir", "calendar", "Mensajes y turnos") : "") + fila("chats-abrir", "chat", "Chats en vivo") : ""}
+      ${usaClientes() && S.company ? (S.config?.mensajesTurnos !== false ? fila("mt-abrir", "calendar", "Mensajes y turnos") : "") : ""}
     </div></section>
 
     <section class="aj-grupo"><h3>Apariencia</h3><div class="aj-lista">
@@ -688,7 +688,6 @@ export function vistaAjustes(view) {
     $$(".seg-btn", $("#fecha-vista", view)).forEach(x => x.classList.toggle("on", x === b));
   };
   $("#mt-abrir", view)?.addEventListener("click", mensajesYTurnos);
-  $("#chats-abrir", view)?.addEventListener("click", chatsClientes);
   $("#salir", view).onclick = async () => { if (await confirmar({ title: "¿Cerrar sesión?", ok: "Cerrar sesión" })) salir(); };
   // Versión: tocar fuerza la actualización; mantener apretado muestra las novedades
   const vb = $("#version-btn", view); let largo = false, t = 0;
@@ -1260,20 +1259,6 @@ async function leerPadron(file) {
 const horaChat = t => { const d = new Date(t), hoy = new Date().toDateString() === d.toDateString();
   return hoy ? d.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", hourCycle: "h23" }) : d.toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit" }); };
 
-export function chatsClientes() {
-  const cid = S.company?.id; if (!cid) return;
-  const s = openSheet({ title: "Chats en vivo", onClose: () => off(), body: `<div class="chat-lista" id="chat-lista"></div>` });
-  const pintar = () => {
-    const caja = $("#chat-lista", s.el), chats = S.chats; if (!caja) return;
-    caja.innerHTML = chats.length ? chats.map(c => `<button type="button" class="chat-fila ${chatSinLeer(c) ? "nuevo" : ""}" data-tel="${esc(c.tel)}">
-        <span class="chat-fila-top">${plate(c.patente, "sm")}<strong>${esc(c.nombre || c.modelo || "")}</strong><time>${horaChat(c.t)}</time></span>
-        <span class="chat-fila-ult">${c.ultYo ? "Vos: " : ""}${esc(c.ult || "")}</span></button>`).join("")
-      : `<div class="empty small">${icon("chat")}<p>Todavía no hay chats. Aparecen cuando le escribís a un cliente desde el número de la empresa.</p></div>`;
-  };
-  const off = onChange(e => { if (e === "chats") pintar(); });
-  pintar();
-  s.body.addEventListener("click", e => { const b = e.target.closest("[data-tel]"); if (b) abrirChat(cid, b.dataset.tel); });
-}
 export const abrirChatTel = tel => S.company && abrirChat(S.company.id, tel);
 
 // Teléfono del vehículo → número de WhatsApp (549 + área + número), igual que telefonoAR del bot

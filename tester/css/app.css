@@ -1634,7 +1634,7 @@ a.g-bar-fijo { text-decoration: none; color: inherit; }
 
 /* ── Notificaciones ── */
 .notif-btn { position: relative; }
-.notif-dot { position: absolute; top: 3px; right: 3px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: var(--r); background: #e5484d; color: #fff;
+.notif-dot { position: absolute; top: 3px; right: 3px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: var(--r); background: var(--primary); color: var(--on-primary);
   font-size: 10.5px; font-weight: 800; line-height: 16px; text-align: center; box-shadow: 0 0 0 2px var(--bg); }
 .notif-sub { margin: -4px 0 10px; }
 .notif-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
@@ -2535,7 +2535,7 @@ button.aj-item:hover, a.aj-item:hover { background: var(--surface-2); }
 .aviso-cargando .spin { color: var(--primary); }
 .notif-tabs { margin-bottom: 12px; }
 .notif-tabs .seg-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
-.notif-tab-n { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; display: inline-grid; place-items: center; background: var(--primary); color: #fff; font-size: 11px; }
+.notif-tab-n { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; display: inline-grid; place-items: center; background: var(--primary); color: var(--on-primary); font-size: 11px; }
 
 /* Barra de subida de fotos sobre la portada del vehículo */
 .d-cover-prog { position: absolute; left: 6px; right: 6px; top: 6px; height: 18px; border-radius: 999px; overflow: hidden; background: rgba(0, 0, 0, .6); z-index: 2; pointer-events: none; }
