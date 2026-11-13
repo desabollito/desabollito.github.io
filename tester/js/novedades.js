@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.8.3", items: ["Compañías del formulario: las más usadas primero.", "Avisos por chat en vivo (Turnar y Contactado): animación de carga mientras sale el mensaje y el chat se abre recién cuando ya se envió. Textos más cortos."] },
   { v: "4.8.2", items: ["Chat en vivo: sin botón flotante. En Notificaciones, el apartado del chat tiene «Ver todos los chats»."] },
   { v: "4.8.1", items: ["Contactado: «¿Avisarle al cliente desde el chat en vivo?», se le avisa que está listo su vehículo y se abre el chat."] },
   { v: "4.8.0", items: ["Chat en vivo: botón flotante con todos los chats y la cantidad sin leer.", "Notificaciones: apartado propio para los mensajes nuevos del chat en vivo.", "Vehículo: puntito titilando en Contactar (y en Chat en vivo) cuando el cliente escribió.", "Turnar: «¿Avisarle al cliente desde el chat en vivo?»; al guardar se abre el chat."] },

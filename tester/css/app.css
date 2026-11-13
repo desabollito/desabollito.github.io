@@ -2531,3 +2531,5 @@ button.aj-item:hover, a.aj-item:hover { background: var(--surface-2); }
 .notif-sec-fila { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
 .notif-sec-fila .notif-sec { margin-bottom: 0; }
 .notif-sin-chats { margin: 0 2px 14px; }
+.aviso-cargando { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 18px 0 8px; margin: 0; color: var(--muted); font-weight: 600; }
+.aviso-cargando .spin { color: var(--primary); }

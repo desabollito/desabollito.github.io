@@ -113,6 +113,8 @@ const tieneEtapa = (v, tipo, fase) => itemsTexto(v[tipo]).some(x => etapaItem(v,
 // "Ocultar anulados": los anulados no se cuentan ni se listan
 const visibles = () => activos().filter(v => !F.sinAnul || !esAnulado(v));
 // Compañías (filtro múltiple): ninguna o todas marcadas = se ven todas
+// Compañías para el formulario: las más usadas primero
+const ciasPorCantidad = () => { const n = new Map([["Particular", 0]]); activos().forEach(v => { const c = String(v.compania || "").trim(); if (c) n.set(c, (n.get(c) || 0) + 1); }); return [...n].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([c]) => c); };
 const ciaDe = v => String(v.compania || "").trim() || "Sin compañía";
 const ciasDisponibles = () => { const n = new Map(); visibles().forEach(v => n.set(ciaDe(v), (n.get(ciaDe(v)) || 0) + 1)); return [...n].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])); };
 function filtrar(lista, conAnul) {
@@ -1128,15 +1130,16 @@ async function ofrecerAvisoCliente(v) {
   if (no) return toast(no);
   const chat = usaClientes() && !!telWa(v.telefono);
   if (!(await confirmar({ title: chat ? "¿Avisarle al cliente desde el chat en vivo?" : "¿Avisarle al cliente desde el teléfono de la empresa?",
-    message: `Se le avisará ${v.asegurado ? "a " + v.asegurado : "al cliente"} que está listo su vehículo.\n\n“${textoAviso(v)}”`, ok: "Enviar mensaje" }))) return;
+    message: `Se le avisará ${v.asegurado ? "a " + v.asegurado : "al cliente"} que está listo su vehículo.`, ok: "Enviar mensaje" }))) return;
+  const espera = openSheet({ title: "Avisando al cliente", body: `<p class="aviso-cargando"><span class="spin"></span>Enviando mensaje…</p>` });
   try {
     const r = await fetch(`${BOT_API}/avisar`, { method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ idToken: await S.user.getIdToken(), cid: S.company.id, vid: v.id, por: S.profile?.name || "", texto: textoAviso(v) }) });
+      body: JSON.stringify({ idToken: await S.user.getIdToken(), cid: S.company.id, vid: v.id, por: S.profile?.name || "", texto: textoAviso(v) }) }).finally(() => espera.close());
     const d = await r.json().catch(() => ({}));
     if (!r.ok || !d.ok) throw new Error(d.error || "No se pudo enviar");
     toast("Aviso enviado al cliente", "success");
     if (chat) abrirChatDe(v);   // el aviso queda guardado en el chat en vivo
-  } catch (e) {
+  } catch (e) { espera.close();
     if (await confirmar({ title: "No se pudo enviar desde el bot", message: `${e.message}. ¿Abrir WhatsApp para mandarlo vos?`, ok: "Abrir WhatsApp" })) {
       const tel = String(v.telefono).replace(/\D/g, "").replace(/^0/, "");
       open(`https://wa.me/${tel.startsWith("54") ? tel : "549" + tel}?text=${encodeURIComponent(textoAviso(v))}`, "_blank");
@@ -1175,7 +1178,7 @@ function elegirFechaEstado(v, estado) {
       ${estado === "turnado" ? `<div class="turno-conf"><span>¿El cliente confirmó el turno?</span>
         <button type="button" class="switch ${v.turnoConfirmado === true ? "on" : ""}" id="t-conf" role="switch" aria-checked="${v.turnoConfirmado === true}">
           <span class="sw-txt sw-si">Sí</span><span class="sw-txt sw-no">No</span><i class="sw-bola"></i></button></div>` : ""}
-      ${estado === "turnado" && usaClientes() && telWaOk(v) ? `<div class="turno-conf"><span>¿Avisarle al cliente desde el chat en vivo?<small class="turno-sub">Se le avisará ${v.asegurado ? "a " + esc(v.asegurado) : "al cliente"} el turno que le diste.</small></span>
+      ${estado === "turnado" && usaClientes() && telWaOk(v) ? `<div class="turno-conf"><span>¿Avisarle al cliente desde el chat en vivo?</span>
         <button type="button" class="switch" id="t-avisar" role="switch" aria-checked="false">
           <span class="sw-txt sw-si">Sí</span><span class="sw-txt sw-no">No</span><i class="sw-bola"></i></button></div>` : ""}
       <button class="btn btn-primary btn-block" style="--btn:${e.color}">Guardar</button></form>`
@@ -1187,14 +1190,17 @@ function elegirFechaEstado(v, estado) {
     confirmado = !confirmado;
     e.currentTarget.classList.toggle("on", confirmado); e.currentTarget.setAttribute("aria-checked", confirmado);
   });
-  $("form", s.el).onsubmit = ev => {
+  $("form", s.el).onsubmit = async ev => {
     ev.preventDefault();
     const fecha = ev.target.f.value;
     cambiarEstado(v, estado, fecha, estado === "turnado" ? { turnoConfirmado: confirmado } : {}).catch(err => toast(mensajeError(err), "error"));
     toast(`${e.label} · ${fechaCorta(ev.target.f.value)}`, "success");
-    s.close();
-    // Avisa y abre el chat en vivo, donde aparece el mensaje cuando sale
-    if (avisar) { const vv = getVehiculo(v.id) || v; avisarTurnoChat(vv, fecha).catch(err => toast(err.message || mensajeError(err), "error")); abrirChatDe(vv); }
+    if (!avisar) return s.close();
+    // Espera a que salga el mensaje (tarda ~1 s) y recién ahí abre el chat, así ya se ve
+    busy(ev.submitter || $("form .btn-primary", s.el), true, "Avisando…");
+    const vv = getVehiculo(v.id) || v;
+    try { await avisarTurnoChat(vv, fecha); s.close(); abrirChatDe(vv); }
+    catch (err) { s.close(); toast(err.message || mensajeError(err), "error"); }
 
   };
 }
@@ -1784,7 +1790,7 @@ export function vistaFormulario(view, id = null) {
             <label class="field"><span>Localidad</span>
               <input name="localidad" value="${esc(v ? v.localidad : (S.company?.name || ""))}" list="dl-loc" placeholder="Ej: Córdoba" autocomplete="off"></label>
           </div>
-          <datalist id="dl-comp">${[...new Set(["Particular", ...activos().map(x => x.compania).filter(Boolean)])].sort().map(o => `<option value="${esc(o)}">`).join("")}</datalist>
+          <datalist id="dl-comp">${ciasPorCantidad().map(o => `<option value="${esc(o)}">`).join("")}</datalist>
           <datalist id="dl-loc">${opciones("localidad")}</datalist>
         </fieldset>
         <div class="vform-der">
