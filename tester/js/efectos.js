@@ -39,10 +39,10 @@ function animacionLogo() {
     { transform: "none", opacity: 1, filter: "none", offset: .62, easing: curva },
     { transform: "scale(2.2)", opacity: 0, filter: "blur(8px)", offset: 1 }
   ], { duration: DUR, fill: "forwards" });
-  return crece.finished.catch(() => {}).then(() => {
+  // El logo final queda medio segundo quieto y recién ahí se desvanece mientras se abre la app
+  return crece.finished.catch(() => {}).then(() => new Promise(r => setTimeout(r, 500))).then(() => {
     capa.classList.add("sale");
     setTimeout(() => capa.remove(), 500);
-    return new Promise(r => setTimeout(r, 1000));   // 1 s más antes de abrir la app: así el final del logo no se traba con la carga
   });
 }
 
