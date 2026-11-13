@@ -2621,10 +2621,10 @@ async function adminClientesQr(env, { idToken, salir, numero }) {
 
 // Panel del creador: un mensaje a un cliente desde el número de la empresa (envío masivo y turnos; la app los manda de a uno con pausa)
 async function adminEnviarCliente(env, { idToken, cid, vid, texto, por }) {
-  // El creador, o quien él habilitó (config/app.usanClientes) si es miembro de ese operativo
+  // El creador, los administradores del operativo, o quien él habilitó (config/app.usanClientes) si es miembro de ese operativo
   if (!(await soloCreador(env, idToken))) {
     const [m, cfg] = await Promise.all([miembroDe(env, idToken, cid), fsGet(env, "config/app").catch(() => null)]);
-    if (!m || !(cfg?.usanClientes || []).includes(m.uid)) return json({ ok: false, error: "No autorizado" }, 403);
+    if (!m || !(esAdminOp(m) || (cfg?.usanClientes || []).includes(m.uid))) return json({ ok: false, error: "No autorizado" }, 403);
   }
   if (!idValido(cid) || !idValido(vid) || typeof texto !== "string" || !texto.trim() || texto.length > 2000) return json({ ok: false, error: "Datos inválidos" }, 400);
   const ruta = `companies/${cid}/vehicles/${vid}`;
@@ -2675,7 +2675,7 @@ const WORKER_URL = "https://desabollito-bot.desabollito.workers.dev";
 async function responderCliente(env, { idToken, cid, tel, texto, por, vid }) {
   if (!(await soloCreador(env, idToken))) {
     const [m, cfg] = await Promise.all([miembroDe(env, idToken, cid), fsGet(env, "config/app").catch(() => null)]);
-    if (!m || !(cfg?.usanClientes || []).includes(m.uid)) return json({ ok: false, error: "No autorizado" }, 403);
+    if (!m || !(esAdminOp(m) || (cfg?.usanClientes || []).includes(m.uid))) return json({ ok: false, error: "No autorizado" }, 403);
   }
   if (!idValido(cid) || !/^549\d{10}$/.test(String(tel || "")) || typeof texto !== "string" || !texto.trim() || texto.length > 2000) return json({ ok: false, error: "Datos inválidos" }, 400);
   // Chat que ya existe en este operativo, o uno nuevo desde un vehículo (el número tiene que ser el de ese vehículo)
@@ -3072,6 +3072,8 @@ async function vaciarPapelera(env) {
   }
   if (n) await registrar(env, { ultimaPapelera: `${new Date().toISOString()} · ${n} vehículo(s) eliminados` }).catch(() => {});
 }
+// Administrador (o dueño) del operativo: tiene chat en vivo y Mensajes y turnos por defecto
+const esAdminOp = m => m.c.ownerId === m.uid || ["owner", "admin"].includes(m.c.roles?.[m.uid]);
 async function miembroDe(env, idToken, cid) {
   const uid = await verificarIdToken(env, idToken).catch(() => null);
   if (!uid || !idValido(cid)) return null;
