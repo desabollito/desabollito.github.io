@@ -9,7 +9,7 @@ import { db, doc, onSnapshot } from "./firebase.js";
 import { colorPeritado, ESTADOS, ESTADO, ROLES, estadoActual, esAnulado, repartirTurnos } from "./domain.js";
 import {
   $, $$, esc, money, fechaCorta, fechaLarga, hoyISO, plate, estadoPill, icon, toast, openSheet, confirmar,
-  pedirTexto, busy, debounce, avatarUsuario, glideMenu, elegirDescarga, horaDe, formatoWa
+  pedirTexto, busy, debounce, avatarUsuario, glideMenu, elegirDescarga, horaDe, formatoWa, avatarCliente
 } from "./ui.js";
 import { ruidoMotor, SONIDOS_AUTO } from "./sonidos.js";
 import { NOVEDADES } from "./novedades.js";
@@ -1294,19 +1294,31 @@ export function avisarTurnoChat(v, fecha) {
 }
 
 function abrirChat(cid, tel, alCerrar, v = null) {
-  let c = null, enviando = false;
+  let c = null, enviando = false, verPap = false;
   const s = openSheet({ title: "Chat", onClose: () => { unsub(); offV(); alCerrar?.(); }, body: `<div class="chat">
       <div class="chat-msgs" id="chat-msgs"><div class="skeleton" style="height:60px"></div></div>
       <div class="chat-turno" id="chat-turno"></div>
       <form class="chat-form" id="chat-form"><textarea name="txt" rows="1" placeholder="Escribí una respuesta…" maxlength="2000" required></textarea>
         <button class="btn btn-primary chat-enviar" type="submit" aria-label="Enviar">${icon("next")}</button></form></div>` });
   s.el.classList.add("sheet-centro");   // en el celular, al medio (no desde abajo)
+  // En lugar de la X: la papelera de mensajes borrados (se cierra tocando afuera)
+  $(".sheet-head [data-close]", s.el)?.replaceWith(Object.assign(document.createElement("template"), { innerHTML:
+    `<button type="button" class="icon-btn chat-pap-btn" id="chat-pap" aria-label="Mensajes borrados" aria-pressed="false">${icon("trash")}<b class="chat-pap-n" hidden></b></button>` }).content);
   const caja = $("#chat-msgs", s.el), form = $("#chat-form", s.el), ta = form.txt;
   const pintar = () => {
     if (!c) return;
-    $(".sheet-head h2", s.el).innerHTML = `${plate(c.patente, "sm")} ${esc(c.nombre || c.modelo || "")}`;
+    $(".sheet-head h2", s.el).innerHTML = `<span class="chat-cab">${avatarCliente(c)}<span class="chat-cab-nom">${esc(c.nombre || c.modelo || "Cliente")}</span>${plate(c.patente, "sm")}</span>`;
+    const nPap = (c.papelera || []).length, pb = $("#chat-pap", s.el), nb = $(".chat-pap-n", s.el);
+    nb.hidden = !nPap; nb.textContent = nPap; pb.classList.toggle("on", verPap); pb.setAttribute("aria-pressed", verPap);
+    form.hidden = verPap;
+    if (verPap) {   // papelera: los borrados, cada uno con Restaurar
+      caja.innerHTML = `<p class="muted small center">Mensajes borrados en la app (en WhatsApp siguen estando).</p>` + ((c.papelera || []).slice().sort((a, b) => a.t - b.t).map(m => `<div class="chat-msg ${m.yo ? "yo" : ""} borrado">${formatoWa(m.txt)}
+        <small>${m.yo && m.por ? esc(m.por) + " · " : ""}${horaChat(m.t)}</small><button type="button" class="link-btn small" data-restaurar="${m.t}">${icon("restore")}Restaurar</button></div>`).join("") || `<p class="muted small center">No hay mensajes borrados.</p>`);
+      $("#chat-turno", s.el).innerHTML = "";
+      return;
+    }
     const abajo = caja.scrollHeight - caja.scrollTop - caja.clientHeight < 40;
-    caja.innerHTML = (c.msgs || []).slice().sort((a, b) => a.t - b.t).map(m => `<div class="chat-msg ${m.yo ? "yo" : ""}">${formatoWa(m.txt)}
+    caja.innerHTML = (c.msgs || []).slice().sort((a, b) => a.t - b.t).map(m => `<div class="chat-msg ${m.yo ? "yo" : ""}" data-t="${m.t}">${formatoWa(m.txt)}
       <small>${m.yo && m.por ? esc(m.por) + " · " : ""}${horaChat(m.t)}</small></div>`).join("") || `<p class="muted small center">Sin mensajes.</p>`;
     // Al entrar (o si ya estaba abajo) baja al último; se repite al siguiente cuadro porque la barra del turno y la ventana todavía cambian de alto
     if (abajo || !caja.dataset.listo) { pintarTurno(); const bajar = () => { caja.scrollTop = caja.scrollHeight; }; bajar(); requestAnimationFrame(() => requestAnimationFrame(bajar)); setTimeout(bajar, 260); caja.dataset.listo = "1"; }
@@ -1319,12 +1331,27 @@ function abrirChat(cid, tel, alCerrar, v = null) {
     bt.innerHTML = vv && estadoActual(vv) === "turnado" ? (vv.turnoConfirmado === true ? `<span class="conf-tag ok">✓ Turno confirmado</span>`
       : `<span class="conf-tag">Turno sin confirmar</span><button type="button" class="btn btn-ghost btn-sm" id="chat-conf">${icon("check")}El cliente confirmó el turno</button>`) : "";
   };
-  const offV = onChange(e => { if (e === "vehicles" && c) pintarTurno(); });
+  const offV = onChange(e => { if (e === "vehicles" && c && !verPap) pintarTurno(); });
+  const moverMsg = async (t, restaurar) => {
+    const j = await llamarBot("borrar-msg-chat", { cid, tel, t: Number(t), restaurar });
+    if (!j.ok) return toast(j.error || "No se pudo", "error");
+    toast(restaurar ? "Mensaje restaurado" : "Mensaje a la papelera", "success");
+  };
+  const pedirBorrar = async m => {
+    if (await confirmar({ title: "¿Borrar este mensaje?", message: "Va a la papelera del chat (arriba). Solo se borra en la app: en WhatsApp sigue estando.", ok: "Borrar", danger: true, centro: true })) moverMsg(m.dataset.t, false);
+  };
   s.el.addEventListener("click", e => {
+    if (e.target.closest("#chat-pap")) { verPap = !verPap; caja.dataset.listo = ""; return pintar(); }
+    const r = e.target.closest("[data-restaurar]"); if (r) return moverMsg(r.dataset.restaurar, true);
     if (!e.target.closest("#chat-conf")) return;
     const vid = c?.vid || v?.id;
     actualizarVehiculo(vid, { turnoConfirmado: true }, "El cliente confirmó el turno").then(() => toast("Turno confirmado", "success")).catch(err => toast(mensajeError(err), "error"));
   });
+  // Borrar un mensaje: mantenerlo apretado (o clic derecho en la computadora)
+  let reloj = null;
+  caja.addEventListener("pointerdown", e => { const m = e.target.closest(".chat-msg[data-t]"); if (!m) return; reloj = setTimeout(() => { navigator.vibrate?.(30); pedirBorrar(m); }, 550); });
+  ["pointerup", "pointerleave", "pointercancel", "pointermove"].forEach(ev => caja.addEventListener(ev, e => { if (ev !== "pointermove" || Math.abs(e.movementY) > 3) clearTimeout(reloj); }));
+  caja.addEventListener("contextmenu", e => { const m = e.target.closest(".chat-msg[data-t]"); if (m) { e.preventDefault(); clearTimeout(reloj); pedirBorrar(m); } });
   // Sin mensajes todavía (abierto desde un vehículo): se muestra con los datos del vehículo
   const vacio = v ? { tel, vid: v.id, patente: v.patente, nombre: v.asegurado, modelo: v.modelo, msgs: [] } : null;
   const unsub = onSnapshot(doc(db, "companies", cid, "chats", tel), d => { c = d.exists() ? { tel, ...d.data() } : vacio; pintar(); }, () => { c = vacio; pintar(); });

@@ -46,7 +46,7 @@ export default {
     const API = { "/registro": nuevoRegistro, "/avisar": avisarCliente, "/solicitud": avisarSolicitud, "/agregado": avisarAgregado, "/pedido-union": avisarPedidoUnion,
       "/admin/datos": adminDatos, "/admin/borrar-usuario": adminBorrarUsuario, "/admin/config": adminConfig, "/admin/padron": adminPadron, "/admin/fotos-wa": adminFotosWa, "/admin/foto-usuario": adminFotoUsuario, "/admin/clientes-qr": adminClientesQr, "/admin/enviar-cliente": adminEnviarCliente, "/admin/reiniciar-chats": adminReiniciarChats,"/mover-vehiculo": moverVehiculo,
       "/borrar-media": borrarMediaApi, "/eliminar-vehiculo": eliminarVehiculoApi,
-      "/compartir": compartirApi, "/compartido": compartidoApi, "/aviso-planilla": avisoPlanilla, "/responder-cliente": responderCliente,
+      "/compartir": compartirApi, "/compartido": compartidoApi, "/aviso-planilla": avisoPlanilla, "/responder-cliente": responderCliente, "/borrar-msg-chat": borrarMsgChat,
       "/aviso-version": avisoVersion, "/pedir-borrar-operativo": pedirBorrarOperativo,
       "/recuperar": recuperarApi, "/restablecer": restablecerApi, "/usuarios-app": usuariosAppApi, "/codigo-wa": codigoWaApi, "/foto-wa": fotoWaApi,
       "/admin/resumen-ahora": async (env, { idToken, forzar }) => (await soloCreador(env, idToken)) ? json({ ok: true, enviados: await enviarDiarios(env, "resumen", forzar) }) : json({ ok: false }, 403) };
@@ -2649,6 +2649,43 @@ async function guardarChat(env, cid, vid, v, tel, msg) {
   await fsMerge(env, ruta, { tel, vid, patente: v?.patente || "", nombre: v?.asegurado || "", modelo: v?.modelo || "", t: msg.t, ult: String(msg.txt).slice(0, 140), ultYo: !!msg.yo }, { crear: true });
   await fsAppend(env, ruta, "msgs", msg);
   asegurarWebhookClientes(env).catch(e => console.error("webhook clientes", e));
+  await fotoCliente(env, ruta, tel).catch(e => console.error("foto cliente", e));   // una vez por semana como mucho
+}
+// Foto de perfil del cliente (la de WhatsApp, vista desde el número de la empresa): se copia a Cloudinary porque el link de WhatsApp vence.
+// Se revisa como mucho una vez por semana por chat.
+async function fotoCliente(env, ruta, tel) {
+  if (!env.EVOLUTION_URL) return;
+  const c = await fsGet(env, ruta).catch(() => null);
+  if (!c || Date.now() - Number(c.fotoAt || 0) < 7 * 86400_000) return;
+  await fsMerge(env, ruta, { fotoAt: Date.now() });   // aunque falle, no se reintenta en cada mensaje
+  const base = String(env.EVOLUTION_URL).replace(/\/+$/, "");
+  const r = await fetch(`${base}/chat/fetchProfilePictureUrl/${instanciaClientes(env)}`, { method: "POST",
+    headers: { apikey: env.EVOLUTION_APIKEY, "Content-Type": "application/json" }, body: JSON.stringify({ number: tel }) });
+  if (!r.ok) return;
+  const j = await r.json().catch(() => null), url = j?.profilePictureUrl || j?.profilePicUrl || j?.picture || j?.url || "";
+  if (!/^https:\/\//.test(url)) return;
+  const origen = new URL(url).pathname;   // misma foto = mismo archivo (cambia solo la firma del link)
+  if (origen === c.fotoOrigen && c.foto) return;
+  const img = await fetch(url); if (!img.ok) return;
+  const sub = await subirCloudinary(env, await img.blob(), "cliente.jpg", "desabollito/clientes", "image");
+  await fsMerge(env, ruta, { foto: sub.secure_url, fotoOrigen: origen });
+}
+// Borrar (o restaurar) un mensaje del chat en vivo: va a la papelera del chat, solo en la app (en WhatsApp queda)
+async function borrarMsgChat(env, { idToken, cid, tel, t, restaurar }) {
+  if (!(await soloCreador(env, idToken))) {
+    const [m, cfg] = await Promise.all([miembroDe(env, idToken, cid), fsGet(env, "config/app").catch(() => null)]);
+    if (!m || !(esAdminOp(m) || (cfg?.usanClientes || []).includes(m.uid))) return json({ ok: false, error: "No autorizado" }, 403);
+  }
+  if (!idValido(cid) || !/^549\d{10}$/.test(String(tel || "")) || !Number.isFinite(Number(t))) return json({ ok: false, error: "Datos inválidos" }, 400);
+  const ruta = `companies/${cid}/chats/${tel}`, c = await fsGet(env, ruta);
+  if (!c) return json({ ok: false, error: "No encontré el chat" }, 404);
+  let msgs = c.msgs || [], pap = c.papelera || [];
+  const [de, a] = restaurar ? [pap, msgs] : [msgs, pap], i = de.findIndex(x => Number(x.t) === Number(t));
+  if (i < 0) return json({ ok: false, error: "No encontré el mensaje" }, 404);
+  const [msg] = de.splice(i, 1); a.push(msg); a.sort((x, y) => x.t - y.t);
+  const ult = msgs.slice().sort((x, y) => x.t - y.t).pop();   // la vista previa pasa a ser el último que queda
+  await fsMerge(env, ruta, { msgs, papelera: pap, ...(ult ? { t: ult.t, ult: String(ult.txt).slice(0, 140), ultYo: !!ult.yo } : { ult: "" }) });
+  return json({ ok: true });
 }
 // Respuesta de un cliente: solo se guarda si es un número al que la empresa ya le escribió
 async function respuestaCliente(env, d) {

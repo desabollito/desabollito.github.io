@@ -2588,3 +2588,30 @@ button.aj-item:hover, a.aj-item:hover { background: var(--surface-2); }
 .notif-viejas-tit { margin: 18px 0 8px; font-size: 12.5px; font-weight: 750; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
 /* Martillo del logo animado: contorno fino con punta que después se rellena (con trazo grueso y puntas redondas quedaba redondo) */
 .ex-logo .ex-martillo { stroke-width: 8; fill: var(--ink); fill-opacity: 0; }
+
+/* Chat en vivo: foto del cliente, nombre y patente en una línea, alineados */
+.chat-cab, .chat-veh { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.chat-cab-nom { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 700; }
+.chat-cab .chat-cab-nom { font-size: 16px; }
+.chat-veh .chat-cab-nom { font-size: 14px; color: var(--ink); }
+.chat-cab .plate, .chat-veh .plate { flex: none; }
+.chat-ava { flex: none; width: 34px; height: 34px; border-radius: 50%; object-fit: cover; background: var(--surface-2); }
+.chat-veh .chat-ava { width: 30px; height: 30px; }
+.chat-ava-ini { display: grid; place-items: center; font-size: 14px; font-weight: 700; color: var(--primary); background: var(--primary-soft); }
+.sheet-head h2:has(.chat-cab) { min-width: 0; flex: 1; }
+/* Papelera del chat (en lugar de la X) */
+.chat-pap-btn { position: relative; flex: none; }
+.chat-pap-btn.on { color: var(--primary); background: var(--primary-soft); }
+.chat-pap-n { position: absolute; top: 2px; right: 2px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; background: var(--primary); color: var(--on-primary); font-size: 10.5px; display: grid; place-items: center; }
+.chat-form[hidden] { display: none; }
+.chat-msg[data-t] { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.chat-msg.borrado { opacity: .75; }
+.chat-msg.borrado .link-btn { padding: 4px 0 0; font-size: 12.5px; }
+
+/* Barras de desplazamiento de toda la app: finas, redondeadas y del color de la app al pasar el mouse */
+* { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--ink) 22%, transparent) transparent; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--ink) 22%, transparent); border: 3px solid transparent; border-radius: 999px; background-clip: padding-box; }
+::-webkit-scrollbar-thumb:hover { background-color: color-mix(in srgb, var(--primary) 75%, transparent); }
+::-webkit-scrollbar-corner { background: transparent; }

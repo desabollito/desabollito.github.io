@@ -7,7 +7,7 @@
 import { db, doc, updateDoc } from "./firebase.js";
 import { S, activos, onChange, chatsSinLeer, chatSinLeer, usaClientes, getVehiculo } from "./data.js";
 import { estadoActual } from "./domain.js";
-import { $, esc, icon, openSheet, plate, glideMenu, formatoWa } from "./ui.js";
+import { $, esc, icon, openSheet, plate, glideMenu, formatoWa, avatarCliente } from "./ui.js";
 import { sonidoNotif } from "./sonidos.js";
 
 const DIAS = 30, MAX = 150;
@@ -160,8 +160,8 @@ export function abrirNotifs(verArchivadas = false, pestIni = "") {
       $(".chat-lista", s.body).innerHTML = (fTurno ? `<p class="muted small notif-sub">${fTurno === "si" ? "Turnos confirmados" : "Turnos sin confirmar"} · <button type="button" class="link-btn small" data-sin-turno>Ver todos</button></p>` : "")
         + (vc.length ? `${verArchivadas ? `<p class="muted small notif-sub">Deslizá a la izquierda para sacarlo de archivados</p>` : ""}
         <ul class="notif-list">${vc.map(c => `<li class="notif-li"><i class="notif-lado l-fijar">${ICO_PIN}</i><i class="notif-lado l-arch">${ICO_ARCH}</i><a href="#" data-chat="${esc(c.tel)}" data-k="${esc(c.tel)}" data-ka="${esc(chatK(c))}" class="notif-item ${chatSinLeer(c) ? "nueva" : ""} ${fijC.has(c.tel) ? "fijada" : ""}">
-        <span class="notif-veh">${fijC.has(c.tel) ? `<i class="notif-pin">${ICO_PIN}</i>` : ""}${plate(c.patente, "sm")}<small>${esc(c.nombre || c.modelo || "")}</small></span>
-        <span class="notif-txt">${c.ultYo ? "Vos: " : ""}${formatoWa(c.ult || "")}</span><time>${cuando(c.t)}</time>
+        <span class="notif-veh chat-veh">${fijC.has(c.tel) ? `<i class="notif-pin">${ICO_PIN}</i>` : ""}${avatarCliente(c)}<strong class="chat-cab-nom">${esc(c.nombre || c.modelo || "Cliente")}</strong>${plate(c.patente, "sm")}</span>
+        <span class="notif-txt">${formatoWa(c.ult || "")}</span><time>${cuando(c.t)}</time>
         <span class="notif-acc">${verArchivadas ? "" : `<button type="button" class="icon-btn sm" data-acc="fijar" aria-label="${fijC.has(c.tel) ? "Desfijar" : "Fijar arriba"}">${ICO_PIN}</button>`}<button type="button" class="icon-btn sm" data-acc="archivar" aria-label="${verArchivadas ? "Sacar de archivados" : "Archivar"}">${ICO_ARCH}</button></span></a></li>`).join("")}</ul>`
         : `<div class="empty small">${icon("chat")}<p>${q || fTurno ? "Ningún chat coincide." : verArchivadas ? "No hay chats archivados." : "Todavía no hay chats. Aparecen cuando le escribís a un cliente desde el número de la empresa."}</p></div>`);
       if (!verArchivadas && nArchC) $(".chat-lista", s.body).insertAdjacentHTML("beforeend", `<button type="button" class="link-btn notif-ver-arch">${ICO_ARCH}Archivados (${nArchC})</button>`);

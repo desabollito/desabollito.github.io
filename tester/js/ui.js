@@ -354,3 +354,6 @@ export const formatoWa = t => [["*", "b"], ["_", "i"], ["~", "s"]].reduce((s, [m
   return s.replace(new RegExp(`(^|[\\s([{¿¡])${e}([^\\s${e}](?:[^${e}\\n]*[^\\s${e}])?)${e}(?=$|[\\s.,;:!?)\\]}])`, "gm"), `$1<${tag}>$2</${tag}>`);
 }, esc(t));
 console.assert(formatoWa("Hola *Juan*, tu _auto_ ~no~ está") === "Hola <b>Juan</b>, tu <i>auto</i> <s>no</s> está" && formatoWa("2*3*4") === "2*3*4" && formatoWa("* suelto *") === "* suelto *", "formatoWa");
+// Foto de perfil del cliente (la de WhatsApp, la guarda el servidor) o su inicial
+export const avatarCliente = c => c?.foto ? `<img class="chat-ava" src="${esc(c.foto)}" alt="" loading="lazy">`
+  : `<span class="chat-ava chat-ava-ini" aria-hidden="true">${esc(String(c?.nombre || c?.modelo || "?").trim().charAt(0).toUpperCase() || "?")}</span>`;
