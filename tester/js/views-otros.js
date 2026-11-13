@@ -1258,6 +1258,12 @@ async function leerPadron(file) {
 // ═════════════════════════════════════════════════════════════
 const horaChat = t => { const d = new Date(t), hoy = new Date().toDateString() === d.toDateString();
   return hoy ? d.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", hourCycle: "h23" }) : d.toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit" }); };
+// Formato de WhatsApp en el chat en vivo: *negrita*, _cursiva_ y ~tachado~ (sobre el texto ya escapado; el signo va pegado al texto, como en WhatsApp)
+const formatoWa = t => [["*", "b"], ["_", "i"], ["~", "s"]].reduce((s, [m, tag]) => {
+  const e = "\\" + m;
+  return s.replace(new RegExp(`(^|[\\s([{¿¡])${e}([^\\s${e}](?:[^${e}\\n]*[^\\s${e}])?)${e}(?=$|[\\s.,;:!?)\\]}])`, "gm"), `$1<${tag}>$2</${tag}>`);
+}, esc(t));
+console.assert(formatoWa("Hola *Juan*, tu _auto_ ~no~ está") === "Hola <b>Juan</b>, tu <i>auto</i> <s>no</s> está" && formatoWa("2*3*4") === "2*3*4" && formatoWa("* suelto *") === "* suelto *", "formatoWa");
 
 export const abrirChatTel = tel => S.company && abrirChat(S.company.id, tel);
 
@@ -1296,7 +1302,7 @@ function abrirChat(cid, tel, alCerrar, v = null) {
     if (!c) return;
     $(".sheet-head h2", s.el).innerHTML = `${plate(c.patente, "sm")} ${esc(c.nombre || c.modelo || "")}`;
     const abajo = caja.scrollHeight - caja.scrollTop - caja.clientHeight < 40;
-    caja.innerHTML = (c.msgs || []).slice().sort((a, b) => a.t - b.t).map(m => `<div class="chat-msg ${m.yo ? "yo" : ""}">${esc(m.txt)}
+    caja.innerHTML = (c.msgs || []).slice().sort((a, b) => a.t - b.t).map(m => `<div class="chat-msg ${m.yo ? "yo" : ""}">${formatoWa(m.txt)}
       <small>${m.yo && m.por ? esc(m.por) + " · " : ""}${horaChat(m.t)}</small></div>`).join("") || `<p class="muted small center">Sin mensajes.</p>`;
     if (abajo || !caja.dataset.listo) { caja.scrollTop = caja.scrollHeight; caja.dataset.listo = "1"; }
     marcarChatVisto(tel, c.t || Date.now());
