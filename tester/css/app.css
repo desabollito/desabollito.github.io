@@ -2586,3 +2586,5 @@ button.aj-item:hover, a.aj-item:hover { background: var(--surface-2); }
 /* Notificaciones anteriores a 30 días: al final, debajo de las de ahora */
 .notif-viejas-btn { margin-top: 12px; }
 .notif-viejas-tit { margin: 18px 0 8px; font-size: 12.5px; font-weight: 750; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+/* Martillo del logo animado: contorno fino con punta que después se rellena (con trazo grueso y puntas redondas quedaba redondo) */
+.ex-logo .ex-martillo { stroke-width: 8; fill: var(--ink); fill-opacity: 0; }

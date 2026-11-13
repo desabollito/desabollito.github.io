@@ -12,14 +12,14 @@ const LOGO_TRAZOS = [
   "M424 576 C340 548 270 510 210 516 C160 524 150 560 162 596",
   "M72 790 L72 892 L856 892 L936 816",
   "M936 780 L936 146",
-  "M896 131 L948 131 L994 131"
+  "M895 125 L948 125 L991 132.5 L948 140 L948 146 L926 146 L926 140 L895 140 Z"   // martillo: cabeza con punta (contorno que después se rellena)
 ];
 function animacionLogo() {
   if (quieto()) return Promise.resolve();
   const capa = document.createElement("div");
   capa.className = "expande";
   capa.innerHTML = `<div class="ex-media"></div>
-    <svg class="ex-logo" viewBox="0 0 1024 1024" aria-hidden="true">${LOGO_TRAZOS.map(d => `<path d="${d}" pathLength="1"/>`).join("")}</svg>`;
+    <svg class="ex-logo" viewBox="0 0 1024 1024" aria-hidden="true">${LOGO_TRAZOS.map((d, i) => `<path d="${d}" pathLength="1"${i === LOGO_TRAZOS.length - 1 ? ' class="ex-martillo"' : ""}/>`).join("")}</svg>`;
   document.body.appendChild(capa);
   const W = innerWidth, H = innerHeight, w = Math.min(320, W * .7), h = Math.min(220, H * .3);
   const S = Math.max(W / w, H / h) * 2, DUR = 3500, curva = "cubic-bezier(.76,0,.24,1)";   // de más, así el borde difuminado queda fuera de pantalla
@@ -27,6 +27,8 @@ function animacionLogo() {
   //    que terminan ~0,5 s antes de que el logo empiece a disolverse (a .62 de DUR), así se ven completos
   capa.querySelectorAll(".ex-logo path").forEach((p, n) => p.animate([{ strokeDashoffset: 1 }, { strokeDashoffset: 0 }],
     { duration: n < 5 ? 550 : 450, delay: n < 5 ? 150 + n * 120 : 1100 + (n - 5) * 150, easing: "cubic-bezier(.65,0,.35,1)", fill: "both" }));
+  // El martillo se dibuja como contorno y al terminar se rellena (así queda macizo y con punta, como el logo)
+  capa.querySelector(".ex-martillo")?.animate([{ fillOpacity: 0 }, { fillOpacity: 1 }], { duration: 250, delay: 1550, fill: "both" });
   // 2) la ventana aparece detrás y se expande; 3) el logo crece con ella y se disuelve
   const media = capa.querySelector(".ex-media");
   media.style.cssText = `width:${w}px;height:${h}px;margin:${-h / 2}px 0 0 ${-w / 2}px`;
