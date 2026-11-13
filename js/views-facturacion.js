@@ -4,7 +4,7 @@
 // ═════════════════════════════════════════════════════════════
 import { db, collection, doc, getDoc, onSnapshot, setDoc, deleteDoc, arrayUnion, arrayRemove } from "./firebase.js";
 import { S, activos, puedeVer, mensajeError, cambiarEstado } from "./data.js";
-import { $, esc, icon, toast, plate, openSheet, glideMenu } from "./ui.js";
+import { $, esc, icon, toast, plate, openSheet, glideMenu, fechaCorta } from "./ui.js";
 import { estadoActual } from "./domain.js";
 import { setTopbar } from "./shell.js";
 import { subir, cloudinaryListo, thumb } from "./media.js";
@@ -103,14 +103,7 @@ export function vistaFacturacion(view) {
     });
   };
   // Facturados digital: los que están en Facturado en Vehículos pero no en esta planilla (que es la de facturados físico)
-  $("#f-digital", view).onclick = () => {
-    const vs = activos().filter(v => estadoActual(v) === "facturado" && !vids.includes(v.id));
-    const s = openSheet({ title: `Facturados digital (${vs.length})`, wide: true, body: vs.length
-      ? `<div class="table-wrap"><table class="tbl"><thead><tr><th>Vehículo</th><th>Patente</th><th>Compañía</th></tr></thead><tbody>${vs.map(v =>
-        `<tr data-ir="${esc(v.id)}" style="cursor:pointer"><td>${esc(v.modelo || "—")}</td><td>${plate(v.patente)}</td><td>${esc(v.compania || "—")}</td></tr>`).join("")}</tbody></table></div>`
-      : `<p class="muted center">No hay vehículos facturados fuera de esta planilla.</p>` });
-    s.el.addEventListener("click", e => { const r = e.target.closest("[data-ir]"); if (r) { s.close(); F.volver = { y: scrollY, t: 0 }; location.hash = `#/v/${r.dataset.ir}`; } });
-  };
+  $("#f-digital", view).onclick = () => { location.hash = "#/factdigital"; };
   $("#f-q", view).oninput = e => { F.q = e.target.value; pintar(); };
   $("#f-body", view).onclick = async e => {
     const b = e.target.closest("[data-act]"), vid = e.target.closest("[data-vid]")?.dataset.vid; if (!vid) return;
@@ -172,4 +165,37 @@ export function vistaFacturacion(view) {
   $("#f-edit").onclick = () => { if (!V.viendo()) alternarEdicion(); };
   // Si cambian los vehículos solo se repinta la tabla: rearmar la página perdería el archivo elegido al volver del selector
   return { soloLista: pintar };
+}
+
+// Facturados digital (página propia): en Facturado en Vehículos pero no en la planilla de Facturación (que es la de físicos).
+// Con buscador y la fecha de facturado, que se ordena tocando el título (más recientes primero o al revés).
+const FD = { q: "", dir: -1, volver: null };
+export function vistaFactDigital(view) {
+  setTopbar({ title: "Facturados digital", sub: S.company?.name, back: "#/facturacion" });
+  if (!puedeVer("facturacion")) { view.innerHTML = `<div class="empty"><p>No tenés acceso a esta planilla.</p></div>`; return; }
+  if (!S.company) { view.innerHTML = `<div class="skeleton tall"></div>`; return; }
+  view.innerHTML = `<div class="tec-page">
+    <label class="search">${icon("search")}<input type="search" id="fd-q" placeholder="Buscar patente, modelo o compañía" value="${esc(FD.q)}" autocomplete="off" autocapitalize="characters"></label>
+    <div id="fd-body"><div class="skeleton tall"></div></div></div>`;
+  let vids = null;
+  const pintar = () => {
+    const body = $("#fd-body", view); if (!body || !vids) return;
+    const q = norm(FD.q), fecha = v => v.fechas?.facturado || "";
+    const todos = activos().filter(v => estadoActual(v) === "facturado" && !vids.includes(v.id));
+    const vs = todos.filter(v => !q || [v.patente, v.modelo, v.compania].some(x => norm(x).includes(q)))
+      .sort((a, b) => fecha(a).localeCompare(fecha(b)) * FD.dir);   // dir -1: más recientes primero
+    body.innerHTML = vs.length ? `<p class="muted small">${vs.length} de ${todos.length}</p><div class="table-wrap"><table class="tbl tbl-fact"><thead><tr><th>Vehículo</th><th>Patente</th><th>Compañía</th>
+        <th><button type="button" id="fd-orden" aria-label="Ordenar por fecha de facturado: ${FD.dir < 0 ? "más recientes primero" : "más antiguos primero"}">Facturado ${FD.dir < 0 ? "↓" : "↑"}</button></th></tr></thead>
+      <tbody>${vs.map(v => `<tr data-ir="${esc(v.id)}" style="cursor:pointer"><td>${esc(v.modelo || "—")}</td><td>${plate(v.patente)}</td><td>${esc(v.compania || "—")}</td><td>${esc(fechaCorta(fecha(v)) || "—")}</td></tr>`).join("")}</tbody></table></div>`
+      : `<div class="empty small"><p>${q && todos.length ? "No hay vehículos con esa búsqueda." : "No hay vehículos facturados fuera de la planilla de Facturación."}</p></div>`;
+  };
+  getDoc(doc(db, "companies", S.company.id, "factura", "docs")).then(d => {
+    vids = d.data()?.vids || []; pintar();
+    if (FD.volver !== null) { scrollTo(0, FD.volver); FD.volver = null; }   // volviendo de un vehículo, queda donde estaba
+  }).catch(e => { $("#fd-body", view).innerHTML = `<div class="empty"><p>${esc(mensajeError(e))}</p></div>`; });
+  $("#fd-q", view).oninput = e => { FD.q = e.target.value; pintar(); };
+  $("#fd-body", view).onclick = e => {
+    if (e.target.closest("#fd-orden")) { FD.dir *= -1; return pintar(); }
+    const r = e.target.closest("[data-ir]"); if (r) { FD.volver = scrollY; location.hash = `#/v/${r.dataset.ir}`; }
+  };
 }

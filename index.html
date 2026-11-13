@@ -13,6 +13,13 @@
         var t = localStorage.getItem(lector ? "temaLector" : "tema");
         document.documentElement.setAttribute("data-theme", lector ? (t === "dark" ? "dark" : "light") : (sesion && t === "light" ? "light" : "dark"));
       } catch (e) {}
+      // Color de la app elegido en Ajustes (vacío = el de siempre): se pinta antes de la intro, así la animación ya sale con ese color
+      window.pintarColor = function (c) {
+        var st = document.documentElement.style, v = { "--primary": c, "--primary-2": "color-mix(in srgb, " + c + " 72%, var(--ink))",
+          "--primary-soft": "color-mix(in srgb, " + c + " 18%, var(--bg))", "--aurora-1": "color-mix(in srgb, " + c + " 75%, #000)", "--aurora-2": c };
+        for (var k in v) c ? st.setProperty(k, v[k]) : st.removeProperty(k);
+      };
+      try { var col = localStorage.getItem("color"); if (col && !/[?&]ver=/.test(location.search)) pintarColor(col); } catch (e) {}
       // La barra del sistema (hora, batería, isla) toma el color de fondo del tema: sin contenido ni desenfoque debajo
       var pintarBarra = function () {
         var m = document.querySelector('meta[name="theme-color"]');
@@ -26,7 +33,7 @@
   <meta name="description" content="El futuro llegó y ahora gestionarte es más sencillo. Peritajes, turnos, fotos, presupuestos en PDF y bot de WhatsApp.">
   <meta name="author" content="@gzmatte">
   <link rel="canonical" href="https://desabollito.com/">
-  <meta name="theme-color" content="#0e1b2c">
+  <meta name="theme-color" content="#0e0e10">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Desabollito">
@@ -35,7 +42,7 @@
   <meta property="og:locale" content="es_AR">
   <meta property="og:title" content="Desabollito · Gestión del sacabollo">
   <meta property="og:description" content="El futuro llegó y ahora gestionarte es más sencillo. Peritajes, turnos, fotos, presupuestos en PDF y bot de WhatsApp.">
-  <meta property="og:image" content="https://desabollito.com/img/og5.jpg">
+  <meta property="og:image" content="https://desabollito.com/img/og.jpg">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
   <meta property="og:image:alt" content="Desabollito">
@@ -43,11 +50,10 @@
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="Desabollito · Gestión del sacabollo">
   <meta name="twitter:description" content="El futuro llegó y ahora gestionarte es más sencillo. Peritajes, turnos, fotos, presupuestos en PDF y bot de WhatsApp.">
-  <meta name="twitter:image" content="https://desabollito.com/img/og5.jpg">
-  <link rel="icon" href="/favicon.ico" sizes="48x48">
-  <link rel="icon" type="image/png" sizes="96x96" href="/img/icon-96.png">
-  <link rel="icon" type="image/png" sizes="192x192" href="/img/app-192.png">
-  <link rel="apple-touch-icon" sizes="180x180" href="/img/apple-touch-icon.png">
+  <meta name="twitter:image" content="https://desabollito.com/img/og.jpg">
+  <link rel="icon" type="image/png" sizes="96x96" href="img/favicon.png">
+  <link rel="icon" type="image/svg+xml" href="img/favicon.svg"><!-- negro en tema claro, blanco en oscuro (Safari usa el PNG) -->
+  <link rel="apple-touch-icon" sizes="180x180" href="img/apple-touch-icon.png">
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"Desabollito","url":"https://desabollito.com/","applicationCategory":"BusinessApplication","operatingSystem":"Web","inLanguage":"es-AR","description":"El futuro llegó y ahora gestionarte es más sencillo. Peritajes, turnos, fotos, presupuestos en PDF y bot de WhatsApp.","image":"https://desabollito.com/img/app-512.png","author":{"@type":"Person","name":"@gzmatte"}}</script>
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"Desabollito","url":"https://desabollito.com/"}</script>
   <link rel="manifest" href="manifest.json">
@@ -95,6 +101,7 @@
     <symbol id="i-sort" viewBox="0 0 24 24"><path d="m7 15 5 5 5-5M7 9l5-5 5 5"/></symbol>
     <symbol id="i-money" viewBox="0 0 24 24"><path d="M12 2v20M17 5.5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></symbol>
     <symbol id="i-wallet" viewBox="0 0 24 24"><path d="M19 7V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-3"/><path d="M3 5a2 2 0 0 0 2 2h14a2 2 0 0 1 2 2v3h-4a2 2 0 0 0 0 4h4"/></symbol>
+    <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
     <symbol id="i-import" viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></symbol>
   </defs>
 </svg>

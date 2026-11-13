@@ -4,21 +4,30 @@ import {
   S, activos, getVehiculo, guardarVehiculo, actualizarVehiculo, cambiarEstado, moverAPapelera,
   solicitarEliminacion, cargadoPor, esDeWhatsApp, puedoEditar, esMioV, crearSolicitud, yaPedi,
   nuevoIdVehiculo, soyAdmin, mensajeError, deshaciblesDe, deshacerCambio, aseguradoDePadron,
-  soyDesmontaje, agregarDesmontaje, elegirDesmontador, borrarMedia, soyLector, linkVehiculo, soloVer, soySacabollos
+  soyDesmontaje, agregarDesmontaje, elegirDesmontador, borrarMedia, soyLector, linkVehiculo, soloVer, soySacabollos, usaClientes,
+  onChange, chatSinLeer, chatDeTel
 } from "./data.js";
 import { ESTADOS, ESTADO, SECUENCIA, PASO_REP, PIEZA, ORDEN_PIEZAS, estadoActual, esAnulado, piezasMarcadas } from "./domain.js";
 import {
   $, $$, esc, money, fechaCorta, fechaLarga, hoyISO, plate, estadoPill, icon, toast, openSheet,
-  confirmar, busy, debounce, marcarError, horaDe } from "./ui.js";
+  confirmar, busy, debounce, marcarError, horaDe, glideMenu } from "./ui.js";
 import { carMapSVG, montarMapa, pulsar } from "./carmap.js";
 import { contar } from "./efectos.js";
 import { subir, comprimir, borrarConToken, thumb, grande, cloudinaryListo, esVideo, videoURL } from "./media.js";
 import { presupuestoPDF, nombreArchivo, tablaPDF } from "./pdf.js";
 import { armarZip } from "./zip.js";
 import { setTopbar, go, esAncho } from "./shell.js";
+import { abrirChatDe, avisarTurnoChat, telWa } from "./views-otros.js";
+// Chat en vivo con mensajes sin leer: puntito titilando en Contactar (y en "Chat en vivo" al abrir el menú)
+const chatNuevo = tel => !!tel && usaClientes() && chatSinLeer(chatDeTel(tel));
+onChange(e => { if (e === "chats") $$(".d-contacto[data-tel]").forEach(el => el.classList.toggle("chat-nuevo", chatNuevo(el.dataset.tel))); });
 
 // Filtros de la lista (se conservan al navegar)
-const F = { estado: new Set(), q: "", mios: false, sinAnul: false, orden: "fecha", dir: -1, grado: new Set(), repuestos: new Set(), pintura: new Set(), turno: new Set(), cliente: new Set(), cargado: new Set(), cias: new Set() }; // cada filtro: Set vacío = todos (se pueden marcar varias opciones de cada uno); grado 0 = sin grado
+const nuevoF = () => ({ estado: new Set(), q: "", mios: false, sinAnul: false, orden: "fecha", dir: -1, grado: new Set(), repuestos: new Set(), pintura: new Set(), cliente: new Set(), cargado: new Set(), cias: new Set() }); // cada filtro: Set vacío = todos (se pueden marcar varias opciones de cada uno); grado 0 = sin grado
+// Vehículos y calendario tienen filtros separados: F apunta a los de la pantalla que está usando el filtro en ese momento
+const FV = nuevoF(), FC = nuevoF();
+let F = FV;
+const conF = (f, fn) => { const prev = F; F = f; try { return fn(); } finally { F = prev; } };
 
 // Conformidad del cliente al entregar: carita y color de cada opción
 const CARAS = { conforme: ["Conforme", "#22b07d", "M8 14.5c1 1.4 2.4 2 4 2s3-.6 4-2"], regular: ["Regular", "#e0a526", "M8.5 15.5h7"], desconforme: ["Desconforme", "#e0486e", "M8 16.5c1-1.4 2.4-2 4-2s3 .6 4 2"] };
@@ -90,8 +99,9 @@ function popupConformidad(v) {
 }
 const ORDENES = [["fecha", "Fecha"], ["patente", "Patente"], ["modelo", "Modelo"], ["estado", "Estado"]];
 function ordenar(lista) {
-  if (F.orden === "fecha" && F.dir === -1) return lista;   // ya viene ordenada por fecha, la más nueva arriba
-  const clave = v => F.orden === "fecha" ? (v.fechas?.peritado || "") : F.orden === "estado" ? String(ESTADOS.findIndex(e => e.key === estadoActual(v)) + 10)
+  // Filtrando por estado, la fecha es la de ese estado (en Entregados, el último entregado arriba); sin filtro ya viene por fecha de peritado
+  if (F.orden === "fecha" && F.dir === -1 && !F.estado.size) return lista;
+  const clave = v => F.orden === "fecha" ? ((F.estado.size && v.fechas?.[estadoActual(v)]) || v.fechas?.peritado || "") :F.orden === "estado" ? String(ESTADOS.findIndex(e => e.key === estadoActual(v)) + 10)
     : String(v[F.orden] || "").toLowerCase();
   return [...lista].sort((a, b) => clave(a).localeCompare(clave(b), "es", { numeric: true }) * F.dir);
 }
@@ -108,6 +118,8 @@ const tieneEtapa = (v, tipo, fase) => itemsTexto(v[tipo]).some(x => etapaItem(v,
 // "Ocultar anulados": los anulados no se cuentan ni se listan
 const visibles = () => activos().filter(v => !F.sinAnul || !esAnulado(v));
 // Compañías (filtro múltiple): ninguna o todas marcadas = se ven todas
+// Compañías para el formulario: las más usadas primero
+const ciasPorCantidad = () => { const n = new Map([["Particular", 0]]); activos().forEach(v => { const c = String(v.compania || "").trim(); if (c) n.set(c, (n.get(c) || 0) + 1); }); return [...n].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([c]) => c); };
 const ciaDe = v => String(v.compania || "").trim() || "Sin compañía";
 const ciasDisponibles = () => { const n = new Map(); visibles().forEach(v => n.set(ciaDe(v), (n.get(ciaDe(v)) || 0) + 1)); return [...n].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])); };
 function filtrar(lista, conAnul) {
@@ -121,7 +133,6 @@ function filtrar(lista, conAnul) {
     (!F.grado.size || F.grado.has(v.grado || 0)) &&
     (!F.repuestos.size || [...F.repuestos].some(f => tieneEtapa(v, "repuestos", f))) &&   // varias fases = cualquiera de ellas
     (!F.pintura.size || [...F.pintura].some(f => tieneEtapa(v, "pintura", f))) &&
-    (!F.turno.size || (estadoActual(v) === "turnado" && F.turno.has(v.turnoConfirmado === true ? "si" : "no"))) &&
     (!F.cliente.size || F.cliente.has(v.conformidad)) &&
     (!F.cargado.size || [...F.cargado].some(k => CARGADO[k](v))) &&
     (!F.cias.size || F.cias.has(ciaDe(v))) &&
@@ -138,26 +149,44 @@ function filtrarSin(clave, lista) {
   try { return filtrar(lista); } finally { F[clave] = prev; }
 }
 
-// PDF de la lista filtrada: una fila por repuesto / paño (el vehículo va solo en la primera)
+// PDF de la lista filtrada (lo mismo que se ve: estados, anulados, búsqueda…): una fila por repuesto / paño (el vehículo va solo en la primera)
+// Repuestos y Pintura Sí/No: Sí = solo los que tienen y va su columna; No = solo los que no tienen. Los dos en No = sin repuestos ni pintura.
 function exportarPDF() {
-  // Los anulados van en su propia sección (por eso no se ocultan acá aunque el filtro lo pida)
-  const todosV = ordenar(filtrar(activos(), true)), GRUPOS = [todosV.filter(v => !esAnulado(v)), todosV.filter(esAnulado)];
+  // Los anulados se deciden acá (arranca como el filtro "Ocultar anulados")
+  const base = ordenar(filtrar(activos(), true));
+  let sinAnul = F.sinAnul;
+  const lista = () => sinAnul ? base.filter(v => !esAnulado(v)) : base;
+  const otrosFiltros = F.estado.size || F.q.trim() || [F.mios, F.grado.size, F.repuestos.size, F.pintura.size, F.cliente.size, F.cargado.size, F.cias.size].some(Boolean);
   // Si hay fases marcadas en el filtro, solo esos ítems
   const items = (v, tipo) => itemsTexto(v[tipo]).map(x => [x, etapaItem(v, tipo, x)]).filter(([, e]) => !F[tipo].size || F[tipo].has(e[0])).map(([x, e]) => `${x} — ${e[1]}`);
-  const OPS = [["Vehículos con repuestos", ["repuestos"]], ["Vehículos con pintura", ["pintura"]], ["Vehículos con repuestos y pintura", ["repuestos", "pintura"]], ["Todos", ["repuestos", "pintura"], "Todos los vehículos", true]];
-  const conItems = (lista, tipos, todos) => todos ? lista : lista.filter(v => tipos.some(t => items(v, t).length));
-  const botones = g => `<div class="stack" data-panel="${g}" ${g ? "hidden" : ""}>${OPS.map(([t, tipos, , todos], i) =>
-    `<button type="button" class="btn btn-ghost btn-block" data-pdf="${i}" data-grupo="${g}">${t} (${conItems(GRUPOS[g], tipos, todos).length})</button>`).join("")}</div>`;
-  const s = openSheet({ title: "¿Qué vehículos exportás?", body: `<div class="stack"><div class="seg seg-sm" role="tablist">${["Todos", "Anulados"].map((t, g) =>
-    `<button type="button" role="tab" class="seg-btn ${g ? "" : "on"}" aria-selected="${!g}" data-tab="${g}">${t}</button>`).join("")}</div>${botones(0)}${botones(1)}</div>` });
+  const quiere = { repuestos: true, pintura: true };
+  const elegidos = () => lista().filter(v => ["repuestos", "pintura"].every(t => quiere[t] === items(v, t).length > 0));
+  const s = openSheet({ title: "Exportar PDF", body: `<div class="stack pdf-exp">
+    ${["repuestos", "pintura"].map(t => `<div class="aj-item aj-ctrl pdf-op"><span class="aj-txt">${t === "pintura" ? "Pintura" : "Repuestos"}</span>
+      <div class="seg seg-sm" data-t="${t}"><button type="button" class="seg-btn on" data-si="1">Sí</button><button type="button" class="seg-btn" data-si="">No</button></div></div>`).join("")}
+    <button type="button" class="fo-switch ${sinAnul ? "on" : ""}" id="pdf-anul" aria-pressed="${sinAnul}">Ocultar anulados</button>
+    <p class="muted small" id="pdf-txt" aria-live="polite"></p>
+    <button type="button" class="btn btn-primary btn-block btn-lg" id="pdf-ok"></button>
+    <button type="button" class="btn btn-ghost btn-block" id="pdf-todos"></button></div>` });
+  const contar = () => {
+    const n = elegidos().length, nt = lista().length;
+    const que = quiere.repuestos && quiere.pintura ? "con repuestos y pintura" : quiere.repuestos ? "con repuestos y sin pintura" : quiere.pintura ? "con pintura y sin repuestos" : "sin repuestos ni pintura";
+    $("#pdf-txt", s.el).textContent = `Se exportarán vehículos ${que} únicamente${sinAnul ? ", sin los anulados" : ""}${otrosFiltros ? ", según los filtros puestos" : ""}.`;
+    $("#pdf-ok", s.el).innerHTML = `${icon("download")}Exportar ${n} ${n === 1 ? "vehículo" : "vehículos"}`; $("#pdf-ok", s.el).disabled = !n;
+    $("#pdf-todos", s.el).textContent = `Exportar todos (${nt})`; $("#pdf-todos", s.el).disabled = !nt;
+    const a = $("#pdf-anul", s.el); a.classList.toggle("on", sinAnul); a.setAttribute("aria-pressed", sinAnul);
+  };
+  contar();
   s.el.addEventListener("click", e => {
-    const tab = e.target.closest("[data-tab]");
-    if (tab) return s.el.querySelectorAll("[data-tab]").forEach(x => { const on = x === tab; x.classList.toggle("on", on); x.setAttribute("aria-selected", on); s.el.querySelector(`[data-panel="${x.dataset.tab}"]`).hidden = !on; });
-    const b = e.target.closest("[data-pdf]"); if (!b) return;
-    const g = +b.dataset.grupo, [nom, tipos, t0 = nom, todos] = OPS[+b.dataset.pdf], vs = conItems(GRUPOS[g], tipos, todos);   // "Todos" lleva un título más claro en el PDF
-    const t = g ? `${t0} (anulados)` : t0;
-    if (!vs.length) return toast("No hay vehículos para exportar");
-    // Math.max con 1: en "Todos" un vehículo sin ítems igual lleva su fila
+    const b = e.target.closest("[data-si]");
+    if (b) { const seg = b.parentElement; quiere[seg.dataset.t] = !!b.dataset.si; seg.querySelectorAll(".seg-btn").forEach(x => x.classList.toggle("on", x === b)); return contar(); }
+    if (e.target.closest("#pdf-anul")) { sinAnul = !sinAnul; return contar(); }
+    const todos = !!e.target.closest("#pdf-todos");
+    if (!todos && !e.target.closest("#pdf-ok")) return;
+    // "Todos": cada vehículo de la lista, con sus repuestos y su pintura (tenga o no)
+    const tipos = todos ? ["repuestos", "pintura"] : ["repuestos", "pintura"].filter(t => quiere[t]), vs = todos ? lista() : elegidos();
+    const t = todos ? "Vehículos" : tipos.length === 2 ? "Vehículos con repuestos y pintura" : tipos.length ? `Vehículos con ${tipos[0]}` : "Vehículos sin repuestos ni pintura";
+    // Math.max con 1: un vehículo sin ítems igual lleva su fila
     const filas = vs.flatMap(v => { const cols = tipos.map(tp => items(v, tp)), n = Math.max(1, ...cols.map(c => c.length));
       return Array.from({ length: n }, (_, i) => [i ? "" : v.modelo || "", i ? "" : v.patente || "", ...cols.map(c => c[i] || "")]); });
     tablaPDF(S.company, t, [{ titulo: "Vehículo", ancho: 60 }, { titulo: "Patente", ancho: 28 }, ...tipos.map(tp => ({ titulo: tp === "pintura" ? "Pintura" : "Repuestos", ancho: 90 }))], filas)
@@ -243,24 +272,104 @@ function tarjeta(v, sel) {
   </a>`;
 }
 
+// Cuántos filtros/órdenes distintos de lo normal hay puestos (se ve en el botón)
+const cuantosActivos = () => [F.mios, F.sinAnul, F.grado.size, F.repuestos.size, F.pintura.size, F.cliente.size, F.cargado.size, F.cias.size, F.orden !== "fecha" || F.dir !== -1].filter(Boolean).length;
+const marcarBoton = () => { const b = $("#tb-filtros"); if (!b) return; const k = cuantosActivos();
+  b.classList.toggle("activo", k > 0); const n = $(".fo-badge", b); if (n) { n.textContent = k; n.hidden = !k; } };
+export const botonFiltros = (cal = false) => cal ? conF(FC, () => botonFiltros()) : `<button class="icon-btn filtro-btn ${cuantosActivos() ? "activo" : ""}" id="tb-filtros" aria-label="Filtrar y ordenar" title="Filtrar y ordenar">${icon("filter")}<span class="fo-badge" ${cuantosActivos() ? "" : "hidden"}>${cuantosActivos()}</span></button>`;
+// El calendario tiene sus propios filtros (sin estados) y su propia búsqueda
+export function filtrarCalendario(lista, q) {
+  return conF(FC, () => { FC.q = q || ""; return filtrar(lista); });
+}
+// Un solo botón "Filtros": cada grupo es una fila de opciones (tocar una la elige; tocarla de nuevo la quita).
+// En el calendario (cal) usa sus filtros y no tiene Ordenar, Adicionales ni Ocultar anulados
+export function abrirFiltros(alCambiar, cal = false) {
+  return cal ? conF(FC, () => abrirFiltrosCon(alCambiar, true)) : abrirFiltrosCon(alCambiar, false);
+}
+function abrirFiltrosCon(alCambiar, cal) {
+  const usar = fn => cal ? conF(FC, fn) : fn();   // los eventos llegan después: cada uno vuelve a apuntar a sus filtros
+  const lector = soyLector();
+  // Las tiras que cada uno deja abiertas quedan abiertas la próxima vez (en este equipo)
+  let abiertas = []; try { abiertas = JSON.parse(localStorage.getItem("filtrosAbiertos") || "[]"); } catch { /* sin almacenamiento */ }
+  const tira = (k, titulo, activo, extra = "") => `<details class="fo-sec fo-plega" data-tira="${k}" ${activo || abiertas.includes(k) ? "open" : ""}><summary><h3>${titulo}</h3>${icon("next")}</summary><div class="fo-seg" id="fo-${k}"></div>${extra}</details>`;
+  const hoja = openSheet({ title: "Filtros", body: `<div class="fo">
+    ${lector ? "" : `<section class="fo-sec"><h3>Compañías</h3><div class="fo-cias-caja"><div class="fo-seg fo-cias" id="fo-cias"></div></div></section>`}
+    ${tira("grado", "Grado", F.grado.size).replace('class="fo-sec fo-plega"', 'class="fo-sec fo-plega fo-grados"')}
+    ${tira("pintura", "Pintura", F.pintura.size)}
+    ${tira("repuestos", "Repuestos", F.repuestos.size)}
+    ${cal ? "" : (() => { const extra = `<div class="fo-extra"><div class="fo-seg" id="fo-cliente" aria-label="Conformidad del retiro"></div>
+      <button type="button" class="btn btn-ghost btn-block" data-close id="fo-pdf">${icon("file")}Exportar PDF</button></div>`;
+      return lector ? extra : tira("cargado", "Adicionales", F.cargado.size || F.cliente.size, extra); })()}
+    ${cal ? "" : `<div class="fo-switches"><button type="button" class="fo-switch ${F.sinAnul ? "on" : ""}" id="fo-anul" aria-pressed="${F.sinAnul}">Ocultar anulados</button></div>`}
+    <div class="fo-pie"><button type="button" class="btn btn-ghost" data-close id="fo-reset">Limpiar</button><button type="button" class="btn btn-primary" data-close id="fo-ver"></button></div>
+  </div>` });
+  const el = id => $(id, hoja.el);
+  // Ordenar: en lugar de la X (se cierra tocando afuera, con Limpiar o con Ver), con las 4 opciones en un desplegable
+  if (!cal) $(".sheet-head [data-close]", hoja.el)?.replaceWith(Object.assign(document.createElement("template"), { innerHTML: `<button type="button" class="fo-grado-dd fo-orden-btn" id="fo-orden-btn" aria-haspopup="listbox" aria-expanded="false"></button>` }).content);
+  hoja.el.addEventListener("toggle", e => {
+    const k = e.target.dataset?.tira; if (!k) return;
+    abiertas = abiertas.filter(x => x !== k).concat(e.target.open ? [k] : []);
+    try { localStorage.setItem("filtrosAbiertos", JSON.stringify(abiertas)); } catch { /* sin almacenamiento */ }
+  }, true);
+  const n = (grupo, f) => filtrarSin(grupo, activos()).filter(f).length;
+  // Opción de una fila: texto, cantidad y color opcional
+  const op = (grupo, val, txt, cant, on, color) => `<button type="button" class="fo-op ${on ? "on" : ""}" data-g="${grupo}" data-v="${esc(String(val))}" ${color ? `style="--c:${color}"` : ""}>
+    <span class="fo-txt">${color ? `<i class="f-dot"></i>` : ""}${txt}</span>${cant !== null && cant !== undefined ? `<b>${cant}</b>` : ""}</button>`;
+  const pintarHoja = () => usar(() => {
+    const ob = el("#fo-orden-btn");   // fijo "Ordenar por"; se resalta si no es el orden normal (fecha, lo más nuevo arriba)
+    if (ob) { ob.innerHTML = `<span>Ordenar por</span>${icon("next")}`; ob.classList.toggle("on", F.orden !== "fecha" || F.dir !== -1); }
+    const gr = [[1, "G1"], [2, "G2"], [3, "G3"], [4, "G4"], [0, "–"]].filter(([g]) => !(g === 4 && lector) && (g !== 0 || n("grado", v => !v.grado) || F.grado.has(0)));
+    el("#fo-grado").innerHTML = gr.map(([g, t]) => op("grado", g, t, n("grado", v => (v.grado || 0) === g), F.grado.has(g))).join("");
+    if (el("#fo-cliente")) el("#fo-cliente").innerHTML = Object.entries(CARAS).map(([k, [t, c]]) => op("cliente", k, t, n("cliente", v => v.conformidad === k), F.cliente.has(k), c)).join("");
+    if (el("#fo-cargado")) el("#fo-cargado").innerHTML = [["desm", "Desmontaje"], ["check", "Chequeo"], ["firma", "Firmados"]].map(([k, t]) => op("cargado", k, t, n("cargado", CARGADO[k]), F.cargado.has(k))).join("");
+    ["pintura", "repuestos"].forEach(tipo => {
+      el(`#fo-${tipo}`).innerHTML = ETAPAS[tipo].map(([k, t, c]) => op(tipo, k, t, n(tipo, v => tieneEtapa(v, tipo, k)), F[tipo].has(k), c)).join("");
+    });
+    if (el("#fo-cias")) el("#fo-cias").innerHTML = ciasDisponibles().map(([c]) => [c, n("cias", v => ciaDe(v) === c)]).map(([c, k]) => `<button type="button" class="fo-op ${F.cias.has(c) ? "on" : ""}" data-cia="${esc(c)}"><span class="fo-txt">${esc(c)}</span><b>${k}</b></button>`).join("")
+      || `<span class="muted small">Sin vehículos</span>`;
+    const cant = filtrar(activos()).length;
+    [["#fo-anul", F.sinAnul]].forEach(([id, on]) => { const b = el(id); if (b) { b.classList.toggle("on", on); b.setAttribute("aria-pressed", on); } });
+    el("#fo-ver").textContent = `Ver ${cant} ${cant === 1 ? "vehículo" : "vehículos"}`;
+    marcarBoton();
+  });
+  const aplicar = () => { alCambiar(); pintarHoja(); };
+  // Compañías: se deslizan con la barra de abajo o con la rueda del mouse (en computadora no se podía)
+  const cias = el("#fo-cias");
+  cias?.addEventListener("wheel", e => { if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) { e.preventDefault(); cias.scrollLeft += e.deltaY; } }, { passive: false });
+  hoja.el.addEventListener("click", e => usar(() => {
+    const ob = e.target.closest("#fo-orden-btn");
+    // Elegir otra opción la pone en su sentido normal; elegir la misma da vuelta el sentido
+    if (ob) return glideMenu(ob, ORDENES.map(([k, t]) => [k, F.orden === k ? `${t} ${F.dir > 0 ? "↓" : "↑"} (invertir)` : t]), null,
+      k => { if (F.orden === k) F.dir *= -1; else { F.orden = k; F.dir = k === "fecha" ? -1 : 1; } aplicar(); });
+    const c = e.target.closest("[data-cia]");
+    if (c) { const k = c.dataset.cia; F.cias.has(k) ? F.cias.delete(k) : F.cias.add(k); return aplicar(); }
+    if (e.target.closest("#fo-reset")) { F.mios = false; F.sinAnul = false; F.cargado.clear(); F.grado.clear(); F.repuestos.clear(); F.pintura.clear(); F.cliente.clear(); F.cias.clear(); F.orden = "fecha"; F.dir = -1;
+      return aplicar(); }
+    if (e.target.closest("#fo-pdf")) return exportarPDF();
+    if (e.target.closest("#fo-anul")) { F.sinAnul = !F.sinAnul; return aplicar(); }
+    const b = e.target.closest("[data-g]"); if (!b) return;
+    const g = b.dataset.g, v = b.dataset.v;
+    if (g === "orden") { if (F.orden === v) F.dir *= -1; else { F.orden = v; F.dir = v === "fecha" ? -1 : 1; } }
+    // Sin "Todos": tocar la opción elegida la quita (ninguna elegida = todos)
+    else { const k = g === "grado" ? Number(v) : v; F[g].has(k) ? F[g].delete(k) : F[g].add(k); }   // se pueden marcar varias en cada fila
+    aplicar();
+  }));
+  pintarHoja();
+}
+
 export function vistaVehiculos(view, selId = null) {
   const ancho = esAncho();
   const sel = selId ? getVehiculo(selId) : null;
   if (selId && !ancho) return vistaDetalle(view, selId);
 
-  // Cuántos filtros/órdenes distintos de lo normal hay puestos (se ve en el botón)
-  const cuantosActivos = () => [F.mios, F.sinAnul, F.grado.size, F.repuestos.size, F.pintura.size, F.turno.size, F.cliente.size, F.cargado.size, F.cias.size, F.orden !== "fecha" || F.dir !== -1].filter(Boolean).length;
-  const marcarBoton = () => { const b = $("#tb-filtros"); if (!b) return; const k = cuantosActivos();
-    b.classList.toggle("activo", k > 0); const n = $(".fo-badge", b); if (n) { n.textContent = k; n.hidden = !k; } };
   // Filtros puestos, a la vista debajo del buscador: cada uno con su X (los estados ya se ven marcados en la fila de estados)
   const puestos = () => { const o = [];
     if (F.mios) o.push(["Cargados por mí", () => { F.mios = false; }]);
     if (F.sinAnul) o.push(["Sin anulados", () => { F.sinAnul = false; }]);
     F.grado.forEach(g => o.push([g ? `Grado ${g}` : "Sin grado", () => F.grado.delete(g)]));
     ["pintura", "repuestos"].forEach(t => F[t].forEach(k => o.push([`${t === "pintura" ? "Pintura" : "Repuestos"}: ${ETAPAS[t].find(e => e[0] === k)?.[1] || k}`, () => F[t].delete(k)])));
-    F.turno.forEach(k => o.push([k === "si" ? "Turno confirmado" : "Turno sin confirmar", () => F.turno.delete(k)]));
     F.cliente.forEach(k => o.push([`Cliente ${CARAS[k]?.[0].toLowerCase() || k}`, () => F.cliente.delete(k)]));
-    F.cargado.forEach(k => o.push([{ desm: "Con desmontaje", check: "Con check in / out", firma: "Firmados" }[k] || k, () => F.cargado.delete(k)]));
+    F.cargado.forEach(k => o.push([{ desm: "Con desmontaje", check: "Con chequeo", firma: "Firmados" }[k] || k, () => F.cargado.delete(k)]));
     F.cias.forEach(c => o.push([c, () => F.cias.delete(c)]));
     if (F.orden !== "fecha" || F.dir !== -1) o.push([`Orden: ${ORDENES.find(x => x[0] === F.orden)?.[1]} ${F.dir > 0 ? "↑" : "↓"}`, () => { F.orden = "fecha"; F.dir = -1; }]);
     return o; };
@@ -270,7 +379,7 @@ export function vistaVehiculos(view, selId = null) {
   setTopbar({
     title: "Vehículos", sinTitulo: true,
     back: S.volverA || null,   // abierto desde la planilla de técnicos: volver a la planilla
-    actions: `<button class="icon-btn filtro-btn ${cuantosActivos() ? "activo" : ""}" id="tb-filtros" aria-label="Filtrar y ordenar" title="Filtrar y ordenar">${icon("filter")}<span class="fo-badge" ${cuantosActivos() ? "" : "hidden"}>${cuantosActivos()}</span></button>`
+    actions: botonFiltros()
   });
 
   // En computadora los estados van en una fila a lo ancho de la pantalla, arriba de todo
@@ -326,7 +435,7 @@ export function vistaVehiculos(view, selId = null) {
          <button class="btn btn-ghost" id="limpiar">Limpiar filtros</button></div>`;
     box.classList.toggle("lista-anim", animar);
     if (animar) [...box.children].forEach((c, i) => c.style.setProperty("--i", i));
-    $("#limpiar", box)?.addEventListener("click", () => { F.q = ""; F.estado.clear(); F.mios = false; F.sinAnul = false; F.cias.clear(); F.grado.clear(); F.repuestos.clear(); F.pintura.clear(); F.turno.clear(); F.cliente.clear(); F.cargado.clear(); marcarBoton(); $("#q").value = ""; pintar(); });
+    $("#limpiar", box)?.addEventListener("click", () => { F.estado.clear(); F.mios = false; F.sinAnul = false; F.cias.clear(); F.grado.clear(); F.repuestos.clear(); F.pintura.clear(); F.cliente.clear(); F.cargado.clear(); marcarBoton(); pintar(); });
   };
 
   // Computadora: tocar de nuevo el vehículo marcado lo desmarca y cierra el detalle
@@ -340,77 +449,13 @@ export function vistaVehiculos(view, selId = null) {
   $("#q").addEventListener("dblclick", e => { e.target.select(); });
   $("#estado-strip", view).addEventListener("click", e => {
     const b = e.target.closest("[data-e]"); if (!b) return;
-    { const k = b.dataset.e; F.estado.has(k) ? F.estado.delete(k) : F.estado.add(k); } pintar(true);   // misma cascada que al buscar
+    { const k = b.dataset.e; F.estado.has(k) ? F.estado.delete(k) : F.estado.add(k); } pintar();
   });
   $("#filtros-act", view).addEventListener("click", e => {
     const b = e.target.closest("[data-quitar]"); if (!b) return;
     puestos()[+b.dataset.quitar]?.[1](); marcarBoton(); pintar(true);
   });
-  // Un solo botón "Filtrar y ordenar": cada grupo es una fila de opciones (tocar una la elige; "Todos" la quita)
-  $("#tb-filtros")?.addEventListener("click", () => {
-    const lector = soyLector();
-    const hoja = openSheet({ title: "Filtrar y ordenar", body: `<div class="fo">
-      <section class="fo-sec"><h3>Ordenar por</h3><div class="fo-seg" id="fo-orden"></div></section>
-      ${lector ? "" : `<section class="fo-sec"><h3>Compañías</h3><div class="fo-cias-caja"><div class="fo-seg fo-cias" id="fo-cias"></div></div></section>`}
-      <section class="fo-sec fo-grados"><h3>Grado</h3><div class="fo-seg" id="fo-grado"></div></section>
-      <section class="fo-sec"><h3>Pintura</h3><div class="fo-seg" id="fo-pintura"></div></section>
-      <section class="fo-sec"><h3>Repuestos</h3><div class="fo-seg" id="fo-repuestos"></div></section>
-      <section class="fo-sec fo-compacto"><h3>Turnos</h3><div class="fo-seg" id="fo-turno"></div></section>
-      <section class="fo-sec"><h3>Cliente</h3><div class="fo-seg" id="fo-cliente"></div></section>
-      ${lector ? "" : `<section class="fo-sec"><h3>Cargado</h3><div class="fo-seg" id="fo-cargado"></div></section>`}
-      <div class="fo-switches">${lector ? "" : `<label class="fo-switch"><span>Cargados por mí</span><input type="checkbox" id="fo-mios" ${F.mios ? "checked" : ""}></label>`}
-        <label class="fo-switch"><span>Ocultar anulados</span><input type="checkbox" id="fo-anul" ${F.sinAnul ? "checked" : ""}></label></div>
-      <button type="button" class="btn btn-ghost btn-block" data-close id="fo-pdf">${icon("file")}Exportar PDF</button>
-      <div class="fo-pie"><button type="button" class="btn btn-ghost" data-close id="fo-reset">Limpiar</button><button type="button" class="btn btn-primary" data-close id="fo-ver"></button></div>
-    </div>` });
-    const el = id => $(id, hoja.el);
-    const n = (grupo, f) => filtrarSin(grupo, activos()).filter(f).length;
-    // Opción de una fila: texto, cantidad y color opcional
-    const op = (grupo, val, txt, cant, on, color) => `<button type="button" class="fo-op ${on ? "on" : ""}" data-g="${grupo}" data-v="${esc(String(val))}" ${color ? `style="--c:${color}"` : ""}>
-      <span class="fo-txt">${color ? `<i class="f-dot"></i>` : ""}${txt}</span>${cant !== null && cant !== undefined ? `<b>${cant}</b>` : ""}</button>`;
-    // Degradé continuo de color entre las opciones de una fila (rojo → amarillo → azul → verde)
-    const degrade = (id, colores) => { const e = el(id); if (!e) return; e.classList.add("fo-grad");
-      e.style.setProperty("--grad", `linear-gradient(90deg, ${colores.map((c, i) => `color-mix(in srgb, ${c} 16%, transparent) ${Math.round((i + 0.5) / colores.length * 100)}%`).join(", ")})`); };
-    const pintarHoja = () => {
-      el("#fo-orden").innerHTML = ORDENES.map(([k, t]) => op("orden", k, F.orden === k ? `${t} <i class="fo-flecha">${F.dir > 0 ? "↑" : "↓"}</i>` : t, null, F.orden === k)).join("");
-      const gr = [[0, "–"], [1, "G1"], [2, "G2"], [3, "G3"], [4, "G4"]].filter(([g]) => !(g === 4 && lector) && (g !== 0 || n("grado", v => !v.grado) || F.grado.has(0)));
-      el("#fo-grado").innerHTML = gr.map(([g, t]) => op("grado", g, t, n("grado", v => (v.grado || 0) === g), F.grado.has(g))).join("");
-      degrade("#fo-turno", ["#e0a526", "#22b07d"]);
-      ["pintura", "repuestos"].forEach(tipo => degrade(`#fo-${tipo}`, ETAPAS[tipo].map(e => e[2])));
-      el("#fo-turno").innerHTML = [["no", "Sin confirmar", "#e0a526", false], ["si", "Confirmados", "#22b07d", true]].map(([k, t, c, si]) =>
-          op("turno", k, t, n("turno", v => estadoActual(v) === "turnado" && (v.turnoConfirmado === true) === si), F.turno.has(k), c)).join("");
-      el("#fo-cliente").innerHTML = Object.entries(CARAS).map(([k, [t, c]]) => op("cliente", k, t, n("cliente", v => v.conformidad === k), F.cliente.has(k), c)).join("");
-      if (el("#fo-cargado")) el("#fo-cargado").innerHTML = [["desm", "Desmontaje"], ["check", "Check in / out"], ["firma", "Firmados"]].map(([k, t]) => op("cargado", k, t, n("cargado", CARGADO[k]), F.cargado.has(k))).join("");
-      ["pintura", "repuestos"].forEach(tipo => {
-        el(`#fo-${tipo}`).innerHTML = ETAPAS[tipo].map(([k, t, c]) => op(tipo, k, t, n(tipo, v => tieneEtapa(v, tipo, k)), F[tipo].has(k), c)).join("");
-      });
-      if (el("#fo-cias")) el("#fo-cias").innerHTML = ciasDisponibles().map(([c]) => [c, n("cias", v => ciaDe(v) === c)]).map(([c, k]) => `<button type="button" class="fo-op ${F.cias.has(c) ? "on" : ""}" data-cia="${esc(c)}"><span class="fo-txt">${esc(c)}</span><b>${k}</b></button>`).join("")
-        || `<span class="muted small">Sin vehículos</span>`;
-      const cant = filtrar(activos()).length;
-      el("#fo-ver").textContent = `Ver ${cant} ${cant === 1 ? "vehículo" : "vehículos"}`;
-      marcarBoton();
-    };
-    const aplicar = () => { pintar(); pintarHoja(); };
-    // Compañías: se deslizan con la barra de abajo o con la rueda del mouse (en computadora no se podía)
-    const cias = el("#fo-cias");
-    cias?.addEventListener("wheel", e => { if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) { e.preventDefault(); cias.scrollLeft += e.deltaY; } }, { passive: false });
-    hoja.el.addEventListener("click", e => {
-      const c = e.target.closest("[data-cia]");
-      if (c) { const k = c.dataset.cia; F.cias.has(k) ? F.cias.delete(k) : F.cias.add(k); return aplicar(); }
-      if (e.target.closest("#fo-reset")) { F.mios = false; F.sinAnul = false; F.cargado.clear(); F.grado.clear(); F.repuestos.clear(); F.pintura.clear(); F.turno.clear(); F.cliente.clear(); F.cias.clear(); F.orden = "fecha"; F.dir = -1;
-        if (el("#fo-mios")) el("#fo-mios").checked = false; el("#fo-anul").checked = false; return aplicar(); }
-      if (e.target.closest("#fo-pdf")) return exportarPDF();
-      const b = e.target.closest("[data-g]"); if (!b) return;
-      const g = b.dataset.g, v = b.dataset.v;
-      if (g === "orden") { if (F.orden === v) F.dir *= -1; else { F.orden = v; F.dir = v === "fecha" ? -1 : 1; } }
-      // Sin "Todos": tocar la opción elegida la quita (ninguna elegida = todos)
-      else { const k = g === "grado" ? Number(v) : v; F[g].has(k) ? F[g].delete(k) : F[g].add(k); }   // se pueden marcar varias en cada fila
-      aplicar();
-    });
-    el("#fo-mios")?.addEventListener("change", e => { F.mios = e.target.checked; aplicar(); });
-    el("#fo-anul").addEventListener("change", e => { F.sinAnul = e.target.checked; aplicar(); });
-    pintarHoja();
-  });
+  $("#tb-filtros")?.addEventListener("click", () => abrirFiltros(() => pintar()));
   pintar();
 
   if (ancho) {
@@ -442,7 +487,7 @@ export function vistaDetalle(view, id) {
   renderDetalle($(".detail-page", view), v, false);
 }
 
-let adicCerrado = null, pzTocada = null;   // adicCerrado: id del vehículo donde se cerró Adicionales (arranca abierto)
+let adicCerrado = null, pzTocada = null, postAbierto = null;   // adicCerrado: id del vehículo donde se cerró Adicionales (arranca abierto); postAbierto: donde se abrieron las notas (arrancan cerradas)
 let _x;   // pzTocada: paño elegido en el detalle (sobrevive al redibujo)
 
 // Mensaje configurable desde el panel del dueño: {Vehiculo}, {Patente}, {Asegurado}… se completan con el vehículo
@@ -544,9 +589,9 @@ export function renderDetalle(root, v, embebido) {
   <article class="detail">
     <header class="d-head">
       ${v.fotos?.length
-        ? `<button class="d-cover" data-act="galeria" aria-label="Ver las ${v.fotos.length} fotos">
-             <img src="${esc(thumb(v.fotos[0].url, 240, v.fotos[0].rot))}" alt=""><span class="d-cover-n">${icon("camera")}${v.fotos.length}</span></button>`
-        : `<div class="d-cover vacio">
+        ? `<button class="d-cover" data-vid="${esc(v.id)}" data-act="galeria" aria-label="Ver las ${v.fotos.length} fotos">
+             <img src="${esc(thumb(v.fotos[0].url, 240, v.fotos[0].rot))}" alt=""><span class="d-cover-n">${icon("camera")}${v.fotos.length}</span>${barraSubida(v.id)}</button>`
+        : `<div class="d-cover vacio" data-vid="${esc(v.id)}">${barraSubida(v.id)}
              ${soloVer ? `<span class="d-cover-cam">${icon("image")}</span>` : `<button type="button" class="d-cover-cam" id="d-cover-fotos" aria-label="Agregar fotos">${icon("image")}<small>Fotos</small></button>`}
            </div>`}
       <div class="d-title">
@@ -554,19 +599,20 @@ export function renderDetalle(root, v, embebido) {
         <div class="d-plate">${plate(v.patente, "lg")}</div>
         ${v.precio ? `<div class="d-price"><strong>${money(v.precio)}</strong></div>` : ""}
       </div>
+      <span class="d-edit">${[...PASO_REP, "facturado"].includes(est) && !soyLector() && (soyAdmin() || soyDesmontaje()) ? `<button class="btn btn-ghost btn-icon d-desm" data-act="desmontaje" aria-label="Chequeo y Desmontaje" title="Chequeo y Desmontaje">${icon("table")}${CARGADO.desm(v) || CARGADO.check(v) ? `<i class="d-desm-punto" aria-label="Tiene algo cargado"></i>` : ""}</button>` : ""}
+        ${embebido && !soloVer ? `<a class="btn btn-ghost btn-icon" href="#/editar/${v.id}" aria-label="Editar" title="Editar">${icon("edit")}</a>` : ""}</span>
     </header>
 
     <div class="d-actions">
       <button class="btn btn-primary" data-act="pdf">${icon("share")}Compartir</button>
-      ${v.telefono ? `<div class="d-contacto">
+      ${v.telefono ? `<div class="d-contacto ${chatNuevo(telWa(v.telefono)) ? "chat-nuevo" : ""}" data-tel="${esc(telWa(v.telefono) || "")}">
         <button class="btn btn-ghost" data-act="contactar" aria-haspopup="true" aria-expanded="false">${icon("phone")}Contactar</button>
         <div class="d-menu" hidden>
-          <a ${soySacabollos() ? `role="button"` : `href="${waLink(v.telefono, soyLector() ? "" : mensajeWa(v))}" target="_blank" rel="noopener"`}>${icon("chat")}WhatsApp</a>   <!-- Sacabollos: se puede tocar pero no hace nada -->
+          ${usaClientes() && !soyLector() ? `<a role="button" data-act="chat">${icon("chat")}Chat en vivo</a>` : ""}
+          <a ${soySacabollos() ? `role="button"` : `href="${waLink(v.telefono, soyLector() ? "" : mensajeWa(v))}" target="_blank" rel="noopener"`}>${icon("share")}Contactar por privado</a>   <!-- Sacabollos: se puede tocar pero no hace nada -->
           <a ${soySacabollos() ? `role="button"` : `href="tel:${esc(v.telefono)}"`}>${icon("phone")}Llamar</a>
         </div></div>` : ""}
-      ${embebido && !soloVer ? `<a class="btn btn-ghost btn-icon" href="#/editar/${v.id}" aria-label="Editar" title="Editar">${icon("edit")}</a>` : ""}
     </div>
-${[...PASO_REP, "facturado"].includes(est) && !soyLector() && (soyAdmin() || soyDesmontaje()) ? `<div class="d-desm-fila"><button class="btn btn-ghost btn-block d-desm" data-act="desmontaje">${icon("table")}Chequeo y Desmontaje${CARGADO.desm(v) || CARGADO.check(v) ? `<i class="d-desm-punto" aria-label="Tiene algo cargado"></i>` : ""}</button></div>` : ""}
 
     <section class="d-sec">
       <div class="seg-head"><h3>Seguimiento</h3>
@@ -592,13 +638,11 @@ ${[...PASO_REP, "facturado"].includes(est) && !soyLector() && (soyAdmin() || soy
       ${anulado ? `<p class="muted small">${ESTADO[est].label} el ${fechaCorta(v.fechas?.[est])}</p>` : ""}
     </section>
 
-    ${soloVer && !(anulado ? v.razonAnulacion : v.postReparacion) ? "" : anulado ? `<section class="d-sec d-post">
-      <h3>Razón de la anulación</h3>
+    ${soloVer && !(anulado ? v.razonAnulacion : v.postReparacion) ? "" : anulado ? `<details class="d-sec d-post" ${postAbierto === v.id ? "open" : ""}><summary><h3>Razón de la anulación</h3>${v.razonAnulacion ? `<i class="d-desm-punto" aria-label="Tiene algo anotado"></i>` : ""}</summary>
       <textarea class="post-rep" data-campo="razonAnulacion" rows="1" ${soloVer ? "readonly" : ""} placeholder="Ej: el cliente desistió, etc">${esc(v.razonAnulacion || "")}</textarea>
-    </section>` : [...PASO_REP, "facturado"].includes(est) || ["enreparacion", "reparado", "llamado", "entregado", "facturado"].some(k => v.fechas?.[k]) ? `<section class="d-sec d-post">
-      <h3>Notas post-reparación</h3>
+    </details>` : [...PASO_REP, "facturado"].includes(est) || ["enreparacion", "reparado", "llamado", "entregado", "facturado"].some(k => v.fechas?.[k]) ? `<details class="d-sec d-post" ${postAbierto === v.id ? "open" : ""}><summary><h3>Notas post-reparación</h3>${v.postReparacion ? `<i class="d-desm-punto" aria-label="Tiene algo anotado"></i>` : ""}</summary>
       <textarea class="post-rep" data-campo="postReparacion" rows="1" ${soloVer ? "readonly" : ""} placeholder="Regresó por tal motivo, etc">${esc(v.postReparacion || "")}</textarea>
-    </section>` : ""}
+    </details>` : ""}
 
     <section class="d-sec d-grid">
       ${[["Asegurado", v.asegurado], ["Teléfono", v.telefono], ["Compañía de seguro", v.compania], ["Localidad", v.localidad]]
@@ -650,11 +694,12 @@ ${[...PASO_REP, "facturado"].includes(est) && !soyLector() && (soyAdmin() || soy
   </article>`;
 
   $(".d-adic", root)?.addEventListener("toggle", e => { adicCerrado = e.target.open ? null : v.id; });
+  $(".d-post", root)?.addEventListener("toggle", e => { postAbierto = e.target.open ? v.id : null; if (e.target.open) $(".post-rep", root)?.dispatchEvent(new Event("crecer")); });
   // Adicionales post-reparación: una línea que crece sola; se guarda al dejar de escribir
   const post = $(".post-rep", root);
   if (post) {
     const crecer = () => { post.style.height = "auto"; post.style.height = post.scrollHeight + 2 + "px"; };
-    requestAnimationFrame(crecer);
+    requestAnimationFrame(crecer); post.addEventListener("crecer", crecer);   // cerrada no tiene alto: se mide al abrirla
     let reloj = null;
     const guardar = () => {
       clearTimeout(reloj);
@@ -722,20 +767,13 @@ ${[...PASO_REP, "facturado"].includes(est) && !soyLector() && (soyAdmin() || soy
   ["pointerup", "pointerleave", "pointercancel"].forEach(ev => tacho?.addEventListener(ev, () => clearTimeout(relojTacho)));
   tacho?.addEventListener("contextmenu", e => e.preventDefault());
 
-  // Check in / out: tocar abre la pantalla del check; mantener apretado abre el desmontaje
-  const chk = $(".d-desm", root);
-  let relojChk = null, chkLargo = false;
-  chk?.addEventListener("pointerdown", () => { chkLargo = false; relojChk = setTimeout(() => { chkLargo = true; navigator.vibrate?.(15); abrirDesmontaje(v); }, 550); });
-  ["pointerup", "pointerleave", "pointercancel"].forEach(ev => chk?.addEventListener(ev, () => clearTimeout(relojChk)));
-  chk?.addEventListener("contextmenu", e => e.preventDefault());
-
   // Acciones
   root.addEventListener("click", async e => {
     const t = e.target;
     // Rol Desmontaje: no modifica nada del vehículo
     if (soloVer && (t.closest("[data-estado], .etapa-item, [data-del-foto], [data-del-doc]") || ["anular", "borrar", "firma", "mover"].includes(t.closest("[data-act]")?.dataset.act))) return;
     if ((soyLector() || soySacabollos()) && [...(soyLector() ? ["desmontaje"] : []), "fotos", "subir", "docs"].includes(t.closest("[data-act]")?.dataset.act)) return;
-    if (t.closest("[data-act]")?.dataset.act === "desmontaje") return chkLargo ? undefined : go(`#/check/${v.id}/in`);
+    if (t.closest("[data-act]")?.dataset.act === "desmontaje") return go(`#/check/${v.id}`);
     const fs = t.closest("[data-fsec]");
     if (fs) return abrirFotosSec(v, fs.dataset.fsec);
     const pf = t.closest("[data-pfoto]");
@@ -775,6 +813,7 @@ ${[...PASO_REP, "facturado"].includes(est) && !soyLector() && (soyAdmin() || soy
     if (act === "pdf") return compartir(v);
     if (act === "galeria") return visor(v.fotos, 0, v);
     if (act === "firma") return firmar(v);
+    if (act === "chat") return abrirChatDe(v);
     if (act === "contactar") {
       const m = $(".d-menu", root), abrir = m.hidden;
       const btn = t.closest("[data-act]");
@@ -903,16 +942,18 @@ const CALIDAD = ["Calidad general de la reparación", "Limpieza interior", "Limp
 const COMBUSTIBLE = ["Reserva", "¼", "½", "¾", "Lleno"];
 const campoCheck = t => t === "in" ? "checkIn" : "checkOut";
 
-// Check a pantalla completa (como cargar un vehículo), con pestañas IN / OUT arriba; entra en IN
+// Desmontaje y check a pantalla completa (como cargar un vehículo), con pestañas Desmontaje / IN / OUT arriba; entra en Desmontaje
 export function vistaCheckForm(view, id, t) {
   const v = getVehiculo(id);
-  setTopbar({ title: "Check in / out", sub: v ? [v.modelo, v.patente].filter(Boolean).join(" · ") : "", back: `#/v/${id}` });
+  setTopbar({ title: "Chequeo y Desmontaje", sub: v ? [v.modelo, v.patente].filter(Boolean).join(" · ") : "", back: `#/v/${id}` });
   if (!v) { view.innerHTML = S.loadingVehicles ? `<div class="skeleton tall"></div>` : `<div class="empty"><h2>No encontramos este vehículo</h2></div>`; return; }
+  const tabs = `<div class="seg chk-tabs">${[["desm", "Desmontaje"], ["in", "Check IN"], ["out", "Check OUT"]].map(([k, l]) => `<a class="seg-btn ${k === t ? "on" : ""}" href="#/check/${id}/${k}">${l}</a>`).join("")}</div>`;
+  if (t === "desm") { view.innerHTML = `<div class="page narrow stack">${tabs}<div class="card desm"></div></div>`; return pintarDesmontaje($(".desm", view), v); }
   const c = v[campoCheck(t)] || {}, val = {};
   let files = [];
   const seg = (name, ops, sel) => `<div class="seg seg-sm">${ops.map((o, i) => `<button type="button" class="seg-btn ${sel === i ? "on" : ""}" data-n="${name}" data-v="${i}">${o}</button>`).join("")}</div>`;
   view.innerHTML = `<form class="vform chk-form" novalidate><div class="page narrow stack">
-    <div class="seg chk-tabs">${["in", "out"].map(k => `<a class="seg-btn ${k === t ? "on" : ""}" href="#/check/${id}/${k}">${k.toUpperCase()}</a>`).join("")}</div>
+    ${tabs}
     ${t === "in" ? "" : `<fieldset class="card"><legend>Calidad</legend>${CALIDAD.map((x, i) => `<div class="field"><span>${x}</span>${seg("calidad." + i, NOTAS, c.calidad?.[i])}</div>`).join("")}</fieldset>`}
     ${CHECK[t].map(([k, titulo, ops, items]) => `<fieldset class="card chk-grupo"><legend>${titulo}</legend>
       ${items.map(it => { const x = c[k]?.[it], sel = x?.v ?? ""; return `<div class="chk-fila ${ANOTAR.includes(it) ? "anota" : ""}" data-sel="${sel}"><span>${esc(it)}</span>
@@ -1000,15 +1041,13 @@ export function abrirFotosSec(v0, campo = "fotosPintura") {
   });
 }
 
-// Desmontaje (se abre manteniendo apretado "Check in / out"): técnico, fotos y notas
-export function abrirDesmontaje(v0) {
-  const s = openSheet({ title: `Desmontaje · ${v0.patente || v0.modelo || ""}`, wide: true, body: `<div class="desm"></div>` });
-  pintarDesmontaje($(".desm", s.el), v0);
-}
-
+// Desmontaje (primera pestaña de "Desmontaje y check"): técnico, fotos y notas
 function pintarDesmontaje(caja, v0) {
   const pintar = () => {
-    const v = getVehiculo(v0.id) || v0, lotes = lotesDesm(v);
+    const v = getVehiculo(v0.id) || v0, lotes = lotesDesm(v), c = S.company || {};
+    // Sin desmontador elegido: por defecto, el primer miembro del operativo que cargó algo del desmontaje
+    const primero = [...(v.desFotos || []), ...(v.desNotas || [])].filter(x => (c.members || []).includes(x.uid)).sort((a, b) => (a.t || 0) - (b.t || 0))[0];
+    const quien = v.desmontador?.nombre || (primero && (c.memberNames?.[primero.uid] || primero.por));
     caja.innerHTML = `
       <button type="button" class="btn btn-primary btn-block" id="desm-add">${icon("plus")}Cargar fotos y texto</button>
       ${lotes.length ? lotes.map(l => `<div class="desm-lote">
@@ -1017,7 +1056,7 @@ function pintarDesmontaje(caja, v0) {
         ${l.fotos.length ? `<div class="desm-fotos">${l.fotos.map(f => `<button type="button" data-dfoto="${esc(f.url)}"><img src="${esc(thumb(f.url, 200))}" alt="" loading="lazy">${esVideo(f) ? `<span class="play-ic">▶</span>` : ""}</button>`).join("")}</div>` : ""}
       </div>`).join("") : `<p class="muted center">Todavía no hay desmontaje cargado.</p>`}
       <div class="desm-quien"><span>Desmontado por</span>
-        <button type="button" class="btn btn-ghost btn-sm" id="desm-tec">${icon("team")}${esc(v.desmontador?.nombre || "Elegir técnico")}</button></div>`;
+        <button type="button" class="btn btn-ghost btn-sm" id="desm-tec">${icon("team")}${esc(quien || "Elegir técnico")}</button></div>`;
   };
   pintar();
   caja.onclick = e => {   // onclick (no addEventListener): la pestaña se repinta cada vez que se entra
@@ -1102,23 +1141,31 @@ export function elegirVehiculoDesmontaje() {
   });
 }
 
-// Aviso al cliente por WhatsApp cuando el auto queda reparado (se confirma dos veces)
+// Aviso al cliente por WhatsApp al marcar Contactado, desde el número de la empresa: el mensaje del panel del creador o, sin él, este
 function textoAviso(v) {
+  const propio = textoWa(S.config?.mensajeWa, v);
+  if (propio) return propio;
   const nombre = String(v.asegurado || "").trim().split(/\s+/)[0];
   return `Hola${nombre ? " " + nombre : ""}! 👋 Te escribimos de ${S.company?.name || "Desabollito"}: tu ${v.modelo || "vehículo"}${v.patente ? ` (${v.patente})` : ""} ya está reparado y listo para retirar. ¡Gracias por confiar en nosotros!`;
 }
 async function ofrecerAvisoCliente(v) {
   v = getVehiculo(v.id) || v;
-  if (!v.telefono || S.config?.avisoReparado === false) return;   // el creador puede apagar esta función
-  if (!(await confirmar({ title: "¿Avisarle al cliente?", message: `Le mandamos un WhatsApp a ${v.asegurado || "el cliente"} (${v.telefono}) diciendo que el auto está listo.`, ok: "Sí, avisar" }))) return;
-  if (!(await confirmar({ title: "¿Confirmás el envío?", message: `Se va a enviar este mensaje a ${v.telefono}:\n\n“${textoAviso(v)}”`, ok: "Enviar mensaje" }))) return;
+  // Si no se puede avisar, se dice por qué (antes no pasaba nada y parecía roto)
+  const no = S.config?.avisoReparado === false ? "El aviso al cliente está apagado en el panel del creador" : !v.telefono ? "Sin teléfono: no se le puede avisar al cliente" : v.avisoReparado ? "A este cliente ya se le avisó" : "";
+  if (no) return toast(no);
+  const chat = usaClientes() && !!telWa(v.telefono);
+  if (!(await confirmar({ title: chat ? "¿Avisarle al cliente desde el chat en vivo?" : "¿Avisarle al cliente desde el teléfono de la empresa?",
+    message: `Se le avisará ${v.asegurado ? "a " + v.asegurado : "al cliente"} que está listo su vehículo.`, ok: "Enviar mensaje", centro: true }))) return;
+  const espera = openSheet({ title: "Avisando al cliente", body: `<p class="aviso-cargando"><span class="spin"></span>Enviando mensaje…</p>` });
+  espera.el.classList.add("sheet-centro");   // en el celular, al medio como la pregunta de antes
   try {
     const r = await fetch(`${BOT_API}/avisar`, { method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ idToken: await S.user.getIdToken(), cid: S.company.id, vid: v.id, por: S.profile?.name || "" }) });
+      body: JSON.stringify({ idToken: await S.user.getIdToken(), cid: S.company.id, vid: v.id, por: S.profile?.name || "", texto: textoAviso(v) }) }).finally(() => espera.close());
     const d = await r.json().catch(() => ({}));
     if (!r.ok || !d.ok) throw new Error(d.error || "No se pudo enviar");
     toast("Aviso enviado al cliente", "success");
-  } catch (e) {
+    if (chat) abrirChatDe(v);   // el aviso queda guardado en el chat en vivo
+  } catch (e) { espera.close();
     if (await confirmar({ title: "No se pudo enviar desde el bot", message: `${e.message}. ¿Abrir WhatsApp para mandarlo vos?`, ok: "Abrir WhatsApp" })) {
       const tel = String(v.telefono).replace(/\D/g, "").replace(/^0/, "");
       open(`https://wa.me/${tel.startsWith("54") ? tel : "549" + tel}?text=${encodeURIComponent(textoAviso(v))}`, "_blank");
@@ -1146,6 +1193,7 @@ function fechasReparacion(v) {
   };
 }
 
+const telWaOk = v => /\d{8}/.test(String(v.telefono || "").replace(/\D/g, ""));
 function elegirFechaEstado(v, estado) {
   const e = ESTADO[estado];
   const s = openSheet({
@@ -1153,26 +1201,33 @@ function elegirFechaEstado(v, estado) {
     body: `<form class="stack">
       <label class="field"><span>${estado === "turnado" ? "Fecha del turno" : "Fecha"}</span>
         <input type="date" name="f" value="${v.fechas?.[estado] || hoyISO()}" required></label>
-      ${estado === "turnado" ? `<div class="turno-hora">
-        <button type="button" class="link-btn" id="t-hora-btn" ${v.horaTurno ? "hidden" : ""}>${icon("clock")}Agregar horario del turno (opcional)</button>
-        <label class="field" id="t-hora" ${v.horaTurno ? "" : "hidden"}><span>Horario del turno</span>
-          <input type="time" name="h" value="${esc(v.horaTurno || "")}"></label></div>` : ""}
       ${estado === "turnado" ? `<div class="turno-conf"><span>¿El cliente confirmó el turno?</span>
         <button type="button" class="switch ${v.turnoConfirmado === true ? "on" : ""}" id="t-conf" role="switch" aria-checked="${v.turnoConfirmado === true}">
+          <span class="sw-txt sw-si">Sí</span><span class="sw-txt sw-no">No</span><i class="sw-bola"></i></button></div>` : ""}
+      ${estado === "turnado" && usaClientes() && telWaOk(v) ? `<div class="turno-conf"><span>¿Avisarle al cliente desde el chat en vivo?</span>
+        <button type="button" class="switch" id="t-avisar" role="switch" aria-checked="false">
           <span class="sw-txt sw-si">Sí</span><span class="sw-txt sw-no">No</span><i class="sw-bola"></i></button></div>` : ""}
       <button class="btn btn-primary btn-block" style="--btn:${e.color}">Guardar</button></form>`
   });
   let confirmado = v.turnoConfirmado === true;
-  $("#t-hora-btn", s.el)?.addEventListener("click", e => { e.currentTarget.hidden = true; $("#t-hora", s.el).hidden = false; $("#t-hora input", s.el).focus(); });
+  let avisar = false;
+  $("#t-avisar", s.el)?.addEventListener("click", e => { avisar = !avisar; e.currentTarget.classList.toggle("on", avisar); e.currentTarget.setAttribute("aria-checked", avisar); });
   $("#t-conf", s.el)?.addEventListener("click", e => {
     confirmado = !confirmado;
     e.currentTarget.classList.toggle("on", confirmado); e.currentTarget.setAttribute("aria-checked", confirmado);
   });
-  $("form", s.el).onsubmit = ev => {
+  $("form", s.el).onsubmit = async ev => {
     ev.preventDefault();
-    cambiarEstado(v, estado, ev.target.f.value, estado === "turnado" ? { turnoConfirmado: confirmado, horaTurno: ev.target.h?.value || "" } : {}).catch(err => toast(mensajeError(err), "error"));
+    const fecha = ev.target.f.value;
+    // Avisado por el chat en vivo: queda sin confirmar hasta que el cliente responda y alguien lo confirme
+    cambiarEstado(v, estado, fecha, estado === "turnado" ? { turnoConfirmado: avisar ? false : confirmado } : {}).catch(err => toast(mensajeError(err), "error"));
     toast(`${e.label} · ${fechaCorta(ev.target.f.value)}`, "success");
-    s.close();
+    if (!avisar) return s.close();
+    // Espera a que salga el mensaje (tarda ~1 s) y recién ahí abre el chat, así ya se ve
+    busy(ev.submitter || $("form .btn-primary", s.el), true, "Avisando…");
+    const vv = getVehiculo(v.id) || v;
+    try { await avisarTurnoChat(vv, fecha); s.close(); abrirChatDe(vv); }
+    catch (err) { s.close(); toast(err.message || mensajeError(err), "error"); }
 
   };
 }
@@ -1187,12 +1242,25 @@ async function subirMedia(file, carpeta) {
   return subir(await comprimir(file), carpeta);
 }
 
+// Fotos subiéndose por vehículo: barra sobre la portada que se completa con cada foto (sobrevive a que se redibuje el detalle)
+const subidas = new Map();   // vid → { h: hechas, t: total }
+function barraSubida(vid) {
+  const p = subidas.get(vid); if (!p) return "";
+  return `<span class="d-cover-prog" role="progressbar" aria-label="Subiendo fotos" aria-valuemin="0" aria-valuemax="${p.t}" aria-valuenow="${p.h}"><i style="width:${Math.max(8, p.h / p.t * 100)}%"></i><small>${p.h}/${p.t}</small></span>`;
+}
+function pintarSubida(vid) {
+  const c = document.querySelector(`.d-cover[data-vid="${CSS.escape(vid)}"]`); if (!c) return;
+  c.querySelector(".d-cover-prog")?.remove();
+  c.insertAdjacentHTML("beforeend", barraSubida(vid));
+}
+
 async function subirAdjuntos(v, files, tipo, root) {
   if (!cloudinaryListo()) { toast("Falta configurar Cloudinary en js/config.js", "error"); return; }
   const holders = files.map(() => null);
   const est = $("#fotos-estado", root);
   if (est && tipo === "foto") est.innerHTML = `<span class="spin"></span> Subiendo ${files.length} ${files.length === 1 ? "foto" : "fotos"}…`;
-  toast(`Subiendo ${files.length} ${tipo === "foto" ? (files.length === 1 ? "foto" : "fotos") : (files.length === 1 ? "archivo" : "archivos")}…`);
+  if (tipo === "foto") { subidas.set(v.id, { h: 0, t: files.length }); pintarSubida(v.id); }
+  else toast(`Subiendo ${files.length} ${files.length === 1 ? "archivo" : "archivos"}…`);
   const nuevos = [];
   const carpeta = `${S.company.id}/${v.id}`;
   let i = 0;
@@ -1214,9 +1282,11 @@ async function subirAdjuntos(v, files, tipo, root) {
         console.error(e); toast(e.message, "error");
         holders[n]?.remove();
       }
+      const p = subidas.get(v.id); if (tipo === "foto" && p) { p.h++; pintarSubida(v.id); }
     }
   };
   await Promise.all([trabajador(), trabajador(), trabajador()]);
+  if (tipo === "foto") { subidas.delete(v.id); pintarSubida(v.id); }
   if (!nuevos.length) return;
   nuevos.sort((a, b) => a.n - b.n).forEach(x => delete x.n);
   const actual = getVehiculo(v.id) || v;
@@ -1596,7 +1666,8 @@ function firmar(v) {
   c.width = r.width * dpr; c.height = r.height * dpr;
   ctx.scale(dpr, dpr); ctx.lineWidth = 2.4; ctx.lineCap = ctx.lineJoin = "round"; ctx.strokeStyle = "#0e1b2c";
   let dib = false, ult = null, trazos = 0;
-  const pos = e => { const b = c.getBoundingClientRect(); return { x: e.clientX - b.left, y: e.clientY - b.top }; };
+  // Al girar el celular el canvas cambia de tamaño en pantalla pero no por dentro: se escala el toque para que caiga bajo el dedo
+  const pos = e => { const b = c.getBoundingClientRect(); return { x: (e.clientX - b.left) * c.width / dpr / b.width, y: (e.clientY - b.top) * c.height / dpr / b.height }; };
   c.addEventListener("pointerdown", e => { dib = true; ult = pos(e); c.setPointerCapture(e.pointerId); trazos++; });
   c.addEventListener("pointermove", e => {
     if (!dib) return;
@@ -1762,7 +1833,7 @@ export function vistaFormulario(view, id = null) {
             <label class="field"><span>Localidad</span>
               <input name="localidad" value="${esc(v ? v.localidad : (S.company?.name || ""))}" list="dl-loc" placeholder="Ej: Córdoba" autocomplete="off"></label>
           </div>
-          <datalist id="dl-comp">${[...new Set(["Particular", ...activos().map(x => x.compania).filter(Boolean)])].sort().map(o => `<option value="${esc(o)}">`).join("")}</datalist>
+          <datalist id="dl-comp">${ciasPorCantidad().map(o => `<option value="${esc(o)}">`).join("")}</datalist>
           <datalist id="dl-loc">${opciones("localidad")}</datalist>
         </fieldset>
         <div class="vform-der">
@@ -1794,8 +1865,6 @@ export function vistaFormulario(view, id = null) {
           <label class="field"><span>Pintura</span>
             <input name="pintura" autocomplete="off" placeholder="Ej: capot, techo" value="${esc(v?.pintura)}"></label>
           <div class="stack ff-ultima">
-            ${v ? "" : `<label class="field"><span>Fecha de peritaje</span>
-              <input name="fecha" type="date" value="${hoyISO()}"></label>`}
             <div class="field" ${docsOn() ? "" : "hidden"}><span>Documentos</span>
               <label class="btn btn-ghost ff-docs-btn">${icon("file")}Adjuntar
                 <input type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,image/*" multiple hidden id="ff-doc-in"></label></div>
@@ -1958,7 +2027,7 @@ export function vistaFormulario(view, id = null) {
       grado
     };
     const nuevoId = vid;
-    if (!v) data.fechas = { peritado: f.fecha.value || hoyISO() };
+    if (!v) data.fechas = { peritado: hoyISO() };   // la fecha de peritaje es la del día de carga
     if (pendientes.size) {
       const b = $("button[type=submit]", form);
       busy(b, true, "Subiendo archivos…");

@@ -14,7 +14,7 @@ import {
 import { vistaGastos, formGasto } from "./views-gastos.js";
 import { vistaPlanillas, vistaTecnicos } from "./views-tecnicos.js";
 import { vistaFijos } from "./views-fijos.js";
-import { vistaFacturacion } from "./views-facturacion.js";
+import { vistaFacturacion, vistaFactDigital } from "./views-facturacion.js";
 import { vistaCierre } from "./views-cierre.js";
 
 const view = $("#view");
@@ -41,12 +41,13 @@ const RUTAS = [
   [/^#\/o\/([\w-]+\/v\/[\w-]+)$/, "link", a => irAVehiculo(a.replace("/v/", "|"))],
   [/^#\/nuevo$/,            "nuevo",      () => vistaFormulario(view)],
   [/^#\/editar\/([\w-]+)$/, "editar",     id => vistaFormulario(view, id)],
-  [/^#\/check\/([\w-]+(?:\/(?:in|out))?)$/, "checkform", a => vistaCheckForm(view, ...(a + "/in").split("/"))],   // sin pestaña: entra en IN
+  [/^#\/check\/([\w-]+(?:\/(?:desm|in|out))?)$/, "checkform", a => vistaCheckForm(view, ...(a + "/desm").split("/"))],   // sin pestaña: entra en Desmontaje
   [/^#\/planillas$/,        "planillas",  () => vistaPlanillas(view)],
   [/^#\/planilla$/,         "planilla",   () => vistaPlanilla(view)],
   [/^#\/tecnicos$/,         "tecnicos",   () => vistaTecnicos(view)],
   [/^#\/fijos$/,            "fijos",      () => vistaFijos(view)],
   [/^#\/facturacion$/,      "facturacion", () => vistaFacturacion(view)],
+  [/^#\/factdigital$/,      "factdigital", () => vistaFactDigital(view)],
   [/^#\/cierre$/,           "cierre",     () => vistaCierre(view)],
   [/^#\/calendario$/,       "calendario", () => vistaCalendario(view)],
   [/^#\/(operativo|empresa)$/, "operativo", () => vistaEmpresa(view)],
@@ -57,7 +58,7 @@ const RUTAS = [
 
 // ── Transiciones entre pantallas: solo dos, con la misma duración ──
 // Entrar a algo (vehículo, cargar, una planilla) desliza desde la derecha y volver desde la izquierda; cambiar de pestaña funde.
-const ORDEN_TAB = { vehiculos: 0, calendario: 1, planillas: 2, planilla: 2, gastos: 2, tecnicos: 2, fijos: 2.1, facturacion: 2, cierre: 2.1 };   // x.1: pestaña de la derecha dentro de la planilla
+const ORDEN_TAB = { vehiculos: 0, calendario: 1, planillas: 2, planilla: 2, gastos: 2, tecnicos: 2, fijos: 2.1, facturacion: 2, factdigital: 2, cierre: 2.1 };   // x.1: pestaña de la derecha dentro de la planilla
 const ANIMS = ["anim-fade", "anim-push", "anim-pop"];
 function animarCambio(antes, ahora) {
   if (!antes.nombre || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
@@ -93,7 +94,7 @@ document.addEventListener("pointerdown", e => {
   f.addEventListener("animationend", () => f.classList.remove("pulsa"), { once: true });
 });
 
-function render({ conservarScroll = false, reabrir = false } = {}) {
+function render({ conservarScroll = false, reabrir = false, reabrirCal = false } = {}) {
   if (!S.user || !S.profile || S.sinOperativo) return;
   const h = location.hash || "#/";
   let hit = RUTAS.find(([re]) => re.test(h)) || RUTAS[0];
@@ -121,13 +122,19 @@ function render({ conservarScroll = false, reabrir = false } = {}) {
   if (plAntes) memScroll.pane = plAntes.scrollTop;
   if (!mismaRuta && ["lista", "calendario"].includes(claveScroll(previa.nombre, previa.arg))) memScroll[claveScroll(previa.nombre, previa.arg)] = scrollY;
   const nuevaClave = claveScroll(hit[1], arg);
-  // Computadora: al volver a Vehículos desde otra sección, se reabre el último vehículo
-  if (nuevaClave === "lista" && esAncho() && S.ultimoVid && previa.nombre && previa.nombre !== "vehiculos" && previa.nombre !== "editar" && getVehiculo(S.ultimoVid)) {
+  // Computadora: al volver a Vehículos desde otra sección, se reabre el último vehículo (y en el calendario, el que estaba abierto ahí: cada uno el suyo)
+  const previaEnCal = previa.nombre === "vehiculos" && previa.arg && S.volverA === "#/calendario";
+  if (nuevaClave === "calendario" && previaEnCal) { S.ultimoVidCal = null; S.ultimoVid = null; }   // lo cerró con la flecha
+  else if (nuevaClave === "calendario" && esAncho() && S.ultimoVidCal && previa.nombre && previa.nombre !== "calendario" && getVehiculo(S.ultimoVidCal)) {
+    history.replaceState(null, "", `#/v/${S.ultimoVidCal}`);
+    return render({ reabrirCal: true });
+  }
+  if (nuevaClave === "lista" && esAncho() && S.ultimoVid && previa.nombre && (previa.nombre !== "vehiculos" || previaEnCal) && previa.nombre !== "editar" && getVehiculo(S.ultimoVid)) {
     history.replaceState(null, "", `#/v/${S.ultimoVid}`);
     return render({ reabrir: true });
   }
   // Vehículo abierto desde el calendario: al salir vuelve al calendario (no a la lista)
-  if (hit[1] === "vehiculos" && arg) { if (reabrir) S.volverA = null; else if (["calendario", "tecnicos", "facturacion"].includes(ruta.nombre)) S.volverA = "#/" + ruta.nombre; else if (ruta.nombre === "vehiculos" && !ruta.arg) S.volverA = null; }
+  if (hit[1] === "vehiculos" && arg) { if (reabrir) S.volverA = null; else if (reabrirCal) S.volverA = "#/calendario"; else if (["calendario", "tecnicos", "facturacion", "factdigital"].includes(ruta.nombre)) S.volverA = "#/" + ruta.nombre; else if (ruta.nombre === "vehiculos" && !ruta.arg) S.volverA = null; }
   else if (hit[1] !== "editar") S.volverA = null;
   const y = conservarScroll && mismaRuta ? scrollY : 0;
   ruta = { nombre: hit[1], arg };
@@ -137,7 +144,7 @@ function render({ conservarScroll = false, reabrir = false } = {}) {
   document.body.dataset.ruta = enCal ? "calendario" : hit[1];
   document.body.dataset.soloVer = soySacabollos() ? "1" : "";   // Sacabollos: solo mira (el CSS esconde lo que edita)
   document.body.dataset.detalle = hit[1] === "vehiculos" && arg ? "1" : "";
-  marcarNav(enCal ? "calendario" : ["nuevo", "editar", "operativo"].includes(hit[1]) ? "" : hit[1] === "papelera" ? "ajustes" : ["planilla", "gastos", "tecnicos", "fijos", "facturacion", "cierre"].includes(hit[1]) ? "planillas" : hit[1]);
+  marcarNav(enCal ? "calendario" : ["nuevo", "editar", "operativo"].includes(hit[1]) ? "" : hit[1] === "papelera" ? "ajustes" : ["planilla", "gastos", "tecnicos", "fijos", "facturacion", "factdigital", "cierre"].includes(hit[1]) ? "planillas" : hit[1]);
   pintarTabPlanilla(hit[1]);
   // Menú lateral (computadora): Planillas queda desplegado solo si el usuario lo desplegó (flechita)
   $(".side-grupo")?.classList.toggle("abierto", planAbiertas());
@@ -156,7 +163,8 @@ function render({ conservarScroll = false, reabrir = false } = {}) {
   const panel = eraCal && esAncho() && $(".cal-page > :first-child", view);
   if (panel && !mismaRuta) panel.classList.add("anim-fade");
   else if (!mismaRuta && !reabrir) animarCambio(previa, ruta);
-  if (hit[1] === "vehiculos" && arg) S.ultimoVid = arg;
+  // Un solo "último vehículo": Vehículos reabre el último abierto (de donde sea); el calendario, solo si ese último se abrió en el calendario
+  if (hit[1] === "vehiculos" && arg) { S.ultimoVid = arg; S.ultimoVidCal = S.volverA === "#/calendario" ? arg : null; }
   // Último vehículo abierto: marcado en la lista y el calendario
   const marcar = () => { if (!S.ultimoVid) return null;
     const el = $(`a[href="#/v/${S.ultimoVid}"]`, view); el?.classList.add("sel"); return el; };
@@ -190,7 +198,7 @@ let ultimoRender = 0;
 function reiniciarSeccion(cual) {
   S.ultimoVid = null;
   delete memScroll.lista; delete memScroll.pane; delete memScroll.calendario;
-  if (cual === "calendario") reiniciarCalendario();
+  if (cual === "calendario") { reiniciarCalendario(); S.ultimoVidCal = null; }
   $$(".vcard.sel", view).forEach(el => el.classList.remove("sel"));
 }
 // Tocar de nuevo la pestaña en la que ya estás
@@ -226,7 +234,7 @@ addEventListener("hashchange", () => render());
 // La pestaña "Planillas" abre el menú de planillas (vehículos, técnicos y gastos)
 // Celular: Calendario y Planillas comparten el lugar de la derecha; en las planillas se ve Planillas, en el resto Calendario
 function pintarTabPlanilla(r) {
-  const enPlan = ["planillas", "planilla", "gastos", "tecnicos", "fijos", "facturacion", "cierre"].includes(r);
+  const enPlan = ["planillas", "planilla", "gastos", "tecnicos", "fijos", "facturacion", "factdigital", "cierre"].includes(r);
   $("#tab-planilla").classList.toggle("on", enPlan);
   $("#tab-planilla").hidden = !enPlan;
   $('.tabbar [data-nav="calendario"]').hidden = enPlan;

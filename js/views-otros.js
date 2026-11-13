@@ -1,13 +1,15 @@
 import {
   S, activos, papelera, restaurar, eliminarDefinitivo, soyAdmin, miRol, renombrarEmpresa, guardarSello, deshaciblesDe, deshacerCambio, soyDesmontaje,
   agregarMiembro, cambiarRol, quitarMiembro, guardarEtiquetas, resolverSolicitud, desvincularWhatsApp, salirDeEmpresa, eliminarEmpresa, crearEmpresa, elegirEmpresa,
-  actualizarPerfil, salir, mensajeError, llamarAdmin, soloDesmontaje, pedirUnion, linksCompartidos, getVehiculo, soloVer, soySacabollos, guardarOrdenOps
+  actualizarPerfil, ponerMiFoto, salir, mensajeError, llamarAdmin, soloDesmontaje, pedirUnion, linksCompartidos, getVehiculo, soloVer, soySacabollos, guardarOrdenOps, cambiarEstado, usaClientes,
+  onChange, chatSinLeer, marcarChatVisto, actualizarVehiculo
 } from "./data.js";
 import { cargarExcelJS } from "./excel.js";
-import { ESTADOS, ESTADO, ROLES, estadoActual, esAnulado } from "./domain.js";
+import { db, doc, onSnapshot } from "./firebase.js";
+import { colorPeritado, ESTADOS, ESTADO, ROLES, estadoActual, esAnulado, repartirTurnos } from "./domain.js";
 import {
   $, $$, esc, money, fechaCorta, fechaLarga, hoyISO, plate, estadoPill, icon, toast, openSheet, confirmar,
-  pedirTexto, busy, debounce, avatarUsuario, tsToISO, elegirDescarga, horaDe
+  pedirTexto, busy, debounce, avatarUsuario, glideMenu, elegirDescarga, horaDe, formatoWa
 } from "./ui.js";
 import { ruidoMotor, SONIDOS_AUTO } from "./sonidos.js";
 import { NOVEDADES } from "./novedades.js";
@@ -16,7 +18,7 @@ import { planillaPDF } from "./pdf.js";
 import { exportarExcel } from "./excel.js";
 import { setTopbar, go, logoOperativo, pintarLateral } from "./shell.js";
 import { APP_VERSION, WHATSAPP_BOT, BOT_API } from "./config.js";
-import { renderDetalle } from "./views-vehiculos.js";
+import { renderDetalle, textoWa, abrirFiltros, botonFiltros, filtrarCalendario } from "./views-vehiculos.js";
 
 // ═════════════════════════════════════════════════════════════
 //  PLANILLA
@@ -192,7 +194,8 @@ try { C.vista = localStorage.getItem("calVista") === "txt" ? "txt" : "pat"; } ca
 export function calendarioAlEntrar() { if (!C.dia) C.auto = true; }
 // Tocar de nuevo la pestaña Calendario: vuelve al día automático
 export function reiniciarCalendario() { C.dia = null; C.auto = true; }
-const delCal = () => activos().filter(v => !esAnulado(v));   // los anulados no figuran en el calendario
+// Los anulados no figuran en el calendario; los filtros son los mismos de Vehículos y la búsqueda es aparte
+const delCal = () => filtrarCalendario(activos(), C.q).filter(v => !esAnulado(v));
 function elegirDiaAuto() {
   const hoy = hoyISO();
   const dias = [...new Set(delCal().map(v => v.fechas?.[C.campo]).filter(Boolean))].sort();
@@ -205,7 +208,17 @@ const MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "
 // Computadora: con selId, el vehículo tocado en la lista del día reemplaza al calendario (como en Vehículos)
 export function vistaCalendario(view, selId = null) {
   const sel = selId ? getVehiculo(selId) : null;
-  setTopbar({ title: "Calendario", back: sel ? "#/calendario" : null });
+  const foco = document.activeElement?.id === "cal-q";
+  setTopbar({ title: "Calendario", sinTitulo: true, back: sel ? "#/calendario" : null, actions: botonFiltros(true) });
+  {   // también con un vehículo abierto: la flecha queda a la izquierda del buscador
+    // Buscador y filtros en la barra, como en Vehículos (en celular el botón de filtros va dentro del buscador)
+    $("#topbar .tb-title").insertAdjacentHTML("afterend", `<label class="search">${icon("search")}<input type="search" id="cal-q" placeholder="Buscar patente, modelo…" value="${esc(C.q || "")}" autocomplete="off"></label>`);
+    if (!matchMedia("(min-width: 1100px)").matches) $("#topbar > .search").append($("#tb-filtros"));
+    const q = $("#cal-q");
+    if (foco) { q.focus(); q.setSelectionRange(q.value.length, q.value.length); }
+    q.addEventListener("input", debounce(e => { C.q = e.target.value; vistaCalendario(view, selId); }, 200));
+    $("#tb-filtros").addEventListener("click", () => abrirFiltros(() => vistaCalendario(view, selId), true));
+  }
   if (C.auto && !S.loadingVehicles) { C.auto = false; elegirDiaAuto(); }
   const iso = d => `${C.y}-${String(C.m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
   const sinConf = v => estadoActual(v) === "turnado" && !v.turnoConfirmado;
@@ -539,29 +552,30 @@ function ordenable(ul, alSoltar) {
 }
 
 export function elegirEmpresaSheet() {
-  // Lista de operativos; abajo un solo botón con las opciones (gestionar / unirme / crear) y, en celular, Ajustes
+  // Lista de operativos; arriba la ruedita para gestionar el actual (donde iba la X), abajo el + para unirse o crear uno y, en celular, Ajustes
   const s = openSheet({
     title: "Tus operativos",
-    body: `<ul class="company-list">${S.companies.map(c => `
+    body: `<ul class="company-list">${[...S.companies].sort((a, b) => (b.id === S.company?.id) - (a.id === S.company?.id)).map(c => `
       <li><button class="company-opt ${c.id === S.company?.id ? "on" : ""}" data-id="${c.id}">
         ${logoOperativo("", c.name)}
         <span><strong>${esc(c.name)}</strong><small>${ROLES[c.roles?.[S.user.uid]]?.label || ""} · ${c.members.length} ${c.members.length === 1 ? "persona" : "personas"}</small></span>
         ${c.id === S.company?.id ? icon("check") : ""}</button></li>`).join("")}</ul>
-      <div class="op-menu">
-        <button type="button" class="op-mas" id="op-mas" aria-expanded="false">${icon("settings")}<span><strong>Gestión</strong><small>Administrar, unirme a otro o crear uno</small></span>${icon("next")}</button>
-        <div class="op-opciones" id="op-opciones" hidden>
-          ${S.company ? `<a class="op-opc" href="#/operativo" data-close>${icon("settings")}<span><strong>Gestionar ${esc(S.company.name)}</strong><small>Usuarios, roles, sello y links</small></span></a>` : ""}
-          <button type="button" class="op-opc" id="unir-op">${icon("swap")}<span><strong>Unirme a un operativo</strong><small>Pedir unirme a uno que ya existe</small></span></button>
-          ${soloDesmontaje() ? "" : `<button type="button" class="op-opc" id="nuevo-op">${icon("plus")}<span><strong>Crear un operativo</strong><small>Empezá uno nuevo</small></span></button>`}
-        </div>
-        <a class="op-mas op-ajustes only-mobile" href="#/ajustes" data-close>${icon("settings")}<span><strong>Ajustes</strong></span>${icon("next")}</a>
+      <button type="button" class="op-nuevo" id="op-nuevo" aria-label="Unirme o crear un operativo">${icon("plus")}</button>
+      <div class="op-elegir" id="op-elegir" hidden>
+        <button type="button" class="btn btn-ghost" id="unir-op">Unirme a un operativo existente</button>
+        ${soloDesmontaje() ? "" : `<button type="button" class="btn btn-ghost" id="nuevo-op">Crear nuevo operativo</button>`}
+      </div>
+      <div class="op-menu only-mobile">
+        <a class="op-mas op-ajustes" href="#/ajustes" data-close>${icon("user")}<span><strong>Mis ajustes</strong></span>${icon("next")}</a>
       </div>`
   });
+  const x = $(".sheet-head [data-close]", s.el);
+  if (S.company && x) x.outerHTML = `<a class="icon-btn" href="#/operativo" data-close aria-label="Gestionar ${esc(S.company.name)}" title="Gestionar ${esc(S.company.name)}">${icon("settings")}</a>`;
   ordenable($(".company-list", s.el), ids => guardarOrdenOps(ids).then(() => toast("Orden guardado", "success")).catch(err => toast(mensajeError(err), "error")));
   s.body.addEventListener("click", e => {
     const b = e.target.closest("[data-id]");
     if (b) { elegirEmpresa(b.dataset.id); s.close(); go("#/"); }
-    if (e.target.closest("#op-mas")) { const o = $("#op-opciones", s.el), m = $("#op-mas", s.el); o.hidden = !o.hidden; m.setAttribute("aria-expanded", String(!o.hidden)); m.classList.toggle("abierto", !o.hidden); }
+    if (e.target.closest("#op-nuevo")) { const o = $("#op-elegir", s.el); o.hidden = !o.hidden; $("#op-nuevo", s.el).classList.toggle("abierto", !o.hidden); }
     if (e.target.closest("#nuevo-op")) { s.close(); crearOperativo(); }
     if (e.target.closest("#unir-op")) { s.close(); unirOperativo(); }
   });
@@ -570,13 +584,57 @@ export function elegirEmpresaSheet() {
 // ═════════════════════════════════════════════════════════════
 //  AJUSTES
 // ═════════════════════════════════════════════════════════════
+// Color de la app: vacío = el de siempre. Lo pinta window.pintarColor (index.html), así también la intro sale de ese color
+const COLORES = ["#ff8a3d", "#e5484d", "#d9559b", "#9b7bf2", "#4f8ff7", "#0ea5a4", "#22b07d", "#84cc16", "#e0a526", "#8d8d96"];
+function elegirColor(alTerminar) {
+  const actual = (() => { try { return localStorage.getItem("color") || ""; } catch { return ""; } })();
+  const s = openSheet({ title: "Color de la app", body: `<div class="color-grid">
+      <button type="button" class="color-op ${actual ? "" : "on"}" data-c="" aria-label="Predeterminado"><i class="color-def"></i><small>Predeterminado</small></button>
+      ${COLORES.map(c => `<button type="button" class="color-op ${actual === c ? "on" : ""}" data-c="${c}" aria-label="Color ${c}"><i style="background:${c}"></i></button>`).join("")}
+      <button type="button" class="color-op ${actual && !COLORES.includes(actual) ? "on" : ""}" id="color-otro" aria-label="Otro color"><i class="color-rueda"></i></button>
+    </div>
+    <div class="rueda-caja" id="rueda" hidden><canvas width="440" height="440" aria-label="Rueda de color"></canvas>
+      <div class="rueda-pie"><i class="rueda-prev"></i><input class="rueda-hex" maxlength="7" spellcheck="false" autocomplete="off" aria-label="Color en hex">
+        <button type="button" class="btn btn-primary btn-sm" id="rueda-ok">Usar</button></div></div>` });
+  const poner = c => {
+    try { c ? localStorage.setItem("color", c) : localStorage.removeItem("color"); } catch { /* sin almacenamiento */ }
+    window.pintarColor?.(c); colorPeritado(c); document.dispatchEvent(new Event("color-app")); alTerminar?.();
+  };
+  s.body.addEventListener("click", e => { const b = e.target.closest("button[data-c]"); if (b) { poner(b.dataset.c); s.close(); } });
+  // Rueda propia (tono alrededor, intensidad hacia el centro) con el código hex al lado
+  const caja = $("#rueda", s.el), cv = $("canvas", caja), cx = cv.getContext("2d"), R = cv.width / 2, hex = $(".rueda-hex", caja), prev = $(".rueda-prev", caja);
+  const img = cx.createImageData(cv.width, cv.height);
+  for (let y = 0; y < cv.height; y++) for (let x = 0; x < cv.width; x++) {
+    const dx = x - R, dy = y - R, d = Math.hypot(dx, dy) / R, i = (y * cv.width + x) * 4; if (d > 1) continue;
+    const [r, g, b] = hsv((Math.atan2(dy, dx) / Math.PI * 180 + 360) % 360, d);
+    img.data.set([r, g, b, 255], i);
+  }
+  cx.putImageData(img, 0, 0);
+  const elegir = c => { hex.value = c; prev.style.background = c; };
+  elegir(actual || "#ff8a3d");
+  $("#color-otro", s.el).onclick = () => { caja.hidden = !caja.hidden; };
+  const tocar = e => { const b = cv.getBoundingClientRect(), x = (e.clientX - b.left) / b.width * cv.width - R, y = (e.clientY - b.top) / b.height * cv.height - R;
+    const d = Math.min(1, Math.hypot(x, y) / R); elegir(aHex(hsv((Math.atan2(y, x) / Math.PI * 180 + 360) % 360, d))); };
+  cv.addEventListener("pointerdown", e => { cv.setPointerCapture(e.pointerId); tocar(e); });
+  cv.addEventListener("pointermove", e => { if (e.buttons) tocar(e); });
+  hex.addEventListener("input", () => { if (/^#?[0-9a-f]{6}$/i.test(hex.value)) prev.style.background = "#" + hex.value.replace("#", ""); });
+  $("#rueda-ok", s.el).onclick = () => { const v = "#" + hex.value.replace("#", "").toLowerCase(); if (!/^#[0-9a-f]{6}$/.test(v)) return toast("Color no válido", "error"); poner(v); s.close(); };
+}
+// Tono (0-360) e intensidad (0-1) a RGB, con brillo al máximo
+function hsv(h, sat) {
+  const f = n => { const k = (n + h / 60) % 6; return Math.round(255 * (1 - sat * Math.max(0, Math.min(k, 4 - k, 1)))); };
+  return [f(5), f(3), f(1)];
+}
+const aHex = rgb => "#" + rgb.map(x => x.toString(16).padStart(2, "0")).join("");
+{ console.assert(aHex(hsv(0, 1)) === "#ff0000" && aHex(hsv(120, 1)) === "#00ff00" && aHex(hsv(0, 0)) === "#ffffff", "rueda de color"); }
+
 export function aplicarTema(t) {
   localStorage.setItem("tema", t);
   document.documentElement.setAttribute("data-theme", t === "light" ? "light" : "dark");
 }
 
 export function vistaAjustes(view) {
-  setTopbar({ title: "Ajustes", back: "#/" });
+  setTopbar({ title: "Mis ajustes", back: "#/" });
   const p = S.profile;
   const oscuro = document.documentElement.getAttribute("data-theme") !== "light";
   const enPapelera = papelera().length;
@@ -597,11 +655,13 @@ export function vistaAjustes(view) {
     <section class="aj-grupo"><h3>Cuenta</h3><div class="aj-lista">
       ${fila("editar-perfil", "edit", "Perfil", esc(p.name))}
       ${WHATSAPP_BOT ? `<a class="aj-item" href="https://wa.me/${WHATSAPP_BOT}?text=ayuda" target="_blank" rel="noopener">${icon("chat")}<span class="aj-txt">Chat con el bot</span><span class="aj-val"></span>${icon("next")}</a>` : ""}
+      ${usaClientes() && S.company ? (S.config?.mensajesTurnos !== false ? fila("mt-abrir", "calendar", "Mensajes y turnos") : "") : ""}
     </div></section>
 
     <section class="aj-grupo"><h3>Apariencia</h3><div class="aj-lista">
       <div class="aj-item aj-ctrl">${icon("image")}<span class="aj-txt">Tema</span>
-        <div class="seg seg-sm" id="tema"><button class="seg-btn ${oscuro ? "" : "on"}" data-t="light">Claro</button><button class="seg-btn ${oscuro ? "on" : ""}" data-t="dark">Oscuro</button></div></div>
+        <div class="seg seg-sm" id="tema"><button class="seg-btn ${oscuro ? "" : "on"}" data-t="light">Claro</button><button class="seg-btn ${oscuro ? "on" : ""}" data-t="dark">Oscuro</button></div>
+        <button type="button" class="color-btn" id="color-app" aria-label="Color de la app" title="Color de la app"><i class="color-rueda"></i></button></div>
       ${S.config?.fechaVista === false ? "" : `<div class="aj-item aj-ctrl">${icon("calendar")}<span class="aj-txt">Fecha en la lista</span>
         <div class="seg seg-sm" id="fecha-vista">${[["peritado", "Peritación"], ["estado", "Último estado"]].map(([k, t]) => `<button class="seg-btn ${fv === k ? "on" : ""}" data-fv="${k}">${t}</button>`).join("")}</div></div>`}
     </div></section>
@@ -617,6 +677,7 @@ export function vistaAjustes(view) {
 
   $("#editar-perfil", view).onclick = () => editarPerfil(() => vistaAjustes(view));
   if ($("#vincular-wa", view)) $("#vincular-wa", view).onclick = () => vincularWhatsApp(() => vistaAjustes(view));
+  $("#color-app", view).onclick = () => elegirColor();
   $("#tema", view).onclick = e => {
     const b = e.target.closest("[data-t]"); if (!b) return;
     aplicarTema(b.dataset.t); $$(".seg-btn", $("#tema", view)).forEach(x => x.classList.toggle("on", x === b));
@@ -626,6 +687,7 @@ export function vistaAjustes(view) {
     try { localStorage.setItem("fechaVista", b.dataset.fv); } catch { /* sin almacenamiento */ }
     $$(".seg-btn", $("#fecha-vista", view)).forEach(x => x.classList.toggle("on", x === b));
   };
+  $("#mt-abrir", view)?.addEventListener("click", mensajesYTurnos);
   $("#salir", view).onclick = async () => { if (await confirmar({ title: "¿Cerrar sesión?", ok: "Cerrar sesión" })) salir(); };
   // Versión: tocar fuerza la actualización; mantener apretado muestra las novedades
   const vb = $("#version-btn", view); let largo = false, t = 0;
@@ -646,9 +708,9 @@ function compartirPerito() {
   const url = t => `${location.origin}/v/?${t}`;
   const s = openSheet({ title: "Compartir con un perito", body: `<div class="stack">
     <p class="muted small">El link muestra solo los vehículos de esa compañía en <strong>${esc(S.company?.name || "")}</strong>: estado, turnos, fechas, fotos y todo el detalle, pero sin poder cambiar nada. Se actualiza solo.</p>
-    <form class="row-btns" id="cp-form"><input name="cia" list="cp-cias" required placeholder="Compañía (ej: SMG)" autocomplete="off" style="flex:1">
+    <form class="stack cp-form" id="cp-form"><label class="field"><span>Compañía</span><input name="cia" list="cp-cias" required placeholder="Ej: SMG" autocomplete="off"></label>
       <datalist id="cp-cias">${cias.map(c => `<option value="${esc(c)}">`).join("")}</datalist>
-      <button class="btn btn-primary" type="submit">Crear link</button></form>
+      <button class="btn btn-primary btn-block" type="submit">${icon("share")}Crear link</button></form>
     <div id="cp-lista"><div class="skeleton" style="height:60px"></div></div></div>` });
   const lista = $("#cp-lista", s.el);
   const pintar = ls => {
@@ -705,23 +767,42 @@ function editarPerfil(alTerminar) {
   const s = openSheet({
     title: "Editar perfil",
     body: `<form class="stack" id="perfil-form">
+      <div class="perfil-foto">${avatarUsuario(p.username, p.name, "lg", p.foto)}
+        <div class="perfil-foto-btns">
+          <button type="button" class="icon-btn" id="foto-subir" aria-label="Agregar foto" title="Agregar foto">${icon("camera")}</button>
+          ${p.foto ? `<button type="button" class="icon-btn danger" id="foto-borrar" aria-label="Eliminar foto" title="Eliminar foto">${icon("trash")}</button>` : ""}
+        </div></div>
       <label class="field"><span>Nombre</span>
         <input name="nombre" value="${esc(p.name)}" required autocomplete="name"></label>
-      <label class="field"><span>Usuario</span>
-        <input value="@${esc(p.username)}" readonly disabled>
-        <small class="muted">El usuario no se puede cambiar. Es el que usan para sumarte a un operativo.</small></label>
-      <button class="btn btn-primary btn-block btn-lg">Guardar perfil</button>
-      ${p.whatsapp ? `<button type="button" class="btn btn-ghost btn-block" id="wa-foto">${icon("image")}Usar mi foto de WhatsApp</button>
-        <button type="button" class="btn btn-danger-ghost btn-block" id="wa-desv">${icon("chat")}Desvincular WhatsApp</button>` : ""}
+      ${p.whatsapp ? `<button type="button" class="btn btn-danger-ghost btn-block" id="wa-desv">${icon("chat")}Desvincular WhatsApp</button>` : ""}
+      <button class="btn btn-primary btn-block btn-lg">Guardar cambios</button>
     </form>`
   });
-  $("#wa-foto", s.el)?.addEventListener("click", async e => {
-    const b = e.currentTarget; busy(b, true, "Buscando tu foto…");
+  const listo = msg => { toast(msg, "success"); s.close(); alTerminar?.(); pintarLateral(); };
+  const deWhatsApp = async () => {
+    toast("Buscando tu foto de WhatsApp…");
     const j = await llamarBot("foto-wa");
-    busy(b, false);
     if (!j.ok) return toast(j.error || "No se pudo", "warning");
-    S.profile.foto = j.foto; toast("Foto actualizada", "success"); s.close(); alTerminar?.();
-    pintarLateral();
+    S.profile.foto = j.foto; listo("Foto actualizada");
+  };
+  // La cámara pregunta de dónde: galería o la foto de WhatsApp (si está vinculado)
+  $("#foto-subir", s.el).addEventListener("click", e => {
+    if (p.whatsapp) return glideMenu(e.currentTarget, [["galeria", "Elegir de la galería"], ["wa", "Usar mi foto de WhatsApp"]], "", k => k === "wa" ? deWhatsApp() : galeria());
+    galeria();
+  });
+  const galeria = () => {
+    const inp = Object.assign(document.createElement("input"), { type: "file", accept: "image/*" });
+    inp.onchange = async () => {
+      const file = inp.files[0]; if (!file) return;
+      toast("Subiendo foto…");
+      try { const r = await subir(await comprimir(file, 480, 0.85), "perfiles"); await ponerMiFoto(r.url); listo("Foto actualizada"); }
+      catch (err) { toast(err.message || mensajeError(err), "error"); }
+    };
+    inp.click();
+  };
+  $("#foto-borrar", s.el)?.addEventListener("click", async () => {
+    if (!(await confirmar({ title: "¿Eliminar tu foto?", ok: "Eliminar", danger: true }))) return;
+    ponerMiFoto("").then(() => listo("Foto eliminada")).catch(e => toast(mensajeError(e), "error"));
   });
   $("#wa-desv", s.el)?.addEventListener("click", async () => {
     if (!(await confirmar({ title: "¿Desvincular tu WhatsApp?", message: "Para volver a usar el bot vas a tener que vincularlo de nuevo con un código desde Ajustes.", ok: "Desvincular", danger: true }))) return;
@@ -745,12 +826,6 @@ function editarPerfil(alTerminar) {
 const QUE_PIDE = { eliminar: "pide eliminarlo", foto: "pide quitar una foto", documento: "pide quitar el documento", editar: "pide acceso para editarlo" };
 const BOTON_OK = { eliminar: "Eliminar", foto: "Quitar foto", documento: "Quitar", editar: "Dar acceso" };
 const HECHO = { eliminar: "Vehículo eliminado", foto: "Foto quitada", documento: "Documento quitado", editar: "Acceso de edición otorgado" };
-const quedan = v => {
-  const t = v.deletedAt?.toMillis ? v.deletedAt.toMillis() : Date.parse(tsToISO(v.deletedAt) || "");
-  if (!t) return "Se elimina en 48 hs";
-  const h = Math.ceil((t + 48 * 3600_000 - Date.now()) / 3600_000);
-  return h <= 1 ? "Se elimina en menos de 1 h" : `Se elimina en ${h} hs`;
-};
 export function vistaPapelera(view) {
   setTopbar({ title: "Papelera", back: "#/ajustes" });
   const items = papelera();
@@ -768,10 +843,9 @@ export function vistaPapelera(view) {
           <button class="icon-btn sm" data-no="${x.id}" aria-label="Rechazar">${icon("x")}</button>
         </li>`).join("")}</ul>
     </section>` : ""}
-    ${items.length ? `<p class="muted small">Los vehículos se eliminan solos (con sus fotos) a las 48 hs de borrados.</p>
-    <ul class="trash">${items.map(v => `
+    ${items.length ? `    <ul class="trash">${items.map(v => `
       <li><span class="t-meta"><strong>${esc(v.modelo || "Sin modelo")}</strong>
-        <span>${plate(v.patente, "sm")}<small class="muted">${quedan(v)}</small></span></span>
+        <span>${plate(v.patente, "sm")}</span></span>
         <button class="btn btn-ghost btn-sm" data-r="${v.id}">${icon("restore")}Restaurar</button>
         <button class="icon-btn sm danger" data-x="${v.id}" aria-label="Eliminar para siempre">${icon("trash")}</button>
       </li>`).join("")}</ul>`
@@ -822,6 +896,8 @@ export async function panelCreador() {
           <span>Estado de repuestos y pintura en los PDF</span></label>
         <label class="toggle"><input type="checkbox" data-config="planillaVeh" ${datos.config?.planillaVeh !== false ? "checked" : ""}>
           <span>Planilla de vehículos</span></label>
+        <label class="toggle"><input type="checkbox" data-config="mensajesTurnos" ${datos.config?.mensajesTurnos !== false ? "checked" : ""}>
+          <span>Botón «Mensajes y turnos»</span></label>
       </div>
       <div class="adm-toggles adm-sonido">
         <span><b>Sonido al actualizar la app</b> <small class="muted">(lo escuchan todos)</small></span>
@@ -846,6 +922,19 @@ export async function panelCreador() {
         <span><b>Fotos de perfil</b><br><small class="muted">Vuelve a buscar la foto de WhatsApp de todos los vinculados y te dice qué pasó con cada uno. Las puestas a mano (📷 en Usuarios) no se tocan.</small></span>
         <span class="row-btns"><button type="button" class="btn btn-ghost btn-sm" id="adm-fotos">${icon("image")}Traer fotos</button></span>
       </div>
+      <div class="adm-toggles">
+        <span><b>Número de la empresa</b> <small class="muted">(conexión «clientes»: avisos, mensajes y turnos)</small><br><small class="muted" id="adm-cli-est">Tocá Conectar para ver el estado.</small></span>
+        <span class="row-btns"><button type="button" class="btn btn-ghost btn-sm" id="adm-cli">${icon("phone")}Conectar</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="adm-cli-cod">Con código</button>
+          ${datos.config?.mensajesTurnos !== false ? `<button type="button" class="btn btn-primary btn-sm" id="adm-masivo">${icon("chat")}Mensajes y turnos</button>` : ""}</span>
+        <div id="adm-cli-qr"></div>
+      </div>
+      <details class="adm-toggles">
+        <summary><b>Quién usa Mensajes y turnos</b> <small class="muted">${(datos.config?.usanClientes || []).length ? (datos.config.usanClientes.length + " además de vos") : "solo vos"}</small></summary>
+        ${usuarios.filter(u => u.username !== "gzmatte" && u.aprobado).map(u => `<label class="toggle"><input type="checkbox" data-usa="${esc(u.uid)}" ${(datos.config?.usanClientes || []).includes(u.uid) ? "checked" : ""}>
+          <span>${esc(u.name || "Sin nombre")} <small class="muted">@${esc(u.username)}</small></span></label>`).join("")}
+        <small class="muted">Lo ven en Ajustes y solo pueden usarlo en los operativos donde son miembros. Conectar el número sigue siendo solo tuyo.</small>
+      </details>
       <details class="adm-toggles adm-accesos" ${accAbierto ? "open" : ""}>
         <summary><b>Quién ve las planillas</b> <small class="muted">Vehículos · Técnicos · Gastos · Fijos · Facturación · Cierre</small></summary>
         ${(() => { const op = opAcc(); if (!op) return `<small class="muted">No hay operativos.</small>`;
@@ -900,6 +989,13 @@ export async function panelCreador() {
       return;
     }
     if (e.target.id === "adm-acc-op") { accOp = e.target.value; pintar(); return; }
+    if (e.target.dataset.usa) {
+      const uid = e.target.dataset.usa, on = e.target.checked, l = (datos.config?.usanClientes || []).filter(x => x !== uid);
+      e.target.disabled = true;
+      try { const r = await llamarAdmin("config", { usanClientes: on ? [...l, uid] : l }); datos.config = r.config; e.target.disabled = false; toast("Guardado", "success"); }
+      catch (err) { e.target.checked = !on; e.target.disabled = false; toast(err.message, "error"); }
+      return;
+    }
     const sec = e.target.dataset.accSec;
     if (sec) {
       const uid = e.target.closest("[data-acc]").dataset.acc, on = e.target.checked, op = opAcc();
@@ -919,7 +1015,8 @@ export async function panelCreador() {
     try {
       const r = await llamarAdmin("config", { [clave]: on });
       datos.config = r.config; S.config = { ...S.config, ...r.config };
-      toast(`${{ documentos: "Documentos", fechaVista: "Elegir fecha", etapasPdf: "Estado en los PDF", planillaVeh: "Planilla de vehículos" }[clave] || "Aviso al cliente"} ${on ? "activado" : "desactivado"}`, "success");
+      if (clave === "mensajesTurnos") pintar();   // muestra u oculta el botón de acá arriba
+      toast(`${{ documentos: "Documentos", fechaVista: "Elegir fecha", etapasPdf: "Estado en los PDF", planillaVeh: "Planilla de vehículos", mensajesTurnos: "Mensajes y turnos" }[clave] || "Aviso al cliente"} ${on ? "activado" : "desactivado"}`, "success");
     } catch (err) { e.target.checked = !on; toast(err.message, "error"); }
     e.target.disabled = false;
   });
@@ -937,6 +1034,25 @@ export async function panelCreador() {
       return openSheet({ title: `Fotos: ${detalle.filter(d => d.foto).length} de ${detalle.length}`, body: `<ul class="adm-list">${detalle.map(d =>
         `<li><div><strong>@${esc(d.usuario)}</strong><small class="${d.foto ? "" : "muted"}">${d.foto ? "✓ " : ""}${esc(d.motivo)}</small></div></li>`).join("")}</ul>` });
     }
+    const cli = e.target.closest("#adm-cli, #adm-cli-salir, #adm-cli-cod");
+    if (cli) {   // estado del número de la empresa; sin conectar, muestra el QR o un código (WhatsApp → Dispositivos vinculados)
+      const salir = cli.id === "adm-cli-salir";
+      if (salir && !(await confirmar({ title: "¿Desvincular el número de la empresa?", message: "Dejan de salir los avisos y mensajes a clientes hasta que vuelvas a escanear el QR.", ok: "Desvincular" }))) return;
+      const numero = cli.id === "adm-cli-cod" ? await pedirTexto({ title: "Vincular con código", label: "Número de la empresa, con código de país", placeholder: "5493515551234", ok: "Pedir código" }) : "";
+      if (numero === null) return;
+      busy(cli, true, "…");
+      try {
+        const r = await llamarAdmin("clientes-qr", { salir, numero });
+        $("#adm-cli-est", caja).textContent = r.estado === "open" ? "✓ Conectado" : r.codigo ? "En WhatsApp → Dispositivos vinculados → Vincular → Vincular con número de teléfono, poné este código y tocá Conectar de nuevo."
+          : r.qr ? "Escaneá el QR desde WhatsApp → Dispositivos vinculados y tocá Conectar de nuevo." : `Estado: ${r.estado}. Tocá Conectar de nuevo.`;
+        $("#adm-cli-qr", caja).innerHTML = r.estado === "open" ? `<button type="button" class="btn btn-ghost btn-sm danger" id="adm-cli-salir">Desvincular número</button>`
+          : r.codigo ? `<b style="font-size:1.6rem;letter-spacing:.15em;user-select:all">${esc(r.codigo)}</b>`
+          : r.qr ? `<img src="${esc(r.qr)}" alt="QR para vincular el número de la empresa" style="width:240px;max-width:100%;background:#fff;border-radius:var(--r);padding:8px">` : "";
+      } catch (err) { toast(err.message, "error"); }
+      if (cli.isConnected) busy(cli, false);
+      return;
+    }
+    if (e.target.closest("#adm-masivo")) return mensajesYTurnos();
     const fu = e.target.closest("[data-foto-u]");
     if (fu) {   // foto a mano para un usuario: se elige la imagen, se achica y se sube
       const inp = Object.assign(document.createElement("input"), { type: "file", accept: "image/*" });
@@ -987,6 +1103,132 @@ export async function panelCreador() {
   cargar();
 }
 
+// ── Mensajes y turnos: salen del número de la empresa, de a uno y con pausa para que WhatsApp no lo bloquee
+const TXT_TURNO = "{Saludo} {Asegurado}! Te escribimos de {Operativo} por tu {Vehiculo} patente {Patente}: te dimos turno para el {Turno}. Respondé este mensaje para confirmar. ¡Gracias!";
+const PAUSA_MS = 6000;
+const DIAS_SEM = [[1, "Lu"], [2, "Ma"], [3, "Mi"], [4, "Ju"], [5, "Vi"], [6, "Sá"], [0, "Do"]];
+const GRADOS_T = [[1, "Grado 1"], [2, "Grado 2"], [3, "Grado 3"], [4, "Grado +"], [0, "Sin grado"]];
+function mensajesYTurnos() {
+  let est = "peritado", q = "", cia = "", grado = "", porGradoOn = false, sinLugar = 0, cortar = false, enviando = false;
+  const marcados = new Set(), dias = new Set([1, 2, 3, 4, 5]);
+  let txt = TXT_TURNO;
+  const cupoG = { 1: 3, 2: 2, 3: 1, 4: 0, 0: 0 };
+  const manana = new Date(Date.now() + 864e5).toLocaleDateString("en-CA");
+  const ciaDe = v => String(v.compania || "").trim() || "Sin compañía";
+  const s = openSheet({ title: `Mensajes y turnos · ${S.company?.name || ""}`, wide: true, onClose: () => { cortar = true; }, body: `<div class="mt2">
+    <section class="mt-paso"><h3><b>1</b>Vehículos <small id="mt-n"></small></h3>
+      <div class="mt-filtros">
+        <label class="search mt-buscar">${icon("search")}<input type="search" id="mt-q" placeholder="Patente, asegurado, modelo…" autocomplete="off"></label>
+        <label class="field"><span>Estado</span><select id="mt-est">${ESTADOS.map(e => `<option value="${e.key}">${e.label}</option>`).join("")}</select></label>
+        <label class="field"><span>Compañía</span><select id="mt-cia"></select></label>
+        <label class="field"><span>Grado</span><select id="mt-grado"><option value="">Todos</option>${GRADOS_T.map(([g, t]) => `<option value="${g}">${t}</option>`).join("")}</select></label>
+      </div>
+      <button type="button" class="btn btn-ghost btn-sm" id="mt-todos">${icon("check")}Marcar todos</button>
+      <ul class="mt-lista" id="mt-lista"></ul>
+    </section>
+    <section class="mt-paso" id="mt-turnos"><h3><b>2</b>Turnos</h3>
+      <div class="grid-2 mt-fechas">
+        <label class="field"><span>Desde</span><input type="date" id="mt-desde" value="${manana}"></label>
+        <label class="field"><span>Hasta <small class="muted">(opcional)</small></span><input type="date" id="mt-hasta"></label>
+      </div>
+      <div class="mt-dias" role="group" aria-label="Días">${DIAS_SEM.map(([d, t]) => `<label class="mt-pill"><input type="checkbox" data-dia="${d}" ${dias.has(d) ? "checked" : ""}><span>${t}</span></label>`).join("")}</div>
+      <label class="mt-pill mt-ancho"><input type="checkbox" id="mt-pg"><span>Intercalar grados por día</span></label>
+      <label class="field" id="mt-pordia-f"><span>Autos por día <small class="muted">(contando los turnos que ya hay)</small></span><input type="number" id="mt-pordia" min="1" max="200" value="5" inputmode="numeric"></label>
+      <div class="mt-cupos" id="mt-pg-f" hidden>${GRADOS_T.map(([g, t]) => `<label class="field"><span>${t}</span><input type="number" min="0" max="50" value="${cupoG[g]}" data-cupo="${g}" inputmode="numeric"></label>`).join("")}</div>
+      <label class="mt-pill mt-ancho" id="mt-extra-f" hidden><input type="checkbox" id="mt-extra"><span>Repartir los que no entran (sobreturno)</span></label>
+    </section>
+    <section class="mt-paso"><h3><b>3</b>Mensaje</h3>
+      <textarea id="mt-txt" rows="4" class="mt-txt"></textarea>
+      <div class="mt-vars">${["Saludo", "Asegurado", "Vehiculo", "Patente", "Operativo", "Turno", "Compania", "Grado", "Precio"].map(x => `<button type="button" class="chip-var" data-var="{${x}}">${x}</button>`).join("")}</div>
+      <div id="mt-prev" class="mt-prev"></div>
+    </section>
+    <div class="mt-pie"><button type="button" class="btn btn-primary btn-lg" id="mt-ir"></button></div>
+  </div>` });
+  const el = x => $(x, s.el);
+  const delEstado = () => activos().filter(v => estadoActual(v) === est);
+  const lista = () => delEstado().filter(v => (!cia || ciaDe(v) === cia) && (grado === "" || (v.grado || 0) === Number(grado))
+    && (!q || [v.patente, v.asegurado, v.modelo, v.telefono].some(x => String(x || "").toLowerCase().includes(q))))
+    .sort((a, b) => (b.fechas?.peritado || "").localeCompare(a.fechas?.peritado || ""));   // peritado más reciente primero
+  const elegidos = () => lista().filter(v => marcados.has(v.id));
+  // Turnos que ya hay por día (sin contar los que se están volviendo a turnar), para no sobreturnar
+  const fechas = l => {
+    const ids = new Set(l.map(v => v.id)), ocupados = {};
+    activos().filter(v => estadoActual(v) === "turnado" && v.fechas?.turnado && !ids.has(v.id)).forEach(v => (ocupados[v.fechas.turnado] ||= []).push(v.grado || 0));
+    const op = { desde: el("#mt-desde").value, hasta: el("#mt-hasta").value, porDia: Number(el("#mt-pordia").value),
+      porGrado: porGradoOn ? Object.fromEntries($$("[data-cupo]", s.el).map(i => [i.dataset.cupo, Number(i.value) || 0])) : null, dias: [...dias], ocupados };
+    const g = l.map(v => v.grado || 0), r = repartirTurnos(g, op);
+    sinLugar = r.filter(x => !x).length;
+    return sinLugar && el("#mt-extra").checked ? repartirTurnos(g, { ...op, sobreturno: true }) : r;
+  };
+  const conTurno = (v, f) => f ? { ...v, fechas: { ...v.fechas, turnado: f }, horaTurno: "" } : v;
+  const pintarLista = () => {
+    const cias = [...new Set(delEstado().map(ciaDe))].sort();
+    if (cia && !cias.includes(cia)) cia = "";
+    el("#mt-est").value = est;
+    el("#mt-cia").innerHTML = `<option value="">Todas</option>` + cias.map(c => `<option ${c === cia ? "selected" : ""}>${esc(c)}</option>`).join("");
+    el("#mt-lista").innerHTML = lista().map(v => `<li><label class="mt-veh"><input type="checkbox" data-v="${esc(v.id)}" ${marcados.has(v.id) ? "checked" : ""}><i class="mt-chk">${icon("check")}</i>
+      <span class="mt-veh-txt"><span>${plate(v.patente, "sm")}<strong>${esc(v.asegurado || v.modelo || "")}</strong></span>
+      <small class="muted">${v.grado ? `G${v.grado === 4 ? "+" : v.grado} · ` : ""}${esc(fechaCorta(v.fechas?.peritado) || "")} · ${v.telefono ? esc(v.telefono) : "sin teléfono"}</small></span></label></li>`).join("")
+      || `<li class="muted small">No hay vehículos con ese filtro.</li>`;
+    resumen();
+  };
+  const resumen = () => {
+    const l = elegidos(), f = fechas(l), faltan = f.filter(x => !x).length;
+    el("#mt-extra-f").hidden = !sinLugar;
+    el("#mt-pordia-f").hidden = porGradoOn; el("#mt-pg-f").hidden = !porGradoOn;
+    if (el("#mt-txt").value !== txt) el("#mt-txt").value = txt;
+    el("#mt-n").textContent = `${l.length} de ${lista().length}`;
+    el("#mt-ir").textContent = `Turnar ${l.length - faltan} y avisar`;
+    el("#mt-ir").disabled = enviando || !l.length || faltan === l.length;
+    el("#mt-prev").innerHTML = !l.length ? "" : (sinLugar ? `<p style="color:var(--danger)">⚠️ No entran ${sinLugar} antes de la fecha límite: ${faltan ? "quedan sin turnar. Abajo de los días podés repartirlos como sobreturno." : "se reparten como sobreturno en los días con menos autos."}</p>` : "")
+      + `<ul class="mt-agenda">${l.map((v, i) => `<li>${plate(v.patente, "sm")}<span>${f[i] ? esc(fechaLarga(f[i])) : "no entra"}</span></li>`).join("")}</ul>`
+      + `<div class="mt-burbuja"><small>Así le llega a ${esc(l[0].asegurado || l[0].patente || "")}</small>${esc(textoWa(txt, conTurno(l[0], f[0])))}</div>`;
+  };
+  s.el.addEventListener("input", e => {
+    const t = e.target;
+    if (t.id === "mt-txt") txt = t.value;
+    if (t.id === "mt-est") { est = t.value; marcados.clear(); return pintarLista(); }
+    if (t.id === "mt-cia") { cia = t.value; return pintarLista(); }
+    if (t.id === "mt-grado") { grado = t.value; return pintarLista(); }
+    if (t.id === "mt-q") { q = t.value.trim().toLowerCase(); return pintarLista(); }
+    if (t.id === "mt-pg") porGradoOn = t.checked;
+    if (t.dataset.v) t.checked ? marcados.add(t.dataset.v) : marcados.delete(t.dataset.v);
+    if (t.dataset.dia) t.checked ? dias.add(Number(t.dataset.dia)) : dias.delete(Number(t.dataset.dia));
+    resumen();
+  });
+  s.el.addEventListener("click", async e => {
+    if (e.target.closest("#mt-todos")) { const l = lista(), todos = l.every(v => marcados.has(v.id)); l.forEach(v => todos ? marcados.delete(v.id) : marcados.add(v.id)); return pintarLista(); }
+    const chip = e.target.closest("[data-var]");
+    if (chip) { const ta = el("#mt-txt"), i = ta.selectionStart ?? ta.value.length; ta.value = ta.value.slice(0, i) + chip.dataset.var + ta.value.slice(ta.selectionEnd ?? i); txt = ta.value; ta.focus(); return resumen(); }
+    if (!e.target.closest("#mt-ir")) return;
+    const todos = elegidos(), fs = fechas(todos), afuera = fs.filter(x => !x).length;
+    const l = todos.filter((v, i) => fs[i]), f = fs.filter(Boolean), plantilla = txt.trim();   // los que no entran quedan sin turnar
+    const orden = [...f].sort(), aviso = afuera ? ` ⚠️ ${afuera} no entran antes de la fecha límite y quedan sin turnar.` : "";
+    if (!(await confirmar({ title: `¿Turnar ${l.length} vehículos?`,
+      message: `Pasan a Turnado del ${fechaLarga(orden[0])} al ${fechaLarga(orden[orden.length - 1])}${plantilla ? " y a cada cliente con teléfono le llega su turno" : " (sin mensaje)"}.${aviso} Sale del número de la empresa, uno cada ${PAUSA_MS / 1000} segundos: dejá esta ventana abierta.`, ok: "Empezar" }))) return;
+    enviando = true; cortar = false; resumen();
+    const fallas = []; let ok = 0;
+    for (let i = 0; i < l.length && !cortar; i++) {
+      const v = getVehiculo(l[i].id) || l[i];
+      busy(el("#mt-ir"), true, `${i + 1} de ${l.length}…`);
+      try {
+        await cambiarEstado(v, "turnado", f[i], { turnoConfirmado: false, horaTurno: "" });
+        if (v.telefono && plantilla) {
+          await llamarAdmin("enviar-cliente", { cid: S.company.id, vid: v.id, texto: textoWa(plantilla, conTurno(v, f[i])), por: S.profile?.name || "" });
+          if (i < l.length - 1) await new Promise(r => setTimeout(r, PAUSA_MS));
+        }
+        ok++;
+      } catch (err) { fallas.push(`${v.patente || v.modelo || v.id}: ${err.message || mensajeError(err)}`); }
+    }
+    enviando = false;
+    if (!s.el.isConnected) return toast(`Listo: ${ok} de ${l.length}${cortar ? " (se cortó al cerrar)" : ""}`, fallas.length ? "error" : "success");
+    busy(el("#mt-ir"), false); marcados.clear(); pintarLista();
+    toast(`Listo: ${ok} de ${l.length}`, fallas.length ? "error" : "success");
+    if (fallas.length) openSheet({ title: `${fallas.length} con problemas`, body: `<ul class="adm-list">${fallas.map(x => `<li>${esc(x)}</li>`).join("")}</ul>` });
+  });
+  pintarLista();
+}
+
 // Lee la planilla de asegurados (CSV o Excel) → [{ patente, nombre }]
 const RE_PAT = /^([A-Z]{3}\d{3}|[A-Z]{2}\d{3}[A-Z]{2})$/;
 const normPat = p => String(p ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
@@ -1008,4 +1250,83 @@ async function leerPadron(file) {
     if (RE_PAT.test(patente) && nombre) vistas.set(patente, nombre);
   }
   return [...vistas].map(([patente, nombre]) => ({ patente, nombre }));
+}
+
+// ═════════════════════════════════════════════════════════════
+//  CHATS CON CLIENTES: lo que se le mandó desde el número de la empresa y lo que respondieron (lo guarda el bot)
+//  Lo no leído se recuerda en este equipo (chatVisto:{cid}:{tel} = hora del último mensaje visto)
+// ═════════════════════════════════════════════════════════════
+const horaChat = t => { const d = new Date(t), hoy = new Date().toDateString() === d.toDateString();
+  return hoy ? d.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", hourCycle: "h23" }) : d.toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit" }); };
+
+export const abrirChatTel = tel => S.company && abrirChat(S.company.id, tel);
+
+// Teléfono del vehículo → número de WhatsApp (549 + área + número), igual que telefonoAR del bot
+export function telWa(t) {
+  let d = String(t || "").replace(/\D/g, "");
+  if (d.startsWith("549")) d = d.slice(3); else if (d.startsWith("54")) d = d.slice(2);
+  d = d.replace(/^0/, "");
+  if (d.length === 12) for (const a of [2, 3, 4]) if (d.slice(a, a + 2) === "15") { d = d.slice(0, a) + d.slice(a + 2); break; }
+  if (d.length === 8) d = "11" + d;
+  return d.length === 10 ? "549" + d : null;
+}
+console.assert(telWa("351 15 123-4567") === "5493511234567" && telWa("11 3770 9755") === "5491137709755" && telWa("123") === null, "telWa");
+// Chat en vivo desde un vehículo (Contactar)
+export function abrirChatDe(v) {
+  const tel = telWa(v.telefono);
+  if (!tel) return toast("El teléfono no parece un celular válido", "error");
+  abrirChat(S.company.id, tel, null, v);
+}
+// Avisar el turno por el chat en vivo (el mismo mensaje de Mensajes y turnos)
+export function avisarTurnoChat(v, fecha) {
+  const texto = textoWa(TXT_TURNO, { ...v, fechas: { ...v.fechas, turnado: fecha }, horaTurno: "" });
+  return llamarAdmin("enviar-cliente", { cid: S.company.id, vid: v.id, texto, por: S.profile?.name || "" });
+}
+
+function abrirChat(cid, tel, alCerrar, v = null) {
+  let c = null, enviando = false;
+  const s = openSheet({ title: "Chat", onClose: () => { unsub(); offV(); alCerrar?.(); }, body: `<div class="chat">
+      <div class="chat-msgs" id="chat-msgs"><div class="skeleton" style="height:60px"></div></div>
+      <div class="chat-turno" id="chat-turno"></div>
+      <form class="chat-form" id="chat-form"><textarea name="txt" rows="1" placeholder="Escribí una respuesta…" maxlength="2000" required></textarea>
+        <button class="btn btn-primary chat-enviar" type="submit" aria-label="Enviar">${icon("next")}</button></form></div>` });
+  s.el.classList.add("sheet-centro");   // en el celular, al medio (no desde abajo)
+  const caja = $("#chat-msgs", s.el), form = $("#chat-form", s.el), ta = form.txt;
+  const pintar = () => {
+    if (!c) return;
+    $(".sheet-head h2", s.el).innerHTML = `${plate(c.patente, "sm")} ${esc(c.nombre || c.modelo || "")}`;
+    const abajo = caja.scrollHeight - caja.scrollTop - caja.clientHeight < 40;
+    caja.innerHTML = (c.msgs || []).slice().sort((a, b) => a.t - b.t).map(m => `<div class="chat-msg ${m.yo ? "yo" : ""}">${formatoWa(m.txt)}
+      <small>${m.yo && m.por ? esc(m.por) + " · " : ""}${horaChat(m.t)}</small></div>`).join("") || `<p class="muted small center">Sin mensajes.</p>`;
+    if (abajo || !caja.dataset.listo) { caja.scrollTop = caja.scrollHeight; caja.dataset.listo = "1"; }
+    marcarChatVisto(tel, c.t || Date.now());
+    pintarTurno();
+  };
+  // Vehículo turnado: el turno queda sin confirmar hasta que alguien toca que el cliente lo confirmó
+  const pintarTurno = () => {
+    const vv = getVehiculo(c?.vid || v?.id), bt = $("#chat-turno", s.el);
+    bt.innerHTML = vv && estadoActual(vv) === "turnado" ? (vv.turnoConfirmado === true ? `<span class="conf-tag ok">✓ Turno confirmado</span>`
+      : `<span class="conf-tag">Turno sin confirmar</span><button type="button" class="btn btn-ghost btn-sm" id="chat-conf">${icon("check")}El cliente confirmó el turno</button>`) : "";
+  };
+  const offV = onChange(e => { if (e === "vehicles" && c) pintarTurno(); });
+  s.el.addEventListener("click", e => {
+    if (!e.target.closest("#chat-conf")) return;
+    const vid = c?.vid || v?.id;
+    actualizarVehiculo(vid, { turnoConfirmado: true }, "El cliente confirmó el turno").then(() => toast("Turno confirmado", "success")).catch(err => toast(mensajeError(err), "error"));
+  });
+  // Sin mensajes todavía (abierto desde un vehículo): se muestra con los datos del vehículo
+  const vacio = v ? { tel, vid: v.id, patente: v.patente, nombre: v.asegurado, modelo: v.modelo, msgs: [] } : null;
+  const unsub = onSnapshot(doc(db, "companies", cid, "chats", tel), d => { c = d.exists() ? { tel, ...d.data() } : vacio; pintar(); }, () => { c = vacio; pintar(); });
+  // Enter manda, Shift+Enter baja de línea; el campo crece con el texto
+  ta.addEventListener("input", () => { ta.style.height = "auto"; ta.style.height = Math.min(ta.scrollHeight, 140) + "px"; });
+  ta.addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey && !matchMedia("(pointer: coarse)").matches) { e.preventDefault(); form.requestSubmit(); } });
+  form.onsubmit = async e => {
+    e.preventDefault();
+    const texto = ta.value.trim(); if (!texto || enviando) return;
+    enviando = true; const b = $(".chat-enviar", form); b.disabled = true;
+    const j = await llamarBot("responder-cliente", { cid, tel, texto, por: S.profile?.name || "", vid: c?.vid || v?.id });
+    enviando = false; b.disabled = false;
+    if (!j.ok) return toast(j.error || "No se pudo enviar", "error");
+    ta.value = ""; ta.style.height = "auto";
+  };
 }

@@ -13,9 +13,9 @@
   --muted: #68788d;
   --line: #dce2ea;
   --line-2: #c9d2dd;
-  --primary: #2b5ce6;
-  --primary-2: #1f47bd;
-  --primary-soft: #e6edff;
+  --primary: #d9480f;
+  --primary-2: #b03a0a;
+  --primary-soft: #fff0e6;
   --on-primary: #ffffff;
   --danger: #d93a40;
   --danger-soft: #fdecec;
@@ -41,16 +41,16 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #0e0e10; --surface: #17171a; --surface-2: #1f1f23; --ink: #ececef; --ink-2: #bcbcc3;
-    --muted: #8d8d96; --line: #2a2a2f; --line-2: #38383e; --primary: #5c86ff; --primary-2: #86a5ff;
-    --primary-soft: #1d2540; --danger: #f0676b; --danger-soft: #3a1a1e; --glass: #2c2c31;
+    --muted: #8d8d96; --line: #2a2a2f; --line-2: #38383e; --primary: #ff8a3d; --primary-2: #ffaa70;
+    --primary-soft: #3a2414; --danger: #f0676b; --danger-soft: #3a1a1e; --glass: #2c2c31;
     --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px -14px rgba(0,0,0,.6); --shadow-lg: 0 28px 70px -18px rgba(0,0,0,.7);
     color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
   --bg: #0e0e10; --surface: #17171a; --surface-2: #1f1f23; --ink: #ececef; --ink-2: #bcbcc3;
-  --muted: #8d8d96; --line: #2a2a2f; --line-2: #38383e; --primary: #5c86ff; --primary-2: #86a5ff;
-  --primary-soft: #1d2540; --danger: #f0676b; --danger-soft: #3a1a1e; --glass: #2c2c31;
+  --muted: #8d8d96; --line: #2a2a2f; --line-2: #38383e; --primary: #ff8a3d; --primary-2: #ffaa70;
+  --primary-soft: #3a2414; --danger: #f0676b; --danger-soft: #3a1a1e; --glass: #2c2c31;
   --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px -14px rgba(0,0,0,.6); --shadow-lg: 0 28px 70px -18px rgba(0,0,0,.7);
   color-scheme: dark;
 }
@@ -1045,16 +1045,16 @@ details.vform-det .field + .field { margin-top: 12px; }
 .viewer-dl:hover { background: rgba(10,20,32,.8); }
 
 /* Detalle: tira desplegable "Adicionales" */
-.d-adic > summary { list-style: none; cursor: pointer; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; position: relative; padding-right: 26px; }
-.d-adic > summary::-webkit-details-marker { display: none; }
-.d-adic > summary h3 { margin: 0; }
+:is(.d-adic, .d-post) > summary { list-style: none; cursor: pointer; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; position: relative; padding-right: 26px; }
+:is(.d-adic, .d-post) > summary::-webkit-details-marker { display: none; }
+:is(.d-adic, .d-post) > summary h3 { margin: 0; }
 .d-adic > summary small { font-size: 12px; }
-.d-adic > summary::after { content: ""; position: absolute; right: 4px; top: 50%; width: 9px; height: 9px; margin-top: -7px;
+:is(.d-adic, .d-post) > summary::after { content: ""; position: absolute; right: 4px; top: 50%; width: 9px; height: 9px; margin-top: -7px;
   border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(45deg); transition: transform .2s; }
-.d-adic[open] > summary::after { transform: rotate(-135deg); margin-top: -2px; }
+:is(.d-adic, .d-post)[open] > summary::after { transform: rotate(-135deg); margin-top: -2px; }
 .d-sub { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
 .d-sub h3 { font-size: 14px; }
-.d-adic:not([open]) { padding-bottom: 14px; } .d-adic > summary { min-height: 0; }
+:is(.d-adic, .d-post):not([open]) { padding-bottom: 14px; } :is(.d-adic, .d-post) > summary { min-height: 0; }
 
 /* Firma en pantalla grande: la ventana arranca arriba (a la altura del encabezado) en vez de centrada */
 @media (min-width: 700px) { .sheet-backdrop.sheet-arriba { align-items: flex-start; padding-top: calc(var(--top) + var(--safe-t, 0px) + 12px); } }
@@ -1118,13 +1118,12 @@ details.vform-det .field + .field { margin-top: 12px; }
 /* Detalle: Compartir + Contactar (WhatsApp / Llamar en un menú) */
 .d-actions { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 8px; }
 .d-actions .btn-primary { grid-column: auto; }
-.d-actions:has(.btn-icon) { grid-template-columns: repeat(var(--n, 1), minmax(0, 1fr)) auto; grid-auto-columns: auto; }
-.d-actions:has(.d-contacto):has(.btn-icon) { --n: 2; }
+.d-edit { margin-left: auto; align-self: flex-start; display: flex; gap: 8px; }   /* chequeo y lápiz arriba a la derecha, a la altura de las fotos */
 .d-contacto { position: relative; }
 .d-contacto > .btn { width: 100%; }
 .d-menu { position: absolute; z-index: 15; top: calc(100% + 6px); left: 0; right: 0; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); box-shadow: var(--shadow-lg); padding: 6px; display: flex; flex-direction: column; }
 .d-menu[hidden] { display: none; }
-.d-menu a { display: flex; align-items: center; gap: 10px; padding: 11px 12px; border-radius: var(--r); font-weight: 600; color: var(--ink); text-decoration: none; }
+.d-menu a { display: flex; align-items: center; gap: 10px; padding: 11px 12px; border-radius: var(--r); font-weight: 600; color: var(--ink); text-decoration: none; cursor: pointer; }
 .d-menu a:hover { background: var(--surface-2); }
 .d-menu .ic { width: 18px; height: 18px; }
 /* Seguimiento: "Anular vehículo" en la misma línea del título */
@@ -1213,7 +1212,7 @@ html, body { overscroll-behavior-y: none; }
 .viewer-pdf.cargando { opacity: .5; }
 
 /* Adicionales post-reparación: una línea que se agranda con el texto */
-.d-post h3 { margin-bottom: 8px; }
+.d-post > summary { align-items: center; }
 .post-rep { width: 100%; resize: none; overflow: hidden; min-height: 44px; line-height: 1.45; padding: 10px 12px; border-radius: var(--r);
   border: 1px solid var(--line); background: var(--surface-2); color: var(--ink); font: inherit; font-size: 15px; }
 .post-rep:focus { outline: none; border-color: var(--primary); }
@@ -1278,8 +1277,9 @@ html, body { overscroll-behavior-y: none; }
 .chip-var { border: 1px solid var(--line); background: transparent; color: inherit; border-radius: 999px; padding: 1px 8px; margin: 2px 0; font-size: 12px; cursor: pointer; }
 
 /* ── Desmontaje ── */
-.d-desm-fila { display: flex; gap: 8px; margin-top: -6px; margin-bottom: 14px; }
-.d-desm { flex: 1; gap: 8px; }
+/* Ícono en la cabecera: al aparecer no corre la pantalla; el puntito va en la esquina */
+.d-desm { position: relative; }
+.d-desm .d-desm-punto { position: absolute; top: 6px; right: 6px; }
 /* Puntito que titila si hay algo cargado en el chequeo o el desmontaje */
 .d-desm-punto { width: 8px; height: 8px; border-radius: 50%; background: var(--primary); animation: pulse 1.6s ease-in-out infinite; }
 .d-desm small { color: var(--ink-2); font-weight: 600; }
@@ -1534,7 +1534,7 @@ a.g-bar-fijo { text-decoration: none; color: inherit; }
 .est-acc { display: inline-flex; gap: 12px; align-items: center; }
 .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .switch-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-weight: 600; font-size: 14px; }
-.switch-row input { width: 22px; height: 22px; accent-color: var(--brand, #2b5ce6); }
+.switch-row input { width: 22px; height: 22px; accent-color: var(--brand, var(--primary)); }
 .tec-desc { align-items: center; }
 .tec-aparte { opacity: .55; border-left: 2px dashed var(--line); padding-left: 8px; margin: 4px 0; }
 .tec-aparte .tec-linea b { text-decoration: none; }
@@ -1544,7 +1544,7 @@ a.g-bar-fijo { text-decoration: none; color: inherit; }
 .adm-acc-head { margin-top: 10px; color: var(--ink-2); font-weight: 700; text-align: center; }
 .adm-acc-fila { padding: 7px 0; border-top: 1px solid var(--line); }
 .adm-acc-fila > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.adm-acc-fila input { justify-self: center; width: 20px; height: 20px; accent-color: var(--brand, #2b5ce6); }
+.adm-acc-fila input { justify-self: center; width: 20px; height: 20px; accent-color: var(--brand, var(--primary)); }
 /* Computadora: los estados en una fila a lo ancho, arriba de la lista y el detalle */
 .estado-fila { margin-bottom: 14px; }
 .estado-fila .estado-strip { margin: 0; padding: 0 0 2px; display: flex; flex-wrap: nowrap; overflow-x: auto; }
@@ -1634,16 +1634,26 @@ a.g-bar-fijo { text-decoration: none; color: inherit; }
 
 /* ── Notificaciones ── */
 .notif-btn { position: relative; }
-.notif-dot { position: absolute; top: 3px; right: 3px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: var(--r); background: #e5484d; color: #fff;
+.notif-dot { position: absolute; top: 3px; right: 3px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: var(--r); background: var(--primary); color: var(--on-primary);
   font-size: 10.5px; font-weight: 800; line-height: 16px; text-align: center; box-shadow: 0 0 0 2px var(--bg); }
 .notif-sub { margin: -4px 0 10px; }
 .notif-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-.notif-item { display: grid; grid-template-columns: auto 1fr; grid-template-areas: "veh time" "txt txt"; gap: 4px 10px; align-items: center;
-  padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--r); color: var(--ink); background: var(--surface); }
+.notif-item { display: grid; grid-template-columns: auto 1fr auto; grid-template-areas: "veh time acc" "txt txt acc"; gap: 4px 10px; align-items: center;
+  padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--r); color: var(--ink); background: var(--bg); position: relative; z-index: 1; touch-action: pan-y; transition: transform .18s var(--ease), background .2s; }
 .notif-item:hover { border-color: var(--line-2); }
-.notif-item.nueva { border-color: color-mix(in srgb, var(--primary) 55%, var(--line)); background: color-mix(in srgb, var(--primary) 7%, var(--surface)); }
+.notif-item.nueva { border-color: color-mix(in srgb, var(--primary) 55%, var(--line)); background: color-mix(in srgb, var(--primary) 16%, var(--surface)); }
 .notif-item.nueva .notif-veh::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--primary); flex-shrink: 0; }
-.notif-item.abierta { border-color: color-mix(in srgb, var(--warn) 60%, var(--line)); background: color-mix(in srgb, var(--warn) 14%, var(--surface)); }
+.notif-item:not(.nueva) .notif-txt, .notif-item:not(.nueva) .notif-txt b { color: var(--muted); }
+.notif-item.desliza { transition: none; }
+.notif-li { position: relative; border-radius: var(--r); }
+.notif-li::before { content: ""; position: absolute; inset: 0; border-radius: var(--r); opacity: 0; transition: opacity .15s; background: var(--primary); }
+.notif-li[data-lado="archivar"]::before { background: var(--muted); }
+.notif-li.armado::before { opacity: .35; }
+.notif-pin { display: inline-grid; color: var(--primary); } .notif-pin .ic { width: 15px; height: 15px; }
+.notif-item.fijada { border-color: color-mix(in srgb, var(--primary) 35%, var(--line)); }
+.notif-acc { grid-area: acc; display: none; gap: 2px; }
+@media (hover: hover) and (pointer: fine) { .notif-item:hover .notif-acc { display: flex; } }
+.notif-ver-arch { margin-top: 10px; color: var(--muted); }
 .notif-todas { width: 100%; margin-bottom: 10px; }
 .notif-veh { grid-area: veh; display: flex; align-items: center; gap: 8px; min-width: 0; }
 .notif-veh small { color: var(--muted); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -1736,7 +1746,7 @@ a.g-bar-fijo { text-decoration: none; color: inherit; }
 .fo-cias-caja .fo-cias { width: 100%; grid-auto-columns: minmax(max-content, 1fr); scrollbar-width: thin; scrollbar-color: var(--line) transparent; padding-bottom: 6px; }
 .fo-cias-caja .fo-cias::-webkit-scrollbar { display: block; height: 6px; }   /* .fo-seg la esconde: acá la barra se ve */
 .fo-cias-caja .fo-cias::-webkit-scrollbar-thumb { background: var(--line); border-radius: 3px; }
-.fo .fo-switch { padding-block: 0; }
+:is(.fo, .pdf-exp) .fo-switch { padding-block: 0; }
 
 /* ── Transiciones entre pantallas ── */
 /* Se anima con "left" (no transform) para no mover los botones fijos que hay adentro de la pantalla */
@@ -1843,8 +1853,8 @@ h3 { letter-spacing: -.015em; }
 .splash.intro { overflow: hidden; gap: 10px; color: var(--ink); }
 .aurora { position: absolute; inset: 0; z-index: -1; }
 .aurora i { position: absolute; width: 55vmax; height: 45vmax; border-radius: 50%; filter: blur(70px) saturate(130%); opacity: .5; animation: aurora 16s ease-in-out infinite alternate; }
-.aurora i:nth-child(1) { background: #2b5ce6; left: -15vmax; top: -10vmax; }
-.aurora i:nth-child(2) { background: #5c86ff; right: -18vmax; top: 10vh; animation-duration: 19s; }
+.aurora i:nth-child(1) { background: var(--aurora-1, #d9480f); left: -15vmax; top: -10vmax; }
+.aurora i:nth-child(2) { background: var(--aurora-2, #ff8a3d); right: -18vmax; top: 10vh; animation-duration: 19s; }
 .aurora i:nth-child(3) { background: #0e1b2c; left: 10vw; bottom: -20vmax; animation-duration: 14s; }
 .aurora i:nth-child(4) { background: #cfe0ff; right: 5vw; bottom: -15vmax; opacity: .22; animation-duration: 20s; }
 @keyframes aurora { to { transform: translate(6vmax, 4vmax) scale(1.15); } }
@@ -2329,3 +2339,245 @@ button.aj-item:hover, a.aj-item:hover { background: var(--surface-2); }
 .aj-perfil .perfil-wa { margin-top: 2px; }
 .aj-vincular { margin-top: 8px; }
 /* Ajustes: WhatsApp dentro del perfil */
+/* Editar perfil: la foto con sus botones (agregar, WhatsApp, eliminar) */
+.perfil-foto { display: flex; align-items: center; gap: 14px; }
+.perfil-foto-btns { display: flex; gap: 6px; }
+.perfil-foto-btns .icon-btn { border: 1px solid var(--line-2); }
+/* Color de la app: la ruedita al lado del tema y la hoja para elegir */
+.color-rueda { display: block; width: 26px; height: 26px; border-radius: 50%; background: conic-gradient(#e5484d, #e0a526, #84cc16, #22b07d, #0ea5a4, #4f8ff7, #9b7bf2, #d9559b, #e5484d);
+  box-shadow: inset 0 0 0 3px var(--surface), 0 0 0 2px var(--primary); }
+.color-btn { border: 0; background: none; padding: 4px; margin-left: 4px; border-radius: 50%; display: grid; place-items: center; }
+.color-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(52px, 1fr)); gap: 10px; }
+.color-op { border: 0; background: none; padding: 4px; display: flex; flex-direction: column; align-items: center; gap: 4px; color: var(--muted); cursor: pointer; position: relative; }
+.color-op:first-child { grid-column: 1 / -1; flex-direction: row; justify-content: flex-start; gap: 10px; padding: 6px 4px; }
+.color-op > i { width: 40px; height: 40px; border-radius: 50%; display: block; box-shadow: inset 0 0 0 1px rgb(0 0 0 / .15); transition: transform .15s var(--ease); }
+.color-op .color-rueda { box-shadow: none; }
+.color-op.on > i { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--ink); }
+.color-op:active > i { transform: scale(.92); }
+.color-op input[type=color] { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; }
+/* Desplegables propios (ui.js → lindo): el select queda oculto y se ve este botón */
+.sel-oculto { display: none !important; }
+.sel-btn { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 46px; padding: 10px 12px; border-radius: var(--r); border: 1px solid var(--line-2);
+  background: var(--surface); text-align: left; font-size: 16px; }
+.sel-btn span { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sel-btn .ic { width: 16px; height: 16px; color: var(--muted); transform: rotate(90deg); transition: transform .15s; }
+.sel-btn[aria-expanded="true"] { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-soft); }
+.sel-btn[aria-expanded="true"] .ic { transform: rotate(-90deg); }
+.field.inline .sel-btn { min-height: 40px; padding: 6px 10px; font-size: 15px; width: auto; }
+.gs-menu { max-height: min(60vh, 360px); overflow-y: auto; }
+.sug-lista { position: fixed; z-index: 300; max-height: 220px; overflow-y: auto; padding: 4px; border-radius: var(--r); background: var(--surface); border: 1px solid var(--line-2);
+  box-shadow: 0 8px 24px rgb(0 0 0 / .25); animation: sug-in .12s var(--ease); }
+@keyframes sug-in { from { opacity: 0; transform: translateY(-4px); } }
+.sug-op { padding: 9px 10px; border-radius: var(--r-sm); font-size: 15px; cursor: pointer; }
+.sug-op:hover, .sug-op.on { background: var(--primary-soft); }
+.sel-btn.rol-sel { min-height: 34px; padding: 4px 8px; font-size: 14px; width: auto; border-radius: var(--r-sm); background: var(--surface-2); border-color: var(--line); }
+.members .sel-btn, .add-member .sel-btn, .p-sort .sel-btn { width: auto; }
+.p-sort .sel-btn { flex: 1; min-height: 38px; padding: 4px 10px; font-size: 15px; }
+/* Operativos: + debajo de la lista para unirse o crear uno */
+.op-nuevo { display: grid; place-items: center; width: 100%; height: 44px; margin: -4px 0 12px; border-radius: var(--r); border: 1px dashed var(--line-2); background: none; color: var(--muted); }
+.op-nuevo:hover { color: var(--primary); border-color: var(--primary); }
+.op-nuevo .ic { transition: transform .2s var(--ease); }
+.op-nuevo.abierto .ic { transform: rotate(45deg); }
+.op-elegir { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: -4px 0 12px; animation: sug-in .15s var(--ease); }
+.op-elegir[hidden] { display: none; }
+/* Filtros: secciones desplegables y opciones sin fondo de color (el color queda en el texto) */
+.fo-plega > summary { display: flex; align-items: center; justify-content: space-between; list-style: none; cursor: pointer; padding: 4px 0; -webkit-tap-highlight-color: transparent; }
+.fo-plega > summary::-webkit-details-marker { display: none; }
+.fo-plega > summary h3 { margin: 0; }
+.fo-plega > summary .ic { width: 16px; height: 16px; color: var(--muted); transition: transform .2s var(--ease); }
+.fo-plega[open] > summary .ic { transform: rotate(90deg); }
+.fo-plega[open] > .fo-seg { margin-top: 8px; animation: sug-in .18s var(--ease); }
+.fo-seg .fo-op[style], .fo-seg .fo-op[style].on { background: transparent; color: var(--c); }
+.fo-seg .fo-op[style].on { background: var(--surface); }
+.fo-seg.fo-grad { background: var(--surface-2); }
+/* Cargados por mí / Ocultar anulados: botón que se contornea cuando está prendido */
+:is(.fo, .pdf-exp) .fo-switch { min-height: 44px; background: none; color: var(--ink-2); justify-content: center; font: inherit; font-weight: 650; transition: border-color .15s, color .15s, box-shadow .15s; }
+:is(.fo, .pdf-exp) .fo-switch.on { border-color: var(--primary); color: var(--primary); box-shadow: inset 0 0 0 1px var(--primary); }
+/* Celular: los puntitos quedan centrados bajo el número; el "+N" va al costado sin correrlos */
+@media (max-width: 600px) {
+  .cd-ev { position: relative; }
+  .cd-ev i.more { position: absolute; left: 100%; top: 50%; transform: translateY(-50%); margin-left: 2px; }
+}
+.color-def { background: #ff8a3d; }
+[data-theme="light"] .color-def { background: #d9480f; }
+/* Fluidez: el cambio de pantalla se mueve con transform (left recalculaba todo en cada cuadro) y el fondo de las hojas no anima el desenfoque */
+@keyframes anim-push { from { opacity: 0; transform: translateX(40px); } to { opacity: 1; transform: none; } }
+@keyframes anim-pop { from { opacity: 0; transform: translateX(-30px); } to { opacity: 1; transform: none; } }
+.sheet-backdrop { transition: opacity .22s; -webkit-backdrop-filter: none; backdrop-filter: none; }
+.sheet-backdrop.in { -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px); }
+/* Celular: puntitos que se adaptan al ancho de la celda; con "+N" se ven 2 puntos y el número, todo centrado y dentro de la celda */
+@media (max-width: 600px) {
+  .cd-ev { width: 100%; justify-content: center; gap: clamp(2px, .6vw, 3px); overflow: hidden; }
+  .cd-ev i { width: clamp(4px, 1.5vw, 7px); height: clamp(4px, 1.5vw, 7px); }
+  .cd-ev:has(.more) i:nth-child(3) { display: none; }
+  .cd-ev i.more { position: static; transform: none; margin: 0; width: auto; height: auto; font-size: clamp(8px, 2.4vw, 10px); line-height: 1; }
+}
+/* Al deslizar: a la derecha el pin (fijar), a la izquierda la caja (archivar y marcar vista) */
+.notif-li::before { opacity: 0; }
+.notif-li[data-lado]::before { opacity: .18; }
+.notif-li.armado::before { opacity: .4; }
+.notif-lado { position: absolute; top: 50%; translate: 0 -50%; display: none; color: var(--ink); }
+.notif-lado .ic { width: 22px; height: 22px; }
+.l-fijar { left: 18px; } .l-arch { right: 18px; }
+.notif-li[data-lado="fijar"] .l-fijar, .notif-li[data-lado="archivar"] .l-arch { display: grid; }
+.notif-li.armado .notif-lado { color: var(--primary); }
+.color-btn .color-rueda { box-shadow: none; }
+.rueda-caja { display: grid; justify-items: center; gap: 12px; margin-top: 14px; animation: sug-in .18s var(--ease); }
+.rueda-caja[hidden] { display: none; }
+.rueda-caja canvas { width: min(220px, 70vw); aspect-ratio: 1; border-radius: 50%; touch-action: none; cursor: crosshair; }
+.rueda-pie { display: flex; align-items: center; gap: 10px; }
+.rueda-prev { width: 32px; height: 32px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgb(0 0 0 / .2); }
+.rueda-hex { width: 110px; min-height: 36px; padding: 4px 10px; border-radius: var(--r); border: 1px solid var(--line-2); background: var(--surface); font-family: ui-monospace, monospace; text-transform: lowercase; }
+/* Hojas más sólidas y con más desenfoque */
+.sheet { background: color-mix(in srgb, var(--surface) 95%, transparent); -webkit-backdrop-filter: blur(40px) saturate(150%); backdrop-filter: blur(40px) saturate(150%); }
+/* Filtros: todo con el mismo botón (desplegables, Cargados por mí, Ocultar anulados, Exportar PDF y Limpiar) */
+.fo { gap: 8px; }
+.fo-plega > summary, .fo .fo-switch, .fo #fo-pdf, .fo #fo-reset { min-height: 46px; padding: 0 14px; border: 1px solid var(--line-2); border-radius: var(--r); background: var(--surface-2); color: var(--ink); font-weight: 650; }
+.fo-plega > summary h3 { font-size: 15px; font-weight: 650; color: var(--ink); text-transform: none; letter-spacing: 0; }
+.fo-plega > summary:hover, .fo .fo-switch:hover { border-color: var(--ink-2); }
+.fo-plega[open] > summary { border-color: color-mix(in srgb, var(--primary) 55%, var(--line-2)); }
+.fo-sec:not(.fo-plega) { margin-top: 6px; }
+:is(.fo, .pdf-exp) .fo-switch.on { background: color-mix(in srgb, var(--primary) 14%, var(--surface-2)); }
+.fo-switches { gap: 8px; }
+.fo .fo-pie { background: var(--surface); }
+/* Mensajes y turnos: tres pasos en tarjetas, filas para marcar, días como pastillas y el mensaje como burbuja de WhatsApp */
+.mt2 { display: flex; flex-direction: column; gap: 12px; }
+.mt-paso { display: flex; flex-direction: column; gap: 10px; padding: 14px; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface-2); }
+.mt-paso > h3 { display: flex; align-items: center; gap: 8px; font-size: 15px; }
+.mt-paso > h3 b { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--primary); color: var(--on-primary); font-size: 12px; }
+.mt-paso > h3 small { margin-left: auto; color: var(--muted); font-weight: 600; }
+.mt-filtros { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.mt-filtros .mt-buscar { grid-column: 1 / -1; }
+@media (max-width: 520px) { .mt-filtros { grid-template-columns: 1fr 1fr; } .mt-filtros .field:first-of-type { grid-column: 1 / -1; } }
+.mt-filtros .sel-btn, .mt-paso .field input { min-height: 40px; padding: 6px 10px; font-size: 15px; }
+#mt-todos { align-self: flex-start; }
+.mt-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; max-height: 300px; overflow-y: auto; }
+.mt-veh { position: relative; display: flex; align-items: center; gap: 10px; padding: 9px 10px; border: 1px solid var(--line); border-radius: var(--r); background: var(--surface); cursor: pointer; transition: border-color .15s, background .15s; }
+.mt-veh input, .mt-pill input { position: absolute; opacity: 0; pointer-events: none; }
+.mt-chk { display: grid; place-items: center; width: 22px; height: 22px; flex: none; border-radius: 6px; border: 2px solid var(--line-2); color: transparent; transition: background .15s, border-color .15s; }
+.mt-chk .ic { width: 14px; height: 14px; stroke-width: 3; }
+.mt-veh:has(input:checked) { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 8%, var(--surface)); }
+.mt-veh:has(input:checked) .mt-chk { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
+.mt-veh-txt { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.mt-veh-txt > span { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.mt-veh-txt strong { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mt-dias { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.mt-pill { position: relative; display: grid; place-items: center; min-height: 38px; padding: 0 10px; border: 1px solid var(--line-2); border-radius: var(--r); background: var(--surface); font-size: 14px; font-weight: 650; color: var(--ink-2); cursor: pointer; transition: border-color .15s, color .15s, background .15s; }
+.mt-pill:has(input:checked) { border-color: var(--primary); color: var(--primary); background: color-mix(in srgb, var(--primary) 12%, var(--surface)); }
+.mt-ancho { justify-items: start; }
+.mt-ancho[hidden] { display: none; }
+.mt-cupos { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.mt-cupos[hidden] { display: none; }
+.mt-txt { width: 100%; min-height: 96px; padding: 10px 12px; border-radius: var(--r); border: 1px solid var(--line-2); background: var(--surface); font-size: 15px; line-height: 1.45; resize: vertical; }
+.mt-vars { display: flex; flex-wrap: wrap; gap: 6px; }
+.mt-vars .chip-var { border: 1px solid var(--line-2); background: var(--surface); color: var(--ink-2); border-radius: 999px; padding: 4px 10px; font-size: 12.5px; font-weight: 600; }
+.mt-vars .chip-var::before { content: "+ "; color: var(--primary); }
+.mt-prev:empty { display: none; }
+.mt-prev { display: flex; flex-direction: column; gap: 10px; font-size: 13px; }
+.mt-agenda { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; max-height: 160px; overflow-y: auto; }
+.mt-agenda li { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--ink-2); }
+.mt-burbuja { align-self: flex-start; max-width: 92%; padding: 8px 12px 10px; border-radius: 12px 12px 12px 3px; background: #1f5c4a; color: #e9f5ef; white-space: pre-wrap; font-size: 14px; line-height: 1.4; }
+[data-theme="light"] .mt-burbuja { background: #dcf8c6; color: #10251a; }
+.mt-burbuja small { display: block; margin-bottom: 4px; opacity: .7; font-size: 11.5px; }
+.mt-pie { position: sticky; bottom: 0; display: flex; padding: 10px 0 2px; background: linear-gradient(transparent, var(--surface) 35%); }
+.mt-pie .btn { flex: 1; }
+/* Botones de fijar/archivar al pasar el mouse: flotan sobre la hora, sin correr el contenido */
+.notif-item { grid-template-columns: auto 1fr; grid-template-areas: "veh time" "txt txt"; }
+.notif-acc { position: absolute; right: 8px; top: 6px; padding: 2px; border-radius: var(--r); background: var(--surface); box-shadow: 0 2px 10px rgb(0 0 0 / .25); }
+.cd.sel { background: color-mix(in srgb, var(--primary) 10%, var(--surface-2)); border-color: color-mix(in srgb, var(--primary) 45%, transparent); }   /* día elegido: tenue */
+.op-elegir { grid-template-columns: 1fr; }
+/* Animación del auto (actualización): el brillo toma el color de la app, no un azul fijo */
+.ex-media { background: radial-gradient(closest-side, color-mix(in srgb, var(--primary) 45%, #0e0e10), color-mix(in srgb, var(--primary) 18%, #0e0e10) 45%, rgb(14 14 16 / .85) 72%, transparent); }
+[data-theme="light"] .ex-media { background: radial-gradient(closest-side, color-mix(in srgb, var(--primary) 25%, #fff), color-mix(in srgb, var(--primary) 12%, #fff) 45%, rgb(238 241 245 / .85) 72%, transparent); }
+.aurora i:nth-child(4) { background: color-mix(in srgb, var(--primary) 30%, #fff); }
+.op-nuevo { border-style: solid; border-color: var(--line); background: var(--surface); margin-top: 0; }   /* + con el mismo contorno que los operativos */
+.cd.sel { background: var(--surface-2); border-color: var(--primary); } .cd.sel .cd-n { color: var(--primary); font-weight: 800; }   /* día elegido: solo borde y número */
+.ex-logo { aspect-ratio: 1; width: min(240px, 60vw); stroke-width: 26; }   /* logo con martillo: cuadrado 1024 */
+/* Chats de clientes: lista de conversaciones y el chat con burbujas como WhatsApp */
+.chat-lista { display: flex; flex-direction: column; gap: 6px; }
+.chat-fila { display: flex; flex-direction: column; gap: 4px; width: 100%; text-align: left; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--r); background: var(--surface); color: var(--ink); }
+.chat-fila:hover { border-color: var(--line-2); }
+.chat-fila-top { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.chat-fila-top strong { flex: 1; min-width: 0; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chat-fila-top time { font-size: 12px; color: var(--muted); }
+.chat-fila-ult { font-size: 13.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chat-fila.nuevo { border-color: color-mix(in srgb, var(--primary) 55%, var(--line)); background: color-mix(in srgb, var(--primary) 12%, var(--surface)); }
+.chat-fila.nuevo .chat-fila-ult { color: var(--ink); font-weight: 600; }
+.chat-fila.nuevo time { color: var(--primary); font-weight: 700; }
+.sheet-head h2 .plate { vertical-align: middle; margin-right: 6px; }
+.chat { display: flex; flex-direction: column; gap: 10px; height: min(70vh, 620px); }
+.chat-msgs { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding: 4px 2px; overscroll-behavior: contain; }
+.chat-msg { align-self: flex-start; max-width: 82%; padding: 7px 11px 6px; border-radius: 12px 12px 12px 3px; background: var(--surface-2); border: 1px solid var(--line); white-space: pre-wrap; word-break: break-word; font-size: 14.5px; line-height: 1.4; }
+.chat-msg.yo { align-self: flex-end; border-radius: 12px 12px 3px 12px; background: #1f5c4a; border-color: transparent; color: #e9f5ef; }
+[data-theme="light"] .chat-msg.yo { background: #dcf8c6; color: #10251a; }
+.chat-msg small { display: block; margin-top: 3px; text-align: right; font-size: 11px; opacity: .65; }
+.chat-form { display: flex; align-items: flex-end; gap: 8px; }
+.chat-form textarea { flex: 1; min-height: 44px; max-height: 140px; padding: 10px 12px; border-radius: var(--r-lg); border: 1px solid var(--line-2); background: var(--surface); font-size: 16px; line-height: 1.4; resize: none; }
+.chat-form textarea:focus { outline: none; border-color: var(--primary); }
+.chat-enviar { width: 44px; height: 44px; padding: 0; border-radius: 50%; flex: none; }
+
+/* Chat en vivo: apartado en notificaciones y puntito titilando en Contactar */
+.notif-sec { display: flex; align-items: center; gap: 6px; margin: 4px 2px 8px; font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+.notif-sec .ic { width: 15px; height: 15px; }
+.notif-chats { margin-bottom: 14px; }
+.turno-sub { display: block; margin-top: 3px; font-size: 12.5px; font-weight: 400; color: var(--muted); }
+@keyframes chat-titila { 0%, 100% { opacity: 1; } 50% { opacity: .25; } }
+.d-contacto > .btn { position: relative; }
+.d-contacto.chat-nuevo > .btn::after { content: ""; position: absolute; top: 7px; right: 9px; width: 9px; height: 9px; border-radius: 50%; background: var(--primary);
+  box-shadow: 0 0 0 2px var(--bg); animation: chat-titila 1.1s ease-in-out infinite; }
+.d-contacto.chat-nuevo [data-act="chat"] { color: var(--primary); animation: chat-titila 1.1s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .d-contacto.chat-nuevo > .btn::after, .d-contacto.chat-nuevo [data-act="chat"] { animation: none; } }
+.turno-conf:has(.turno-sub) { flex-wrap: nowrap; } .turno-conf:has(.turno-sub) > span { flex: 1; min-width: 0; } .turno-conf .switch { flex: none; }
+.notif-sec-fila { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.notif-sec-fila .notif-sec { margin-bottom: 0; }
+.notif-sin-chats { margin: 0 2px 14px; }
+.aviso-cargando { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 18px 0 8px; margin: 0; color: var(--muted); font-weight: 600; }
+.aviso-cargando .spin { color: var(--primary); }
+.notif-tabs { margin-bottom: 12px; }
+.notif-tabs .seg-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.notif-tab-n { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; display: inline-grid; place-items: center; background: var(--primary); color: var(--on-primary); font-size: 11px; }
+
+/* Barra de subida de fotos sobre la portada del vehículo */
+.d-cover-prog { position: absolute; left: 6px; right: 6px; top: 6px; height: 18px; border-radius: 999px; overflow: hidden; background: rgba(0, 0, 0, .6); z-index: 2; pointer-events: none; }
+.d-cover-prog i { display: block; height: 100%; background: var(--primary); transition: width .3s var(--ease); }
+.d-cover-prog small { position: absolute; inset: 0; display: grid; place-items: center; font-size: 11px; font-weight: 700; color: #fff; }
+@media (prefers-reduced-motion: reduce) { .d-cover-prog i { transition: none; } }
+
+/* Chat en vivo: buscador y filtro de turnos */
+.chat-q { margin-bottom: 10px; }
+.chat-q[hidden], .chat-head-acc[hidden] { display: none; }
+.chat-head-acc { margin-left: auto; display: flex; gap: 4px; }
+.chat-head-acc .icon-btn.on { color: var(--primary); background: var(--primary-soft); }
+
+.fo-grado-dd { display: inline-flex; align-items: center; justify-content: space-between; gap: 6px; min-width: 104px; min-height: 44px; padding: 0 12px;
+  border: 1px solid var(--line); border-radius: var(--r); background: var(--surface-2); color: var(--ink-2); font: inherit; font-weight: 650; }
+.fo-grado-dd .ic { width: 14px; height: 14px; transform: rotate(90deg); transition: transform .15s; }
+.fo-grado-dd[aria-expanded="true"] .ic { transform: rotate(-90deg); }
+.fo-grado-dd.on { border-color: var(--primary); color: var(--primary); }
+.sheet-head .fo-orden-btn { margin-left: auto; min-height: 38px; min-width: 0; }
+
+/* Tiras de filtros: se abren y cierran deslizando (donde el navegador lo permite), además de la flecha que gira */
+.fo-plega { interpolate-size: allow-keywords; }
+.fo-plega::details-content { height: 0; overflow: clip; transition: height .25s var(--ease), content-visibility .25s allow-discrete; }
+.fo-plega[open]::details-content { height: auto; }
+@media (prefers-reduced-motion: reduce) { .fo-plega::details-content { transition: none; } }
+
+/* Adicionales: Ocultar anulados y Exportar PDF adentro de la tira, separados */
+.fo-extra { display: grid; gap: 10px; margin-top: 10px; }
+/* Chat en vivo: estado del turno y botón para confirmarlo */
+.chat-turno { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.chat-turno:empty { display: none; }
+
+/* Título de los desplegables (ej: "Ordenar por") */
+.gs-tit { padding: 6px 10px 4px; font-size: 11.5px; font-weight: 750; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+/* Conformidad del retiro: botón con desplegable dentro de Adicionales */
+.fo .fo-conf { justify-content: space-between; }
+.fo-conf .ic { width: 14px; height: 14px; transform: rotate(90deg); transition: transform .15s; }
+.fo-conf[aria-expanded="true"] .ic { transform: rotate(-90deg); }
+
+/* Diálogos centrados también en el celular (ej: ¿Avisarle al cliente…?) */
+@media (max-width: 699px) {
+  .sheet-backdrop.sheet-centro { align-items: center; padding: 16px; }
+  .sheet-centro .sheet { border-radius: var(--r-xl); padding-bottom: 18px; }
+  .sheet-centro .sheet-grip { display: none; }
+}
