@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.10.1", items: ["Chat en vivo: los chats se pueden fijar arriba (deslizar a la derecha) y archivar (a la izquierda), igual que las notificaciones. Si el cliente vuelve a escribir, el chat sale de archivados."] },
   { v: "4.10.0", items: ["Íconos nuevos: blancos, con el dibujo en negro y bordes redondeados.", "El botón ahora se llama «Chequeo y Desmontaje» y está siempre en el mismo lugar: la pantalla del vehículo ya no se corre para abajo.", "Desmontado por: si no se eligió, muestra al primero que cargó algo del desmontaje."] },
   { v: "4.9.2", items: ["Firma: al girar el celular, el trazo sigue cayendo bajo el dedo."] },
   { v: "4.9.1", items: ["Número de la empresa: se puede vincular con código (botón «Con código»), además del QR."] },
