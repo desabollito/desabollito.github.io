@@ -480,7 +480,7 @@ export function vistaDetalle(view, id) {
   renderDetalle($(".detail-page", view), v, false);
 }
 
-let adicCerrado = null, pzTocada = null;   // adicCerrado: id del vehículo donde se cerró Adicionales (arranca abierto)
+let adicCerrado = null, pzTocada = null, postAbierto = null;   // adicCerrado: id del vehículo donde se cerró Adicionales (arranca abierto); postAbierto: donde se abrieron las notas (arrancan cerradas)
 let _x;   // pzTocada: paño elegido en el detalle (sobrevive al redibujo)
 
 // Mensaje configurable desde el panel del dueño: {Vehiculo}, {Patente}, {Asegurado}… se completan con el vehículo
@@ -631,13 +631,11 @@ export function renderDetalle(root, v, embebido) {
       ${anulado ? `<p class="muted small">${ESTADO[est].label} el ${fechaCorta(v.fechas?.[est])}</p>` : ""}
     </section>
 
-    ${soloVer && !(anulado ? v.razonAnulacion : v.postReparacion) ? "" : anulado ? `<section class="d-sec d-post">
-      <h3>Razón de la anulación</h3>
+    ${soloVer && !(anulado ? v.razonAnulacion : v.postReparacion) ? "" : anulado ? `<details class="d-sec d-post" ${postAbierto === v.id ? "open" : ""}><summary><h3>Razón de la anulación</h3>${v.razonAnulacion ? `<i class="d-desm-punto" aria-label="Tiene algo anotado"></i>` : ""}</summary>
       <textarea class="post-rep" data-campo="razonAnulacion" rows="1" ${soloVer ? "readonly" : ""} placeholder="Ej: el cliente desistió, etc">${esc(v.razonAnulacion || "")}</textarea>
-    </section>` : [...PASO_REP, "facturado"].includes(est) || ["enreparacion", "reparado", "llamado", "entregado", "facturado"].some(k => v.fechas?.[k]) ? `<section class="d-sec d-post">
-      <h3>Notas post-reparación</h3>
+    </details>` : [...PASO_REP, "facturado"].includes(est) || ["enreparacion", "reparado", "llamado", "entregado", "facturado"].some(k => v.fechas?.[k]) ? `<details class="d-sec d-post" ${postAbierto === v.id ? "open" : ""}><summary><h3>Notas post-reparación</h3>${v.postReparacion ? `<i class="d-desm-punto" aria-label="Tiene algo anotado"></i>` : ""}</summary>
       <textarea class="post-rep" data-campo="postReparacion" rows="1" ${soloVer ? "readonly" : ""} placeholder="Regresó por tal motivo, etc">${esc(v.postReparacion || "")}</textarea>
-    </section>` : ""}
+    </details>` : ""}
 
     <section class="d-sec d-grid">
       ${[["Asegurado", v.asegurado], ["Teléfono", v.telefono], ["Compañía de seguro", v.compania], ["Localidad", v.localidad]]
@@ -689,11 +687,12 @@ export function renderDetalle(root, v, embebido) {
   </article>`;
 
   $(".d-adic", root)?.addEventListener("toggle", e => { adicCerrado = e.target.open ? null : v.id; });
+  $(".d-post", root)?.addEventListener("toggle", e => { postAbierto = e.target.open ? v.id : null; if (e.target.open) $(".post-rep", root)?.dispatchEvent(new Event("crecer")); });
   // Adicionales post-reparación: una línea que crece sola; se guarda al dejar de escribir
   const post = $(".post-rep", root);
   if (post) {
     const crecer = () => { post.style.height = "auto"; post.style.height = post.scrollHeight + 2 + "px"; };
-    requestAnimationFrame(crecer);
+    requestAnimationFrame(crecer); post.addEventListener("crecer", crecer);   // cerrada no tiene alto: se mide al abrirla
     let reloj = null;
     const guardar = () => {
       clearTimeout(reloj);
