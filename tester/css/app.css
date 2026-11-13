@@ -2545,7 +2545,9 @@ button.aj-item:hover, a.aj-item:hover { background: var(--surface-2); }
 
 /* Chat en vivo: buscador y filtro de turnos */
 .chat-q { margin-bottom: 10px; }
-.chat-turnos { margin-bottom: 12px; }
+.chat-q[hidden], .chat-head-acc[hidden] { display: none; }
+.chat-head-acc { margin-left: auto; display: flex; gap: 4px; }
+.chat-head-acc .icon-btn.on { color: var(--primary); background: var(--primary-soft); }
 
 .fo-grado-dd { display: inline-flex; align-items: center; justify-content: space-between; gap: 6px; min-width: 104px; min-height: 44px; padding: 0 12px;
   border: 1px solid var(--line); border-radius: var(--r); background: var(--surface-2); color: var(--ink-2); font: inherit; font-weight: 650; }
