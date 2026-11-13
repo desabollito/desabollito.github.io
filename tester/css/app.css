@@ -2452,7 +2452,7 @@ button.aj-item:hover, a.aj-item:hover { background: var(--surface-2); }
 .mt-filtros .sel-btn, .mt-paso .field input { min-height: 40px; padding: 6px 10px; font-size: 15px; }
 #mt-todos { align-self: flex-start; }
 .mt-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; max-height: 300px; overflow-y: auto; }
-.mt-veh { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border: 1px solid var(--line); border-radius: var(--r); background: var(--surface); cursor: pointer; transition: border-color .15s, background .15s; }
+.mt-veh { position: relative; display: flex; align-items: center; gap: 10px; padding: 9px 10px; border: 1px solid var(--line); border-radius: var(--r); background: var(--surface); cursor: pointer; transition: border-color .15s, background .15s; }
 .mt-veh input, .mt-pill input { position: absolute; opacity: 0; pointer-events: none; }
 .mt-chk { display: grid; place-items: center; width: 22px; height: 22px; flex: none; border-radius: 6px; border: 2px solid var(--line-2); color: transparent; transition: background .15s, border-color .15s; }
 .mt-chk .ic { width: 14px; height: 14px; stroke-width: 3; }

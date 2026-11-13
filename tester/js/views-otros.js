@@ -655,7 +655,7 @@ export function vistaAjustes(view) {
     <section class="aj-grupo"><h3>Cuenta</h3><div class="aj-lista">
       ${fila("editar-perfil", "edit", "Perfil", esc(p.name))}
       ${WHATSAPP_BOT ? `<a class="aj-item" href="https://wa.me/${WHATSAPP_BOT}?text=ayuda" target="_blank" rel="noopener">${icon("chat")}<span class="aj-txt">Chat con el bot</span><span class="aj-val"></span>${icon("next")}</a>` : ""}
-      ${usaClientes() && S.company ? fila("mt-abrir", "calendar", "Mensajes y turnos") + fila("chats-abrir", "chat", "Chats en vivo") : ""}
+      ${usaClientes() && S.company ? (S.config?.mensajesTurnos !== false ? fila("mt-abrir", "calendar", "Mensajes y turnos") : "") + fila("chats-abrir", "chat", "Chats en vivo") : ""}
     </div></section>
 
     <section class="aj-grupo"><h3>Apariencia</h3><div class="aj-lista">
@@ -897,6 +897,8 @@ export async function panelCreador() {
           <span>Estado de repuestos y pintura en los PDF</span></label>
         <label class="toggle"><input type="checkbox" data-config="planillaVeh" ${datos.config?.planillaVeh !== false ? "checked" : ""}>
           <span>Planilla de vehículos</span></label>
+        <label class="toggle"><input type="checkbox" data-config="mensajesTurnos" ${datos.config?.mensajesTurnos !== false ? "checked" : ""}>
+          <span>Botón «Mensajes y turnos»</span></label>
       </div>
       <div class="adm-toggles adm-sonido">
         <span><b>Sonido al actualizar la app</b> <small class="muted">(lo escuchan todos)</small></span>
@@ -925,7 +927,7 @@ export async function panelCreador() {
         <span><b>Número de la empresa</b> <small class="muted">(conexión «clientes»: avisos, mensajes y turnos)</small><br><small class="muted" id="adm-cli-est">Tocá Conectar para ver el estado.</small></span>
         <span class="row-btns"><button type="button" class="btn btn-ghost btn-sm" id="adm-cli">${icon("phone")}Conectar</button>
           <button type="button" class="btn btn-ghost btn-sm" id="adm-cli-cod">Con código</button>
-          <button type="button" class="btn btn-primary btn-sm" id="adm-masivo">${icon("chat")}Mensajes y turnos</button></span>
+          ${datos.config?.mensajesTurnos !== false ? `<button type="button" class="btn btn-primary btn-sm" id="adm-masivo">${icon("chat")}Mensajes y turnos</button>` : ""}</span>
         <div id="adm-cli-qr"></div>
       </div>
       <details class="adm-toggles">
@@ -1014,7 +1016,8 @@ export async function panelCreador() {
     try {
       const r = await llamarAdmin("config", { [clave]: on });
       datos.config = r.config; S.config = { ...S.config, ...r.config };
-      toast(`${{ documentos: "Documentos", fechaVista: "Elegir fecha", etapasPdf: "Estado en los PDF", planillaVeh: "Planilla de vehículos" }[clave] || "Aviso al cliente"} ${on ? "activado" : "desactivado"}`, "success");
+      if (clave === "mensajesTurnos") pintar();   // muestra u oculta el botón de acá arriba
+      toast(`${{ documentos: "Documentos", fechaVista: "Elegir fecha", etapasPdf: "Estado en los PDF", planillaVeh: "Planilla de vehículos", mensajesTurnos: "Mensajes y turnos" }[clave] || "Aviso al cliente"} ${on ? "activado" : "desactivado"}`, "success");
     } catch (err) { e.target.checked = !on; toast(err.message, "error"); }
     e.target.disabled = false;
   });
