@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.9.2", items: ["Firma: al girar el celular, el trazo sigue cayendo bajo el dedo."] },
   { v: "4.9.1", items: ["Número de la empresa: se puede vincular con código (botón «Con código»), además del QR."] },
   { v: "4.9.0", items: ["Notificaciones: pestañas Notificaciones | Chat en vivo, cada una con su cantidad de nuevas.", "Desmontaje y check en una sola pantalla con pestañas: Desmontaje (primero), Check IN y Check OUT. Ya no hace falta mantener apretado."] },
   { v: "4.8.3", items: ["Compañías del formulario: las más usadas primero.", "Avisos por chat en vivo (Turnar y Contactado): animación de carga mientras sale el mensaje y el chat se abre recién cuando ya se envió. Textos más cortos."] },

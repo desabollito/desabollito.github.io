@@ -1614,7 +1614,8 @@ function firmar(v) {
   c.width = r.width * dpr; c.height = r.height * dpr;
   ctx.scale(dpr, dpr); ctx.lineWidth = 2.4; ctx.lineCap = ctx.lineJoin = "round"; ctx.strokeStyle = "#0e1b2c";
   let dib = false, ult = null, trazos = 0;
-  const pos = e => { const b = c.getBoundingClientRect(); return { x: e.clientX - b.left, y: e.clientY - b.top }; };
+  // Al girar el celular el canvas cambia de tamaño en pantalla pero no por dentro: se escala el toque para que caiga bajo el dedo
+  const pos = e => { const b = c.getBoundingClientRect(); return { x: (e.clientX - b.left) * c.width / dpr / b.width, y: (e.clientY - b.top) * c.height / dpr / b.height }; };
   c.addEventListener("pointerdown", e => { dib = true; ult = pos(e); c.setPointerCapture(e.pointerId); trazos++; });
   c.addEventListener("pointermove", e => {
     if (!dib) return;
