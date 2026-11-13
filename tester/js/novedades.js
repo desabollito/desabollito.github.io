@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.10.0", items: ["Íconos nuevos: blancos, con el dibujo en negro y bordes redondeados.", "El botón ahora se llama «Chequeo y Desmontaje» y está siempre en el mismo lugar: la pantalla del vehículo ya no se corre para abajo.", "Desmontado por: si no se eligió, muestra al primero que cargó algo del desmontaje."] },
   { v: "4.9.2", items: ["Firma: al girar el celular, el trazo sigue cayendo bajo el dedo."] },
   { v: "4.9.1", items: ["Número de la empresa: se puede vincular con código (botón «Con código»), además del QR."] },
   { v: "4.9.0", items: ["Notificaciones: pestañas Notificaciones | Chat en vivo, cada una con su cantidad de nuevas.", "Desmontaje y check en una sola pantalla con pestañas: Desmontaje (primero), Check IN y Check OUT. Ya no hace falta mantener apretado."] },

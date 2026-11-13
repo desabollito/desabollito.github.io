@@ -579,7 +579,7 @@ export function renderDetalle(root, v, embebido) {
         </div></div>` : ""}
       ${embebido && !soloVer ? `<a class="btn btn-ghost btn-icon" href="#/editar/${v.id}" aria-label="Editar" title="Editar">${icon("edit")}</a>` : ""}
     </div>
-${[...PASO_REP, "facturado"].includes(est) && !soyLector() && (soyAdmin() || soyDesmontaje()) ? `<div class="d-desm-fila"><button class="btn btn-ghost btn-block d-desm" data-act="desmontaje">${icon("table")}Desmontaje y Check in / out${CARGADO.desm(v) || CARGADO.check(v) ? `<i class="d-desm-punto" aria-label="Tiene algo cargado"></i>` : ""}</button></div>` : ""}
+${!soyLector() && (soyAdmin() || soyDesmontaje()) ? `<div class="d-desm-fila"><button class="btn btn-ghost btn-block d-desm" data-act="desmontaje">${icon("table")}Chequeo y Desmontaje${CARGADO.desm(v) || CARGADO.check(v) ? `<i class="d-desm-punto" aria-label="Tiene algo cargado"></i>` : ""}</button></div>` : ""}
 
     <section class="d-sec">
       <div class="seg-head"><h3>Seguimiento</h3>
@@ -913,7 +913,7 @@ const campoCheck = t => t === "in" ? "checkIn" : "checkOut";
 // Desmontaje y check a pantalla completa (como cargar un vehículo), con pestañas Desmontaje / IN / OUT arriba; entra en Desmontaje
 export function vistaCheckForm(view, id, t) {
   const v = getVehiculo(id);
-  setTopbar({ title: "Desmontaje y check", sub: v ? [v.modelo, v.patente].filter(Boolean).join(" · ") : "", back: `#/v/${id}` });
+  setTopbar({ title: "Chequeo y Desmontaje", sub: v ? [v.modelo, v.patente].filter(Boolean).join(" · ") : "", back: `#/v/${id}` });
   if (!v) { view.innerHTML = S.loadingVehicles ? `<div class="skeleton tall"></div>` : `<div class="empty"><h2>No encontramos este vehículo</h2></div>`; return; }
   const tabs = `<div class="seg chk-tabs">${[["desm", "Desmontaje"], ["in", "Check IN"], ["out", "Check OUT"]].map(([k, l]) => `<a class="seg-btn ${k === t ? "on" : ""}" href="#/check/${id}/${k}">${l}</a>`).join("")}</div>`;
   if (t === "desm") { view.innerHTML = `<div class="page narrow stack">${tabs}<div class="card desm"></div></div>`; return pintarDesmontaje($(".desm", view), v); }
@@ -1012,7 +1012,10 @@ export function abrirFotosSec(v0, campo = "fotosPintura") {
 // Desmontaje (primera pestaña de "Desmontaje y check"): técnico, fotos y notas
 function pintarDesmontaje(caja, v0) {
   const pintar = () => {
-    const v = getVehiculo(v0.id) || v0, lotes = lotesDesm(v);
+    const v = getVehiculo(v0.id) || v0, lotes = lotesDesm(v), c = S.company || {};
+    // Sin desmontador elegido: por defecto, el primer miembro del operativo que cargó algo del desmontaje
+    const primero = [...(v.desFotos || []), ...(v.desNotas || [])].filter(x => (c.members || []).includes(x.uid)).sort((a, b) => (a.t || 0) - (b.t || 0))[0];
+    const quien = v.desmontador?.nombre || (primero && (c.memberNames?.[primero.uid] || primero.por));
     caja.innerHTML = `
       <button type="button" class="btn btn-primary btn-block" id="desm-add">${icon("plus")}Cargar fotos y texto</button>
       ${lotes.length ? lotes.map(l => `<div class="desm-lote">
@@ -1021,7 +1024,7 @@ function pintarDesmontaje(caja, v0) {
         ${l.fotos.length ? `<div class="desm-fotos">${l.fotos.map(f => `<button type="button" data-dfoto="${esc(f.url)}"><img src="${esc(thumb(f.url, 200))}" alt="" loading="lazy">${esVideo(f) ? `<span class="play-ic">▶</span>` : ""}</button>`).join("")}</div>` : ""}
       </div>`).join("") : `<p class="muted center">Todavía no hay desmontaje cargado.</p>`}
       <div class="desm-quien"><span>Desmontado por</span>
-        <button type="button" class="btn btn-ghost btn-sm" id="desm-tec">${icon("team")}${esc(v.desmontador?.nombre || "Elegir técnico")}</button></div>`;
+        <button type="button" class="btn btn-ghost btn-sm" id="desm-tec">${icon("team")}${esc(quien || "Elegir técnico")}</button></div>`;
   };
   pintar();
   caja.onclick = e => {   // onclick (no addEventListener): la pestaña se repinta cada vez que se entra
