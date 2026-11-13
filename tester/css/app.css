@@ -2289,7 +2289,8 @@ button.aj-item:hover, a.aj-item:hover { background: var(--surface-2); }
 
 /* Deslizar la tarjeta a la izquierda y mantener: próximo estado (solo táctil) */
 @media (pointer: coarse) {
-  .vlist { overflow-x: clip; }
+  /* el recorte deja lugar al contorno y al brillo de la tarjeta elegida (si no, se cortaban a los costados) */
+  .vlist { overflow-x: clip; overflow-clip-margin: 28px; padding-inline: 3px; margin-inline: -3px; }
   .vlist .vcard { touch-action: pan-y; transition: transform .25s var(--ease, ease), box-shadow .3s, border-color .3s; }
   .vlist .vcard.desliza { transition: none; }
 }
