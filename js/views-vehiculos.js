@@ -1230,34 +1230,41 @@ function fechasReparacion(v) {
 const telWaOk = v => /\d{8}/.test(String(v.telefono || "").replace(/\D/g, ""));
 // Mantener apretado un estado: el último "Pasó a …" de esos estados que se puede deshacer (botón dentro de la ventana de fechas)
 const pasoDeshacible = (v, estados) => deshaciblesDe(getVehiculo(v.id) || v).find(e => estados.some(k => new RegExp(`^Pasó a ${ESTADO[k].label}( \\(|$)`).test(e.txt || "")));
-const botonDeshacer = e => e ? `<button type="button" class="btn btn-ghost btn-block" data-deshacer-estado>${icon("rotate")}Deshacer: ${esc(sinPaso(e.txt))}</button>` : "";
+// Deshacer es una tira para deslizar hasta el final (un toque sin querer no deshace nada)
+const botonDeshacer = e => e ? `<label class="tira-deshacer"><input type="range" min="0" max="100" value="0" data-deshacer-estado aria-label="Deslizá hasta el final para deshacer: ${esc(sinPaso(e.txt))}">
+  <span>${icon("rotate")}Deslizá para deshacer: ${esc(sinPaso(e.txt))}</span></label>` : "";
 function conectarDeshacer(s, v, e) {
-  $("[data-deshacer-estado]", s.el)?.addEventListener("click", async () => {
-    if (!(await confirmar({ title: "¿Deshacer este estado?", message: `Se deshace: “${sinPaso(e.txt)}”. El vehículo vuelve a como estaba antes.`, ok: "Deshacer", centro: true }))) return;
+  const r = $("[data-deshacer-estado]", s.el); if (!r) return;
+  let antes = 0;
+  const poner = x => { r.value = x; antes = x; r.style.setProperty("--p", x + "%"); };
+  // Tocar la tira hace saltar el control: un salto grande se ignora, solo cuenta arrastrar
+  r.addEventListener("input", () => { if (r.value - antes > 25) r.value = antes; poner(+r.value); });
+  r.addEventListener("change", () => {
+    if (+r.value < 92) return poner(0);
     s.close();
     deshacerCambio(v, e).then(() => toast("Estado deshecho", "success")).catch(err => toast(mensajeError(err), "error"));
   });
 }
 function elegirFechaEstado(v, estado) {
   const e = ESTADO[estado];
+  // Sin título ni X: se cierra tocando afuera
   const s = openSheet({
-    title: `Marcar como ${e.label.toLowerCase()}`,
     body: `<form class="stack">
       <label class="field"><span>${estado === "turnado" ? "Fecha del turno" : "Fecha"}</span>
         <input type="date" name="f" value="${v.fechas?.[estado] || hoyISO()}" required></label>
-      ${estado === "turnado" ? `<div class="turno-conf"><span>¿El cliente confirmó el turno?</span>
+      ${estado === "turnado" ? `<div class="turno-conf"><span>¿Confirmó el turno?</span>
         <button type="button" class="switch ${v.turnoConfirmado === true ? "on" : ""}" id="t-conf" role="switch" aria-checked="${v.turnoConfirmado === true}">
           <span class="sw-txt sw-si">Sí</span><span class="sw-txt sw-no">No</span><i class="sw-bola"></i></button></div>` : ""}
-      ${estado === "turnado" && usaClientes() && telWaOk(v) ? `<div class="turno-conf"><span>¿Avisarle al cliente desde el chat en vivo?</span>
-        <button type="button" class="switch" id="t-avisar" role="switch" aria-checked="false">
-          <span class="sw-txt sw-si">Sí</span><span class="sw-txt sw-no">No</span><i class="sw-bola"></i></button></div>` : ""}
+      ${estado === "turnado" && usaClientes() && telWaOk(v) ? `<button type="button" class="btn btn-ghost btn-block" id="t-avisar">${icon("chat")}Avisar desde chat en vivo</button>` : ""}
       ${estadoActual(v) === estado ? botonDeshacer(pasoDeshacible(v, [estado])) : ""}
       <button class="btn btn-primary btn-block" style="--btn:${e.color}">Guardar</button></form>`
   });
+  $(".sheet", s.el).setAttribute("aria-label", `Marcar como ${e.label.toLowerCase()}`);
   if (estadoActual(v) === estado) conectarDeshacer(s, v, pasoDeshacible(v, [estado]));
   let confirmado = v.turnoConfirmado === true;
   let avisar = false;
-  $("#t-avisar", s.el)?.addEventListener("click", e => { avisar = !avisar; e.currentTarget.classList.toggle("on", avisar); e.currentTarget.setAttribute("aria-checked", avisar); });
+  // Avisar desde chat en vivo: guarda el turno, manda el mensaje y abre el chat
+  $("#t-avisar", s.el)?.addEventListener("click", () => { avisar = true; $("form", s.el).requestSubmit(); });
   $("#t-conf", s.el)?.addEventListener("click", e => {
     confirmado = !confirmado;
     e.currentTarget.classList.toggle("on", confirmado); e.currentTarget.setAttribute("aria-checked", confirmado);

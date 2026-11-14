@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.17.7", items: ["Turno: «¿Confirmó el turno?» y botón «Avisar desde chat en vivo» (guarda, avisa y abre el chat).", "La ventana del estado ya no tiene título ni X: se cierra tocando afuera.", "Deshacer un estado ahora es una tira para deslizar, así no se toca sin querer."] },
   { v: "4.17.6", items: ["Buscadores: siempre que haya algo escrito aparece la X para borrarlo."] },
   { v: "4.17.5", items: ["Notificaciones: ya no salen «Deshizo», «Eliminó la firma» ni las fotos borradas (quedan en el historial del vehículo).", "«Cliente contactado» ahora dice quién lo contactó.", "Si se borra o se cambia la firma del cliente, la anterior queda guardada en el historial del vehículo (Firmas anteriores)."] },
   { v: "4.17.4", items: ["Panel del creador: «Traer fotos» también busca la de WhatsApp de los usuarios a los que se les eliminó la foto."] },
