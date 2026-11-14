@@ -2801,9 +2801,12 @@ async function respuestaCliente(env, d) {
   await guardarChat(env, idx.cid, idx.vid, v, tel, { t: Number(m.timestamp) * 1000 || Date.now(), txt: String(txt).slice(0, 2000), yo: false, id: m.id, key: m._key, ...adj });
   // Confirmó el turno desde la encuesta: queda marcado igual que con el botón de la app
   // La primera opción de la encuesta del turno confirma (la del operativo o "Confirmo el turno")
-  const confirma = voto && ((await fsGet(env, `companies/${idx.cid}`).catch(() => null))?.mensajes?.encuestas?.turno?.opciones?.[0] || "Confirmo el turno");
-  if (confirma && voto.includes(String(confirma).trim()) && v && !v.turnoConfirmado)
-    await fsMerge(env, `companies/${idx.cid}/vehicles/${idx.vid}`, { turnoConfirmado: true }).catch(e => console.error("turno por encuesta", e));
+  // La segunda pide otra fecha: la app muestra «Elegir nueva fecha» en el chat
+  const ops = voto ? (await fsGet(env, `companies/${idx.cid}`).catch(() => null))?.mensajes?.encuestas?.turno?.opciones : null;
+  const confirma = String(ops?.[0] || "Confirmo el turno").trim(), cambia = String(ops?.[1] || "Quiero cambiar la fecha").trim();
+  const nuevo = !voto || !v ? null : voto.includes(confirma) ? true : voto.includes(cambia) ? "cambio" : null;
+  if (nuevo !== null && v.turnoConfirmado !== nuevo)
+    await fsMerge(env, `companies/${idx.cid}/vehicles/${idx.vid}`, { turnoConfirmado: nuevo }).catch(e => console.error("turno por encuesta", e));
 }
 // El número de la empresa le pasa al bot los mensajes que recibe (una vez por instancia del Worker)
 let webhookClientesOk = false;

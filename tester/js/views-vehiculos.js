@@ -647,7 +647,7 @@ export function renderDetalle(root, v, embebido) {
             <span class="step-l">${e.label}</span>
             <span class="step-d">${fechaK ? fechaCorta(fechaK) : "—"}${(k === "peritado" || k === "turnado") && v.fechas?.[k] && horaDe(v, k) ? `<br>${horaDe(v, k)}` : ""}</span>
             ${hecho && k === "rep" && CARAS[v.conformidad] ? `<span class="step-cara" style="--c:${CARAS[v.conformidad][1]}" title="${CARAS[v.conformidad][0]}">${cara(v.conformidad)}</span>` : ""}
-            ${k === "turnado" && est === "turnado" ? `<span class="step-conf ${v.turnoConfirmado ? "ok" : ""}">${v.turnoConfirmado ? "Confirmado" : "Esperando confirmación"}</span>` : ""}</button></li>`;
+            ${k === "turnado" && est === "turnado" ? `<span class="step-conf ${v.turnoConfirmado === true ? "ok" : ""}">${v.turnoConfirmado === true ? "Confirmado" : v.turnoConfirmado === "cambio" ? "Pide otra fecha" : "Esperando confirmación"}</span>` : ""}</button></li>`;
         }).join("")}
       </ol>
       ${anulado ? `<p class="muted small">${ESTADO[est].label} el ${fechaCorta(v.fechas?.[est])}</p>` : ""}
@@ -1247,7 +1247,8 @@ function conectarDeshacer(s, v, e) {
     deshacerCambio(v, e).then(() => toast("Estado deshecho", "success")).catch(err => toast(mensajeError(err), "error"));
   });
 }
-function elegirFechaEstado(v, estado) {
+// enChat: abierto desde el chat en vivo, al avisar no lo vuelve a abrir
+export function elegirFechaEstado(v, estado, enChat) {
   const e = ESTADO[estado];
   // Sin título ni X: se cierra tocando afuera
   const s = openSheet({
@@ -1281,7 +1282,7 @@ function elegirFechaEstado(v, estado) {
     // Espera a que salga el mensaje (tarda ~1 s) y recién ahí abre el chat, así ya se ve
     busy(ev.submitter || $("form .btn-primary", s.el), true, "Avisando…");
     const vv = getVehiculo(v.id) || v;
-    try { await avisarTurnoChat(vv, fecha); s.close(); abrirChatDe(vv); }
+    try { await avisarTurnoChat(vv, fecha); s.close(); if (!enChat) abrirChatDe(vv); }
     catch (err) { s.close(); toast(err.message || mensajeError(err), "error"); }
 
   };

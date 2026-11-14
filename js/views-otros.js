@@ -18,7 +18,7 @@ import { planillaPDF } from "./pdf.js";
 import { exportarExcel } from "./excel.js";
 import { setTopbar, go, logoOperativo, pintarLateral } from "./shell.js";
 import { APP_VERSION, WHATSAPP_BOT, BOT_API } from "./config.js";
-import { renderDetalle, textoWa, abrirFiltros, botonFiltros, filtrarCalendario, linkMapa } from "./views-vehiculos.js";
+import { renderDetalle, textoWa, abrirFiltros, botonFiltros, filtrarCalendario, linkMapa, elegirFechaEstado } from "./views-vehiculos.js";
 
 // ═════════════════════════════════════════════════════════════
 //  PLANILLA
@@ -221,7 +221,7 @@ export function vistaCalendario(view, selId = null) {
   }
   if (C.auto && !S.loadingVehicles) { C.auto = false; elegirDiaAuto(); }
   const iso = d => `${C.y}-${String(C.m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-  const sinConf = v => estadoActual(v) === "turnado" && !v.turnoConfirmado;
+  const sinConf = v => estadoActual(v) === "turnado" && v.turnoConfirmado !== true;
   const porDia = {};
   delCal().forEach(v => {
     const f = v.fechas?.[C.campo]; if (!f) return;
@@ -277,7 +277,7 @@ export function vistaCalendario(view, selId = null) {
         <a class="vcard" href="#/v/${v.id}" style="--c:${ESTADO[estadoActual(v)].color}">
           <span class="vbody"><span class="vtop"><strong class="vmodel">${esc(v.modelo || "Sin modelo")}</strong>
             ${v.precio ? `<span class="vprice">${money(v.precio)}</span>` : ""}</span>
-          <span class="vmid">${plate(v.patente, "sm")}${estadoPill(v)}${estadoActual(v) === "turnado" ? `<span class="conf-tag ${v.turnoConfirmado ? "ok" : ""}">${v.turnoConfirmado ? "Confirmado" : "Esperando confirmación"}</span>` : ""}</span>
+          <span class="vmid">${plate(v.patente, "sm")}${estadoPill(v)}${estadoActual(v) === "turnado" ? `<span class="conf-tag ${v.turnoConfirmado === true ? "ok" : ""}">${v.turnoConfirmado === true ? "Confirmado" : v.turnoConfirmado === "cambio" ? "Pide otra fecha" : "Esperando confirmación"}</span>` : ""}</span>
           <span class="vsub"><span class="vcli">${esc(v.compania || "")}</span>${horaDe(v, C.campo) ? `<time>${horaDe(v, C.campo)}</time>` : ""}</span></span></a>`).join("")}</div>`
         : `<p class="muted">Nada agendado este día.</p>`) : ""}
     </section>
@@ -1445,6 +1445,7 @@ function abrirChat(cid, tel, alCerrar, v = null) {
   const pintarTurno = () => {
     const vv = getVehiculo(c?.vid || v?.id), bt = $("#chat-turno", s.el);
     bt.innerHTML = vv && estadoActual(vv) === "turnado" ? (vv.turnoConfirmado === true ? `<span class="conf-tag ok">✓ Turno confirmado</span>`
+      : vv.turnoConfirmado === "cambio" ? `<span class="conf-tag">Pidió cambiar la fecha</span><button type="button" class="btn btn-ghost btn-sm" id="chat-fecha">${icon("calendar")}Elegir nueva fecha</button>`
       : `<span class="conf-tag">Turno sin confirmar</span><button type="button" class="btn btn-ghost btn-sm" id="chat-conf">${icon("check")}El cliente confirmó el turno</button>`) : "";
   };
   const offV = onChange(e => { if (e === "vehicles" && c && !verPap) pintarTurno(); });
@@ -1479,8 +1480,9 @@ function abrirChat(cid, tel, alCerrar, v = null) {
   s.el.addEventListener("click", e => {
     if (e.target.closest("#chat-pap")) { verPap = !verPap; caja.dataset.listo = ""; return pintar(); }
     const r = e.target.closest("[data-restaurar]"); if (r) return moverMsg(r.dataset.restaurar, true);
-    if (!e.target.closest("#chat-conf")) return;
     const vid = c?.vid || v?.id;
+    if (e.target.closest("#chat-fecha")) { const vv = getVehiculo(vid); return vv && elegirFechaEstado(vv, "turnado", true); }
+    if (!e.target.closest("#chat-conf")) return;
     actualizarVehiculo(vid, { turnoConfirmado: true }, "El cliente confirmó el turno").then(() => toast("Turno confirmado", "success")).catch(err => toast(mensajeError(err), "error"));
   });
   // Borrar un mensaje: mantenerlo apretado (o clic derecho en la computadora)
