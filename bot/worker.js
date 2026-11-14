@@ -43,12 +43,14 @@ export default {
     if (url.pathname === "/") return new Response("Desabollito bot funcionando ✅");
     if (url.pathname === "/diagnostico") return diagnostico(url, env);
     if (url.pathname === "/evolution") return webhookEvolution(req, url, env, ctx);
+    const mp = url.pathname.match(/^\/mapa\/(\d{1,3})(\/img)?$/);
+    if (mp) return mapaRedir(env, Number(mp[1]), !!mp[2]);
     const API = { "/registro": nuevoRegistro, "/avisar": avisarCliente, "/solicitud": avisarSolicitud, "/agregado": avisarAgregado, "/pedido-union": avisarPedidoUnion,
       "/admin/datos": adminDatos, "/admin/borrar-usuario": adminBorrarUsuario, "/admin/config": adminConfig, "/admin/padron": adminPadron, "/admin/fotos-wa": adminFotosWa, "/admin/foto-usuario": adminFotoUsuario, "/admin/clientes-qr": adminClientesQr, "/admin/enviar-cliente": adminEnviarCliente, "/admin/reiniciar-chats": adminReiniciarChats,"/mover-vehiculo": moverVehiculo,
       "/borrar-media": borrarMediaApi, "/eliminar-vehiculo": eliminarVehiculoApi,
       "/compartir": compartirApi, "/compartido": compartidoApi, "/aviso-planilla": avisoPlanilla, "/responder-cliente": responderCliente, "/borrar-msg-chat": borrarMsgChat,
       "/aviso-version": avisoVersion, "/pedir-borrar-operativo": pedirBorrarOperativo,
-      "/recuperar": recuperarApi, "/restablecer": restablecerApi, "/usuarios-app": usuariosAppApi, "/codigo-wa": codigoWaApi, "/foto-wa": fotoWaApi,
+      "/recuperar": recuperarApi, "/restablecer": restablecerApi, "/usuarios-app": usuariosAppApi, "/codigo-wa": codigoWaApi, "/foto-wa": fotoWaApi, "/mapa-numero": mapaNumeroApi,
       "/admin/resumen-ahora": async (env, { idToken, forzar }) => (await soloCreador(env, idToken)) ? json({ ok: true, enviados: await enviarDiarios(env, "resumen", forzar) }) : json({ ok: false }, 403) };
     if (API[url.pathname]) {
       if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
@@ -2633,6 +2635,30 @@ async function adminClientesQr(env, { idToken, salir, numero }) {
   return json({ ok: true, estado: estado || "creada", qr: j?.qrcode?.base64 || j?.base64 || "", codigo: num ? (j?.qrcode?.pairingCode || j?.pairingCode || "") : "" });
 }
 
+// ── Link corto del taller: chapisteriaomar.com/mapN (página fija con vista previa) → acá → Google Maps de ese operativo ──
+// /mapa/N lleva al link de Maps; /mapa/N/img es la imagen de la vista previa (la elegida en el operativo, o la de la web)
+const IMG_MAPA = "https://chapisteriaomar.com/assets/og-home6.jpg";
+async function mapaRedir(env, n, img) {
+  const [c] = await fsQuery(env, "", "companies", { field: "mensajes.mapaN", op: "EQUAL", value: n }, 1).catch(() => []);
+  const m = c?.mensajes || {};
+  const ir = u => new Response(null, { status: 302, headers: { Location: u, "Cache-Control": "public, max-age=300" } });
+  if (img) return ir(/^https:\/\/res\.cloudinary\.com\/[^/]+\/image\/upload\//.test(m.mapaImg || "") ? m.mapaImg.replace("/upload/", "/upload/c_fill,g_auto,w_1200,h_630,q_auto:good,f_jpg/") : IMG_MAPA);
+  return /^https:\/\//.test(m.mapa || "") ? ir(m.mapa) : ir("https://chapisteriaomar.com/");
+}
+// Número del link corto del operativo (el primero libre); lo pide la app al guardar el link de Maps
+async function mapaNumeroApi(env, { idToken, cid }) {
+  const m = idValido(cid) ? await miembroDe(env, idToken, cid) : null;
+  if (!idValido(cid) || !((m && esAdminOp(m)) || await soloCreador(env, idToken))) return json({ ok: false, error: "No autorizado" }, 403);
+  const c = await fsGet(env, `companies/${cid}`);
+  if (!c) return json({ ok: false, error: "No encontré el operativo" }, 404);
+  if (c.mensajes?.mapaN) return json({ ok: true, n: c.mensajes.mapaN });
+  const usados = (await fsList(env, "companies")).map(o => Number(o.mensajes?.mapaN) || 0);
+  const n = Math.max(0, ...usados) + 1;
+  if (n > MAPAS_PAGINAS) return json({ ok: false, error: "No quedan links cortos libres" });
+  await fsMerge(env, `companies/${cid}`, { mensajes: { ...(c.mensajes || {}), mapaN: n } });
+  return json({ ok: true, n });
+}
+const MAPAS_PAGINAS = 30;   // shortcut: chapisteriaomar.com tiene las páginas map1…map30; con más operativos, crear más en ese repo
 // Encuestas al cliente: confirmar turno o cambiar fecha, y retiro hoy o mañana (fecha: la del turno recién dado, si la base todavía no la tiene)
 function encuestaDe(v, tipo, fecha = v?.fechas?.turnado) {
   const [, mm, dd] = String(fecha || "").split("-"), dm = dd ? `${dd}/${mm}` : "";

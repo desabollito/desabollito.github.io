@@ -510,8 +510,10 @@ const VARS_WA = {
   turno: v => fechaLarga(v.fechas?.turnado).replace(/ de [0-9]{4}$/, ""), horaturno: v => v.horaTurno, hora: v => v.horaTurno,
   usuario: () => String(S.profile?.name || "").trim().split(/\s+/)[0], yo: () => String(S.profile?.name || "").trim().split(/\s+/)[0],
   saludo: () => { const h = new Date().getHours(); return h >= 5 && h < 12 ? "Buenos días" : h >= 12 && h < 20 ? "Buenas tardes" : "Buenas noches"; },
-  direccion: () => S.company?.mensajes?.direccion, mapa: () => S.company?.mensajes?.mapa, ubicacion: () => S.company?.mensajes?.mapa
+  direccion: () => S.company?.mensajes?.direccion, mapa: () => linkMapa(), ubicacion: () => linkMapa()
 };
+// Link del taller: el corto con vista previa linda (chapisteriaomar.com/mapN) si el operativo ya lo tiene; si no, el de Maps tal cual
+export const linkMapa = () => { const m = S.company?.mensajes || {}; return !m.mapa ? "" : m.mapaN ? `https://chapisteriaomar.com/map${m.mapaN}` : m.mapa; };
 const claveVar = t => t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z]/g, "");
 export function textoWa(plantilla, v) {
   let t = String(plantilla || "").trim();

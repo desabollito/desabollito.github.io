@@ -18,7 +18,7 @@ import { planillaPDF } from "./pdf.js";
 import { exportarExcel } from "./excel.js";
 import { setTopbar, go, logoOperativo, pintarLateral } from "./shell.js";
 import { APP_VERSION, WHATSAPP_BOT, BOT_API } from "./config.js";
-import { renderDetalle, textoWa, abrirFiltros, botonFiltros, filtrarCalendario } from "./views-vehiculos.js";
+import { renderDetalle, textoWa, abrirFiltros, botonFiltros, filtrarCalendario, linkMapa } from "./views-vehiculos.js";
 
 // ═════════════════════════════════════════════════════════════
 //  PLANILLA
@@ -372,6 +372,9 @@ export function vistaEmpresa(view) {
           <input name="direccion" maxlength="200" placeholder="Av. P. Zanni 2530, E3100 Paraná, Entre Ríos" value="${esc(c.mensajes?.direccion || "")}"></label>
         <label class="field"><span>Link de Google Maps</span>
           <input name="mapa" type="url" maxlength="300" placeholder="https://maps.app.goo.gl/…" value="${esc(c.mensajes?.mapa || "")}"></label>
+        <div class="field"><span>Imagen de la vista previa del link <small class="muted">(la que se ve en WhatsApp${c.mensajes?.mapaN ? ` · chapisteriaomar.com/map${c.mensajes.mapaN}` : ""})</small></span>
+          <div class="msj-img"><img id="msj-img-prev" src="${esc(c.mensajes?.mapaImg ? c.mensajes.mapaImg.replace("/upload/", "/upload/c_fill,g_auto,w_600,h_315,q_auto,f_auto/") : "https://chapisteriaomar.com/assets/og-home6.jpg")}" alt="Vista previa del link del taller">
+            <label class="btn btn-ghost btn-sm">${icon("image")}Elegir imagen<input type="file" id="msj-img-in" accept="image/*" hidden></label></div></div>
         <label class="field"><span>Mensaje de turno <small class="muted">(se puede cambiar antes de cada envío en Mensajes y turnos)</small></span>
           <textarea name="turno" rows="12" maxlength="2000">${esc(c.mensajes?.turno || TXT_TURNO)}</textarea></label>
         <label class="toggle"><input type="checkbox" name="encTurno" ${c.mensajes?.encTurno ? "checked" : ""}>
@@ -475,9 +478,24 @@ export function vistaEmpresa(view) {
     e.preventDefault(); const f = e.target, mapa = f.mapa.value.trim();
     if (mapa && !/^https:\/\//.test(mapa)) return toast("El link del mapa tiene que empezar con https://", "error");
     const turno = f.turno.value.trim();
-    try { await guardarMensajesCliente({ direccion: f.direccion.value.trim(), mapa, turno: turno === TXT_TURNO ? "" : turno, contactado: f.contactado.value.trim(), encTurno: f.encTurno.checked, encRetiro: f.encRetiro.checked }); toast("Mensajes guardados", "success"); }
+    try {
+      await guardarMensajesCliente({ direccion: f.direccion.value.trim(), mapa, turno: turno === TXT_TURNO ? "" : turno, contactado: f.contactado.value.trim(), encTurno: f.encTurno.checked, encRetiro: f.encRetiro.checked,
+        mapaN: S.company?.mensajes?.mapaN || null, mapaImg });   // el número lo pone el bot: se lee del operativo al momento de guardar
+      // Con link de Maps: el bot le da al operativo su link corto (chapisteriaomar.com/mapN), con la vista previa linda
+      if (mapa && !S.company?.mensajes?.mapaN) { const j = await llamarBot("mapa-numero", { cid: c.id }); if (!j.ok) toast(j.error || "No se pudo crear el link corto", "error"); }
+      toast("Mensajes guardados", "success");
+    }
     catch (err) { toast(mensajeError(err), "error"); }
   };
+  // Imagen de la vista previa: se sube ya y se guarda con "Guardar mensajes"
+  let mapaImg = c.mensajes?.mapaImg || "";
+  $("#msj-img-in", view)?.addEventListener("change", async e => {
+    const file = e.target.files[0]; e.target.value = ""; if (!file) return;
+    toast("Subiendo imagen…");
+    try { mapaImg = (await subir(await comprimir(file, 1600, 0.85), "mapas")).url;
+      $("#msj-img-prev", view).src = mapaImg.replace("/upload/", "/upload/c_fill,g_auto,w_600,h_315,q_auto,f_auto/"); toast("Imagen lista: tocá «Guardar mensajes»", "success"); }
+    catch (err) { toast(err.message || "No se pudo subir la imagen", "error"); }
+  });
   $("#salir-emp", view)?.addEventListener("click", async () => {
     if (await confirmar({ title: `¿Salir de ${c.name}?`, message: "Vas a dejar de ver sus vehículos. Un administrador te puede volver a sumar.", ok: "Salir", danger: true }))
       salirDeEmpresa().then(() => go("#/")).catch(e => toast(mensajeError(e), "error"));
@@ -1488,7 +1506,7 @@ function abrirChat(cid, tel, alCerrar, v = null) {
   inDoc.addEventListener("change", () => mandarArchivos(inDoc, true));
   // Ubicación: la dirección fija del taller (Ajustes del operativo → Mensajes al cliente); el link sale con vista previa
   const mandarUbicacion = () => {
-    const { direccion = "", mapa = "" } = S.company?.mensajes || {};
+    const direccion = S.company?.mensajes?.direccion || "", mapa = linkMapa();
     if (!direccion && !mapa) return toast("Cargá la dirección del taller en Operativo → Mensajes al cliente", "error");
     mandar({ texto: [direccion && `📍 *Dirección:* ${direccion}`, mapa && `🗺️ *Ubicación:* ${mapa}`].filter(Boolean).join("\n") })
       .then(ok => ok && toast("Ubicación enviada", "success"));

@@ -2653,3 +2653,6 @@ button.aj-item:hover, a.aj-item:hover { background: var(--surface-2); }
 .tira-deshacer input:focus-visible { outline: 2px solid var(--danger); outline-offset: 2px; }
 .tira-deshacer span { position: absolute; inset: 0 14px 0 56px; display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 13.5px; font-weight: 600; color: var(--muted); pointer-events: none; text-align: center; overflow: hidden; }
 .tira-deshacer span .ic { width: 16px; height: 16px; flex: none; }
+/* Operativo → Mensajes al cliente: imagen de la vista previa del link del taller */
+.msj-img { display: grid; gap: 8px; justify-items: start; }
+.msj-img img { width: 100%; max-width: 420px; aspect-ratio: 1200 / 630; object-fit: cover; border-radius: var(--r); border: 1px solid var(--line); background: var(--surface-2); }

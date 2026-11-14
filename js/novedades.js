@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.18.1", items: ["Link del taller corto (chapisteriaomar.com/map1, map2…), con la imagen que elijas en Operativo → Mensajes al cliente como vista previa en WhatsApp."] },
   { v: "4.18.0", items: ["Operativo → Mensajes al cliente: el mensaje de contactado viene cargado con el actual.", "Encuestas automáticas: después del mensaje de turno («Confirmo el turno / Quiero cambiar la fecha») y del de contactado («Retiro hoy / Retiro mañana»), cada una con su interruptor."] },
   { v: "4.17.10", items: ["Mensaje de turno: la fecha sale sin el año (ej. «14 de noviembre»)."] },
   { v: "4.17.8", items: ["Buscadores: la X para borrar se ve mucho más."] },
