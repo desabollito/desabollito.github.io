@@ -591,7 +591,9 @@ export async function guardarVehiculo(id, data, esNuevo) {
 
 export async function actualizarVehiculo(id, campos, hist) {
   const v = getVehiculo(id);
-  const extra = hist ? { historial: arrayUnion(entrada(hist, antesDe(v, campos))) } : {};
+  // Si se borra o se cambia la firma del cliente, la anterior queda guardada en el historial (por las dudas)
+  const firmaAnterior = "firma" in campos && v?.firma && v.firma !== campos.firma ? { firmaAnterior: v.firma } : {};
+  const extra = hist ? { historial: arrayUnion({ ...entrada(hist, antesDe(v, campos)), ...firmaAnterior }) } : {};
   await updateDoc(doc(colVehiculos(), id), { ...campos, ...extra, updatedAt: serverTimestamp(), updatedBy: S.user.uid });
   if (hist) registrarMov(etiquetaAuto(v) + ": " + hist);
 }

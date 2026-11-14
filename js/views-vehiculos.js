@@ -233,7 +233,11 @@ function historialHTML(v) {
   }
   h.sort((a, b) => (b.t || 0) - (a.t || 0));
   const cuando = t => t ? new Date(t).toLocaleString("es-AR", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" }) : "";
-  return `<ol class="hist">${h.map(e => `<li class="${colorHist(e.txt) ? "hc" : ""}" style="${colorHist(e.txt) ? `--c:${colorHist(e.txt)}` : ""}"><span class="hist-txt"><strong>${esc(e.por || "Alguien")}</strong> ${esc(sinPaso(e.txt).replace(/ por WhatsApp/g, ""))}</span><time>${cuando(e.t)}</time></li>`).join("")}</ol>`;
+  // Firmas del cliente que se borraron o se reemplazaron (se guardan al cambiar la firma)
+  const firmas = h.filter(e => /^data:image\//.test(e.firmaAnterior || ""));
+  return `<ol class="hist">${h.map(e => `<li class="${colorHist(e.txt) ? "hc" : ""}" style="${colorHist(e.txt) ? `--c:${colorHist(e.txt)}` : ""}"><span class="hist-txt"><strong>${esc(e.por || "Alguien")}</strong> ${esc(sinPaso(e.txt).replace(/ por WhatsApp/g, ""))}</span><time>${cuando(e.t)}</time></li>`).join("")}</ol>`
+    + (firmas.length ? `<section class="hist-firmas"><h4>Firmas anteriores</h4>${firmas.map(e => `<figure><img class="firma-img" src="${esc(e.firmaAnterior)}" alt="Firma anterior del cliente">
+      <figcaption class="muted small">${esc(e.por || "Alguien")} la ${/^Elimin/.test(e.txt) ? "eliminó" : "reemplazó"} · ${cuando(e.t)}</figcaption></figure>`).join("")}</section>` : "");
 }
 
 const gradoTag = v => v.grado ? `<span class="grado-tag g${v.grado} d-grado-tag">Grado ${v.grado}</span>` : "";

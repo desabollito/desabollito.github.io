@@ -20,7 +20,7 @@ const visto = () => {
 // Solo se avisan cambios a los datos del vehículo y fotos nuevas: no la carga, ni los estados, ni el desmontaje,
 // ni las etapas de repuestos y pintura (Pedido, Recibido, Pintado…)
 const ETAPAS_TXT = /: (Sin cargar|Sin pedir|Pedido|Recibido|Colocado|Sin pintar|Turnado|Pintado)$/;
-const avisable = txt => !!txt && !/^(Pasó a|Volvió a|Carg[óo] el veh|Mensaje al cliente)/.test(txt) && !/^Carg[óo] .*desmontaje/i.test(txt) && !ETAPAS_TXT.test(txt);   // desmontaje (fotos y notas) no se avisa
+const avisable = txt => !!txt && !/^(Pasó a|Volvió a|Carg[óo] el veh|Mensaje al cliente|Deshizo|Eliminó la firma|Quitó una foto|Borró las [0-9]+ fotos)/.test(txt) && !/^Carg[óo] .*desmontaje/i.test(txt) && !ETAPAS_TXT.test(txt);   // desmontaje (fotos y notas) no se avisa
 const MIN_CARGA = 30 * 60_000;   // fotos de los primeros 30 min = las de la carga, no se avisan
 // Se recalcula solo cuando llega otra lista de vehículos (cada cambio pedía la lista 2 o 3 veces seguidas)
 let memo = { vs: null, uid: null, t: 0, lista: [] };
@@ -38,7 +38,7 @@ function calcularNotifs(desde = Date.now() - DIAS * 86400_000, hasta = Infinity,
     for (const e of v.historial || []) {
       if (!e.t || e.t < desde || e.t >= hasta || e.uid === yo) continue;
       if (!avisable(e.txt)) continue;
-      out.push(/^Le avisó al cliente/.test(e.txt || "") ? { ...base, t: e.t, por: "", txt: "Cliente contactado" } : { ...base, t: e.t, por: e.por || "Alguien", txt: e.txt || "Modificó el vehículo" });
+      out.push(/^Le avisó al cliente/.test(e.txt || "") ? { ...base, t: e.t, por: e.por || "", txt: e.por ? "Contactó al cliente" : "Cliente contactado" } : { ...base, t: e.t, por: e.por || "Alguien", txt: e.txt || "Modificó el vehículo" });
     }
     // Fotos que subió otro: una línea por persona y por tanda (10 min)
     const tandas = new Map();

@@ -2635,3 +2635,7 @@ button.aj-item:hover, a.aj-item:hover { background: var(--surface-2); }
 /* Chequeo y Desmontaje en ventana emergente: la barra de Guardar queda pegada abajo de la ventana */
 .chk-pop .page { padding: 0; } .chk-pop .vform { padding-bottom: 0; }
 .chk-pop .vform-bar { position: sticky; left: auto; right: auto; bottom: calc(-18px - var(--safe-b)); margin: 14px -18px calc(-18px - var(--safe-b)); padding: 12px 18px calc(12px + var(--safe-b)); }
+/* Historial del vehículo: firmas del cliente que se borraron o reemplazaron */
+.hist-firmas { display: grid; gap: 10px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+.hist-firmas h4 { margin: 0; font-size: 14px; }
+.hist-firmas figure { margin: 0; display: grid; gap: 4px; }

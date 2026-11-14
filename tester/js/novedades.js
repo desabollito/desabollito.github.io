@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.17.5", items: ["Notificaciones: ya no salen «Deshizo», «Eliminó la firma» ni las fotos borradas (quedan en el historial del vehículo).", "«Cliente contactado» ahora dice quién lo contactó.", "Si se borra o se cambia la firma del cliente, la anterior queda guardada en el historial del vehículo (Firmas anteriores)."] },
   { v: "4.17.4", items: ["Panel del creador: «Traer fotos» también busca la de WhatsApp de los usuarios a los que se les eliminó la foto."] },
   { v: "4.17.3", items: ["«Chequeo y Desmontaje» ahora se llama «Chequeo»."] },
   { v: "4.17.2", items: ["Chequeo y Desmontaje se abre en una ventana emergente, como las fotos, con sus pestañas adentro."] },
