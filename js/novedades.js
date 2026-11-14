@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.18.3", items: ["Link del taller: la vista previa muestra la dirección del taller como título; botón «Actualizar vista previa» en Mensajes al cliente.", "El mensaje de turno y el botón Ubicación ya no repiten la dirección (va en la vista previa)."] },
   { v: "4.18.2", items: ["Operativo → Mensajes al cliente: se puede cambiar la pregunta y las opciones de cada encuesta (turno y retiro)."] },
   { v: "4.18.1", items: ["Link del taller corto (chapisteriaomar.com/map1, map2…), con la imagen que elijas en Operativo → Mensajes al cliente como vista previa en WhatsApp."] },
   { v: "4.18.0", items: ["Operativo → Mensajes al cliente: el mensaje de contactado viene cargado con el actual.", "Encuestas automáticas: después del mensaje de turno («Confirmo el turno / Quiero cambiar la fecha») y del de contactado («Retiro hoy / Retiro mañana»), cada una con su interruptor."] },

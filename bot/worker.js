@@ -53,7 +53,7 @@ export default {
       "/borrar-media": borrarMediaApi, "/eliminar-vehiculo": eliminarVehiculoApi,
       "/compartir": compartirApi, "/compartido": compartidoApi, "/aviso-planilla": avisoPlanilla, "/responder-cliente": responderCliente, "/borrar-msg-chat": borrarMsgChat,
       "/aviso-version": avisoVersion, "/pedir-borrar-operativo": pedirBorrarOperativo,
-      "/recuperar": recuperarApi, "/restablecer": restablecerApi, "/usuarios-app": usuariosAppApi, "/codigo-wa": codigoWaApi, "/foto-wa": fotoWaApi, "/mapa-numero": mapaNumeroApi,
+      "/recuperar": recuperarApi, "/restablecer": restablecerApi, "/usuarios-app": usuariosAppApi, "/codigo-wa": codigoWaApi, "/foto-wa": fotoWaApi, "/mapa-numero": mapaNumeroApi, "/mapas-actualizar": mapasActualizarApi,
       "/admin/resumen-ahora": async (env, { idToken, forzar }) => (await soloCreador(env, idToken)) ? json({ ok: true, enviados: await enviarDiarios(env, "resumen", forzar) }) : json({ ok: false }, 403) };
     if (API[url.pathname]) {
       if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
@@ -2660,6 +2660,18 @@ async function mapaNumeroApi(env, { idToken, cid }) {
   if (n > MAPAS_PAGINAS) return json({ ok: false, error: "No quedan links cortos libres" });
   await fsMerge(env, `companies/${cid}`, { mensajes: { ...(c.mensajes || {}), mapaN: n } });
   return json({ ok: true, n });
+}
+// Botón «Actualizar vista previa»: corre en GitHub el armado de chapisteriaomar.com/mapN (necesita el secreto GH_MAPAS:
+// token de GitHub con permiso Actions de lectura y escritura sobre ese repo)
+async function mapasActualizarApi(env, { idToken, cid }) {
+  const m = idValido(cid) ? await miembroDe(env, idToken, cid) : null;
+  if (!((m && esAdminOp(m)) || await soloCreador(env, idToken))) return json({ ok: false, error: "No autorizado" }, 403);
+  if (!env.GH_MAPAS) return json({ ok: false, error: "Falta conectar GitHub en el bot (GH_MAPAS)" });
+  const r = await fetch("https://api.github.com/repos/chapisteriaomar/chapisteriaomar.github.io/actions/workflows/mapas.yml/dispatches", { method: "POST",
+    headers: { Authorization: `Bearer ${env.GH_MAPAS}`, Accept: "application/vnd.github+json", "User-Agent": "desabollito-bot", "Content-Type": "application/json" },
+    body: JSON.stringify({ ref: "main" }) });
+  if (!r.ok) { console.error("mapas GitHub", r.status, (await r.text()).slice(0, 200)); return json({ ok: false, error: `GitHub no aceptó el pedido (${r.status})` }); }
+  return json({ ok: true });
 }
 const MAPAS_PAGINAS = 30;   // shortcut: chapisteriaomar.com tiene las páginas map1…map30; con más operativos, crear más en ese repo
 // Encuestas al cliente: confirmar turno o cambiar fecha, y retiro hoy o mañana (fecha: la del turno recién dado, si la base todavía no la tiene)

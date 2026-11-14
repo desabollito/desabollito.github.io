@@ -374,7 +374,9 @@ export function vistaEmpresa(view) {
           <input name="mapa" type="url" maxlength="300" placeholder="https://maps.app.goo.gl/…" value="${esc(c.mensajes?.mapa || "")}"></label>
         <div class="field"><span>Imagen de la vista previa del link <small class="muted">(la que se ve en WhatsApp${c.mensajes?.mapaN ? ` · chapisteriaomar.com/map${c.mensajes.mapaN}` : ""})</small></span>
           <div class="msj-img"><img id="msj-img-prev" src="${esc(c.mensajes?.mapaImg ? c.mensajes.mapaImg.replace("/upload/", "/upload/c_fill,g_auto,w_600,h_315,q_auto,f_auto/") : "https://chapisteriaomar.com/assets/og-home6.jpg")}" alt="Vista previa del link del taller">
-            <label class="btn btn-ghost btn-sm">${icon("image")}Elegir imagen<input type="file" id="msj-img-in" accept="image/*" hidden></label></div></div>
+            <span class="row-btns"><label class="btn btn-ghost btn-sm">${icon("image")}Elegir imagen<input type="file" id="msj-img-in" accept="image/*" hidden></label>
+            ${c.mensajes?.mapaN ? `<button type="button" class="btn btn-ghost btn-sm" id="msj-act">${icon("rotate")}Actualizar vista previa</button>` : ""}</span></div>
+          <small class="muted">La dirección del taller es el título de la vista previa. Después de cambiarla, guardá y tocá «Actualizar vista previa» (tarda 1 o 2 minutos).</small></div>
         <label class="field"><span>Mensaje de turno <small class="muted">(se puede cambiar antes de cada envío en Mensajes y turnos)</small></span>
           <textarea name="turno" rows="12" maxlength="2000">${esc(c.mensajes?.turno || TXT_TURNO)}</textarea></label>
         <label class="toggle"><input type="checkbox" name="encTurno" ${c.mensajes?.encTurno ? "checked" : ""}>
@@ -491,6 +493,13 @@ export function vistaEmpresa(view) {
     }
     catch (err) { toast(mensajeError(err), "error"); }
   };
+  // Actualizar vista previa: el bot corre en GitHub el armado de chapisteriaomar.com/mapN con la dirección guardada
+  $("#msj-act", view)?.addEventListener("click", async e => {
+    const b = e.currentTarget; busy(b, true, "Pidiendo…");
+    const j = await llamarBot("mapas-actualizar", { cid: c.id });
+    busy(b, false);
+    toast(j.ok ? "Actualizando: en 1 o 2 minutos la vista previa queda nueva" : j.error || "No se pudo actualizar", j.ok ? "success" : "error");
+  });
   // Imagen de la vista previa: se sube ya y se guarda con "Guardar mensajes"
   let mapaImg = c.mensajes?.mapaImg || "";
   $("#msj-img-in", view)?.addEventListener("change", async e => {
@@ -1196,7 +1205,6 @@ const TXT_TURNO = `🚗 *TURNO DE REPARACIÓN POR GRANIZO*
 📅 *Día:* {Turno}
 ⏰ *Hora:* {Hora}
 
-📍 *Dirección:* {Direccion}
 🗺️ *Ubicación:* {Mapa}
 
 🚘 Te pedimos que traigas el vehículo *limpio* y en condiciones para hacer la reparación.
@@ -1526,7 +1534,8 @@ function abrirChat(cid, tel, alCerrar, v = null) {
   const mandarUbicacion = () => {
     const direccion = S.company?.mensajes?.direccion || "", mapa = linkMapa();
     if (!direccion && !mapa) return toast("Cargá la dirección del taller en Operativo → Mensajes al cliente", "error");
-    mandar({ texto: [direccion && `📍 *Dirección:* ${direccion}`, mapa && `🗺️ *Ubicación:* ${mapa}`].filter(Boolean).join("\n") })
+    // Con link corto la dirección ya va de título en la vista previa: se manda solo el link
+    mandar({ texto: S.company?.mensajes?.mapaN && mapa ? `🗺️ *Ubicación:* ${mapa}` : [direccion && `📍 *Dirección:* ${direccion}`, mapa && `🗺️ *Ubicación:* ${mapa}`].filter(Boolean).join("\n") })
       .then(ok => ok && toast("Ubicación enviada", "success"));
   };
   $("#chat-mas", s.el).addEventListener("click", e => glideMenu(e.currentTarget,
