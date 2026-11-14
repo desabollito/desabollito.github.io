@@ -2679,12 +2679,17 @@ const MAPAS_PAGINAS = 30;   // shortcut: chapisteriaomar.com tiene las páginas 
 // En la del turno, la primera opción es la que marca el turno como confirmado.
 function encuestaDe(v, tipo, fecha = v?.fechas?.turnado, conf = null) {
   const [yy, mm, dd] = String(fecha || "").split("-").map(Number), dm = dd ? new Date(Date.UTC(yy, mm - 1, dd)).toLocaleDateString("es-AR", { timeZone: "UTC", weekday: "long", day: "numeric", month: "long" }).replace(",", "").replace(/^./, c => c.toUpperCase()) : "";   // "Lunes 19 de noviembre"
-  const opc = (conf?.opciones || []).map(o => String(o).trim().slice(0, 100)).filter(Boolean).slice(0, 12);
+  const limpiar = l => (l || []).map(o => String(o).trim().slice(0, 100)).filter(Boolean).slice(0, 12);
+  // Retiro un sábado (hora argentina): el domingo no se retira, así que van las opciones del sábado ("Retiro el lunes")
+  const sab = tipo === "retiro" && new Date(Date.now() - 3 * 3600e3).getUTCDay() === 6;
+  const opcSab = limpiar(conf?.sabado).length >= 2 ? limpiar(conf.sabado) : ["Retiro hoy", "Retiro el lunes"];
+  const opc = limpiar(conf?.opciones);
   if (String(conf?.pregunta || "").trim() && opc.length >= 2) {
     const datos = { fecha: dm, hora: v?.horaTurno || "", vehiculo: v?.modelo || "vehículo", patente: v?.patente || "" };
     const name = String(conf.pregunta).replace(/\{(\w+)\}/g, (m, k) => datos[k.toLowerCase()] ?? m).replace(/\s{2,}/g, " ").replace(/\s+([?,.!])/g, "$1").trim().slice(0, 255);
-    return { name, values: opc };
+    return { name, values: sab ? opcSab : opc };
   }
+  if (sab) return { name: `${v?.modelo ? "Tu " + v.modelo : "Tu vehículo"} ya está listo. ¿Cuándo lo retirás?`, values: opcSab };
   return {
     turno: { name: `¿Confirmás el turno${dm ? " del " + dm : ""}${v?.horaTurno ? " a las " + v.horaTurno : ""}${v?.modelo ? " para tu " + v.modelo : ""}?`, values: ["Confirmo el turno", "Quiero cambiar la fecha"] },
     retiro: { name: `${v?.modelo ? "Tu " + v.modelo : "Tu vehículo"} ya está listo. ¿Cuándo lo retirás?`, values: ["Retiro hoy", "Retiro mañana"] },

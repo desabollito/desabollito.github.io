@@ -1201,7 +1201,7 @@ export async function panelCreador() {
 // ── Mensajes y turnos: salen del número de la empresa, de a uno y con pausa para que WhatsApp no lo bloquee
 // Encuestas al cliente: las de siempre; si el operativo no las cambia, el bot arma la pregunta con la fecha y la hora que haya
 const ENC_DEF = { turno: { pregunta: "¿Confirmás el turno del {Fecha} para tu {Vehiculo}?", opciones: ["Confirmo el turno", "Quiero cambiar la fecha"] },
-  retiro: { pregunta: "Tu {Vehiculo} ya está listo. ¿Cuándo lo retirás?", opciones: ["Retiro hoy", "Retiro mañana"] },
+  retiro: { pregunta: "Tu {Vehiculo} ya está listo. ¿Cuándo lo retirás?", opciones: ["Retiro hoy", "Retiro mañana"], sabado: ["Retiro hoy", "Retiro el lunes"] },
   reprogramar: { pregunta: "¿Reprogramamos el turno al {Fecha}?", opciones: ["Confirmo el turno", "Quiero cambiar la fecha"] } };
 // Lo que se le contesta al cliente cuando vota la segunda opción (igual que en el bot)
 const CAMBIO_FECHA_DEF = "¿A qué fecha querés returnar?\n> Responderán del taller a la brevedad.";
@@ -1217,12 +1217,16 @@ const campoEncuesta = (c, k) => { const e = c.mensajes?.encuestas?.[k] || ENC_DE
   return `<div class="msj-enc"><label class="field"><span>Pregunta <small class="muted">({Fecha} {Hora} {Vehiculo} {Patente})</small></span>
       <input name="enc-${k}-p" maxlength="255" value="${esc(e.pregunta)}"></label>
     <label class="field"><span>Opciones <small class="muted">(una por renglón, de 2 a 12${k !== "retiro" ? "; la primera confirma el turno y la segunda pide otra fecha" : ""})</small></span>
-      <textarea name="enc-${k}-o" rows="3" maxlength="1300">${esc(e.opciones.join("\n"))}</textarea></label></div>`; };
+      <textarea name="enc-${k}-o" rows="3" maxlength="1300">${esc(e.opciones.join("\n"))}</textarea></label>
+    ${k === "retiro" ? `<label class="field"><span>Opciones los sábados <small class="muted">(los domingos no se retira)</small></span>
+      <textarea name="enc-retiro-s" rows="3" maxlength="1300">${esc((e.sabado || ENC_DEF.retiro.sabado).join("\n"))}</textarea></label>` : ""}</div>`; };
 // null = la de siempre; false = incompleta
 const leerEncuesta = (f, k) => {
-  const pregunta = f[`enc-${k}-p`].value.trim(), opciones = f[`enc-${k}-o`].value.split("\n").map(x => x.trim().slice(0, 100)).filter(Boolean).slice(0, 12);
-  if (!pregunta || opciones.length < 2) return false;
-  return pregunta === ENC_DEF[k].pregunta && opciones.join("|") === ENC_DEF[k].opciones.join("|") ? null : { pregunta, opciones };
+  const lista = n => f[n] ? f[n].value.split("\n").map(x => x.trim().slice(0, 100)).filter(Boolean).slice(0, 12) : null;
+  const pregunta = f[`enc-${k}-p`].value.trim(), opciones = lista(`enc-${k}-o`), sabado = lista(`enc-${k}-s`);
+  if (!pregunta || opciones.length < 2 || (sabado && sabado.length < 2)) return false;
+  const igual = (a, b) => !a || a.join("|") === b?.join("|");
+  return pregunta === ENC_DEF[k].pregunta && igual(opciones, ENC_DEF[k].opciones) && igual(sabado, ENC_DEF[k].sabado) ? null : { pregunta, opciones, ...(sabado ? { sabado } : {}) };
 };
 // Mensaje de turno por defecto; cada operativo puede tener el suyo (Operativo → Mensajes al cliente). Los renglones sin dato se sacan solos.
 const TXT_TURNO = `🚗 *TURNO DE REPARACIÓN POR GRANIZO*
