@@ -1511,19 +1511,19 @@ function abrirChat(cid, tel, alCerrar, v = null) {
     const j = await llamarBot("responder-cliente", { cid, tel, tipo: "reaccion", t: Number(el.dataset.t), emoji });
     if (!j.ok) toast(j.error || "No se pudo reaccionar", "error");
   };
-  const pedirBorrar = el => {
+  const pedirBorrar = (el, ancla = el) => {   // ancla: los 3 puntitos, así el menú sale ahí
     const ya = (c?.msgs || []).find(x => String(x.t) === el.dataset.t)?.reac;
-    glideMenu(el, [["resp", "Responder"], ["reac", "Reaccionar"], ["borrar", "Eliminar"]], null, k => {
+    glideMenu(ancla, [["resp", "Responder"], ["reac", "Reaccionar"], ["borrar", "Eliminar"]], null, k => {
       if (k === "resp") responderA(el);
       else if (k === "borrar") borrar(el);
-      else glideMenu(el, [...["👍", "❤️", "🙏", "✅", "😂", "😮"].map(e => [e, e]), ...(ya ? [["", "Quitar reacción"]] : [])], ya || null, e => reaccionar(el, e), "Reaccionar");
+      else glideMenu(ancla, [...["👍", "❤️", "🙏", "✅", "😂", "😮"].map(e => [e, e]), ...(ya ? [["", "Quitar reacción"]] : [])], ya || null, e => reaccionar(el, e), "Reaccionar");
     });
   };
   $("#chat-resp-x", s.el).addEventListener("click", () => { citaT = null; $("#chat-resp", s.el).hidden = true; });
   s.el.addEventListener("click", e => {
     if (e.target.closest("#chat-pap")) { verPap = !verPap; caja.dataset.listo = ""; return pintar(); }
     const r = e.target.closest("[data-restaurar]"); if (r) return moverMsg(r.dataset.restaurar, true);
-    const rb = e.target.closest("[data-resp]"); if (rb) return pedirBorrar(rb.closest(".chat-msg"));
+    const rb = e.target.closest("[data-resp]"); if (rb) return pedirBorrar(rb.closest(".chat-msg"), rb);
     if (e.target.closest("#chat-borrar-todo")) return borrarTodo();
     const vid = c?.vid || v?.id;
     if (e.target.closest("#chat-fecha")) { const vv = getVehiculo(vid); return vv && elegirFechaEstado(vv, "turnado", true); }

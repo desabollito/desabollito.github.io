@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.18.17", items: ["Chat en vivo: el menú de los 3 puntitos se abre ahí mismo, no debajo del mensaje."] },
   { v: "4.18.16", items: ["Chat en vivo: arreglado el envío de audios («webm not allowed»)."] },
   { v: "4.18.15", items: ["Chat en vivo: los 3 puntitos solo en los mensajes del cliente (en los tuyos, mantené apretado)."] },
   { v: "4.18.14", items: ["Chat en vivo: la flechita pasó a ser 3 puntitos con Responder, Reaccionar y Eliminar."] },
