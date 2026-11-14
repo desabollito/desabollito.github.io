@@ -1,6 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
-  { v: "4.17.9", items: ["Mensaje de turno: la fecha sale sin el año (ej. «14 de noviembre»)."] },
+  { v: "4.17.10", items: ["Mensaje de turno: la fecha sale sin el año (ej. «14 de noviembre»)."] },
   { v: "4.17.8", items: ["Buscadores: la X para borrar se ve mucho más."] },
   { v: "4.17.7", items: ["Turno: «¿Confirmó el turno?» y botón «Avisar desde chat en vivo» (guarda, avisa y abre el chat).", "La ventana del estado ya no tiene título ni X: se cierra tocando afuera.", "Deshacer un estado ahora es una tira para deslizar, así no se toca sin querer."] },
   { v: "4.17.6", items: ["Buscadores: siempre que haya algo escrito aparece la X para borrarlo."] },
