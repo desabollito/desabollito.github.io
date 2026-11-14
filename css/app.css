@@ -2641,9 +2641,9 @@ button.aj-item:hover, a.aj-item:hover { background: var(--surface-2); }
 .hist-firmas figure { margin: 0; display: grid; gap: 4px; }
 /* Buscadores: X propia para borrar (visible siempre que haya algo escrito); se oculta la nativa para que no haya dos */
 .search input::-webkit-search-cancel-button { display: none; -webkit-appearance: none; }
-.search-x { flex: none; display: grid; place-items: center; width: 28px; height: 28px; padding: 0; margin: 0 -4px 0 0; border: 0; border-radius: 50%; background: var(--surface-2); color: var(--muted); cursor: pointer; }
-.search-x:hover { color: var(--ink); }
-.search-x .ic { width: 15px; height: 15px; }
+.search-x { flex: none; display: grid; place-items: center; width: 24px; height: 24px; padding: 0; margin: 0 -2px 0 0; border: 0; border-radius: 50%; background: var(--ink); color: var(--bg); cursor: pointer; box-shadow: 0 1px 3px rgb(0 0 0 / .25); }
+.search-x:hover { background: var(--primary); color: #fff; }
+.search-x .ic { width: 14px; height: 14px; stroke-width: 3; }
 .search-x[hidden] { display: none; }
 /* Deshacer un estado: tira para deslizar hasta el final */
 .tira-deshacer { position: relative; display: block; height: 48px; border-radius: 24px; background: var(--surface-2); border: 1px solid var(--line); overflow: hidden; }
