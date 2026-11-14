@@ -1470,7 +1470,7 @@ function abrirChat(cid, tel, alCerrar, v = null) {
       : m.geo ? `<a href="https://maps.google.com/?q=${Number(m.geo.lat)},${Number(m.geo.lng)}" target="_blank" rel="noopener">📍 Ubicación enviada</a>`
       : formatoWa(m.txt);
     caja.innerHTML = (c.msgs || []).slice().sort((a, b) => a.t - b.t).map(m => `<div class="chat-msg ${m.yo ? "yo" : ""}" data-t="${m.t}">${m.cita ? `<div class="chat-cita">${formatoWa(m.cita.txt)}</div>` : ""}${media(m)}
-      <small>${m.yo && m.por ? esc(m.por) + " · " : ""}${horaChat(m.t)}</small>${m.reac ? `<span class="chat-reac">${esc(m.reac)}</span>` : ""}<button type="button" class="chat-resp-btn" data-resp aria-label="Responder a este mensaje">${icon("back")}</button></div>`).join("") || `<p class="muted small center">Sin mensajes.</p>`;
+      <small>${m.yo && m.por ? esc(m.por) + " · " : ""}${horaChat(m.t)}</small>${m.reac ? `<span class="chat-reac">${esc(m.reac)}</span>` : ""}<button type="button" class="chat-resp-btn" data-resp aria-label="Opciones del mensaje" aria-haspopup="listbox">${icon("dots")}</button></div>`).join("") || `<p class="muted small center">Sin mensajes.</p>`;
     // Al entrar (o si ya estaba abajo) baja al último; se repite al siguiente cuadro porque la barra del turno y la ventana todavía cambian de alto
     if (abajo || !caja.dataset.listo) { pintarTurno(); const bajar = () => { caja.scrollTop = caja.scrollHeight; }; bajar(); requestAnimationFrame(() => requestAnimationFrame(bajar)); setTimeout(bajar, 260); caja.dataset.listo = "1"; }
     else pintarTurno();
@@ -1500,7 +1500,7 @@ function abrirChat(cid, tel, alCerrar, v = null) {
   const borrar = async m => {
     if (await confirmar({ title: "¿Borrar este mensaje?", message: "Va a la papelera del chat (arriba). Solo se borra en la app: en WhatsApp sigue estando.", ok: "Borrar", danger: true, centro: true })) moverMsg(m.dataset.t, false);
   };
-  // Responder citando: la flechita al lado de cada mensaje. Mantener apretado (o clic derecho): reaccionar o borrar
+  // Los 3 puntitos al lado de cada mensaje (o mantenerlo apretado / clic derecho): responder, reaccionar o eliminar
   let citaT = null;
   const responderA = el => {
     const m = (c?.msgs || []).find(x => String(x.t) === el.dataset.t); if (!m) return;
@@ -1513,8 +1513,9 @@ function abrirChat(cid, tel, alCerrar, v = null) {
   };
   const pedirBorrar = el => {
     const ya = (c?.msgs || []).find(x => String(x.t) === el.dataset.t)?.reac;
-    glideMenu(el, [["reac", "Reaccionar"], ["borrar", "Borrar"]], null, k => {
-      if (k === "borrar") borrar(el);
+    glideMenu(el, [["resp", "Responder"], ["reac", "Reaccionar"], ["borrar", "Eliminar"]], null, k => {
+      if (k === "resp") responderA(el);
+      else if (k === "borrar") borrar(el);
       else glideMenu(el, [...["👍", "❤️", "🙏", "✅", "😂", "😮"].map(e => [e, e]), ...(ya ? [["", "Quitar reacción"]] : [])], ya || null, e => reaccionar(el, e), "Reaccionar");
     });
   };
@@ -1522,7 +1523,7 @@ function abrirChat(cid, tel, alCerrar, v = null) {
   s.el.addEventListener("click", e => {
     if (e.target.closest("#chat-pap")) { verPap = !verPap; caja.dataset.listo = ""; return pintar(); }
     const r = e.target.closest("[data-restaurar]"); if (r) return moverMsg(r.dataset.restaurar, true);
-    const rb = e.target.closest("[data-resp]"); if (rb) return responderA(rb.closest(".chat-msg"));
+    const rb = e.target.closest("[data-resp]"); if (rb) return pedirBorrar(rb.closest(".chat-msg"));
     if (e.target.closest("#chat-borrar-todo")) return borrarTodo();
     const vid = c?.vid || v?.id;
     if (e.target.closest("#chat-fecha")) { const vv = getVehiculo(vid); return vv && elegirFechaEstado(vv, "turnado", true); }

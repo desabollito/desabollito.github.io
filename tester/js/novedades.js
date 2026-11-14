@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.18.14", items: ["Chat en vivo: la flechita pasó a ser 3 puntitos con Responder, Reaccionar y Eliminar."] },
   { v: "4.18.13", items: ["Chat en vivo: cada mensaje tiene una flechita al costado para responderlo (ya no está en el menú de mantener apretado).", "Papelera del chat: botón «Borrar todo el chat»."] },
   { v: "4.18.12", items: ["Chat en vivo: Ubicación sale con «Te adjunto la ubicación del taller!» y el link."] },
   { v: "4.18.11", items: ["Chat en vivo: el campo de texto ya no muestra «Escribí una respuesta…».", "El audio pasó al +, que queda con Foto o video, Documento, Ubicación y Audio (las encuestas salen solas).", "Ubicación manda solo el link del taller, con su vista previa."] },
