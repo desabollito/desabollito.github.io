@@ -2981,7 +2981,7 @@ function mismaCia(a, b) {
 }
 async function compartirApi(env, { idToken, cid, compania, accion, token, vid, sueldos }) {
   const m = await miembroDe(env, idToken, cid);
-  // Un solo vehículo ("Vehículo en App"): cualquiera del operativo menos el desmontador. Si ya hay link, se reusa.
+  // Un solo vehículo ("Link de seguimiento"): cualquiera del operativo menos el desmontador. Si ya hay link, se reusa.
   if (accion === "vehiculo") {
     if (!m || m.c.roles?.[m.uid] === "desmontaje" || !idValido(vid)) return json({ ok: false, error: "No autorizado" }, 403);
     const v = await fsGet(env, `companies/${cid}/vehicles/${vid}`);

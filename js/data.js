@@ -158,7 +158,7 @@ export async function iniciarInvitado(token, onReady) {
 }
 
 // Administradores: crear, listar y borrar links de solo lectura
-// "Vehículo en App": link de solo lectura para un único vehículo
+// "Link de seguimiento": link de solo lectura para un único vehículo
 export async function linkVehiculo(vid) {
   const idToken = await S.user.getIdToken();
   const r = await fetch(`${BOT_API}/compartir`, { method: "POST", headers: { "Content-Type": "application/json" },

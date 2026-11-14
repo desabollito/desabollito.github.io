@@ -405,6 +405,7 @@ export function vistaVehiculos(view, selId = null) {
   // Celular: el botón de filtros va dentro del buscador (así la barra llega hasta la campana)
   if (!ancho && $("#tb-filtros")) $("#topbar > .search")?.append($("#tb-filtros"));
 
+  let ultimaLista = "";   // cada guardado dispara 2+ avisos de la base: si la lista quedó igual, no se redibuja
   const pintar = (animar = false) => {
     const todos = activos();
     const cuenta = Object.fromEntries(ESTADOS.map(e => [e.key, 0]));
@@ -420,8 +421,9 @@ export function vistaVehiculos(view, selId = null) {
 
     const lista = ordenar(filtrar(todos));
     const box = $("#vlist", view);
-    if (S.loadingVehicles) { box.innerHTML = `<div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>`; return; }
+    if (S.loadingVehicles) { ultimaLista = ""; box.innerHTML = `<div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>`; return; }
     if (!todos.length) {
+      ultimaLista = "";
       box.innerHTML = `<div class="empty">
         ${carMapSVG({ techo: 1, capot: 1 }, { size: "carmap-empty" })}
         <h2>Todavía no hay vehículos</h2>
@@ -429,10 +431,13 @@ export function vistaVehiculos(view, selId = null) {
         <a class="btn btn-primary" href="#/nuevo">${icon("plus")}Cargar vehículo</a></div>`;
       return;
     }
-    box.innerHTML = lista.length
+    const html = lista.length
       ? lista.map(v => tarjeta(v, v.id === selId)).join("")
       : `<div class="empty small"><p>Ningún vehículo coincide con la búsqueda.</p>
          <button class="btn btn-ghost" id="limpiar">Limpiar filtros</button></div>`;
+    if (!animar && html === ultimaLista) return;
+    ultimaLista = html;
+    box.innerHTML = html;
     box.classList.toggle("lista-anim", animar);
     if (animar) [...box.children].forEach((c, i) => c.style.setProperty("--i", i));
     $("#limpiar", box)?.addEventListener("click", () => { F.estado.clear(); F.mios = false; F.sinAnul = false; F.cias.clear(); F.grado.clear(); F.repuestos.clear(); F.pintura.clear(); F.cliente.clear(); F.cargado.clear(); marcarBoton(); pintar(); });
@@ -1735,7 +1740,7 @@ function compartir(v) {
       ${hayFotos ? `<label class="toggle"><input type="checkbox" id="con-fotos"><span>Incluir las ${v.fotos.length} fotos</span></label>` : ""}
       ${puedeCompartirArchivos() ? `<button class="btn btn-primary btn-block btn-lg" data-m="share">${icon("share")}Compartir PDF</button>` : ""}
       <button class="btn ${puedeCompartirArchivos() ? "btn-ghost" : "btn-primary btn-lg"} btn-block" data-m="save">${icon("download")}Descargar PDF</button>
-      ${soyDesmontaje() ? "" : `<button class="btn btn-ghost btn-block" data-link>${icon("car")}Vehículo en App</button>`}</div>`
+      ${soyDesmontaje() ? "" : `<button class="btn btn-ghost btn-block" data-link>${icon("car")}Link de seguimiento</button>`}</div>`
   });
   const nombre = nombreArchivo(v);
   const texto = `Presupuesto de granizo${v.modelo ? " · " + v.modelo : ""}${v.patente ? " " + v.patente : ""}${v.precio ? " · Total " + money(v.precio) : ""}`;
