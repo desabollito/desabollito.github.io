@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.18.9", items: ["El Vehículo de prueba no aparece en las listas, el calendario ni facturación."] },
   { v: "4.18.8", items: ["Si el cliente vota «Quiero cambiar la fecha», le llega «¿A qué fecha querés returnar?» (se cambia en Operativo → Mensajes al cliente).", "La encuesta de «Enviar nueva fecha» también se configura ahí.", "Mensajes al cliente: «Probar el chat en vivo» con un Vehículo de prueba (AAA000) y tu número."] },
   { v: "4.18.7", items: ["«Enviar nueva fecha» ya no repite el mensaje del turno: manda solo la encuesta «¿Reprogramamos el turno al …?»."] },
   { v: "4.18.6", items: ["Fecha del turno: deshacer pasó a un botón de historial arriba a la derecha (pide confirmar).", "«Elegir nueva fecha» del chat: botón «Enviar nueva fecha» y abajo «Guardar fecha sin avisar»."] },

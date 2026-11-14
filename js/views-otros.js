@@ -2,7 +2,7 @@ import {
   S, activos, papelera, restaurar, eliminarDefinitivo, soyAdmin, miRol, renombrarEmpresa, guardarSello, guardarMensajesCliente, deshaciblesDe, deshacerCambio, soyDesmontaje,
   agregarMiembro, cambiarRol, quitarMiembro, guardarEtiquetas, resolverSolicitud, desvincularWhatsApp, salirDeEmpresa, eliminarEmpresa, crearEmpresa, elegirEmpresa,
   actualizarPerfil, ponerMiFoto, salir, mensajeError, llamarAdmin, soloDesmontaje, pedirUnion, linksCompartidos, getVehiculo, soloVer, soySacabollos, guardarOrdenOps, cambiarEstado, usaClientes,
-  onChange, chatSinLeer, marcarChatVisto, actualizarVehiculo, guardarColor, guardarVehiculo, nuevoIdVehiculo
+  onChange, chatSinLeer, marcarChatVisto, actualizarVehiculo, guardarColor, guardarVehiculo, nuevoIdVehiculo, esPrueba
 } from "./data.js";
 import { cargarExcelJS } from "./excel.js";
 import { db, doc, onSnapshot } from "./firebase.js";
@@ -1207,7 +1207,7 @@ const ENC_DEF = { turno: { pregunta: "¿Confirmás el turno del {Fecha} para tu 
 const CAMBIO_FECHA_DEF = "¿A qué fecha querés returnar?\n> Responderán del taller a la brevedad.";
 // Vehículo de prueba del operativo (para probar el chat en vivo con el número de uno): se crea la primera vez
 async function vehiculoPrueba(tel) {
-  const v = S.vehicles.find(x => !x.deleted && x.patente === "AAA000" && x.modelo === "Vehículo de prueba");
+  const v = S.vehicles.find(x => !x.deleted && esPrueba(x));
   if (v) { if (v.telefono !== tel) await actualizarVehiculo(v.id, { telefono: tel }, "Cambió el teléfono de prueba"); return getVehiculo(v.id) || { ...v, telefono: tel }; }
   const id = nuevoIdVehiculo(), datos = { patente: "AAA000", modelo: "Vehículo de prueba", asegurado: S.profile?.name || "Prueba", telefono: tel };
   await guardarVehiculo(id, datos, true);

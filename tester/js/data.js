@@ -458,7 +458,9 @@ function escucharVehiculos() {
   });
 }
 
-export const activos = () => S.vehicles.filter(v => !v.deleted);
+// El «Vehículo de prueba» (Operativo → Mensajes al cliente → Probar el chat en vivo) no sale en listas, calendario ni facturación
+export const esPrueba = v => v.patente === "AAA000" && v.modelo === "Vehículo de prueba";
+export const activos = () => S.vehicles.filter(v => !v.deleted && !esPrueba(v));
 // Papelera personal: los vehículos que borré yo
 export const papelera = () => S.vehicles.filter(v => v.deleted && (v.deletedBy ? v.deletedBy === S.user.uid : v.createdBy === S.user.uid));
 export const getVehiculo = id => S.vehicles.find(v => v.id === id);
