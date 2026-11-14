@@ -1603,8 +1603,9 @@ function abrirChat(cid, tel, alCerrar, v = null) {
       if (!mandarlo || Date.now() - g.t0 < 700) return;   // un toque sin querer no manda nada
       try {
         toast("Mandando audio…");
-        const { url } = await subir(new Blob(g.partes, { type: g.rec.mimeType || "audio/webm" }), "chat", { tipo: "video" });
-        await mandar({ tipo: "audio", url });
+        const blob = new Blob(g.partes, { type: g.rec.mimeType || "audio/webm" });
+        const b64 = await new Promise((ok, mal) => { const fr = new FileReader(); fr.onload = () => ok(String(fr.result).split(",")[1] || ""); fr.onerror = mal; fr.readAsDataURL(blob); });
+        await mandar({ tipo: "audio", b64, mime: blob.type });   // lo sube el bot: Cloudinary no deja subir webm desde la app
       } catch (err) { toast(err.message || "No se pudo mandar el audio", "error"); }
     };
     g.rec.stop();

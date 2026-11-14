@@ -2845,8 +2845,17 @@ async function asegurarWebhookClientes(env) {
 const WORKER_URL = "https://desabollito-bot.desabollito.workers.dev";
 // Responder desde la app: el creador o quien él habilitó para Mensajes y turnos, miembro de ese operativo
 // tipo: texto | foto | video | audio | doc (url + nombre) | encuesta (turno o retiro) | reaccion (a un mensaje: t + emoji). cita: t del mensaje que se responde.
-async function responderCliente(env, { idToken, cid, tel, texto = "", por, vid, tipo = "texto", url, nombre, encuesta, fecha, cita, t, emoji }) {
+async function responderCliente(env, { idToken, cid, tel, texto = "", por, vid, tipo = "texto", url, b64, mime, nombre, encuesta, fecha, cita, t, emoji }) {
   if (!(await puedeClientes(env, idToken, cid))) return json({ ok: false, error: "No autorizado" }, 403);
+  // Audio grabado en la app: llega en base64 y lo sube el bot (la subida directa desde la app no acepta webm)
+  if (tipo === "audio" && typeof b64 === "string" && idValido(cid)) {
+    if (b64.length > 14e6) return json({ ok: false, error: "El audio es muy largo" });
+    try {
+      const m = /^audio\/([a-z0-9.+-]+)/.exec(String(mime || "")), tipoMime = m ? m[0] : "audio/webm";
+      const bytes = Uint8Array.from(atob(b64), ch => ch.charCodeAt(0));
+      url = (await subirCloudinary(env, new Blob([bytes], { type: tipoMime }), `audio.${m ? m[1].replace(/^x-/, "") : "webm"}`, `desabollito/${cid}/chat`, "video"))?.secure_url;
+    } catch (e) { console.error("audio de la app", e); return json({ ok: false, error: "No se pudo subir el audio" }); }
+  }
   const cloud = `https://res.cloudinary.com/${env.CLOUDINARY_CLOUD_NAME}/`;
   const valido = idValido(cid) && /^549\d{10}$/.test(String(tel || "")) && typeof texto === "string" && texto.length <= 2000 && ({
     texto: () => !!texto.trim(),
