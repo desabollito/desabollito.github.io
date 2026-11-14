@@ -2697,18 +2697,26 @@ async function respuestaCliente(env, d) {
   const voto = raw.pollUpdateMessage && [raw.pollUpdateMessage.vote?.selectedOptions, d.pollUpdates?.[0]?.vote?.selectedOptions, raw.pollUpdateMessage.selectedOptions]
     .find(x => Array.isArray(x) && x.length && x.every(o => typeof o === "string"));
   const txt = m.type === "text" ? m.text.body : m.type === "image" ? "📷 Foto" + (m.image.caption ? ": " + m.image.caption : "")
-    : m.type === "video" ? "🎥 Video" : m.type === "document" ? "📄 " + m.document.filename
+    : m.type === "video" ? "🎥 Video" + (m.video.caption ? ": " + m.video.caption : "") : m.type === "document" ? "📄 " + m.document.filename
     : raw.reactionMessage ? (raw.reactionMessage.text ? `Reaccionó ${raw.reactionMessage.text}` : "")
     : raw.pollUpdateMessage ? (voto ? `📊 Votó: ${voto.join(", ")}` : "📊 Respondió la encuesta (mirá el celular de la empresa)")
-    : raw.audioMessage ? "🎤 Audio (escuchalo en el celular de la empresa)"
+    : raw.audioMessage ? "🎤 Audio"
+    : raw.stickerMessage ? "Sticker"
     : "Mensaje que la app no muestra (abrilo en el celular de la empresa)";
   if (!txt) return;   // sacó una reacción
-  // Foto del cliente: se copia a Cloudinary para verla en el chat de la app (si falla, queda el aviso de texto)
-  const foto = m.type === "image" ? await bajarMediaEvolution(env, m, instanciaClientes(env))
-    .then(({ bytes, mime }) => subirCloudinary(env, new Blob([bytes], { type: mime }), "foto.jpg", `desabollito/${idx.cid}/chat`, "image"))
-    .then(s => s?.secure_url || "").catch(e => { console.error("foto del cliente", e); return ""; }) : "";
+  // Foto, video, audio, documento o sticker del cliente: se copia a Cloudinary para verlo en la app (si falla, queda el aviso de texto)
+  const clase = m.type === "image" ? "foto" : m.type === "video" ? "video" : m.type === "document" ? "doc" : raw.audioMessage ? "audio" : raw.stickerMessage ? "foto" : "";
+  const media = clase ? await bajarMediaEvolution(env, { ...m, _mime: m._mime || raw.audioMessage?.mimetype || raw.stickerMessage?.mimetype }, instanciaClientes(env))
+    .then(({ bytes, mime }) => {
+      if (bytes.byteLength > 40 * 1024 * 1024) throw new Error("archivo de más de 40 MB");
+      const nombre = clase === "doc" ? m.document.filename : { foto: "foto.jpg", video: "video.mp4", audio: "audio.ogg" }[clase];
+      return subirCloudinary(env, new Blob([bytes], { type: mime }), nombre, `desabollito/${idx.cid}/chat`, { foto: "image", video: "video", audio: "video", doc: "raw" }[clase]);
+    })
+    .then(s => s?.secure_url || "").catch(e => { console.error("archivo del cliente", e); return ""; }) : "";
+  // El audio de WhatsApp (ogg) no suena en iPhone: Cloudinary lo entrega en mp3
+  const adj = !media ? {} : clase === "audio" ? { audio: media.replace(/\.\w+$/, ".mp3") } : clase === "doc" ? { doc: { url: media, nombre: m.document.filename } } : { [clase]: media };
   const v = await fsGet(env, `companies/${idx.cid}/vehicles/${idx.vid}`).catch(() => null);
-  await guardarChat(env, idx.cid, idx.vid, v, tel, { t: Number(m.timestamp) * 1000 || Date.now(), txt: String(txt).slice(0, 2000), yo: false, id: m.id, key: m._key, ...(foto ? { foto } : {}) });
+  await guardarChat(env, idx.cid, idx.vid, v, tel, { t: Number(m.timestamp) * 1000 || Date.now(), txt: String(txt).slice(0, 2000), yo: false, id: m.id, key: m._key, ...adj });
   // Confirmó el turno desde la encuesta: queda marcado igual que con el botón de la app
   if (voto?.includes("Confirmo el turno") && v && !v.turnoConfirmado)
     await fsMerge(env, `companies/${idx.cid}/vehicles/${idx.vid}`, { turnoConfirmado: true }).catch(e => console.error("turno por encuesta", e));
@@ -2725,14 +2733,16 @@ async function asegurarWebhookClientes(env) {
 }
 const WORKER_URL = "https://desabollito-bot.desabollito.workers.dev";
 // Responder desde la app: el creador o quien él habilitó para Mensajes y turnos, miembro de ese operativo
-// tipo: texto | foto | audio | encuesta (turno o retiro) | reaccion (a un mensaje: t + emoji). cita: t del mensaje que se responde.
-async function responderCliente(env, { idToken, cid, tel, texto = "", por, vid, tipo = "texto", url, encuesta, cita, t, emoji }) {
+// tipo: texto | foto | video | audio | doc (url + nombre) | encuesta (turno o retiro) | reaccion (a un mensaje: t + emoji). cita: t del mensaje que se responde.
+async function responderCliente(env, { idToken, cid, tel, texto = "", por, vid, tipo = "texto", url, nombre, encuesta, cita, t, emoji }) {
   if (!(await puedeClientes(env, idToken, cid))) return json({ ok: false, error: "No autorizado" }, 403);
   const cloud = `https://res.cloudinary.com/${env.CLOUDINARY_CLOUD_NAME}/`;
   const valido = idValido(cid) && /^549\d{10}$/.test(String(tel || "")) && typeof texto === "string" && texto.length <= 2000 && ({
     texto: () => !!texto.trim(),
     foto: () => String(url || "").startsWith(cloud + "image/upload/"),
     audio: () => String(url || "").startsWith(cloud + "video/upload/"),
+    video: () => String(url || "").startsWith(cloud + "video/upload/"),
+    doc: () => /^(image|raw)\/upload\//.test(String(url || "").startsWith(cloud) ? String(url).slice(cloud.length) : "") && typeof nombre === "string" && !!nombre.trim() && nombre.length <= 200,
     encuesta: () => ["turno", "retiro"].includes(encuesta),
     reaccion: () => Number.isFinite(Number(t)) && typeof emoji === "string" && emoji.length <= 8
   }[tipo]?.());
@@ -2774,6 +2784,8 @@ async function responderCliente(env, { idToken, cid, tel, texto = "", por, vid, 
   const [ruta2, body, guardado] = {
     texto: () => ["sendText", { number, text: txt, linkPreview: true }, { txt }],
     foto: () => ["sendMedia", { number, mediatype: "image", mimetype: "image/jpeg", media: url, fileName: "foto.jpg", caption: txt }, { txt: txt || "📷 Foto", foto: url }],
+    video: () => ["sendMedia", { number, mediatype: "video", mimetype: "video/mp4", media: url.replace(/\.\w+$/, ".mp4"), fileName: "video.mp4", caption: txt }, { txt: txt || "🎥 Video", video: url.replace(/\.\w+$/, ".mp4") }],
+    doc: () => ["sendMedia", { number, mediatype: "document", media: url, fileName: nombre.trim(), caption: txt }, { txt: "📄 " + nombre.trim(), doc: { url, nombre: nombre.trim() } }],
     // WhatsApp la manda como nota de voz; Cloudinary la entrega en mp3 y Evolution la pasa a opus
     audio: () => ["sendWhatsAppAudio", { number, audio: url.replace(/\.\w+$/, ".mp3") }, { txt: "🎤 Audio", audio: url.replace(/\.\w+$/, ".mp3") }],
     encuesta: () => ["sendPoll", { number, name: ENC.name, selectableCount: 1, values: ENC.values }, { txt: `📊 ${ENC.name}\n• ${ENC.values.join("\n• ")}`, encuesta }]

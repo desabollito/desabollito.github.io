@@ -1347,7 +1347,7 @@ function abrirChat(cid, tel, alCerrar, v = null) {
       <div class="chat-resp" id="chat-resp" hidden><span></span><button type="button" class="icon-btn" id="chat-resp-x" aria-label="No responder a ese mensaje">${icon("x")}</button></div>
       <form class="chat-form" id="chat-form">
         <button class="icon-btn chat-mas" type="button" id="chat-mas" aria-label="Mandar foto, ubicación o encuesta" aria-haspopup="listbox">${icon("plus")}</button>
-        <input type="file" id="chat-foto" accept="image/*" multiple hidden>
+        <input type="file" id="chat-foto" accept="image/*,video/*" multiple hidden><input type="file" id="chat-doc" multiple hidden>
         <textarea name="txt" rows="1" placeholder="Escribí una respuesta…" maxlength="2000"></textarea>
         <span class="chat-grab" id="chat-grab" hidden>● Grabando <b>0:00</b></span>
         <button class="icon-btn chat-cancelar" type="button" id="chat-cancelar" aria-label="Descartar audio" hidden>${icon("trash")}</button>
@@ -1373,6 +1373,8 @@ function abrirChat(cid, tel, alCerrar, v = null) {
     const abajo = caja.scrollHeight - caja.scrollTop - caja.clientHeight < 40;
     const media = m => m.foto ? `<a class="chat-foto" href="${esc(m.foto)}" target="_blank" rel="noopener"><img src="${esc(m.foto.replace("/upload/", "/upload/c_limit,w_480,q_auto,f_auto/"))}" alt="Foto" loading="lazy"></a>${formatoWa(String(m.txt || "").replace(/^📷 Foto:? ?/, ""))}`
       : m.audio ? `<audio controls preload="none" src="${esc(m.audio)}"></audio>`
+      : m.video ? `<video class="chat-video" controls preload="metadata" playsinline src="${esc(m.video)}"></video>${formatoWa(String(m.txt || "").replace(/^🎥 Video:? ?/, ""))}`
+      : m.doc ? `<a class="chat-doc" href="${esc(m.doc.url)}" target="_blank" rel="noopener">${icon("file")}<span>${esc(m.doc.nombre || "Documento")}</span></a>`
       : m.geo ? `<a href="https://maps.google.com/?q=${Number(m.geo.lat)},${Number(m.geo.lng)}" target="_blank" rel="noopener">📍 Ubicación enviada</a>`
       : formatoWa(m.txt);
     caja.innerHTML = (c.msgs || []).slice().sort((a, b) => a.t - b.t).map(m => `<div class="chat-msg ${m.yo ? "yo" : ""}" data-t="${m.t}">${m.cita ? `<div class="chat-cita">${formatoWa(m.cita.txt)}</div>` : ""}${media(m)}
@@ -1453,19 +1455,24 @@ function abrirChat(cid, tel, alCerrar, v = null) {
     if (await mandar({ texto })) { ta.value = ""; ta.style.height = "auto"; }
   };
 
-  // Fotos (el texto escrito va como epígrafe de la primera)
-  const inFoto = $("#chat-foto", s.el);
-  inFoto.addEventListener("change", async () => {
-    const files = [...inFoto.files]; inFoto.value = "";
+  // Fotos, videos y documentos (el texto escrito va como epígrafe del primero)
+  const inFoto = $("#chat-foto", s.el), inDoc = $("#chat-doc", s.el);
+  const mandarArchivos = async (input, comoDoc) => {
+    const files = [...input.files]; input.value = "";
     for (const [i, f] of files.entries()) {
+      const video = !comoDoc && String(f.type).startsWith("video/"), que = comoDoc ? "documento" : video ? "video" : "foto";
+      if (f.size > (video ? 60 : 30) * 1024 * 1024) { toast(`${f.name}: supera ${video ? 60 : 30} MB`, "error"); continue; }
       try {
-        toast(files.length > 1 ? `Subiendo foto ${i + 1} de ${files.length}…` : "Subiendo foto…");
-        const { url } = await subir(await comprimir(f), "chat");
-        if (!(await mandar({ tipo: "foto", url, texto: i ? "" : ta.value.trim() }))) return;
+        toast(files.length > 1 ? `Subiendo ${que} ${i + 1} de ${files.length}…` : `Subiendo ${que}…`);
+        const texto = i ? "" : ta.value.trim();
+        const { url } = comoDoc ? await subir(f, "chat", { tipo: "auto", nombre: f.name }) : video ? await subir(f, "chat", { tipo: "video" }) : await subir(await comprimir(f), "chat");
+        if (!(await mandar(comoDoc ? { tipo: "doc", url, nombre: f.name, texto } : { tipo: video ? "video" : "foto", url, texto }))) return;
         if (!i) { ta.value = ""; ta.style.height = "auto"; }
-      } catch (err) { return toast(err.message || "No se pudo subir la foto", "error"); }
+      } catch (err) { return toast(err.message || `No se pudo subir el ${que}`, "error"); }
     }
-  });
+  };
+  inFoto.addEventListener("change", () => mandarArchivos(inFoto, false));
+  inDoc.addEventListener("change", () => mandarArchivos(inDoc, true));
   // Ubicación: la dirección fija del taller (Ajustes del operativo → Mensajes al cliente); el link sale con vista previa
   const mandarUbicacion = () => {
     const { direccion = "", mapa = "" } = S.company?.mensajes || {};
@@ -1474,8 +1481,9 @@ function abrirChat(cid, tel, alCerrar, v = null) {
       .then(ok => ok && toast("Ubicación enviada", "success"));
   };
   $("#chat-mas", s.el).addEventListener("click", e => glideMenu(e.currentTarget,
-    [["foto", "📷 Foto"], ["ubicacion", "📍 Ubicación"], ["turno", "📊 Confirmar turno / cambiar fecha"], ["retiro", "📊 Retiro hoy / mañana"]], null, k => {
+    [["foto", "📷 Foto o video"], ["doc", "📄 Documento"], ["ubicacion", "📍 Ubicación"], ["turno", "📊 Confirmar turno / cambiar fecha"], ["retiro", "📊 Retiro hoy / mañana"]], null, k => {
       if (k === "foto") inFoto.click();
+      else if (k === "doc") inDoc.click();
       else if (k === "ubicacion") mandarUbicacion();
       else mandar({ tipo: "encuesta", encuesta: k }).then(ok => ok && toast("Encuesta enviada", "success"));
     }));
