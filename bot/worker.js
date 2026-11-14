@@ -2601,6 +2601,7 @@ async function avisarCliente(env, { idToken, cid, vid, por, texto: propio }) {
   await guardarChat(env, cid, vid, v, tel, { t: Date.now(), txt: texto, yo: true, por: quien }).catch(e => console.error("chat", e));
   await fsMerge(env, ruta, { avisoReparado: { t: Date.now(), por: quien } });
   await fsAppend(env, ruta, "historial", { t: Date.now(), uid: "", por: quien, txt: "Le avisó al cliente por WhatsApp que el auto está listo" }).catch(() => {});
+  if (c?.mensajes?.encRetiro) await encuestaAutomatica(env, cid, vid, v, tel, "retiro", quien).catch(e => console.error("encuesta retiro", e));
   return json({ ok: true });
 }
 
@@ -2632,6 +2633,25 @@ async function adminClientesQr(env, { idToken, salir, numero }) {
   return json({ ok: true, estado: estado || "creada", qr: j?.qrcode?.base64 || j?.base64 || "", codigo: num ? (j?.qrcode?.pairingCode || j?.pairingCode || "") : "" });
 }
 
+// Encuestas al cliente: confirmar turno o cambiar fecha, y retiro hoy o mañana (fecha: la del turno recién dado, si la base todavía no la tiene)
+function encuestaDe(v, tipo, fecha = v?.fechas?.turnado) {
+  const [, mm, dd] = String(fecha || "").split("-"), dm = dd ? `${dd}/${mm}` : "";
+  return {
+    turno: { name: `¿Confirmás el turno${dm ? " del " + dm : ""}${v?.horaTurno ? " a las " + v.horaTurno : ""}${v?.modelo ? " para tu " + v.modelo : ""}?`, values: ["Confirmo el turno", "Quiero cambiar la fecha"] },
+    retiro: { name: `${v?.modelo ? "Tu " + v.modelo : "Tu vehículo"} ya está listo. ¿Cuándo lo retirás?`, values: ["Retiro hoy", "Retiro mañana"] }
+  }[tipo];
+}
+// Encuesta automática después del mensaje de turno o de contactado, si el operativo la tiene activada (Operativo → Mensajes al cliente)
+async function encuestaAutomatica(env, cid, vid, v, tel, tipo, por, fecha) {
+  const enc = encuestaDe(v, tipo, fecha || undefined);
+  const base = String(env.EVOLUTION_URL || "").replace(/\/+$/, "");
+  const r = await fetch(`${base}/message/sendPoll/${instanciaClientes(env)}`, { method: "POST", headers: { apikey: env.EVOLUTION_APIKEY, "Content-Type": "application/json" },
+    body: JSON.stringify({ number: tel, name: enc.name, selectableCount: 1, values: enc.values }) });
+  if (!r.ok) { console.error("encuesta automática", r.status, (await r.text()).slice(0, 200)); return; }
+  const key = (await r.json().catch(() => null))?.key;
+  await guardarChat(env, cid, vid, v, tel, { t: Date.now(), txt: `📊 ${enc.name}\n• ${enc.values.join("\n• ")}`, encuesta: tipo, yo: true, por: String(por || "").slice(0, 60),
+    ...(key?.id ? { key: { remoteJid: key.remoteJid, fromMe: true, id: key.id } } : {}) });
+}
 // Chat en vivo y Mensajes y turnos: el creador siempre; con el interruptor "Mensajes y turnos" encendido, también los administradores del operativo y quienes él habilitó
 async function puedeClientes(env, idToken, cid) {
   if (await soloCreador(env, idToken)) return true;
@@ -2639,7 +2659,8 @@ async function puedeClientes(env, idToken, cid) {
   return !!m && cfg?.mensajesTurnos !== false && (esAdminOp(m) || (cfg?.usanClientes || []).includes(m.uid));
 }
 // Panel del creador: un mensaje a un cliente desde el número de la empresa (envío masivo y turnos; la app los manda de a uno con pausa)
-async function adminEnviarCliente(env, { idToken, cid, vid, texto, por }) {
+// encuesta: "turno" si es el mensaje de un turno (fecha: la que se le dio); sale la encuesta si el operativo la tiene activada
+async function adminEnviarCliente(env, { idToken, cid, vid, texto, por, encuesta, fecha }) {
   // El creador, los administradores del operativo, o quien él habilitó (config/app.usanClientes) si es miembro de ese operativo
   if (!(await puedeClientes(env, idToken, cid))) return json({ ok: false, error: "No autorizado" }, 403);
   if (!idValido(cid) || !idValido(vid) || typeof texto !== "string" || !texto.trim() || texto.length > 2000) return json({ ok: false, error: "Datos inválidos" }, 400);
@@ -2653,6 +2674,8 @@ async function adminEnviarCliente(env, { idToken, cid, vid, texto, por }) {
   if (!r?.ok) return json({ ok: false, error: "WhatsApp no aceptó el mensaje" });
   await guardarChat(env, cid, vid, v, tel, { t: Date.now(), txt: texto.trim(), yo: true, por: String(por || "").slice(0, 60) }).catch(e => console.error("chat", e));
   await fsAppend(env, ruta, "historial", { t: Date.now(), uid: "", por: String(por || CREADOR).slice(0, 60), txt: "Mensaje al cliente por WhatsApp: " + texto.trim().slice(0, 200) }).catch(() => {});
+  if (encuesta === "turno" && (await fsGet(env, `companies/${cid}`).catch(() => null))?.mensajes?.encTurno)
+    await encuestaAutomatica(env, cid, vid, v, tel, "turno", por, /^\d{4}-\d{2}-\d{2}$/.test(String(fecha || "")) ? fecha : "").catch(e => console.error("encuesta turno", e));
   return json({ ok: true });
 }
 
@@ -2784,11 +2807,7 @@ async function responderCliente(env, { idToken, cid, tel, texto = "", por, vid, 
 
   const number = tel, k = claveDe(citado);
   const quoted = k ? { quoted: { key: k, message: { conversation: String(citado.txt || "").slice(0, 300) } } } : {};
-  const dm = iso => { const [, mm, dd] = String(iso || "").split("-"); return dd ? `${dd}/${mm}` : ""; };
-  const ENC = {
-    turno: { name: `¿Confirmás el turno${dm(v?.fechas?.turnado) ? " del " + dm(v.fechas.turnado) : ""}${v?.horaTurno ? " a las " + v.horaTurno : ""}${v?.modelo ? " para tu " + v.modelo : ""}?`, values: ["Confirmo el turno", "Quiero cambiar la fecha"] },
-    retiro: { name: `${v?.modelo ? "Tu " + v.modelo : "Tu vehículo"} ya está listo. ¿Cuándo lo retirás?`, values: ["Retiro hoy", "Retiro mañana"] }
-  }[encuesta];
+  const ENC = encuestaDe(v, encuesta);
   const txt = texto.trim();
   const [ruta2, body, guardado] = {
     texto: () => ["sendText", { number, text: txt, linkPreview: true }, { txt }],
