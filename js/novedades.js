@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.18.5", items: ["Turno: la fecha sale con el día adelante («Lunes 19 de noviembre»), en el mensaje y en la encuesta."] },
   { v: "4.18.4", items: ["Encuesta del turno: si el cliente vota «Quiero cambiar la fecha», el chat muestra «Pidió cambiar la fecha» y un botón «Elegir nueva fecha» con el calendario."] },
   { v: "4.18.3", items: ["Link del taller: la vista previa muestra la dirección del taller como título; botón «Actualizar vista previa» en Mensajes al cliente.", "El mensaje de turno y el botón Ubicación ya no repiten la dirección (va en la vista previa)."] },
   { v: "4.18.2", items: ["Operativo → Mensajes al cliente: se puede cambiar la pregunta y las opciones de cada encuesta (turno y retiro)."] },

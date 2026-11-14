@@ -500,6 +500,8 @@ let adicCerrado = null, pzTocada = null;   // adicCerrado: id del vehículo dond
 let _x;   // pzTocada: paño elegido en el detalle (sobrevive al redibujo)
 
 // Mensaje configurable desde el panel del dueño: {Vehiculo}, {Patente}, {Asegurado}… se completan con el vehículo
+// "Lunes 19 de noviembre" (sin año)
+const diaTurno = iso => { if (!iso) return ""; const [y, m, d] = iso.split("-").map(Number); const t = new Date(y, m - 1, d).toLocaleDateString("es-AR", { weekday: "long", day: "numeric", month: "long" }).replace(",", ""); return t[0].toUpperCase() + t.slice(1); };
 const VARS_WA = {
   vehiculo: v => v.modelo, modelo: v => v.modelo, patente: v => v.patente, asegurado: v => v.asegurado, cliente: v => v.asegurado,
   nombre: v => v.asegurado, telefono: v => v.telefono, compania: v => v.compania, aseguradora: v => v.compania,
@@ -507,7 +509,7 @@ const VARS_WA = {
   estado: v => ESTADO[estadoActual(v)]?.label || "", repuestos: v => v.repuestos, pintura: v => v.pintura,
   observaciones: v => v.observaciones, detalles: v => v.observaciones,
   fecha: v => fechaLarga(v.fechas?.peritado), peritaje: v => fechaLarga(v.fechas?.peritado),
-  turno: v => fechaLarga(v.fechas?.turnado).replace(/ de [0-9]{4}$/, ""), horaturno: v => v.horaTurno, hora: v => v.horaTurno,
+  turno: v => diaTurno(v.fechas?.turnado), horaturno: v => v.horaTurno, hora: v => v.horaTurno,
   usuario: () => String(S.profile?.name || "").trim().split(/\s+/)[0], yo: () => String(S.profile?.name || "").trim().split(/\s+/)[0],
   saludo: () => { const h = new Date().getHours(); return h >= 5 && h < 12 ? "Buenos días" : h >= 12 && h < 20 ? "Buenas tardes" : "Buenas noches"; },
   direccion: () => S.company?.mensajes?.direccion, mapa: () => linkMapa(), ubicacion: () => linkMapa()

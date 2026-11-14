@@ -2678,7 +2678,7 @@ const MAPAS_PAGINAS = 30;   // shortcut: chapisteriaomar.com tiene las páginas 
 // conf: la que armó el operativo (Operativo → Mensajes al cliente): { pregunta con {Fecha} {Hora} {Vehiculo} {Patente}, opciones }.
 // En la del turno, la primera opción es la que marca el turno como confirmado.
 function encuestaDe(v, tipo, fecha = v?.fechas?.turnado, conf = null) {
-  const [, mm, dd] = String(fecha || "").split("-"), dm = dd ? `${dd}/${mm}` : "";
+  const [yy, mm, dd] = String(fecha || "").split("-").map(Number), dm = dd ? new Date(Date.UTC(yy, mm - 1, dd)).toLocaleDateString("es-AR", { timeZone: "UTC", weekday: "long", day: "numeric", month: "long" }).replace(",", "").replace(/^./, c => c.toUpperCase()) : "";   // "Lunes 19 de noviembre"
   const opc = (conf?.opciones || []).map(o => String(o).trim().slice(0, 100)).filter(Boolean).slice(0, 12);
   if (String(conf?.pregunta || "").trim() && opc.length >= 2) {
     const datos = { fecha: dm, hora: v?.horaTurno || "", vehiculo: v?.modelo || "vehículo", patente: v?.patente || "" };
