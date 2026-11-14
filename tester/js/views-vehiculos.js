@@ -609,7 +609,7 @@ export function renderDetalle(root, v, embebido) {
         <div class="d-plate">${plate(v.patente, "lg")}</div>
         ${v.precio ? `<div class="d-price"><strong>${money(v.precio)}</strong></div>` : ""}
       </div>
-      <span class="d-edit">${[...PASO_REP, "facturado"].includes(est) && !soyLector() && (soyAdmin() || soyDesmontaje()) ? `<button class="btn btn-ghost btn-icon d-desm" data-act="desmontaje" aria-label="Chequeo y Desmontaje" title="Chequeo y Desmontaje">${icon("table")}${CARGADO.desm(v) || CARGADO.check(v) ? `<i class="d-desm-punto" aria-label="Tiene algo cargado"></i>` : ""}</button>` : ""}
+      <span class="d-edit">${[...PASO_REP, "facturado"].includes(est) && !soyLector() && (soyAdmin() || soyDesmontaje()) ? `<button class="btn btn-ghost btn-icon d-desm" data-act="desmontaje" aria-label="Chequeo" title="Chequeo">${icon("table")}${CARGADO.desm(v) || CARGADO.check(v) ? `<i class="d-desm-punto" aria-label="Tiene algo cargado"></i>` : ""}</button>` : ""}
         ${embebido && !soloVer ? `<a class="btn btn-ghost btn-icon" href="#/editar/${v.id}" aria-label="Editar" title="Editar">${icon("edit")}</a>` : ""}</span>
     </header>
 
@@ -961,9 +961,9 @@ const CALIDAD = ["Calidad general de la reparación", "Limpieza interior", "Limp
 const COMBUSTIBLE = ["Reserva", "¼", "½", "¾", "Lleno"];
 const campoCheck = t => t === "in" ? "checkIn" : "checkOut";
 
-// Desmontaje y check en una ventana emergente (como las fotos), con pestañas Desmontaje / IN / OUT arriba; entra en Desmontaje
+// Chequeo (desmontaje y check) en una ventana emergente (como las fotos), con pestañas Desmontaje / IN / OUT arriba; entra en Desmontaje
 export function abrirCheck(v0, t = "desm") {
-  const s = openSheet({ title: `Chequeo y Desmontaje · ${v0.patente || v0.modelo || ""}`, wide: true, body: `<div class="chk-pop"></div>` });
+  const s = openSheet({ title: `Chequeo · ${v0.patente || v0.modelo || ""}`, wide: true, body: `<div class="chk-pop"></div>` });
   const caja = $(".chk-pop", s.el), pop = { cerrar: s.close, ir: k => vistaCheckForm(caja, v0.id, k, pop) };
   // Las pestañas cambian adentro (un link cerraría la ventana)
   caja.addEventListener("click", e => { const b = e.target.closest("[data-chk-tab]"); if (b) pop.ir(b.dataset.chkTab); });
@@ -972,7 +972,7 @@ export function abrirCheck(v0, t = "desm") {
 // También a pantalla completa por link (#/check/id/in): pop = null
 export function vistaCheckForm(view, id, t, pop = null) {
   const v = getVehiculo(id);
-  if (!pop) setTopbar({ title: "Chequeo y Desmontaje", sub: v ? [v.modelo, v.patente].filter(Boolean).join(" · ") : "", back: `#/v/${id}` });
+  if (!pop) setTopbar({ title: "Chequeo", sub: v ? [v.modelo, v.patente].filter(Boolean).join(" · ") : "", back: `#/v/${id}` });
   if (!v) { view.innerHTML = S.loadingVehicles ? `<div class="skeleton tall"></div>` : `<div class="empty"><h2>No encontramos este vehículo</h2></div>`; return; }
   const tabs = `<div class="seg chk-tabs">${[["desm", "Desmontaje"], ["in", "Check IN"], ["out", "Check OUT"]].map(([k, l]) => pop
     ? `<button type="button" class="seg-btn ${k === t ? "on" : ""}" data-chk-tab="${k}">${l}</button>` : `<a class="seg-btn ${k === t ? "on" : ""}" href="#/check/${id}/${k}">${l}</a>`).join("")}</div>`;
