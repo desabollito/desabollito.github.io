@@ -2,7 +2,7 @@ import {
   S, activos, papelera, restaurar, eliminarDefinitivo, soyAdmin, miRol, renombrarEmpresa, guardarSello, guardarMensajesCliente, deshaciblesDe, deshacerCambio, soyDesmontaje,
   agregarMiembro, cambiarRol, quitarMiembro, guardarEtiquetas, resolverSolicitud, desvincularWhatsApp, salirDeEmpresa, eliminarEmpresa, crearEmpresa, elegirEmpresa,
   actualizarPerfil, ponerMiFoto, salir, mensajeError, llamarAdmin, soloDesmontaje, pedirUnion, linksCompartidos, getVehiculo, soloVer, soySacabollos, guardarOrdenOps, cambiarEstado, usaClientes,
-  onChange, chatSinLeer, marcarChatVisto, actualizarVehiculo, guardarColor, guardarVehiculo, nuevoIdVehiculo, esPrueba
+  onChange, chatSinLeer, marcarChatVisto, actualizarVehiculo, guardarColor, guardarVehiculo, nuevoIdVehiculo, esPrueba, nombrePropio
 } from "./data.js";
 import { cargarExcelJS } from "./excel.js";
 import { db, doc, onSnapshot } from "./firebase.js";
@@ -1537,7 +1537,7 @@ function abrirChat(cid, tel, alCerrar, v = null) {
   caja.addEventListener("contextmenu", e => { const m = e.target.closest(".chat-msg[data-t]"); if (m) { e.preventDefault(); clearTimeout(reloj); pedirBorrar(m); } });
   // Sin mensajes todavía (abierto desde un vehículo): se muestra con los datos del vehículo
   const vacio = v ? { tel, vid: v.id, patente: v.patente, nombre: v.asegurado, modelo: v.modelo, msgs: [] } : null;
-  const unsub = onSnapshot(doc(db, "companies", cid, "chats", tel), d => { c = d.exists() ? { tel, ...d.data() } : vacio; pintar(); }, () => { c = vacio; pintar(); });
+  const unsub = onSnapshot(doc(db, "companies", cid, "chats", tel), d => { c = d.exists() ? { tel, ...d.data(), nombre: nombrePropio(d.data().nombre) } : vacio; pintar(); }, () => { c = vacio; pintar(); });
   // Enter manda, Shift+Enter baja de línea; el campo crece con el texto
   ta.addEventListener("input", () => { ta.style.height = "auto"; ta.style.height = Math.min(ta.scrollHeight, 140) + "px"; });
   ta.addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey && !matchMedia("(pointer: coarse)").matches) { e.preventDefault(); form.requestSubmit(); } });

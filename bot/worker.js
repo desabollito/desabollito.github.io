@@ -296,6 +296,10 @@ const RE_CLIENTE = /\b(?:cliente|asegurad[oa]|titular|nombre|sr\.?|sra\.?)\s*:?\
 
 const titulo = t => t.split(/\s+/).map(p => /\d/.test(p) || p.length <= 3 && p === p.toUpperCase() ? p : p.charAt(0).toUpperCase() + p.slice(1).toLowerCase()).join(" ");
 
+// Nombre en MAYÚSCULAS (planillas, padrón) → "Juan Pérez de la Torre"; si ya tiene minúsculas queda como está (igual que en la app)
+const MINUSC = new Set(["de", "del", "la", "las", "los", "y", "e"]);
+const nombrePropio = t => { const s = String(t ?? ""); if (!/\p{Lu}/u.test(s) || /\p{Ll}/u.test(s)) return t;
+  return s.toLocaleLowerCase("es").replace(/\p{L}+/gu, (w, i) => i > 0 && MINUSC.has(w) ? w : w[0].toLocaleUpperCase("es") + w.slice(1)); };
 /**
  * @param {string} texto
  * @param {{ localidades?: string[], companias?: string[] }} extra  valores ya usados en la app
@@ -600,7 +604,7 @@ function detalleVehiculo(v, operativo) {
     operativo ? `📂 ${operativo}` : "",
     `📌 ${ESTADO_TXT[est] || est}${cuando(est) ? ` · ${cuando(est)}` : ""}`,
     est !== "peritado" && cuando("peritado") ? `Peritado: ${cuando("peritado")}` : "",
-    v.asegurado ? `👤 ${v.asegurado}` : "",
+    v.asegurado ? `👤 ${nombrePropio(v.asegurado)}` : "",
     v.telefono ? `📞 ${v.telefono}` : "",
     v.compania ? `🛡️ ${v.compania}` : "",
     v.grado ? `Grado ${v.grado}` : "",
@@ -1472,7 +1476,7 @@ async function buscarPatente(env, patente, uid) {
 const mismoNombre = (a, b) => { const t = x => sinTildes(String(x || "")).split(/\s+/).filter(Boolean).sort().join(" "); return t(a) === t(b); };
 async function aseguradoDePadron(env, patente) {
   const p = await fsGet(env, `padron/${patente}`).catch(() => null);
-  return p?.nombre || null;
+  return nombrePropio(p?.nombre) || null;
 }
 
 async function crearVehiculo(env, op, d, quien) {
@@ -2593,7 +2597,7 @@ async function avisarCliente(env, { idToken, cid, vid, por, texto: propio }) {
   const tel = telefonoAR(v.telefono);
   if (!tel) return json({ ok: false, error: "El teléfono del cliente no parece un celular válido" });
   const c = await fsGet(env, `companies/${cid}`);
-  const nombre = String(v.asegurado || "").trim().split(/\s+/)[0];
+  const nombre = String(nombrePropio(v.asegurado) || "").trim().split(/\s+/)[0];
   // El mensaje del panel del creador, armado por la app con los datos del auto; si no viene, el de siempre
   const texto = typeof propio === "string" && propio.trim() && propio.length <= 2000 ? propio.trim() : `Hola${nombre ? " " + nombre : ""}! 👋 Te escribimos de ${c?.name || "Desabollito"}: tu ${v.modelo || "vehículo"}${v.patente ? ` (${v.patente})` : ""} ya está reparado y listo para retirar. ¡Gracias por confiar en nosotros!`;
   // Los avisos a clientes salen desde el número de la empresa (conexión "clientes" de Evolution), no desde Desabollito
@@ -2742,7 +2746,7 @@ async function adminEnviarCliente(env, { idToken, cid, vid, texto, por, encuesta
 async function guardarChat(env, cid, vid, v, tel, msg) {
   const ruta = `companies/${cid}/chats/${tel}`;
   await fsSet(env, `chat_idx/${tel}`, { cid, vid });
-  await fsMerge(env, ruta, { tel, vid, patente: v?.patente || "", nombre: v?.asegurado || "", modelo: v?.modelo || "", t: msg.t, ult: String(msg.txt).slice(0, 140), ultYo: !!msg.yo }, { crear: true });
+  await fsMerge(env, ruta, { tel, vid, patente: v?.patente || "", nombre: nombrePropio(v?.asegurado) || "", modelo: v?.modelo || "", t: msg.t, ult: String(msg.txt).slice(0, 140), ultYo: !!msg.yo }, { crear: true });
   await fsAppend(env, ruta, "msgs", msg);
   asegurarWebhookClientes(env).catch(e => console.error("webhook clientes", e));
   await fotoCliente(env, ruta, tel).catch(e => console.error("foto cliente", e));   // una vez por semana como mucho

@@ -145,7 +145,7 @@ export async function iniciarInvitado(token, onReady) {
     S.company = { ...j.operativo, roles: {}, members: [] };
     S.companies = [S.company];
     const ordenar = vs => vs.sort((a, b) => (b.fechas?.peritado || "").localeCompare(a.fechas?.peritado || ""));
-    S.vehicles = ordenar(j.vehiculos); S.loadingVehicles = false; S.gastos = []; S.loadingGastos = false;
+    S.vehicles = ordenar(j.vehiculos.map(v => v.asegurado ? { ...v, asegurado: nombrePropio(v.asegurado) } : v)); S.loadingVehicles = false; S.gastos = []; S.loadingGastos = false;
     onReady(true);
     emit("companies"); emit("vehicles");
     // Se actualiza solo cada minuto
@@ -444,7 +444,7 @@ function escucharVehiculos() {
   emit("vehicles");
   if (!S.company) return;
   unsubVehicles = onSnapshot(colVehiculos(), { includeMetadataChanges: true }, snap => {
-    S.vehicles = snap.docs.map(d => ({ id: d.id, ...d.data(), _pending: d.metadata.hasPendingWrites }));
+    S.vehicles = snap.docs.map(d => { const x = d.data(); return { id: d.id, ...x, ...(x.asegurado ? { asegurado: nombrePropio(x.asegurado) } : {}), _pending: d.metadata.hasPendingWrites }; });
     if (soySacabollos()) S.vehicles.forEach(v => { delete v.precio; delete v.archivos; });   // Sacabollos no ve precios ni documentos
     S.vehicles.sort((a, b) => (b.fechas?.peritado || "").localeCompare(a.fechas?.peritado || "")
       || (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
@@ -458,6 +458,10 @@ function escucharVehiculos() {
   });
 }
 
+// Nombre en MAYÚSCULAS (planillas, padrón) → "Juan Pérez de la Torre"; si ya tiene minúsculas queda como está
+const MINUSC = new Set(["de", "del", "la", "las", "los", "y", "e"]);
+export const nombrePropio = t => { const s = String(t ?? ""); if (!/\p{Lu}/u.test(s) || /\p{Ll}/u.test(s)) return t;
+  return s.toLocaleLowerCase("es").replace(/\p{L}+/gu, (w, i) => i > 0 && MINUSC.has(w) ? w : w[0].toLocaleUpperCase("es") + w.slice(1)); };
 // El «Vehículo de prueba» (Operativo → Mensajes al cliente → Probar el chat en vivo) no sale en listas, calendario ni facturación
 export const esPrueba = v => v.patente === "AAA000" && v.modelo === "Vehículo de prueba";
 export const activos = () => S.vehicles.filter(v => !v.deleted && !esPrueba(v));
@@ -766,7 +770,7 @@ function escucharChats() {
   unsubChats?.(); unsubChats = null; chatsCid = cid; S.chats = []; emit("chats");
   if (!cid) return;
   unsubChats = onSnapshot(collection(db, "companies", cid, "chats"), snap => {
-    S.chats = snap.docs.map(d => ({ tel: d.id, ...d.data() })).sort((a, b) => (b.t || 0) - (a.t || 0)); emit("chats");
+    S.chats = snap.docs.map(d => { const x = d.data(); return { tel: d.id, ...x, nombre: nombrePropio(x.nombre) }; }).sort((a, b) => (b.t || 0) - (a.t || 0)); emit("chats");
   }, e => console.warn("chats", e));
 }
 onChange(e => { if (e === "companies" || e === "config" || e === "perfil") escucharChats(); });
@@ -867,7 +871,7 @@ export async function aseguradoDePadron(patente) {
   const p = String(patente || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
   if (!p) return null;
   const d = await getDoc(doc(db, "padron", p)).catch(() => null);
-  return d?.exists() ? d.data().nombre : null;
+  return d?.exists() ? nombrePropio(d.data().nombre) : null;
 }
 
 // ── Color de la app: es de cada usuario (users/{uid}.color; vacío = azul por defecto) y se recuerda en el equipo para pintarlo antes de la intro ──
