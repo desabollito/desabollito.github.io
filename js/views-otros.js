@@ -984,7 +984,7 @@ export async function panelCreador() {
           <small class="muted">@${esc(u.username)}${u.whatsapp ? ` · +${esc(u.whatsapp)}` : ""}${!u.aprobado ? " · pendiente" : ""}${u.rechazado ? " · rechazado" : ""}</small>
           <small class="adm-ops">${(() => { const ops = operativos.filter(o => o.miembros.some(m => m.uid === u.uid));
             return ops.length ? ops.map(o => `${esc(o.name)} <b>${nVeh(o.vehiculos)}</b>`).join(" · ") : `<span class="muted">Sin operativos</span>`; })()}</small></div>
-          <button type="button" class="icon-btn sm" data-foto-u="${esc(u.uid)}" aria-label="Poner foto de ${esc(u.name || u.username)}" title="${u.fotoManual ? "Cambiar la foto (puesta a mano)" : "Poner una foto a mano"}">${icon("camera")}</button>
+          <button type="button" class="icon-btn sm" data-foto-u="${esc(u.uid)}" ${u.foto ? "data-tiene" : ""} aria-haspopup="listbox" aria-label="Foto de ${esc(u.name || u.username)}" title="${u.fotoManual ? "Cambiar la foto (puesta a mano)" : "Poner una foto a mano"}">${icon("camera")}</button>
           ${u.username === "gzmatte" ? "" : `<button type="button" class="icon-btn sm danger" data-borrar="${esc(u.uid)}" aria-label="Eliminar usuario" title="Eliminar de la app">${icon("trash")}</button>`}</li>`).join("")}</ul>`}`;
   };
   const cargar = async () => {
@@ -1089,18 +1089,27 @@ export async function panelCreador() {
       return;
     }
     const fu = e.target.closest("[data-foto-u]");
-    if (fu) {   // foto a mano para un usuario: se elige la imagen, se achica y se sube
-      const inp = Object.assign(document.createElement("input"), { type: "file", accept: "image/*" });
-      inp.onchange = async () => {
-        const file = inp.files[0]; if (!file) return;
-        toast("Subiendo foto…");
-        try {
-          const r = await subir(await comprimir(file, 480, 0.85), "perfiles");
-          await llamarAdmin("foto-usuario", { uid: fu.dataset.fotoU, url: r.url });
-          toast("Foto guardada", "success"); cargar();
-        } catch (err) { toast(err.message || mensajeError(err), "error"); }
-      };
-      return inp.click();
+    if (fu) {   // foto de un usuario: poner una a mano (se elige, se achica y se sube) o sacarla
+      const tiene = fu.hasAttribute("data-tiene");
+      return glideMenu(fu, [["poner", tiene ? "Cambiar foto" : "Agregar foto"], ...(tiene ? [["sacar", "Eliminar foto"]] : [])], null, async k => {
+        if (k === "sacar") {
+          if (!(await confirmar({ title: "¿Eliminar la foto?", message: "Queda con la inicial. No se vuelve a poner sola la de WhatsApp, salvo que la persona la pida desde sus Ajustes.", ok: "Eliminar", danger: true, centro: true }))) return;
+          try { await llamarAdmin("foto-usuario", { uid: fu.dataset.fotoU, url: "" }); toast("Foto eliminada", "success"); cargar(); }
+          catch (err) { toast(err.message || mensajeError(err), "error"); }
+          return;
+        }
+        const inp = Object.assign(document.createElement("input"), { type: "file", accept: "image/*" });
+        inp.onchange = async () => {
+          const file = inp.files[0]; if (!file) return;
+          toast("Subiendo foto…");
+          try {
+            const r = await subir(await comprimir(file, 480, 0.85), "perfiles");
+            await llamarAdmin("foto-usuario", { uid: fu.dataset.fotoU, url: r.url });
+            toast("Foto guardada", "success"); cargar();
+          } catch (err) { toast(err.message || mensajeError(err), "error"); }
+        };
+        inp.click();
+      });
     }
     const chip = e.target.closest("[data-var]");
     if (chip) {

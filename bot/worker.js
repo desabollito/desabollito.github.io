@@ -2395,7 +2395,8 @@ async function adminFotosWa(env, { idToken, desde = 0 }) {
 // Panel del creador: foto puesta a mano (ya subida a Cloudinary desde la app). Queda fija hasta que la persona pida la de WhatsApp.
 async function adminFotoUsuario(env, { idToken, uid, url }) {
   if (!(await soloCreador(env, idToken))) return json({ ok: false, error: "No autorizado" }, 403);
-  if (!idValido(uid) || !String(url || "").startsWith(`https://res.cloudinary.com/${env.CLOUDINARY_CLOUD_NAME}/image/upload/`)) return json({ ok: false, error: "Datos inválidos" }, 400);
+  // url vacía = sacar la foto (queda marcada a mano para que la revisión semanal de WhatsApp no la vuelva a poner)
+  if (!idValido(uid) || (url !== "" && !String(url || "").startsWith(`https://res.cloudinary.com/${env.CLOUDINARY_CLOUD_NAME}/image/upload/`))) return json({ ok: false, error: "Datos inválidos" }, 400);
   if (!(await fsGet(env, `users/${uid}`))) return json({ ok: false, error: "No existe el usuario" }, 404);
   await ponerFoto(env, uid, url, { fotoManual: true });
   return json({ ok: true, foto: url });
