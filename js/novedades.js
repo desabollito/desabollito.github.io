@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.16.6", items: ["Notificaciones: con el chat en vivo apagado, la pestaña Chat en vivo se ve con el aviso de mantenimiento."] },
   { v: "4.16.5", items: ["Chat en vivo: se ven las fotos que manda el cliente (tocalas para verlas grandes)."] },
   { v: "4.16.4", items: ["Chat en vivo apagado: el botón se sigue viendo y avisa que está en mantenimiento."] },
   { v: "4.16.3", items: ["Operativo → Mensajes al cliente: ahora también se cambia el mensaje de contactado (el que sale al marcar Contactado)."] },

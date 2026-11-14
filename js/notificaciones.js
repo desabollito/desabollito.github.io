@@ -5,7 +5,7 @@
 //  así el puntito se apaga en todos los equipos.
 // ═════════════════════════════════════════════════════════════
 import { db, doc, updateDoc } from "./firebase.js";
-import { S, activos, onChange, chatsSinLeer, chatSinLeer, usaClientes, getVehiculo } from "./data.js";
+import { S, activos, onChange, chatsSinLeer, chatSinLeer, usaClientes, chatEnMantenimiento, getVehiculo } from "./data.js";
 import { estadoActual } from "./domain.js";
 import { $, esc, icon, openSheet, plate, glideMenu, formatoWa, avatarCliente } from "./ui.js";
 import { sonidoNotif } from "./sonidos.js";
@@ -141,7 +141,8 @@ export function abrirNotifs(verArchivadas = false, pestIni = "") {
     const lista = listaNotifs(), v0 = visto(), ab = new Set(abiertas()), fij = new Set(marcadas("notifFijadas")), arch = new Set(marcadas("notifArchivadas"));
     const vis = lista.filter(n => arch.has(clave(n)) === verArchivadas).sort((a, b) => fij.has(clave(b)) - fij.has(clave(a)));
     const nuevas = cuantasNuevas(), nArch = lista.filter(n => arch.has(clave(n))).length;
-    const conChat = !verArchivadas && usaClientes(), nChat = conChat ? chatsNuevos().length : 0;
+    const mant = !verArchivadas && chatEnMantenimiento();   // tenía el chat y el creador lo apagó: la pestaña se ve con el aviso
+    const conChat = !verArchivadas && (usaClientes() || mant), nChat = conChat && !mant ? chatsNuevos().length : 0;
     const tabs = conChat ? `<div class="seg notif-tabs">${[["notif", "Notificaciones", nuevas], ["chat", "Chat en vivo", nChat]].map(([k, t, n]) =>
       `<button type="button" class="seg-btn ${pest === k ? "on" : ""}" data-pest="${k}">${t}${n ? `<b class="notif-tab-n">${n > 9 ? "9+" : n}</b>` : ""}</button>`).join("")}</div>` : "";
     const enChat = pest === "chat" && (conChat || verArchivadas), acc = $(".chat-head-acc", s.el);
@@ -149,6 +150,7 @@ export function abrirNotifs(verArchivadas = false, pestIni = "") {
     $(".sheet-head", s.el).style.display = enChat || verArchivadas ? "" : "none";   // en Notificaciones la cabecera queda vacía
     $("#chat-turno", acc).classList.toggle("on", !!fTurno); $("#chat-buscar", acc).classList.toggle("on", buscando);
     $("#chat-buscar", acc).setAttribute("aria-pressed", buscando);
+    if (enChat && mant) { acc.hidden = true; s.body.innerHTML = tabs + `<div class="empty small">${icon("chat")}<p><b>Chat en vivo en mantenimiento.</b><br>Volvé a probar más tarde.</p></div>`; return lista; }
     if (enChat) {
       const fijC = new Set(marcadas("chatFijados"));
       const q = qChat.trim().toLowerCase(), deEste = S.chats.filter(c => chatArch(c) === verArchivadas);
