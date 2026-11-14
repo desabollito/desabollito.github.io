@@ -1716,11 +1716,11 @@ async function enviar(env, to, payload) {
 const responder = (env, to, texto) => enviar(env, to, { type: "text", text: { body: texto, preview_url: false } });
 const reaccionar = (env, to, messageId, emoji, key) => enviar(env, to, { type: "reaction", reaction: { message_id: messageId, emoji }, _key: key });
 
-async function bajarMediaEvolution(env, m) {
+async function bajarMediaEvolution(env, m, inst = env.EVOLUTION_INSTANCE || "desabollito") {
   let b64 = m._base64, mime = m._mime || "image/jpeg";
   if (!b64) {
     const base = String(env.EVOLUTION_URL || "").replace(/\/+$/, "");
-    const r = await fetch(`${base}/chat/getBase64FromMediaMessage/${env.EVOLUTION_INSTANCE || "desabollito"}`, {
+    const r = await fetch(`${base}/chat/getBase64FromMediaMessage/${inst}`, {
       method: "POST", headers: { apikey: env.EVOLUTION_APIKEY, "Content-Type": "application/json" },
       body: JSON.stringify({ message: { key: m._key }, convertToMp4: false })
     });
@@ -2703,8 +2703,12 @@ async function respuestaCliente(env, d) {
     : raw.audioMessage ? "🎤 Audio (escuchalo en el celular de la empresa)"
     : "Mensaje que la app no muestra (abrilo en el celular de la empresa)";
   if (!txt) return;   // sacó una reacción
+  // Foto del cliente: se copia a Cloudinary para verla en el chat de la app (si falla, queda el aviso de texto)
+  const foto = m.type === "image" ? await bajarMediaEvolution(env, m, instanciaClientes(env))
+    .then(({ bytes, mime }) => subirCloudinary(env, new Blob([bytes], { type: mime }), "foto.jpg", `desabollito/${idx.cid}/chat`, "image"))
+    .then(s => s?.secure_url || "").catch(e => { console.error("foto del cliente", e); return ""; }) : "";
   const v = await fsGet(env, `companies/${idx.cid}/vehicles/${idx.vid}`).catch(() => null);
-  await guardarChat(env, idx.cid, idx.vid, v, tel, { t: Number(m.timestamp) * 1000 || Date.now(), txt: String(txt).slice(0, 2000), yo: false, id: m.id, key: m._key });
+  await guardarChat(env, idx.cid, idx.vid, v, tel, { t: Number(m.timestamp) * 1000 || Date.now(), txt: String(txt).slice(0, 2000), yo: false, id: m.id, key: m._key, ...(foto ? { foto } : {}) });
   // Confirmó el turno desde la encuesta: queda marcado igual que con el botón de la app
   if (voto?.includes("Confirmo el turno") && v && !v.turnoConfirmado)
     await fsMerge(env, `companies/${idx.cid}/vehicles/${idx.vid}`, { turnoConfirmado: true }).catch(e => console.error("turno por encuesta", e));

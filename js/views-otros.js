@@ -1371,7 +1371,7 @@ function abrirChat(cid, tel, alCerrar, v = null) {
       return;
     }
     const abajo = caja.scrollHeight - caja.scrollTop - caja.clientHeight < 40;
-    const media = m => m.foto ? `<a class="chat-foto" href="${esc(m.foto)}" target="_blank" rel="noopener"><img src="${esc(m.foto.replace("/upload/", "/upload/c_limit,w_480,q_auto,f_auto/"))}" alt="Foto enviada" loading="lazy"></a>${m.txt === "📷 Foto" ? "" : formatoWa(m.txt)}`
+    const media = m => m.foto ? `<a class="chat-foto" href="${esc(m.foto)}" target="_blank" rel="noopener"><img src="${esc(m.foto.replace("/upload/", "/upload/c_limit,w_480,q_auto,f_auto/"))}" alt="Foto" loading="lazy"></a>${formatoWa(String(m.txt || "").replace(/^📷 Foto:? ?/, ""))}`
       : m.audio ? `<audio controls preload="none" src="${esc(m.audio)}"></audio>`
       : m.geo ? `<a href="https://maps.google.com/?q=${Number(m.geo.lat)},${Number(m.geo.lng)}" target="_blank" rel="noopener">📍 Ubicación enviada</a>`
       : formatoWa(m.txt);
