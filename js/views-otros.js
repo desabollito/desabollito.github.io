@@ -1572,7 +1572,7 @@ function abrirChat(cid, tel, alCerrar, v = null) {
     const direccion = S.company?.mensajes?.direccion || "", mapa = linkMapa();
     if (!direccion && !mapa) return toast("Cargá la dirección del taller en Operativo → Mensajes al cliente", "error");
     // Con link corto la dirección ya va de título en la vista previa: se manda solo el link
-    mandar({ texto: S.company?.mensajes?.mapaN && mapa ? mapa : [direccion && `📍 *Dirección:* ${direccion}`, mapa && `🗺️ *Ubicación:* ${mapa}`].filter(Boolean).join("\n") })
+    mandar({ texto: S.company?.mensajes?.mapaN && mapa ? `Te adjunto la ubicación del taller!\n${mapa}` : ["Te adjunto la ubicación del taller!", direccion && `📍 *Dirección:* ${direccion}`, mapa && `🗺️ *Ubicación:* ${mapa}`].filter(Boolean).join("\n") })
       .then(ok => ok && toast("Ubicación enviada", "success"));
   };
   $("#chat-mas", s.el).addEventListener("click", e => glideMenu(e.currentTarget,

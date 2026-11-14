@@ -2894,7 +2894,7 @@ async function responderCliente(env, { idToken, cid, tel, texto = "", por, vid, 
   if (!r.ok) {
     const d = await r.text();
     await registrar(env, { ultimoErrorEnvio: `${new Date().toISOString()} · chat ${ruta2} · ${r.status} · ${d.slice(0, 300)}` }).catch(() => {});
-    return json({ ok: false, error: "WhatsApp no aceptó el mensaje" });
+    return json({ ok: false, error: `WhatsApp no aceptó el mensaje (${r.status})` });
   }
   const key = (await r.json().catch(() => null))?.key;
   await guardarChat(env, cid, idx.vid, v, tel, { t: Date.now(), ...guardado, yo: true, por: String(por || "").slice(0, 60),
