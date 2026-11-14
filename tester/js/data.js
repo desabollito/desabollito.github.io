@@ -749,6 +749,8 @@ export const borrarGasto = id => deleteDoc(doc(colGastos(), id));
 // ── Panel del creador (@gzmatte): todos los operativos y usuarios ─────
 export const soyCreador = () => S.profile?.username === "gzmatte";
 export const usaClientes = () => soyCreador() || (S.config?.mensajesTurnos !== false && (soyAdmin() || (S.config?.usanClientes || []).includes(S.user?.uid)));   // Chat en vivo y Mensajes y turnos: el creador siempre; con el interruptor encendido, también los administradores y los que él elige
+// Tenía el chat pero el creador apagó Mensajes y turnos: el botón se ve y avisa que está en mantenimiento
+export const chatEnMantenimiento = () => !usaClientes() && (soyAdmin() || (S.config?.usanClientes || []).includes(S.user?.uid));
 
 // ── Chats en vivo con clientes (companies/{cid}/chats, los guarda el bot) ──
 // Lo no leído se recuerda en este equipo (chatVisto:{cid}:{tel} = hora del último mensaje visto)

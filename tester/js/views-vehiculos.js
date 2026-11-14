@@ -4,7 +4,7 @@ import {
   S, activos, getVehiculo, guardarVehiculo, actualizarVehiculo, cambiarEstado, moverAPapelera,
   solicitarEliminacion, cargadoPor, esDeWhatsApp, puedoEditar, esMioV, crearSolicitud, yaPedi,
   nuevoIdVehiculo, soyAdmin, mensajeError, deshaciblesDe, deshacerCambio, aseguradoDePadron,
-  soyDesmontaje, agregarDesmontaje, elegirDesmontador, borrarMedia, soyLector, linkVehiculo, soloVer, soySacabollos, usaClientes,
+  soyDesmontaje, agregarDesmontaje, elegirDesmontador, borrarMedia, soyLector, linkVehiculo, soloVer, soySacabollos, usaClientes, chatEnMantenimiento,
   onChange, chatSinLeer, chatDeTel
 } from "./data.js";
 import { ESTADOS, ESTADO, SECUENCIA, PASO_REP, PIEZA, ORDEN_PIEZAS, estadoActual, esAnulado, piezasMarcadas } from "./domain.js";
@@ -618,7 +618,7 @@ export function renderDetalle(root, v, embebido) {
       ${v.telefono ? `<div class="d-contacto ${chatNuevo(telWa(v.telefono)) ? "chat-nuevo" : ""}" data-tel="${esc(telWa(v.telefono) || "")}">
         <button class="btn btn-ghost" data-act="contactar" aria-haspopup="true" aria-expanded="false">${icon("phone")}Contactar</button>
         <div class="d-menu" hidden>
-          ${usaClientes() && !soyLector() ? `<a role="button" data-act="chat">${icon("chat")}Chat en vivo</a>` : ""}
+          ${(usaClientes() || chatEnMantenimiento()) && !soyLector() ? `<a role="button" data-act="chat">${icon("chat")}Chat en vivo</a>` : ""}
           <a ${soySacabollos() ? `role="button"` : `href="${waLink(v.telefono, soyLector() ? "" : mensajeWa(v))}" target="_blank" rel="noopener"`}>${icon("share")}Contactar por privado</a>   <!-- Sacabollos: se puede tocar pero no hace nada -->
         </div></div>` : ""}
     </div>
@@ -832,7 +832,7 @@ export function renderDetalle(root, v, embebido) {
     if (act === "pdf") return compartir(v);
     if (act === "galeria") return visor(v.fotos, 0, v);
     if (act === "firma") return firmar(v);
-    if (act === "chat") return abrirChatDe(v);
+    if (act === "chat") return chatEnMantenimiento() ? toast("Chat en vivo en mantenimiento. Volvé a probar más tarde.", "info") : abrirChatDe(v);
     if (act === "contactar") {
       const m = $(".d-menu", root), abrir = m.hidden;
       const btn = t.closest("[data-act]");

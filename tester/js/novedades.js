@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.16.4", items: ["Chat en vivo apagado: el botón se sigue viendo y avisa que está en mantenimiento."] },
   { v: "4.16.3", items: ["Operativo → Mensajes al cliente: ahora también se cambia el mensaje de contactado (el que sale al marcar Contactado)."] },
   { v: "4.16.2", items: ["Facturación: columna Fecha con el día del último cambio de estado.", "Facturación: botón de reloj en cada vehículo con el historial de estados (quién y cuándo), y «Volver a este» por si alguien lo cambió sin querer."] },
   { v: "4.16.1", items: ["Operativo → Mensajes al cliente: dirección del taller, link de Google Maps y mensaje de turno propio de cada operativo.", "Nuevo mensaje de turno, más claro y con la ubicación del taller; los links salen con vista previa.", "Chat en vivo: «Ubicación» manda la dirección fija del taller.", "Con Mensajes y turnos apagado, el chat en vivo también queda apagado para los demás."] },
