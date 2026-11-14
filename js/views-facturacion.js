@@ -30,8 +30,14 @@ export function vistaFacturacion(view) {
   if (!puedeVer("facturacion")) { view.innerHTML = `<div class="empty"><p>No tenés acceso a esta planilla.</p></div>`; return; }
   if (!S.company) { view.innerHTML = `<div class="skeleton tall"></div>`; return; }
   const ref = doc(db, "companies", S.company.id, "factura", "docs"), viejo = doc(db, "companies", S.company.id, "planTec", "_factura");
-  let docs = {}, vids = [], estados = {}, vidSubir = null, real = {};
-  const cargar = d => { docs = d.docs || {}; vids = d.vids || []; estados = d.estados || {}; };
+  let docs = {}, vids = [], estados = {}, fechaEst = {}, hist = {}, vidSubir = null, real = {};
+  const cargar = d => { docs = d.docs || {}; vids = d.vids || []; estados = d.estados || {}; fechaEst = d.fechaEst || {}; hist = d.hist || {}; };
+  // Cada cambio de estado guarda la fecha y queda en el historial del vehículo (quién, cuándo, a qué estado)
+  const conFecha = (vid, est) => ({ estados: { [vid]: est }, fechaEst: { [vid]: Date.now() },
+    hist: { [vid]: arrayUnion({ t: Date.now(), est, por: S.profile?.name || "" }) } });
+  // Fecha del estado actual; los cambios de antes de registrarla usan la de facturado del vehículo o la de la orden subida
+  const fechaDe = (v, est) => { const ms = fechaEst[v.id] || (est === "firmado" ? docs[v.id]?.at : 0);
+    return ms ? fechaCorta(new Date(ms).toLocaleDateString("en-CA")) : est === "facturado" ? fechaCorta(v.fechas?.facturado) : ""; };
   const V = crearVersiones({ planilla: "facturacion", col: collection(db, "companies", S.company.id, "factura"), view, crudo: id => id === "docs" ? real : undefined, todos: () => ({ docs: real }),
     ver: estado => { if (estado && F.editando) alternarEdicion(); cargar(estado ? estado.docs || {} : real); pintar(); } });
   const guardar = (datos, txt) => V.escribir(txt, [{ id: "docs", datos, merge: true }]);
@@ -54,12 +60,13 @@ export function vistaFacturacion(view) {
     // Firmados y facturados primero (numerados); los impresos al final, sin número
     const fs = firmados(), elegidos = [...fs, ...activos().filter(v => vids.includes(v.id) && !fs.includes(v))];
     const vs = elegidos.filter(v => !q || norm(v.patente).includes(q) || norm(v.modelo).includes(q));
-    body.innerHTML = vs.length ? `<div class="table-wrap"><table class="tbl tbl-fact"><thead><tr><th class="num">#</th><th>Vehículo</th><th>Patente</th><th>Compañía</th><th>Estado</th><th></th></tr></thead>
+    body.innerHTML = vs.length ? `<div class="table-wrap"><table class="tbl tbl-fact"><thead><tr><th class="num">#</th><th>Vehículo</th><th>Patente</th><th>Compañía</th><th>Estado</th><th>Fecha</th><th></th></tr></thead>
       <tbody>${vs.map(v => { const d = docs[v.id], est = estadoDe(v.id);
         // El número de línea es el de la lista completa: buscando, cada vehículo conserva el suyo
         return `<tr data-vid="${esc(v.id)}"><td class="num muted">${est !== "impreso" ? fs.indexOf(v) + 1 : ""}</td><td>${esc(v.modelo || "—")}</td><td>${plate(v.patente)}</td><td>${esc(v.compania || "—")}</td>
           <td><button type="button" class="gs-chip" data-est="${est}" data-act="estado" aria-haspopup="listbox" aria-expanded="false" aria-label="Estado">${ESTADOS_F.find(([k]) => k === est)[1]}${icon("next")}</button></td>
-          <td class="num">${!d || F.editando ? `<label class="btn btn-ghost btn-sm" for="f-in" data-act="subir" aria-label="${d ? "Cambiar" : "Cargar orden firmada"}">${icon("file")}<span class="hide-sm">${d ? "Cambiar" : "Cargar orden firmada"}</span></label>` : ""}
+          <td class="muted">${esc(fechaDe(v, est) || "—")}</td>
+          <td class="num"><button type="button" class="btn btn-ghost btn-sm" data-act="hist" aria-label="Historial de estados">${icon("clock")}</button>${!d || F.editando ? `<label class="btn btn-ghost btn-sm" for="f-in" data-act="subir" aria-label="${d ? "Cambiar" : "Cargar orden firmada"}">${icon("file")}<span class="hide-sm">${d ? "Cambiar" : "Cargar orden firmada"}</span></label>` : ""}
             ${d ? `<button type="button" class="btn btn-primary btn-sm" data-act="bajar" aria-label="Descargar">${icon("download")}</button>` : ""}
             ${F.editando ? `<button type="button" class="btn btn-ghost btn-sm" data-act="quitar" aria-label="Quitar de la lista">${icon("x")}</button>` : ""}</td></tr>`; }).join("")}</tbody></table></div>`
       : `<div class="empty small"><p>${q && elegidos.length ? "No hay vehículos con esa patente." : "Agregá los vehículos a facturar con el botón de arriba."}</p></div>`;
@@ -110,16 +117,25 @@ export function vistaFacturacion(view) {
     if (V.viendo()) { e.preventDefault(); return; }
     // Tocar la fila (fuera de los botones) abre el vehículo; al volver queda en el mismo lugar
     if (!b) { F.volver = { y: scrollY, t: $(".table-wrap", view)?.scrollTop || 0 }; location.hash = `#/v/${vid}`; return; }
-    if (b.dataset.act === "estado") {
-      // Con la orden ya subida no puede volver a Impreso
-      return glideMenu(b, docs[vid] ? ESTADOS_F.filter(([k]) => k !== "impreso") : ESTADOS_F, estadoDe(vid), async est => {
-        try {
-          if (!(await guardar({ estados: { [vid]: est }, ...(est !== "impreso" ? alFinal(vid) : {}) }, `${patenteDe(vid)}: pasó a ${ESTADOS_F.find(([k]) => k === est)[1]}`))) return;
-          // Facturado acá también marca Facturado en el vehículo
-          const v = activos().find(x => x.id === vid);
-          if (est === "facturado" && v && estadoActual(v) !== "facturado") { await cambiarEstado(v, "facturado"); toast("Vehículo marcado Facturado", "success"); }
-        } catch (err) { toast(mensajeError(err), "error"); }
-      });
+    const ponerEstado = async est => {
+      try {
+        if (!(await guardar({ ...conFecha(vid, est), ...(est !== "impreso" ? alFinal(vid) : {}) }, `${patenteDe(vid)}: pasó a ${ESTADOS_F.find(([k]) => k === est)[1]}`))) return;
+        // Facturado acá también marca Facturado en el vehículo
+        const v = activos().find(x => x.id === vid);
+        if (est === "facturado" && v && estadoActual(v) !== "facturado") { await cambiarEstado(v, "facturado"); toast("Vehículo marcado Facturado", "success"); }
+      } catch (err) { toast(mensajeError(err), "error"); }
+    };
+    // Con la orden ya subida no puede volver a Impreso
+    if (b.dataset.act === "estado") return glideMenu(b, docs[vid] ? ESTADOS_F.filter(([k]) => k !== "impreso") : ESTADOS_F, estadoDe(vid), ponerEstado);
+    if (b.dataset.act === "hist") {
+      const nom = k => ESTADOS_F.find(([x]) => x === k)?.[1] || k, actual = estadoDe(vid);
+      const l = (hist[vid] || []).slice().sort((x, y) => y.t - x.t);
+      const s = openSheet({ title: `Estados · ${patenteDe(vid)}`, body: `<div class="stack">${l.length ? `<ul class="f-hist">${l.map(h => `<li>
+          <span><b>${esc(nom(h.est))}</b><small class="muted">${esc(new Date(h.t).toLocaleString("es-AR", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" }))}${h.por ? " · " + esc(h.por) : ""}</small></span>
+          ${h.est !== actual && !(docs[vid] && h.est === "impreso") ? `<button type="button" class="btn btn-ghost btn-sm" data-volver="${esc(h.est)}">${icon("restore")}Volver a este</button>` : ""}</li>`).join("")}</ul>`
+        : `<p class="muted">Todavía no hay cambios registrados. Se guardan desde ahora, cada vez que alguien cambia el estado.</p>`}</div>` });
+      s.el.addEventListener("click", ev => { const x = ev.target.closest("[data-volver]"); if (x) { s.close(); ponerEstado(x.dataset.volver); } });
+      return;
     }
     if (b.dataset.act === "subir") {
       // El <label for="f-in"> abre el selector solo (el .click() por código falla en Android)
@@ -141,7 +157,7 @@ export function vistaFacturacion(view) {
     try {
       const r = await subir(file, `${S.company.id}/${vid}/factura`, { tipo: "auto", nombre: file.name });
       const ok = await guardar({ docs: { [vid]: { url: r.url, publicId: r.publicId, name: file.name, bytes: r.bytes, at: Date.now() } },
-        ...(estadoDe(vid) === "impreso" ? { estados: { [vid]: "firmado" }, ...alFinal(vid) } : {}) }, `${patenteDe(vid)}: subió la orden firmada`);   // subir la orden la pasa a Firmado
+        ...(estadoDe(vid) === "impreso" ? { ...conFecha(vid, "firmado"), ...alFinal(vid) } : {}) }, `${patenteDe(vid)}: subió la orden firmada`);   // subir la orden la pasa a Firmado
       if (ok) toast("Documento guardado", "success");
     } catch (err) { toast(mensajeError(err), "error"); }
   };

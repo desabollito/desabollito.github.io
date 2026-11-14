@@ -2622,3 +2622,9 @@ button.aj-item:hover, a.aj-item:hover { background: var(--surface-2); }
 .chat-msg audio { display: block; width: 240px; max-width: 100%; height: 40px; }
 .chat-reac { position: absolute; bottom: -10px; right: 8px; font-size: 14px; line-height: 18px; padding: 0 4px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
 .chat-msg:has(.chat-reac) { margin-bottom: 10px; }
+/* Facturación: historial de estados de un vehículo */
+.f-hist { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.f-hist li { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 2px; border-bottom: 1px solid var(--line); }
+.f-hist li:last-child { border-bottom: 0; }
+.f-hist li > span { display: grid; gap: 2px; min-width: 0; }
+.f-hist small { font-size: 12.5px; font-variant-numeric: tabular-nums; }
