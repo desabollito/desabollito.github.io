@@ -2639,3 +2639,9 @@ button.aj-item:hover, a.aj-item:hover { background: var(--surface-2); }
 .hist-firmas { display: grid; gap: 10px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
 .hist-firmas h4 { margin: 0; font-size: 14px; }
 .hist-firmas figure { margin: 0; display: grid; gap: 4px; }
+/* Buscadores: X propia para borrar (visible siempre que haya algo escrito); se oculta la nativa para que no haya dos */
+.search input::-webkit-search-cancel-button { display: none; -webkit-appearance: none; }
+.search-x { flex: none; display: grid; place-items: center; width: 28px; height: 28px; padding: 0; margin: 0 -4px 0 0; border: 0; border-radius: 50%; background: var(--surface-2); color: var(--muted); cursor: pointer; }
+.search-x:hover { color: var(--ink); }
+.search-x .ic { width: 15px; height: 15px; }
+.search-x[hidden] { display: none; }

@@ -343,9 +343,19 @@ function sugerir(inp) {
   });
   addEventListener("scroll", e => { if (caja && !caja.contains(e.target)) cerrar(); }, true);
 }
+// Buscadores: X para borrar siempre que haya algo escrito (la nativa solo aparece con el campo enfocado, y en Firefox no existe)
+const conBorrar = inp => {
+  if (inp.nextElementSibling?.classList.contains("search-x")) return;
+  const b = Object.assign(document.createElement("button"), { type: "button", className: "search-x", hidden: !inp.value, innerHTML: icon("x") });
+  b.setAttribute("aria-label", "Borrar búsqueda");
+  b.addEventListener("click", e => { e.preventDefault(); inp.value = ""; inp.dispatchEvent(new Event("input", { bubbles: true })); inp.focus(); });
+  inp.after(b);
+};
+document.addEventListener("input", e => { const x = e.target.matches?.(".search input") && e.target.nextElementSibling; if (x?.classList.contains("search-x")) x.hidden = !e.target.value; }, true);
 new MutationObserver(ms => { for (const m of ms) for (const n of m.addedNodes) if (n.nodeType === 1) {
   (n.matches("select") ? [n] : n.querySelectorAll("select")).forEach(lindo);
   (n.matches("input[list]") ? [n] : n.querySelectorAll("input[list]")).forEach(sugerir);
+  (n.matches(".search input") ? [n] : n.querySelectorAll(".search input")).forEach(conBorrar);
 } })
   .observe(document.documentElement, { childList: true, subtree: true });
 // Formato de WhatsApp en el chat en vivo: *negrita*, _cursiva_ y ~tachado~ (sobre el texto ya escapado; el signo va pegado al texto, como en WhatsApp)
