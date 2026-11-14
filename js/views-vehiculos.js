@@ -1249,23 +1249,28 @@ function conectarDeshacer(s, v, e) {
     deshacerCambio(v, e).then(() => toast("Estado deshecho", "success")).catch(err => toast(mensajeError(err), "error"));
   });
 }
-// enChat: abierto desde el chat en vivo, al avisar no lo vuelve a abrir
+// enChat: abierto con «Elegir nueva fecha» del chat en vivo: el botón principal manda la fecha nueva y no vuelve a abrir el chat
 export function elegirFechaEstado(v, estado, enChat) {
-  const e = ESTADO[estado];
-  // Sin título ni X: se cierra tocando afuera
+  const e = ESTADO[estado], paso = estadoActual(v) === estado && pasoDeshacible(v, [estado]);
+  // Sin título ni X: se cierra tocando afuera. Deshacer: botón de historial arriba a la derecha (pide confirmar)
   const s = openSheet({
-    body: `<form class="stack">
+    body: `<form class="stack"><div class="fecha-est">
       <label class="field"><span>${estado === "turnado" ? "Fecha del turno" : "Fecha"}</span>
         <input type="date" name="f" value="${v.fechas?.[estado] || hoyISO()}" required></label>
+      ${paso ? `<button type="button" class="icon-btn sm" id="t-deshacer" aria-label="Deshacer: ${esc(sinPaso(paso.txt))}" title="Deshacer">${icon("restore")}</button>` : ""}</div>
       ${estado === "turnado" ? `<div class="turno-conf"><span>¿Confirmó el turno?</span>
         <button type="button" class="switch ${v.turnoConfirmado === true ? "on" : ""}" id="t-conf" role="switch" aria-checked="${v.turnoConfirmado === true}">
           <span class="sw-txt sw-si">Sí</span><span class="sw-txt sw-no">No</span><i class="sw-bola"></i></button></div>` : ""}
-      ${estado === "turnado" && usaClientes() && telWaOk(v) ? `<button type="button" class="btn btn-ghost btn-block" id="t-avisar">${icon("chat")}Avisar desde chat en vivo</button>` : ""}
-      ${estadoActual(v) === estado ? botonDeshacer(pasoDeshacible(v, [estado])) : ""}
-      <button class="btn btn-primary btn-block" style="--btn:${e.color}">Guardar</button></form>`
+      ${!enChat && estado === "turnado" && usaClientes() && telWaOk(v) ? `<button type="button" class="btn btn-ghost btn-block" id="t-avisar">${icon("chat")}Avisar desde chat en vivo</button>` : ""}
+      ${enChat ? `<button class="btn btn-primary btn-block" style="--btn:${e.color}" data-avisar>${icon("chat")}Enviar nueva fecha</button>
+      <button class="btn btn-ghost btn-block">Guardar fecha sin avisar</button>` : `<button class="btn btn-primary btn-block" style="--btn:${e.color}">Guardar</button>`}</form>`
   });
   $(".sheet", s.el).setAttribute("aria-label", `Marcar como ${e.label.toLowerCase()}`);
-  if (estadoActual(v) === estado) conectarDeshacer(s, v, pasoDeshacible(v, [estado]));
+  $("#t-deshacer", s.el)?.addEventListener("click", async () => {
+    if (!(await confirmar({ title: "¿Deshacer?", message: `Se deshace: “${sinPaso(paso.txt)}”.`, ok: "Deshacer" }))) return;
+    s.close();
+    deshacerCambio(v, paso).then(() => toast("Estado deshecho", "success")).catch(err => toast(mensajeError(err), "error"));
+  });
   let confirmado = v.turnoConfirmado === true;
   let avisar = false;
   // Avisar desde chat en vivo: guarda el turno, manda el mensaje y abre el chat
@@ -1276,6 +1281,7 @@ export function elegirFechaEstado(v, estado, enChat) {
   });
   $("form", s.el).onsubmit = async ev => {
     ev.preventDefault();
+    if (ev.submitter?.hasAttribute("data-avisar")) avisar = true;
     const fecha = ev.target.f.value;
     // Avisado por el chat en vivo: queda sin confirmar hasta que el cliente responda y alguien lo confirme
     cambiarEstado(v, estado, fecha, estado === "turnado" ? { turnoConfirmado: avisar ? false : confirmado } : {}).catch(err => toast(mensajeError(err), "error"));
