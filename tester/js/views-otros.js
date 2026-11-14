@@ -378,11 +378,13 @@ export function vistaEmpresa(view) {
         <label class="field"><span>Mensaje de turno <small class="muted">(se puede cambiar antes de cada envío en Mensajes y turnos)</small></span>
           <textarea name="turno" rows="12" maxlength="2000">${esc(c.mensajes?.turno || TXT_TURNO)}</textarea></label>
         <label class="toggle"><input type="checkbox" name="encTurno" ${c.mensajes?.encTurno ? "checked" : ""}>
-          <span>Después del mensaje de turno, mandar la encuesta «Confirmo el turno / Quiero cambiar la fecha»</span></label>
+          <span>Después del mensaje de turno, mandar la encuesta</span></label>
+        ${campoEncuesta(c, "turno")}
         <label class="field"><span>Mensaje de contactado <small class="muted">(al marcar Contactado y en «Contactar por privado»)</small></span>
           <textarea name="contactado" rows="6" maxlength="2000">${esc(c.mensajes?.contactado || S.config?.mensajeWa || "")}</textarea></label>
         <label class="toggle"><input type="checkbox" name="encRetiro" ${c.mensajes?.encRetiro ? "checked" : ""}>
-          <span>Después del mensaje de contactado, mandar la encuesta «Retiro hoy / Retiro mañana»</span></label>
+          <span>Después del mensaje de contactado, mandar la encuesta</span></label>
+        ${campoEncuesta(c, "retiro")}
         <p class="muted small">Datos que se completan solos: {Saludo} {Asegurado} {Vehiculo} {Patente} {Operativo} {Turno} {Hora} {Direccion} {Mapa} {Compania}. Un renglón sin dato (por ejemplo, sin hora) no se manda. El link del mapa sale con vista previa.</p>
         <button type="button" class="link-btn" id="msj-def">Volver al mensaje original</button>
         <button class="btn btn-primary">Guardar mensajes</button>
@@ -479,8 +481,10 @@ export function vistaEmpresa(view) {
     if (mapa && !/^https:\/\//.test(mapa)) return toast("El link del mapa tiene que empezar con https://", "error");
     const turno = f.turno.value.trim();
     try {
+      const encuestas = Object.fromEntries(["turno", "retiro"].map(k => [k, leerEncuesta(f, k)]));
+      if (Object.values(encuestas).some(x => x === false)) return toast("Cada encuesta necesita una pregunta y al menos 2 opciones", "error");
       await guardarMensajesCliente({ direccion: f.direccion.value.trim(), mapa, turno: turno === TXT_TURNO ? "" : turno, contactado: f.contactado.value.trim(), encTurno: f.encTurno.checked, encRetiro: f.encRetiro.checked,
-        mapaN: S.company?.mensajes?.mapaN || null, mapaImg });   // el número lo pone el bot: se lee del operativo al momento de guardar
+        encuestas, mapaN: S.company?.mensajes?.mapaN || null, mapaImg });   // el número lo pone el bot: se lee del operativo al momento de guardar
       // Con link de Maps: el bot le da al operativo su link corto (chapisteriaomar.com/mapN), con la vista previa linda
       if (mapa && !S.company?.mensajes?.mapaN) { const j = await llamarBot("mapa-numero", { cid: c.id }); if (!j.ok) toast(j.error || "No se pudo crear el link corto", "error"); }
       toast("Mensajes guardados", "success");
@@ -1170,6 +1174,20 @@ export async function panelCreador() {
 }
 
 // ── Mensajes y turnos: salen del número de la empresa, de a uno y con pausa para que WhatsApp no lo bloquee
+// Encuestas al cliente: las de siempre; si el operativo no las cambia, el bot arma la pregunta con la fecha y la hora que haya
+const ENC_DEF = { turno: { pregunta: "¿Confirmás el turno del {Fecha} para tu {Vehiculo}?", opciones: ["Confirmo el turno", "Quiero cambiar la fecha"] },
+  retiro: { pregunta: "Tu {Vehiculo} ya está listo. ¿Cuándo lo retirás?", opciones: ["Retiro hoy", "Retiro mañana"] } };
+const campoEncuesta = (c, k) => { const e = c.mensajes?.encuestas?.[k] || ENC_DEF[k];
+  return `<div class="msj-enc"><label class="field"><span>Pregunta <small class="muted">({Fecha} {Hora} {Vehiculo} {Patente})</small></span>
+      <input name="enc-${k}-p" maxlength="255" value="${esc(e.pregunta)}"></label>
+    <label class="field"><span>Opciones <small class="muted">(una por renglón, de 2 a 12${k === "turno" ? "; la primera confirma el turno" : ""})</small></span>
+      <textarea name="enc-${k}-o" rows="3" maxlength="1300">${esc(e.opciones.join("\n"))}</textarea></label></div>`; };
+// null = la de siempre; false = incompleta
+const leerEncuesta = (f, k) => {
+  const pregunta = f[`enc-${k}-p`].value.trim(), opciones = f[`enc-${k}-o`].value.split("\n").map(x => x.trim().slice(0, 100)).filter(Boolean).slice(0, 12);
+  if (!pregunta || opciones.length < 2) return false;
+  return pregunta === ENC_DEF[k].pregunta && opciones.join("|") === ENC_DEF[k].opciones.join("|") ? null : { pregunta, opciones };
+};
 // Mensaje de turno por defecto; cada operativo puede tener el suyo (Operativo → Mensajes al cliente). Los renglones sin dato se sacan solos.
 const TXT_TURNO = `🚗 *TURNO DE REPARACIÓN POR GRANIZO*
 

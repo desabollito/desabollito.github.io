@@ -43,6 +43,9 @@ export default {
     if (url.pathname === "/") return new Response("Desabollito bot funcionando ✅");
     if (url.pathname === "/diagnostico") return diagnostico(url, env);
     if (url.pathname === "/evolution") return webhookEvolution(req, url, env, ctx);
+    // Para las páginas de chapisteriaomar.com/mapN: número y dirección de cada taller (datos públicos del negocio)
+    if (url.pathname === "/mapas") return new Response(JSON.stringify((await fsList(env, "companies")).filter(o => o.mensajes?.mapaN)
+      .map(o => ({ n: Number(o.mensajes.mapaN), direccion: String(o.mensajes.direccion || "").slice(0, 200) }))), { headers: { "content-type": "application/json; charset=utf-8", "Cache-Control": "no-store" } });
     const mp = url.pathname.match(/^\/mapa\/(\d{1,3})(\/img)?$/);
     if (mp) return mapaRedir(env, Number(mp[1]), !!mp[2]);
     const API = { "/registro": nuevoRegistro, "/avisar": avisarCliente, "/solicitud": avisarSolicitud, "/agregado": avisarAgregado, "/pedido-union": avisarPedidoUnion,
@@ -2660,8 +2663,16 @@ async function mapaNumeroApi(env, { idToken, cid }) {
 }
 const MAPAS_PAGINAS = 30;   // shortcut: chapisteriaomar.com tiene las páginas map1…map30; con más operativos, crear más en ese repo
 // Encuestas al cliente: confirmar turno o cambiar fecha, y retiro hoy o mañana (fecha: la del turno recién dado, si la base todavía no la tiene)
-function encuestaDe(v, tipo, fecha = v?.fechas?.turnado) {
+// conf: la que armó el operativo (Operativo → Mensajes al cliente): { pregunta con {Fecha} {Hora} {Vehiculo} {Patente}, opciones }.
+// En la del turno, la primera opción es la que marca el turno como confirmado.
+function encuestaDe(v, tipo, fecha = v?.fechas?.turnado, conf = null) {
   const [, mm, dd] = String(fecha || "").split("-"), dm = dd ? `${dd}/${mm}` : "";
+  const opc = (conf?.opciones || []).map(o => String(o).trim().slice(0, 100)).filter(Boolean).slice(0, 12);
+  if (String(conf?.pregunta || "").trim() && opc.length >= 2) {
+    const datos = { fecha: dm, hora: v?.horaTurno || "", vehiculo: v?.modelo || "vehículo", patente: v?.patente || "" };
+    const name = String(conf.pregunta).replace(/\{(\w+)\}/g, (m, k) => datos[k.toLowerCase()] ?? m).replace(/\s{2,}/g, " ").replace(/\s+([?,.!])/g, "$1").trim().slice(0, 255);
+    return { name, values: opc };
+  }
   return {
     turno: { name: `¿Confirmás el turno${dm ? " del " + dm : ""}${v?.horaTurno ? " a las " + v.horaTurno : ""}${v?.modelo ? " para tu " + v.modelo : ""}?`, values: ["Confirmo el turno", "Quiero cambiar la fecha"] },
     retiro: { name: `${v?.modelo ? "Tu " + v.modelo : "Tu vehículo"} ya está listo. ¿Cuándo lo retirás?`, values: ["Retiro hoy", "Retiro mañana"] }
@@ -2669,7 +2680,8 @@ function encuestaDe(v, tipo, fecha = v?.fechas?.turnado) {
 }
 // Encuesta automática después del mensaje de turno o de contactado, si el operativo la tiene activada (Operativo → Mensajes al cliente)
 async function encuestaAutomatica(env, cid, vid, v, tel, tipo, por, fecha) {
-  const enc = encuestaDe(v, tipo, fecha || undefined);
+  const c = await fsGet(env, `companies/${cid}`).catch(() => null);
+  const enc = encuestaDe(v, tipo, fecha || undefined, c?.mensajes?.encuestas?.[tipo]);
   const base = String(env.EVOLUTION_URL || "").replace(/\/+$/, "");
   const r = await fetch(`${base}/message/sendPoll/${instanciaClientes(env)}`, { method: "POST", headers: { apikey: env.EVOLUTION_APIKEY, "Content-Type": "application/json" },
     body: JSON.stringify({ number: tel, name: enc.name, selectableCount: 1, values: enc.values }) });
@@ -2776,7 +2788,9 @@ async function respuestaCliente(env, d) {
   const v = await fsGet(env, `companies/${idx.cid}/vehicles/${idx.vid}`).catch(() => null);
   await guardarChat(env, idx.cid, idx.vid, v, tel, { t: Number(m.timestamp) * 1000 || Date.now(), txt: String(txt).slice(0, 2000), yo: false, id: m.id, key: m._key, ...adj });
   // Confirmó el turno desde la encuesta: queda marcado igual que con el botón de la app
-  if (voto?.includes("Confirmo el turno") && v && !v.turnoConfirmado)
+  // La primera opción de la encuesta del turno confirma (la del operativo o "Confirmo el turno")
+  const confirma = voto && ((await fsGet(env, `companies/${idx.cid}`).catch(() => null))?.mensajes?.encuestas?.turno?.opciones?.[0] || "Confirmo el turno");
+  if (confirma && voto.includes(String(confirma).trim()) && v && !v.turnoConfirmado)
     await fsMerge(env, `companies/${idx.cid}/vehicles/${idx.vid}`, { turnoConfirmado: true }).catch(e => console.error("turno por encuesta", e));
 }
 // El número de la empresa le pasa al bot los mensajes que recibe (una vez por instancia del Worker)
@@ -2833,7 +2847,7 @@ async function responderCliente(env, { idToken, cid, tel, texto = "", por, vid, 
 
   const number = tel, k = claveDe(citado);
   const quoted = k ? { quoted: { key: k, message: { conversation: String(citado.txt || "").slice(0, 300) } } } : {};
-  const ENC = encuestaDe(v, encuesta);
+  const ENC = tipo === "encuesta" ? encuestaDe(v, encuesta, undefined, (await fsGet(env, `companies/${cid}`).catch(() => null))?.mensajes?.encuestas?.[encuesta]) : null;
   const txt = texto.trim();
   const [ruta2, body, guardado] = {
     texto: () => ["sendText", { number, text: txt, linkPreview: true }, { txt }],

@@ -2656,3 +2656,5 @@ button.aj-item:hover, a.aj-item:hover { background: var(--surface-2); }
 /* Operativo → Mensajes al cliente: imagen de la vista previa del link del taller */
 .msj-img { display: grid; gap: 8px; justify-items: start; }
 .msj-img img { width: 100%; max-width: 420px; aspect-ratio: 1200 / 630; object-fit: cover; border-radius: var(--r); border: 1px solid var(--line); background: var(--surface-2); }
+/* Operativo → Mensajes al cliente: pregunta y opciones de cada encuesta, debajo de su interruptor */
+.msj-enc { display: grid; gap: 10px; padding-left: 12px; border-left: 2px solid var(--line); }
