@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.18.11", items: ["Chat en vivo: el campo de texto ya no muestra «Escribí una respuesta…».", "El audio pasó al +, que queda con Foto o video, Documento, Ubicación y Audio (las encuestas salen solas).", "Ubicación manda solo el link del taller, con su vista previa."] },
   { v: "4.18.10", items: ["Encuesta de retiro: los sábados sale «Retiro hoy» y «Retiro el lunes» (se cambia en Operativo → Mensajes al cliente → Opciones los sábados)."] },
   { v: "4.18.9", items: ["El Vehículo de prueba no aparece en las listas, el calendario ni facturación."] },
   { v: "4.18.8", items: ["Si el cliente vota «Quiero cambiar la fecha», le llega «¿A qué fecha querés returnar?» (se cambia en Operativo → Mensajes al cliente).", "La encuesta de «Enviar nueva fecha» también se configura ahí.", "Mensajes al cliente: «Probar el chat en vivo» con un Vehículo de prueba (AAA000) y tu número."] },

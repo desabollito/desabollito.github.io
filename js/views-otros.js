@@ -1439,12 +1439,11 @@ function abrirChat(cid, tel, alCerrar, v = null) {
       <div class="chat-turno" id="chat-turno"></div>
       <div class="chat-resp" id="chat-resp" hidden><span></span><button type="button" class="icon-btn" id="chat-resp-x" aria-label="No responder a ese mensaje">${icon("x")}</button></div>
       <form class="chat-form" id="chat-form">
-        <button class="icon-btn chat-mas" type="button" id="chat-mas" aria-label="Mandar foto, ubicación o encuesta" aria-haspopup="listbox">${icon("plus")}</button>
+        <button class="icon-btn chat-mas" type="button" id="chat-mas" aria-label="Mandar foto, documento, ubicación o audio" aria-haspopup="listbox">${icon("plus")}</button>
         <input type="file" id="chat-foto" accept="image/*,video/*" multiple hidden><input type="file" id="chat-doc" multiple hidden>
-        <textarea name="txt" rows="1" placeholder="Escribí una respuesta…" maxlength="2000"></textarea>
+        <textarea name="txt" rows="1" aria-label="Mensaje" maxlength="2000"></textarea>
         <span class="chat-grab" id="chat-grab" hidden>● Grabando <b>0:00</b></span>
         <button class="icon-btn chat-cancelar" type="button" id="chat-cancelar" aria-label="Descartar audio" hidden>${icon("trash")}</button>
-        <button class="btn btn-ghost chat-enviar chat-mic" type="button" id="chat-mic" aria-label="Grabar audio">${icon("mic")}</button>
         <button class="btn btn-primary chat-enviar" type="submit" aria-label="Enviar">${icon("next")}</button></form></div>` });
   s.el.classList.add("sheet-centro");   // en el celular, al medio (no desde abajo)
   // En lugar de la X: la papelera de mensajes borrados (se cierra tocando afuera)
@@ -1573,21 +1572,20 @@ function abrirChat(cid, tel, alCerrar, v = null) {
     const direccion = S.company?.mensajes?.direccion || "", mapa = linkMapa();
     if (!direccion && !mapa) return toast("Cargá la dirección del taller en Operativo → Mensajes al cliente", "error");
     // Con link corto la dirección ya va de título en la vista previa: se manda solo el link
-    mandar({ texto: S.company?.mensajes?.mapaN && mapa ? `🗺️ *Ubicación:* ${mapa}` : [direccion && `📍 *Dirección:* ${direccion}`, mapa && `🗺️ *Ubicación:* ${mapa}`].filter(Boolean).join("\n") })
+    mandar({ texto: S.company?.mensajes?.mapaN && mapa ? mapa : [direccion && `📍 *Dirección:* ${direccion}`, mapa && `🗺️ *Ubicación:* ${mapa}`].filter(Boolean).join("\n") })
       .then(ok => ok && toast("Ubicación enviada", "success"));
   };
   $("#chat-mas", s.el).addEventListener("click", e => glideMenu(e.currentTarget,
-    [["foto", "📷 Foto o video"], ["doc", "📄 Documento"], ["ubicacion", "📍 Ubicación"], ["turno", "📊 Confirmar turno / cambiar fecha"], ["retiro", "📊 Retiro hoy / mañana"]], null, k => {
+    [["foto", "📷 Foto o video"], ["doc", "📄 Documento"], ["ubicacion", "📍 Ubicación"], ["audio", "🎤 Audio"]], null, k => {
       if (k === "foto") inFoto.click();
       else if (k === "doc") inDoc.click();
       else if (k === "ubicacion") mandarUbicacion();
-      else mandar({ tipo: "encuesta", encuesta: k }).then(ok => ok && toast("Encuesta enviada", "success"));
+      else if (k === "audio") grabar();
     }));
 
-  // Audio: tocar el micrófono graba; enviar (o el micrófono otra vez) lo manda; la papelera lo descarta
+  // Audio: desde el +; mientras graba, enviar lo manda y la papelera lo descarta
   let grab = null;
-  const verGrab = on => { ta.hidden = on; $("#chat-grab", s.el).hidden = !on; $("#chat-cancelar", s.el).hidden = !on; $("#chat-mas", s.el).hidden = on;
-    $("#chat-mic", s.el).classList.toggle("on", on); };
+  const verGrab = on => { ta.hidden = on; $("#chat-grab", s.el).hidden = !on; $("#chat-cancelar", s.el).hidden = !on; $("#chat-mas", s.el).hidden = on; };
   const pararGrab = mandarlo => {
     const g = grab; if (!g) return; grab = null; clearInterval(g.reloj); verGrab(false);
     g.rec.onstop = async () => {
@@ -1601,7 +1599,7 @@ function abrirChat(cid, tel, alCerrar, v = null) {
     };
     g.rec.stop();
   };
-  $("#chat-mic", s.el).addEventListener("click", async () => {
+  const grabar = async () => {
     if (grab) return pararGrab(true);
     if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) return toast("Este equipo no puede grabar audio", "error");
     try {
@@ -1613,6 +1611,6 @@ function abrirChat(cid, tel, alCerrar, v = null) {
       g.reloj = setInterval(() => { const sg = Math.floor((Date.now() - g.t0) / 1000); b.textContent = `${Math.floor(sg / 60)}:${String(sg % 60).padStart(2, "0")}`;
         if (sg >= 300) pararGrab(true); }, 500);   // tope de 5 minutos
     } catch { toast("No se pudo usar el micrófono (revisá el permiso)", "error"); }
-  });
+  };
   $("#chat-cancelar", s.el).addEventListener("click", () => pararGrab(false));
 }
