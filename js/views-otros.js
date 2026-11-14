@@ -2,7 +2,7 @@ import {
   S, activos, papelera, restaurar, eliminarDefinitivo, soyAdmin, miRol, renombrarEmpresa, guardarSello, guardarMensajesCliente, deshaciblesDe, deshacerCambio, soyDesmontaje,
   agregarMiembro, cambiarRol, quitarMiembro, guardarEtiquetas, resolverSolicitud, desvincularWhatsApp, salirDeEmpresa, eliminarEmpresa, crearEmpresa, elegirEmpresa,
   actualizarPerfil, ponerMiFoto, salir, mensajeError, llamarAdmin, soloDesmontaje, pedirUnion, linksCompartidos, getVehiculo, soloVer, soySacabollos, guardarOrdenOps, cambiarEstado, usaClientes,
-  onChange, chatSinLeer, marcarChatVisto, actualizarVehiculo, guardarColor
+  onChange, chatSinLeer, marcarChatVisto, actualizarVehiculo, guardarColor, guardarVehiculo, nuevoIdVehiculo
 } from "./data.js";
 import { cargarExcelJS } from "./excel.js";
 import { db, doc, onSnapshot } from "./firebase.js";
@@ -382,6 +382,10 @@ export function vistaEmpresa(view) {
         <label class="toggle"><input type="checkbox" name="encTurno" ${c.mensajes?.encTurno ? "checked" : ""}>
           <span>Después del mensaje de turno, mandar la encuesta</span></label>
         ${campoEncuesta(c, "turno")}
+        <label class="field"><span>Si elige otra fecha, se le contesta <small class="muted">(vacío: no se manda nada)</small></span>
+          <textarea name="cambioFecha" rows="3" maxlength="1000">${esc(c.mensajes?.cambioFecha ?? CAMBIO_FECHA_DEF)}</textarea></label>
+        <div class="field"><span>Encuesta de «Enviar nueva fecha» <small class="muted">(desde el chat, cuando pidió cambiarla)</small></span></div>
+        ${campoEncuesta(c, "reprogramar")}
         <label class="field"><span>Mensaje de contactado <small class="muted">(al marcar Contactado y en «Contactar por privado»)</small></span>
           <textarea name="contactado" rows="6" maxlength="2000">${esc(c.mensajes?.contactado || S.config?.mensajeWa || "")}</textarea></label>
         <label class="toggle"><input type="checkbox" name="encRetiro" ${c.mensajes?.encRetiro ? "checked" : ""}>
@@ -390,6 +394,11 @@ export function vistaEmpresa(view) {
         <p class="muted small">Datos que se completan solos: {Saludo} {Asegurado} {Vehiculo} {Patente} {Operativo} {Turno} {Hora} {Direccion} {Mapa} {Compania}. Un renglón sin dato (por ejemplo, sin hora) no se manda. El link del mapa sale con vista previa.</p>
         <button type="button" class="link-btn" id="msj-def">Volver al mensaje original</button>
         <button class="btn btn-primary">Guardar mensajes</button>
+        <div class="field msj-prueba"><span>Probar el chat en vivo</span>
+          <small class="muted">Usa el «Vehículo de prueba» (AAA000) con este número: mandale el turno, votá las encuestas y respondé como si fueras el cliente.</small>
+          <input name="telPrueba" type="tel" inputmode="numeric" placeholder="2936401097" value="${esc(String(S.profile?.whatsapp || "").replace(/^549/, ""))}">
+          <span class="row-btns"><button type="button" class="btn btn-ghost btn-sm" data-prueba="chat">${icon("chat")}Abrir chat</button>
+            <button type="button" class="btn btn-ghost btn-sm" data-prueba="ver">${icon("car")}Ver vehículo</button></span></div>
       </form>
     </details>` : ""}
 
@@ -478,14 +487,21 @@ export function vistaEmpresa(view) {
     catch (err) { toast(mensajeError(err), "error"); }
   };
   $("#msj-def", view)?.addEventListener("click", () => { $("#msj-cli", view).turno.value = TXT_TURNO; });
+  // Probar el chat en vivo con el vehículo de prueba
+  $$("[data-prueba]", view).forEach(b => b.addEventListener("click", async () => {
+    const tel = String($("#msj-cli", view).telPrueba.value).replace(/[^0-9]/g, "");
+    if (!telWa(tel)) return toast("Poné un celular válido (10 dígitos, sin 0 ni 15)", "error");
+    try { const v = await vehiculoPrueba(tel); b.dataset.prueba === "chat" ? abrirChatDe(v) : go(`#/v/${v.id}`); }
+    catch (err) { toast(mensajeError(err), "error"); }
+  }));
   if ($("#msj-cli", view)) $("#msj-cli", view).onsubmit = async e => {
     e.preventDefault(); const f = e.target, mapa = f.mapa.value.trim();
     if (mapa && !/^https:\/\//.test(mapa)) return toast("El link del mapa tiene que empezar con https://", "error");
     const turno = f.turno.value.trim();
     try {
-      const encuestas = Object.fromEntries(["turno", "retiro"].map(k => [k, leerEncuesta(f, k)]));
+      const encuestas = Object.fromEntries(["turno", "retiro", "reprogramar"].map(k => [k, leerEncuesta(f, k)]));
       if (Object.values(encuestas).some(x => x === false)) return toast("Cada encuesta necesita una pregunta y al menos 2 opciones", "error");
-      await guardarMensajesCliente({ direccion: f.direccion.value.trim(), mapa, turno: turno === TXT_TURNO ? "" : turno, contactado: f.contactado.value.trim(), encTurno: f.encTurno.checked, encRetiro: f.encRetiro.checked,
+      await guardarMensajesCliente({ direccion: f.direccion.value.trim(), mapa, turno: turno === TXT_TURNO ? "" : turno, contactado: f.contactado.value.trim(), cambioFecha: f.cambioFecha.value.trim(), encTurno: f.encTurno.checked, encRetiro: f.encRetiro.checked,
         encuestas, mapaN: S.company?.mensajes?.mapaN || null, mapaImg });   // el número lo pone el bot: se lee del operativo al momento de guardar
       // Con link de Maps: el bot le da al operativo su link corto (chapisteriaomar.com/mapN), con la vista previa linda
       if (mapa && !S.company?.mensajes?.mapaN) { const j = await llamarBot("mapa-numero", { cid: c.id }); if (!j.ok) toast(j.error || "No se pudo crear el link corto", "error"); }
@@ -1185,11 +1201,22 @@ export async function panelCreador() {
 // ── Mensajes y turnos: salen del número de la empresa, de a uno y con pausa para que WhatsApp no lo bloquee
 // Encuestas al cliente: las de siempre; si el operativo no las cambia, el bot arma la pregunta con la fecha y la hora que haya
 const ENC_DEF = { turno: { pregunta: "¿Confirmás el turno del {Fecha} para tu {Vehiculo}?", opciones: ["Confirmo el turno", "Quiero cambiar la fecha"] },
-  retiro: { pregunta: "Tu {Vehiculo} ya está listo. ¿Cuándo lo retirás?", opciones: ["Retiro hoy", "Retiro mañana"] } };
+  retiro: { pregunta: "Tu {Vehiculo} ya está listo. ¿Cuándo lo retirás?", opciones: ["Retiro hoy", "Retiro mañana"] },
+  reprogramar: { pregunta: "¿Reprogramamos el turno al {Fecha}?", opciones: ["Confirmo el turno", "Quiero cambiar la fecha"] } };
+// Lo que se le contesta al cliente cuando vota la segunda opción (igual que en el bot)
+const CAMBIO_FECHA_DEF = "¿A qué fecha querés returnar?\n> Responderán del taller a la brevedad.";
+// Vehículo de prueba del operativo (para probar el chat en vivo con el número de uno): se crea la primera vez
+async function vehiculoPrueba(tel) {
+  const v = S.vehicles.find(x => !x.deleted && x.patente === "AAA000" && x.modelo === "Vehículo de prueba");
+  if (v) { if (v.telefono !== tel) await actualizarVehiculo(v.id, { telefono: tel }, "Cambió el teléfono de prueba"); return getVehiculo(v.id) || { ...v, telefono: tel }; }
+  const id = nuevoIdVehiculo(), datos = { patente: "AAA000", modelo: "Vehículo de prueba", asegurado: S.profile?.name || "Prueba", telefono: tel };
+  await guardarVehiculo(id, datos, true);
+  return getVehiculo(id) || { id, ...datos };
+}
 const campoEncuesta = (c, k) => { const e = c.mensajes?.encuestas?.[k] || ENC_DEF[k];
   return `<div class="msj-enc"><label class="field"><span>Pregunta <small class="muted">({Fecha} {Hora} {Vehiculo} {Patente})</small></span>
       <input name="enc-${k}-p" maxlength="255" value="${esc(e.pregunta)}"></label>
-    <label class="field"><span>Opciones <small class="muted">(una por renglón, de 2 a 12${k === "turno" ? "; la primera confirma el turno" : ""})</small></span>
+    <label class="field"><span>Opciones <small class="muted">(una por renglón, de 2 a 12${k !== "retiro" ? "; la primera confirma el turno y la segunda pide otra fecha" : ""})</small></span>
       <textarea name="enc-${k}-o" rows="3" maxlength="1300">${esc(e.opciones.join("\n"))}</textarea></label></div>`; };
 // null = la de siempre; false = incompleta
 const leerEncuesta = (f, k) => {

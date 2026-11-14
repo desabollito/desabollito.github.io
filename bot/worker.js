@@ -2680,7 +2680,6 @@ const MAPAS_PAGINAS = 30;   // shortcut: chapisteriaomar.com tiene las páginas 
 function encuestaDe(v, tipo, fecha = v?.fechas?.turnado, conf = null) {
   const [yy, mm, dd] = String(fecha || "").split("-").map(Number), dm = dd ? new Date(Date.UTC(yy, mm - 1, dd)).toLocaleDateString("es-AR", { timeZone: "UTC", weekday: "long", day: "numeric", month: "long" }).replace(",", "").replace(/^./, c => c.toUpperCase()) : "";   // "Lunes 19 de noviembre"
   const opc = (conf?.opciones || []).map(o => String(o).trim().slice(0, 100)).filter(Boolean).slice(0, 12);
-  if (tipo === "reprogramar") return { name: `¿Reprogramamos el turno al ${dm}?`, values: opc.length >= 2 ? opc : ["Confirmo el turno", "Quiero cambiar la fecha"] };
   if (String(conf?.pregunta || "").trim() && opc.length >= 2) {
     const datos = { fecha: dm, hora: v?.horaTurno || "", vehiculo: v?.modelo || "vehículo", patente: v?.patente || "" };
     const name = String(conf.pregunta).replace(/\{(\w+)\}/g, (m, k) => datos[k.toLowerCase()] ?? m).replace(/\s{2,}/g, " ").replace(/\s+([?,.!])/g, "$1").trim().slice(0, 255);
@@ -2688,7 +2687,9 @@ function encuestaDe(v, tipo, fecha = v?.fechas?.turnado, conf = null) {
   }
   return {
     turno: { name: `¿Confirmás el turno${dm ? " del " + dm : ""}${v?.horaTurno ? " a las " + v.horaTurno : ""}${v?.modelo ? " para tu " + v.modelo : ""}?`, values: ["Confirmo el turno", "Quiero cambiar la fecha"] },
-    retiro: { name: `${v?.modelo ? "Tu " + v.modelo : "Tu vehículo"} ya está listo. ¿Cuándo lo retirás?`, values: ["Retiro hoy", "Retiro mañana"] }
+    retiro: { name: `${v?.modelo ? "Tu " + v.modelo : "Tu vehículo"} ya está listo. ¿Cuándo lo retirás?`, values: ["Retiro hoy", "Retiro mañana"] },
+    // La que sale con «Enviar nueva fecha» (cuando el cliente pidió cambiarla)
+    reprogramar: { name: `¿Reprogramamos el turno al ${dm}?`, values: ["Confirmo el turno", "Quiero cambiar la fecha"] }
   }[tipo];
 }
 // Encuesta automática después del mensaje de turno o de contactado, si el operativo la tiene activada (Operativo → Mensajes al cliente)
@@ -2802,13 +2803,23 @@ async function respuestaCliente(env, d) {
   await guardarChat(env, idx.cid, idx.vid, v, tel, { t: Number(m.timestamp) * 1000 || Date.now(), txt: String(txt).slice(0, 2000), yo: false, id: m.id, key: m._key, ...adj });
   // Confirmó el turno desde la encuesta: queda marcado igual que con el botón de la app
   // La primera opción de la encuesta del turno confirma (la del operativo o "Confirmo el turno")
-  // La segunda pide otra fecha: la app muestra «Elegir nueva fecha» en el chat
-  const ops = voto ? (await fsGet(env, `companies/${idx.cid}`).catch(() => null))?.mensajes?.encuestas?.turno?.opciones : null;
-  const confirma = String(ops?.[0] || "Confirmo el turno").trim(), cambia = String(ops?.[1] || "Quiero cambiar la fecha").trim();
-  const nuevo = !voto || !v ? null : voto.includes(confirma) ? true : voto.includes(cambia) ? "cambio" : null;
-  if (nuevo !== null && v.turnoConfirmado !== nuevo)
-    await fsMerge(env, `companies/${idx.cid}/vehicles/${idx.vid}`, { turnoConfirmado: nuevo }).catch(e => console.error("turno por encuesta", e));
+  // La segunda pide otra fecha: la app muestra «Elegir nueva fecha» en el chat y al cliente le llega el aviso (Operativo → Mensajes al cliente)
+  // Vale igual para la encuesta de turno y la de nueva fecha (cada una con sus opciones o las de siempre)
+  if (!voto || !v) return;
+  const msj = (await fsGet(env, `companies/${idx.cid}`).catch(() => null))?.mensajes || {};
+  const pares = [msj.encuestas?.turno?.opciones, msj.encuestas?.reprogramar?.opciones, ["Confirmo el turno", "Quiero cambiar la fecha"]].filter(o => o?.length >= 2);
+  const nuevo = pares.some(o => voto.includes(String(o[0]).trim())) ? true : pares.some(o => voto.includes(String(o[1]).trim())) ? "cambio" : null;
+  if (nuevo === null || v.turnoConfirmado === nuevo) return;
+  await fsMerge(env, `companies/${idx.cid}/vehicles/${idx.vid}`, { turnoConfirmado: nuevo }).catch(e => console.error("turno por encuesta", e));
+  const aviso = nuevo === "cambio" ? String(msj.cambioFecha ?? CAMBIO_FECHA_DEF).trim() : "";
+  if (!aviso) return;
+  const r = await fetch(`${String(env.EVOLUTION_URL || "").replace(/\/+$/, "")}/message/sendText/${instanciaClientes(env)}`, { method: "POST",
+    headers: { apikey: env.EVOLUTION_APIKEY, "Content-Type": "application/json" }, body: JSON.stringify({ number: tel, text: aviso }) });
+  if (!r.ok) return console.error("aviso cambio de fecha", r.status, (await r.text()).slice(0, 200));
+  const key = (await r.json().catch(() => null))?.key;
+  await guardarChat(env, idx.cid, idx.vid, v, tel, { t: Date.now(), txt: aviso, yo: true, por: "Automático", ...(key?.id ? { key: { remoteJid: key.remoteJid, fromMe: true, id: key.id } } : {}) });
 }
+const CAMBIO_FECHA_DEF = "¿A qué fecha querés returnar?\n> Responderán del taller a la brevedad.";
 // El número de la empresa le pasa al bot los mensajes que recibe (una vez por instancia del Worker)
 let webhookClientesOk = false;
 async function asegurarWebhookClientes(env) {
@@ -2863,7 +2874,7 @@ async function responderCliente(env, { idToken, cid, tel, texto = "", por, vid, 
 
   const number = tel, k = claveDe(citado);
   const quoted = k ? { quoted: { key: k, message: { conversation: String(citado.txt || "").slice(0, 300) } } } : {};
-  const ENC = tipo === "encuesta" ? encuestaDe(v, encuesta, /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(fecha || "") ? fecha : undefined, (await fsGet(env, `companies/${cid}`).catch(() => null))?.mensajes?.encuestas?.[encuesta === "reprogramar" ? "turno" : encuesta]) : null;
+  const ENC = tipo === "encuesta" ? encuestaDe(v, encuesta, /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(fecha || "") ? fecha : undefined, (await fsGet(env, `companies/${cid}`).catch(() => null))?.mensajes?.encuestas?.[encuesta]) : null;
   const txt = texto.trim();
   const [ruta2, body, guardado] = {
     texto: () => ["sendText", { number, text: txt, linkPreview: true }, { txt }],
