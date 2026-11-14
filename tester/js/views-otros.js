@@ -374,6 +374,8 @@ export function vistaEmpresa(view) {
           <input name="mapa" type="url" maxlength="300" placeholder="https://maps.app.goo.gl/…" value="${esc(c.mensajes?.mapa || "")}"></label>
         <label class="field"><span>Mensaje de turno <small class="muted">(se puede cambiar antes de cada envío en Mensajes y turnos)</small></span>
           <textarea name="turno" rows="12" maxlength="2000">${esc(c.mensajes?.turno || TXT_TURNO)}</textarea></label>
+        <label class="field"><span>Mensaje de contactado <small class="muted">(al marcar Contactado y en «Contactar por privado»; vacío = el de siempre)</small></span>
+          <textarea name="contactado" rows="4" maxlength="2000" placeholder="Hola {Asegurado}! 👋 Te escribimos de {Operativo}: tu {Vehiculo} ({Patente}) ya está reparado y listo para retirar.&#10;📍 {Direccion}&#10;🗺️ {Mapa}">${esc(c.mensajes?.contactado || "")}</textarea></label>
         <p class="muted small">Datos que se completan solos: {Saludo} {Asegurado} {Vehiculo} {Patente} {Operativo} {Turno} {Hora} {Direccion} {Mapa} {Compania}. Un renglón sin dato (por ejemplo, sin hora) no se manda. El link del mapa sale con vista previa.</p>
         <button type="button" class="link-btn" id="msj-def">Volver al mensaje original</button>
         <button class="btn btn-primary">Guardar mensajes</button>
@@ -469,7 +471,7 @@ export function vistaEmpresa(view) {
     e.preventDefault(); const f = e.target, mapa = f.mapa.value.trim();
     if (mapa && !/^https:\/\//.test(mapa)) return toast("El link del mapa tiene que empezar con https://", "error");
     const turno = f.turno.value.trim();
-    try { await guardarMensajesCliente({ direccion: f.direccion.value.trim(), mapa, turno: turno === TXT_TURNO ? "" : turno }); toast("Mensajes guardados", "success"); }
+    try { await guardarMensajesCliente({ direccion: f.direccion.value.trim(), mapa, turno: turno === TXT_TURNO ? "" : turno, contactado: f.contactado.value.trim() }); toast("Mensajes guardados", "success"); }
     catch (err) { toast(mensajeError(err), "error"); }
   };
   $("#salir-emp", view)?.addEventListener("click", async () => {

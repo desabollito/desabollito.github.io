@@ -357,7 +357,7 @@ export async function renombrarEmpresa(nombre) {
   await updateDoc(doc(db, "companies", S.company.id), { name: nombre.trim() });
 }
 
-// Mensajes al cliente de este operativo: dirección del taller, link del mapa y mensaje de turno
+// Mensajes al cliente de este operativo: dirección del taller, link del mapa, mensaje de turno y de contactado
 export async function guardarMensajesCliente(m) {
   await updateDoc(doc(db, "companies", S.company.id), { mensajes: m });
 }

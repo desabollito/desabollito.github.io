@@ -522,7 +522,7 @@ export function textoWa(plantilla, v) {
 }
 console.assert(textoWa("A\n⏰ *Hora:* {Hora}\nB {Patente}", { patente: "AB123CD" }) === "A\nB AB123CD" && textoWa("Hola {Asegurado}!", {}) === "Hola !", "textoWa");
 // Solo con el vehículo reparado; antes, el WhatsApp abre sin texto
-const mensajeWa = v => ["reparado", "llamado"].includes(estadoActual(v)) ? textoWa(S.config?.mensajeWa, v) : "";
+const mensajeWa = v => ["reparado", "llamado"].includes(estadoActual(v)) ? textoWa(S.company?.mensajes?.contactado || S.config?.mensajeWa, v) : "";
 
 function waLink(tel, texto = "") {
   let d = (tel || "").replace(/\D/g, "");
@@ -1160,9 +1160,9 @@ export function elegirVehiculoDesmontaje() {
   });
 }
 
-// Aviso al cliente por WhatsApp al marcar Contactado, desde el número de la empresa: el mensaje del panel del creador o, sin él, este
+// Aviso al cliente por WhatsApp al marcar Contactado, desde el número de la empresa: el del operativo, el del panel del creador o, sin ninguno, este
 function textoAviso(v) {
-  const propio = textoWa(S.config?.mensajeWa, v);
+  const propio = textoWa(S.company?.mensajes?.contactado || S.config?.mensajeWa, v);
   if (propio) return propio;
   const nombre = String(v.asegurado || "").trim().split(/\s+/)[0];
   return `Hola${nombre ? " " + nombre : ""}! 👋 Te escribimos de ${S.company?.name || "Desabollito"}: tu ${v.modelo || "vehículo"}${v.patente ? ` (${v.patente})` : ""} ya está reparado y listo para retirar. ¡Gracias por confiar en nosotros!`;
