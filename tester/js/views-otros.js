@@ -1055,7 +1055,7 @@ export async function panelCreador() {
       try { let desde = 0; for (let i = 0; i < 40; i++) { const j = await llamarAdmin("fotos-wa", { desde }); detalle.push(...j.detalle); desde = j.siguiente; if (!j.quedan || !j.detalle.length) break; } }
       catch (err) { toast(err.message, "error"); }
       busy(fb, false);
-      if (!detalle.length) return toast("No hay usuarios con WhatsApp vinculado (o todos tienen foto puesta a mano)");
+      if (!detalle.length) return toast("No hay usuarios con WhatsApp vinculado (o todos tienen una foto puesta a mano)");
       cargar();
       return openSheet({ title: `Fotos: ${detalle.filter(d => d.foto).length} de ${detalle.length}`, body: `<ul class="adm-list">${detalle.map(d =>
         `<li><div><strong>@${esc(d.usuario)}</strong><small class="${d.foto ? "" : "muted"}">${d.foto ? "✓ " : ""}${esc(d.motivo)}</small></div></li>`).join("")}</ul>` });
@@ -1093,7 +1093,7 @@ export async function panelCreador() {
       const tiene = fu.hasAttribute("data-tiene");
       return glideMenu(fu, [["poner", tiene ? "Cambiar foto" : "Agregar foto"], ...(tiene ? [["sacar", "Eliminar foto"]] : [])], null, async k => {
         if (k === "sacar") {
-          if (!(await confirmar({ title: "¿Eliminar la foto?", message: "Queda con la inicial. No se vuelve a poner sola la de WhatsApp, salvo que la persona la pida desde sus Ajustes.", ok: "Eliminar", danger: true, centro: true }))) return;
+          if (!(await confirmar({ title: "¿Eliminar la foto?", message: "Queda con la inicial. La de WhatsApp no vuelve sola: solo si la persona la pide desde sus Ajustes o si tocás «Traer fotos».", ok: "Eliminar", danger: true, centro: true }))) return;
           try { await llamarAdmin("foto-usuario", { uid: fu.dataset.fotoU, url: "" }); toast("Foto eliminada", "success"); cargar(); }
           catch (err) { toast(err.message || mensajeError(err), "error"); }
           return;

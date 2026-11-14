@@ -2381,11 +2381,11 @@ async function ponerFoto(env, uid, url, extra = {}) {
   const ops = await fsQuery(env, "", "companies", { field: "members", op: "ARRAY_CONTAINS", value: uid }, 100).catch(() => []);
   await Promise.all(ops.map(o => fsMerge(env, `companies/${o.__id}`, { memberPhotos: { ...(o.memberPhotos || {}), [uid]: url } }).catch(() => {})));
 }
-// Panel del creador: vuelve a buscar la foto de WhatsApp de todos los vinculados (menos los que tienen foto puesta a mano).
+// Panel del creador: vuelve a buscar la foto de WhatsApp de todos los vinculados (menos los que tienen una foto puesta a mano; a los que se la sacaron, sí).
 // De a 3 por llamada (cada una son hasta ~10 pedidos y el Worker tiene tope de pedidos); la app sigue con `desde` hasta terminar.
 async function adminFotosWa(env, { idToken, desde = 0 }) {
   if (!(await soloCreador(env, idToken))) return json({ ok: false, error: "No autorizado" }, 403);
-  const todos = (await fsList(env, "users")).filter(u => u.whatsapp && !u.fotoManual).sort((a, b) => a.__id.localeCompare(b.__id));
+  const todos = (await fsList(env, "users")).filter(u => u.whatsapp && !(u.fotoManual && u.foto)).sort((a, b) => a.__id.localeCompare(b.__id));
   const i = Math.max(0, Number(desde) || 0), tanda = todos.slice(i, i + 3);
   const res = await Promise.all(tanda.map(u => actualizarFotoWa(env, u.__id, u.whatsapp, true, u)
     .catch(e => { console.error("foto wa", u.__id, e?.stack || e); return { foto: null, motivo: "error: " + String(e?.message || e).slice(0, 120) }; })));

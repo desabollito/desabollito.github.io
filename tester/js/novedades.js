@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.17.4", items: ["Panel del creador: «Traer fotos» también busca la de WhatsApp de los usuarios a los que se les eliminó la foto."] },
   { v: "4.17.3", items: ["«Chequeo y Desmontaje» ahora se llama «Chequeo»."] },
   { v: "4.17.2", items: ["Chequeo y Desmontaje se abre en una ventana emergente, como las fotos, con sus pestañas adentro."] },
   { v: "4.17.1", items: ["Panel del creador: el botón de foto de cada usuario ahora deja agregar, cambiar o eliminar la foto."] },
