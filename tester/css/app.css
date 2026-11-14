@@ -2664,3 +2664,14 @@ button.aj-item:hover, a.aj-item:hover { background: var(--surface-2); }
 .chat-resp-btn .ic { width: 16px; height: 16px; }
 .chat-resp-btn:hover, .chat-resp-btn:focus-visible { color: var(--ink); }
 .chat-borrar-todo { align-self: center; color: var(--danger, #e5484d); }
+/* Chat en vivo: fotos a una altura fija (la mitad de antes) */
+.chat-foto img { height: 160px; width: auto; max-width: 100%; object-fit: cover; }
+/* Reproductor de audio propio: play, barra y tiempo */
+.chat-audio { display: flex; align-items: center; gap: 8px; width: 230px; max-width: 100%; }
+.chat-audio audio { display: none; }
+.ca-play { flex: none; width: 34px; height: 34px; display: grid; place-items: center; border: 0; border-radius: 50%; background: var(--ink); color: var(--bg); cursor: pointer; }
+.chat-msg.yo .ca-play { background: #e9f5ef; color: #1f5c4a; }
+.ca-bar { --p: 0%; flex: 1; min-width: 0; height: 4px; margin: 0; -webkit-appearance: none; appearance: none; border-radius: 2px; background: linear-gradient(to right, currentColor var(--p), color-mix(in srgb, currentColor 25%, transparent) var(--p)); cursor: pointer; }
+.ca-bar::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 12px; border-radius: 50%; background: currentColor; border: 0; }
+.ca-bar::-moz-range-thumb { width: 12px; height: 12px; border-radius: 50%; background: currentColor; border: 0; }
+.ca-t { flex: none; font-size: 12px; font-variant-numeric: tabular-nums; opacity: .8; min-width: 32px; text-align: right; }

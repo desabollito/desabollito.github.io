@@ -1415,6 +1415,9 @@ export function telWa(t) {
   return d.length === 10 ? "549" + d : null;
 }
 console.assert(telWa("351 15 123-4567") === "5493511234567" && telWa("11 3770 9755") === "5491137709755" && telWa("123") === null, "telWa");
+// Íconos del reproductor de audio del chat
+const ICO_PLAY = `<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M8 5v14l11-7z" fill="currentColor"/></svg>`;
+const ICO_PAUSA = `<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M7 5h4v14H7zM13 5h4v14h-4z" fill="currentColor"/></svg>`;
 // Chat en vivo desde un vehículo (Contactar)
 export function abrirChatDe(v) {
   const tel = telWa(v.telefono);
@@ -1450,6 +1453,30 @@ function abrirChat(cid, tel, alCerrar, v = null) {
   $(".sheet-head [data-close]", s.el)?.replaceWith(Object.assign(document.createElement("template"), { innerHTML:
     `<button type="button" class="icon-btn chat-pap-btn" id="chat-pap" aria-label="Mensajes borrados" aria-pressed="false">${icon("trash")}</button>` }).content);
   const caja = $("#chat-msgs", s.el), form = $("#chat-form", s.el), ta = form.txt;
+  // Reproductor de audio propio (play/pausa, barra y tiempo); los eventos del audio no burbujean: se escuchan en captura
+  const mmss = x => `${Math.floor(x / 60)}:${String(Math.floor(x % 60)).padStart(2, "0")}`;
+  const pintarAudio = a => {
+    const w = a.closest(".chat-audio"); if (!w) return;
+    const d = isFinite(a.duration) ? a.duration : 0, bar = $(".ca-bar", w), b = $(".ca-play", w);
+    bar.value = d ? Math.round(a.currentTime / d * 1000) : 0; bar.style.setProperty("--p", (d ? a.currentTime / d * 100 : 0) + "%");
+    $(".ca-t", w).textContent = mmss(a.paused && !a.currentTime ? d : a.currentTime);
+    b.innerHTML = a.paused ? ICO_PLAY : ICO_PAUSA; b.setAttribute("aria-label", a.paused ? "Reproducir audio" : "Pausar audio");
+  };
+  ["timeupdate", "loadedmetadata", "durationchange", "play", "pause", "ended"].forEach(ev => caja.addEventListener(ev, e => {
+    if (e.target.tagName !== "AUDIO") return;
+    if (ev === "ended") e.target.currentTime = 0;
+    pintarAudio(e.target);
+  }, true));
+  caja.addEventListener("input", e => {
+    const bar = e.target.closest(".ca-bar"); if (!bar) return;
+    const a = $("audio", bar.parentElement); if (isFinite(a.duration)) a.currentTime = bar.value / 1000 * a.duration;
+  });
+  caja.addEventListener("click", e => {
+    const b = e.target.closest(".ca-play"); if (!b) return;
+    const a = $("audio", b.parentElement);
+    $$("audio", caja).forEach(x => { if (x !== a) x.pause(); });   // suena uno a la vez
+    if (a.paused) a.play().catch(() => toast("No se pudo reproducir el audio", "error")); else a.pause();
+  });
   const pintar = () => {
     if (!c) return;
     $(".sheet-head h2", s.el).innerHTML = `<span class="chat-cab">${avatarCliente(c)}<span class="chat-cab-nom">${esc(c.nombre || c.modelo || "Cliente")}</span>${plate(c.patente, "sm")}</span>`;
@@ -1464,7 +1491,7 @@ function abrirChat(cid, tel, alCerrar, v = null) {
     }
     const abajo = caja.scrollHeight - caja.scrollTop - caja.clientHeight < 40;
     const media = m => m.foto ? `<a class="chat-foto" href="${esc(m.foto)}" target="_blank" rel="noopener"><img src="${esc(m.foto.replace("/upload/", "/upload/c_limit,w_480,q_auto,f_auto/"))}" alt="Foto" loading="lazy"></a>${formatoWa(String(m.txt || "").replace(/^📷 Foto:? ?/, ""))}`
-      : m.audio ? `<audio controls preload="none" src="${esc(m.audio)}"></audio>`
+      : m.audio ? `<div class="chat-audio"><button type="button" class="ca-play" aria-label="Reproducir audio">${ICO_PLAY}</button><input type="range" class="ca-bar" min="0" max="1000" value="0" aria-label="Avance del audio"><span class="ca-t">0:00</span><audio preload="metadata" src="${esc(m.audio)}"></audio></div>`
       : m.video ? `<video class="chat-video" controls preload="metadata" playsinline src="${esc(m.video)}"></video>${formatoWa(String(m.txt || "").replace(/^🎥 Video:? ?/, ""))}`
       : m.doc ? `<a class="chat-doc" href="${esc(m.doc.url)}" target="_blank" rel="noopener">${icon("file")}<span>${esc(m.doc.nombre || "Documento")}</span></a>`
       : m.geo ? `<a href="https://maps.google.com/?q=${Number(m.geo.lat)},${Number(m.geo.lng)}" target="_blank" rel="noopener">📍 Ubicación enviada</a>`

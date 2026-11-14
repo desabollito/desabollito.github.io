@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.18.19", items: ["Chat en vivo: los audios tienen su propio reproductor (play, barra y tiempo).", "Las fotos del chat se ven más chicas, todas a la misma altura."] },
   { v: "4.18.18", items: ["Los nombres de clientes que estaban en MAYÚSCULAS se muestran bien («Juan Pérez de la Torre») en toda la app, el chat y los mensajes."] },
   { v: "4.18.17", items: ["Chat en vivo: el menú de los 3 puntitos se abre ahí mismo, no debajo del mensaje."] },
   { v: "4.18.16", items: ["Chat en vivo: arreglado el envío de audios («webm not allowed»)."] },
