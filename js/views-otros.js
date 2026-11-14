@@ -1470,7 +1470,7 @@ function abrirChat(cid, tel, alCerrar, v = null) {
       : m.geo ? `<a href="https://maps.google.com/?q=${Number(m.geo.lat)},${Number(m.geo.lng)}" target="_blank" rel="noopener">📍 Ubicación enviada</a>`
       : formatoWa(m.txt);
     caja.innerHTML = (c.msgs || []).slice().sort((a, b) => a.t - b.t).map(m => `<div class="chat-msg ${m.yo ? "yo" : ""}" data-t="${m.t}">${m.cita ? `<div class="chat-cita">${formatoWa(m.cita.txt)}</div>` : ""}${media(m)}
-      <small>${m.yo && m.por ? esc(m.por) + " · " : ""}${horaChat(m.t)}</small>${m.reac ? `<span class="chat-reac">${esc(m.reac)}</span>` : ""}<button type="button" class="chat-resp-btn" data-resp aria-label="Opciones del mensaje" aria-haspopup="listbox">${icon("dots")}</button></div>`).join("") || `<p class="muted small center">Sin mensajes.</p>`;
+      <small>${m.yo && m.por ? esc(m.por) + " · " : ""}${horaChat(m.t)}</small>${m.reac ? `<span class="chat-reac">${esc(m.reac)}</span>` : ""}${m.yo ? "" : `<button type="button" class="chat-resp-btn" data-resp aria-label="Opciones del mensaje" aria-haspopup="listbox">${icon("dots")}</button>`}</div>`).join("") || `<p class="muted small center">Sin mensajes.</p>`;
     // Al entrar (o si ya estaba abajo) baja al último; se repite al siguiente cuadro porque la barra del turno y la ventana todavía cambian de alto
     if (abajo || !caja.dataset.listo) { pintarTurno(); const bajar = () => { caja.scrollTop = caja.scrollHeight; }; bajar(); requestAnimationFrame(() => requestAnimationFrame(bajar)); setTimeout(bajar, 260); caja.dataset.listo = "1"; }
     else pintarTurno();
