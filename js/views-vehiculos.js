@@ -792,7 +792,7 @@ export function renderDetalle(root, v, embebido) {
     // Rol Desmontaje: no modifica nada del vehículo
     if (soloVer && (t.closest("[data-estado], .etapa-item, [data-del-foto], [data-del-doc]") || ["anular", "borrar", "firma", "mover"].includes(t.closest("[data-act]")?.dataset.act))) return;
     if ((soyLector() || soySacabollos()) && [...(soyLector() ? ["desmontaje"] : []), "fotos", "subir", "docs"].includes(t.closest("[data-act]")?.dataset.act)) return;
-    if (t.closest("[data-act]")?.dataset.act === "desmontaje") return go(`#/check/${v.id}`);
+    if (t.closest("[data-act]")?.dataset.act === "desmontaje") return abrirCheck(v);
     const fs = t.closest("[data-fsec]");
     if (fs) return abrirFotosSec(v, fs.dataset.fsec);
     const pf = t.closest("[data-pfoto]");
@@ -961,12 +961,21 @@ const CALIDAD = ["Calidad general de la reparación", "Limpieza interior", "Limp
 const COMBUSTIBLE = ["Reserva", "¼", "½", "¾", "Lleno"];
 const campoCheck = t => t === "in" ? "checkIn" : "checkOut";
 
-// Desmontaje y check a pantalla completa (como cargar un vehículo), con pestañas Desmontaje / IN / OUT arriba; entra en Desmontaje
-export function vistaCheckForm(view, id, t) {
+// Desmontaje y check en una ventana emergente (como las fotos), con pestañas Desmontaje / IN / OUT arriba; entra en Desmontaje
+export function abrirCheck(v0, t = "desm") {
+  const s = openSheet({ title: `Chequeo y Desmontaje · ${v0.patente || v0.modelo || ""}`, wide: true, body: `<div class="chk-pop"></div>` });
+  const caja = $(".chk-pop", s.el), pop = { cerrar: s.close, ir: k => vistaCheckForm(caja, v0.id, k, pop) };
+  // Las pestañas cambian adentro (un link cerraría la ventana)
+  caja.addEventListener("click", e => { const b = e.target.closest("[data-chk-tab]"); if (b) pop.ir(b.dataset.chkTab); });
+  pop.ir(t);
+}
+// También a pantalla completa por link (#/check/id/in): pop = null
+export function vistaCheckForm(view, id, t, pop = null) {
   const v = getVehiculo(id);
-  setTopbar({ title: "Chequeo y Desmontaje", sub: v ? [v.modelo, v.patente].filter(Boolean).join(" · ") : "", back: `#/v/${id}` });
+  if (!pop) setTopbar({ title: "Chequeo y Desmontaje", sub: v ? [v.modelo, v.patente].filter(Boolean).join(" · ") : "", back: `#/v/${id}` });
   if (!v) { view.innerHTML = S.loadingVehicles ? `<div class="skeleton tall"></div>` : `<div class="empty"><h2>No encontramos este vehículo</h2></div>`; return; }
-  const tabs = `<div class="seg chk-tabs">${[["desm", "Desmontaje"], ["in", "Check IN"], ["out", "Check OUT"]].map(([k, l]) => `<a class="seg-btn ${k === t ? "on" : ""}" href="#/check/${id}/${k}">${l}</a>`).join("")}</div>`;
+  const tabs = `<div class="seg chk-tabs">${[["desm", "Desmontaje"], ["in", "Check IN"], ["out", "Check OUT"]].map(([k, l]) => pop
+    ? `<button type="button" class="seg-btn ${k === t ? "on" : ""}" data-chk-tab="${k}">${l}</button>` : `<a class="seg-btn ${k === t ? "on" : ""}" href="#/check/${id}/${k}">${l}</a>`).join("")}</div>`;
   if (t === "desm") { view.innerHTML = `<div class="page narrow stack">${tabs}<div class="card desm"></div></div>`; return pintarDesmontaje($(".desm", view), v); }
   const c = v[campoCheck(t)] || {}, val = {};
   let files = [];
@@ -983,7 +992,7 @@ export function vistaCheckForm(view, id, t) {
       ${botonesFotos({ id: "chk-op" })}<p class="muted small" id="chk-n">${c.fotos?.length ? `${c.fotos.length} fotos cargadas` : "Sin fotos"}</p>
       ${c.fotos?.length ? `<div class="desm-fotos">${c.fotos.map(f => `<button type="button" data-cfoto="${esc(f.url)}"><img src="${esc(thumb(f.url, 200))}" alt="" loading="lazy"></button>`).join("")}</div>` : ""}
     </fieldset></div>
-    <div class="vform-bar"><a class="btn btn-ghost" href="#/v/${v.id}">Cancelar</a>
+    <div class="vform-bar">${pop ? `<button type="button" class="btn btn-ghost" data-close>Cancelar</button>` : `<a class="btn btn-ghost" href="#/v/${v.id}">Cancelar</a>`}
       <button class="btn btn-primary btn-lg" type="submit">${icon("check")}Guardar check ${t}</button></div></form>`;
   const form = $(".chk-form", view);
   conectarFotos($("#chk-op", view), nuevas => { files.push(...nuevas); $("#chk-n", view).textContent = `${(c.fotos?.length || 0) + files.length} fotos`; });
@@ -1023,7 +1032,7 @@ export function vistaCheckForm(view, id, t) {
       datos.fotos = [...(c.fotos || []), ...subidas];
       await actualizarVehiculo(v.id, { [campoCheck(t)]: datos }, `${c.t ? "Editó" : "Completó"} el check ${t}`);
       toast(`Check ${t} guardado`, "success");
-      go(`#/v/${v.id}`);
+      pop ? pop.cerrar() : go(`#/v/${v.id}`);
     } catch (err) { toast(mensajeError(err), "error"); busy(b, false); }
   };
 }

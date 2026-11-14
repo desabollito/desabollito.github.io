@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.17.2", items: ["Chequeo y Desmontaje se abre en una ventana emergente, como las fotos, con sus pestañas adentro."] },
   { v: "4.17.1", items: ["Panel del creador: el botón de foto de cada usuario ahora deja agregar, cambiar o eliminar la foto."] },
   { v: "4.17.0", items: ["Chat en vivo: se ve todo lo que manda el cliente (fotos, videos, audios, documentos y stickers).", "Desde el + ahora también se mandan videos y documentos."] },
   { v: "4.16.6", items: ["Notificaciones: con el chat en vivo apagado, la pestaña Chat en vivo se ve con el aviso de mantenimiento."] },
