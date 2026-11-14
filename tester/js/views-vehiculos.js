@@ -507,7 +507,7 @@ const VARS_WA = {
   estado: v => ESTADO[estadoActual(v)]?.label || "", repuestos: v => v.repuestos, pintura: v => v.pintura,
   observaciones: v => v.observaciones, detalles: v => v.observaciones,
   fecha: v => fechaLarga(v.fechas?.peritado), peritaje: v => fechaLarga(v.fechas?.peritado),
-  turno: v => fechaLarga(v.fechas?.turnado), horaturno: v => v.horaTurno, hora: v => v.horaTurno,
+  turno: v => fechaLarga(v.fechas?.turnado).replace(/ de d{4}$/, ""), horaturno: v => v.horaTurno, hora: v => v.horaTurno,
   usuario: () => String(S.profile?.name || "").trim().split(/\s+/)[0], yo: () => String(S.profile?.name || "").trim().split(/\s+/)[0],
   saludo: () => { const h = new Date().getHours(); return h >= 5 && h < 12 ? "Buenos días" : h >= 12 && h < 20 ? "Buenas tardes" : "Buenas noches"; },
   direccion: () => S.company?.mensajes?.direccion, mapa: () => S.company?.mensajes?.mapa, ubicacion: () => S.company?.mensajes?.mapa
