@@ -1,5 +1,5 @@
 import {
-  S, activos, papelera, restaurar, eliminarDefinitivo, soyAdmin, miRol, renombrarEmpresa, guardarSello, deshaciblesDe, deshacerCambio, soyDesmontaje,
+  S, activos, papelera, restaurar, eliminarDefinitivo, soyAdmin, miRol, renombrarEmpresa, guardarSello, guardarMensajesCliente, deshaciblesDe, deshacerCambio, soyDesmontaje,
   agregarMiembro, cambiarRol, quitarMiembro, guardarEtiquetas, resolverSolicitud, desvincularWhatsApp, salirDeEmpresa, eliminarEmpresa, crearEmpresa, elegirEmpresa,
   actualizarPerfil, ponerMiFoto, salir, mensajeError, llamarAdmin, soloDesmontaje, pedirUnion, linksCompartidos, getVehiculo, soloVer, soySacabollos, guardarOrdenOps, cambiarEstado, usaClientes,
   onChange, chatSinLeer, marcarChatVisto, actualizarVehiculo, guardarColor
@@ -365,6 +365,21 @@ export function vistaEmpresa(view) {
       </form>
     </details>` : ""}
 
+    ${admin ? `<details class="card plegable">
+      <summary><span>${icon("chat")}Mensajes al cliente</span>${icon("next")}</summary>
+      <form id="msj-cli" class="stack">
+        <label class="field"><span>Dirección del taller</span>
+          <input name="direccion" maxlength="200" placeholder="Av. P. Zanni 2530, E3100 Paraná, Entre Ríos" value="${esc(c.mensajes?.direccion || "")}"></label>
+        <label class="field"><span>Link de Google Maps</span>
+          <input name="mapa" type="url" maxlength="300" placeholder="https://maps.app.goo.gl/…" value="${esc(c.mensajes?.mapa || "")}"></label>
+        <label class="field"><span>Mensaje de turno <small class="muted">(se puede cambiar antes de cada envío en Mensajes y turnos)</small></span>
+          <textarea name="turno" rows="12" maxlength="2000">${esc(c.mensajes?.turno || TXT_TURNO)}</textarea></label>
+        <p class="muted small">Datos que se completan solos: {Saludo} {Asegurado} {Vehiculo} {Patente} {Operativo} {Turno} {Hora} {Direccion} {Mapa} {Compania}. Un renglón sin dato (por ejemplo, sin hora) no se manda. El link del mapa sale con vista previa.</p>
+        <button type="button" class="link-btn" id="msj-def">Volver al mensaje original</button>
+        <button class="btn btn-primary">Guardar mensajes</button>
+      </form>
+    </details>` : ""}
+
     <section class="card danger-zone">
       ${duenio
         ? `<button class="btn btn-danger-ghost" id="borrar-emp">${icon("trash")}Eliminar operativo</button>`
@@ -447,6 +462,14 @@ export function vistaEmpresa(view) {
     try { await guardarSello({ texto: e.target.texto.value.trim(), logo, color: e.target.color.value,
       colorPanos: e.target.colorPanos.value, colorTitulos: e.target.colorTitulos.value, colorPuntos: e.target.colorPuntos.value, diseno,
       tam: Object.fromEntries(["titulo", "sub", "logo", "datos"].map(k => [k, Number(e.target[`tam_${k}`].value)])) }); toast("Sello guardado", "success"); }
+    catch (err) { toast(mensajeError(err), "error"); }
+  };
+  $("#msj-def", view)?.addEventListener("click", () => { $("#msj-cli", view).turno.value = TXT_TURNO; });
+  if ($("#msj-cli", view)) $("#msj-cli", view).onsubmit = async e => {
+    e.preventDefault(); const f = e.target, mapa = f.mapa.value.trim();
+    if (mapa && !/^https:\/\//.test(mapa)) return toast("El link del mapa tiene que empezar con https://", "error");
+    const turno = f.turno.value.trim();
+    try { await guardarMensajesCliente({ direccion: f.direccion.value.trim(), mapa, turno: turno === TXT_TURNO ? "" : turno }); toast("Mensajes guardados", "success"); }
     catch (err) { toast(mensajeError(err), "error"); }
   };
   $("#salir-emp", view)?.addEventListener("click", async () => {
@@ -1114,14 +1137,35 @@ export async function panelCreador() {
 }
 
 // ── Mensajes y turnos: salen del número de la empresa, de a uno y con pausa para que WhatsApp no lo bloquee
-const TXT_TURNO = "{Saludo} {Asegurado}! Te escribimos de {Operativo} por tu {Vehiculo} patente {Patente}: te dimos turno para el {Turno}. Respondé este mensaje para confirmar. ¡Gracias!";
+// Mensaje de turno por defecto; cada operativo puede tener el suyo (Operativo → Mensajes al cliente). Los renglones sin dato se sacan solos.
+const TXT_TURNO = `🚗 *TURNO DE REPARACIÓN POR GRANIZO*
+
+{Saludo} {Asegurado}! Te escribimos por tu *{Vehiculo}* patente *{Patente}*.
+
+📅 *Día:* {Turno}
+⏰ *Hora:* {Hora}
+
+📍 *Dirección:* {Direccion}
+🗺️ *Ubicación:* {Mapa}
+
+🚘 Te pedimos que traigas el vehículo *limpio* y en condiciones para hacer la reparación.
+
+⏱️ La reparación demora aproximadamente *48 a 72 horas*, según los trabajos que necesite.
+
+📲 Por favor, *confirmá* que recibiste este mensaje.
+
+⚠️ Si necesitás reprogramar el turno, avisanos con anticipación así reorganizamos los turnos.
+
+¡Muchas gracias! 😊
+_CHAPISTERÍA OMAR SOLUTIONS_`;
+const plantillaTurno = () => S.company?.mensajes?.turno || TXT_TURNO;
 const PAUSA_MS = 6000;
 const DIAS_SEM = [[1, "Lu"], [2, "Ma"], [3, "Mi"], [4, "Ju"], [5, "Vi"], [6, "Sá"], [0, "Do"]];
 const GRADOS_T = [[1, "Grado 1"], [2, "Grado 2"], [3, "Grado 3"], [4, "Grado +"], [0, "Sin grado"]];
 function mensajesYTurnos() {
   let est = "peritado", q = "", cia = "", grado = "", porGradoOn = false, sinLugar = 0, cortar = false, enviando = false;
   const marcados = new Set(), dias = new Set([1, 2, 3, 4, 5]);
-  let txt = TXT_TURNO;
+  let txt = plantillaTurno();
   const cupoG = { 1: 3, 2: 2, 3: 1, 4: 0, 0: 0 };
   const manana = new Date(Date.now() + 864e5).toLocaleDateString("en-CA");
   const ciaDe = v => String(v.compania || "").trim() || "Sin compañía";
@@ -1149,7 +1193,7 @@ function mensajesYTurnos() {
     </section>
     <section class="mt-paso"><h3><b>3</b>Mensaje</h3>
       <textarea id="mt-txt" rows="4" class="mt-txt"></textarea>
-      <div class="mt-vars">${["Saludo", "Asegurado", "Vehiculo", "Patente", "Operativo", "Turno", "Compania", "Grado", "Precio"].map(x => `<button type="button" class="chip-var" data-var="{${x}}">${x}</button>`).join("")}</div>
+      <div class="mt-vars">${["Saludo", "Asegurado", "Vehiculo", "Patente", "Operativo", "Turno", "Hora", "Direccion", "Mapa", "Compania", "Grado", "Precio"].map(x => `<button type="button" class="chip-var" data-var="{${x}}">${x}</button>`).join("")}</div>
       <div id="mt-prev" class="mt-prev"></div>
     </section>
     <div class="mt-pie"><button type="button" class="btn btn-primary btn-lg" id="mt-ir"></button></div>
@@ -1289,7 +1333,7 @@ export function abrirChatDe(v) {
 }
 // Avisar el turno por el chat en vivo (el mismo mensaje de Mensajes y turnos)
 export function avisarTurnoChat(v, fecha) {
-  const texto = textoWa(TXT_TURNO, { ...v, fechas: { ...v.fechas, turnado: fecha }, horaTurno: "" });
+  const texto = textoWa(plantillaTurno(), { ...v, fechas: { ...v.fechas, turnado: fecha }, horaTurno: "" });
   return llamarAdmin("enviar-cliente", { cid: S.company.id, vid: v.id, texto, por: S.profile?.name || "" });
 }
 
@@ -1420,13 +1464,12 @@ function abrirChat(cid, tel, alCerrar, v = null) {
       } catch (err) { return toast(err.message || "No se pudo subir la foto", "error"); }
     }
   });
-  // Ubicación: la de este celular en este momento (el que la manda está en el taller)
+  // Ubicación: la dirección fija del taller (Ajustes del operativo → Mensajes al cliente); el link sale con vista previa
   const mandarUbicacion = () => {
-    if (!navigator.geolocation) return toast("Este equipo no da la ubicación", "error");
-    toast("Buscando la ubicación…");
-    navigator.geolocation.getCurrentPosition(
-      p => mandar({ tipo: "ubicacion", geo: { lat: p.coords.latitude, lng: p.coords.longitude, nombre: S.company?.name || "" } }).then(ok => ok && toast("Ubicación enviada", "success")),
-      () => toast("No se pudo leer la ubicación (revisá el permiso)", "error"), { enableHighAccuracy: true, timeout: 15000 });
+    const { direccion = "", mapa = "" } = S.company?.mensajes || {};
+    if (!direccion && !mapa) return toast("Cargá la dirección del taller en Operativo → Mensajes al cliente", "error");
+    mandar({ texto: [direccion && `📍 *Dirección:* ${direccion}`, mapa && `🗺️ *Ubicación:* ${mapa}`].filter(Boolean).join("\n") })
+      .then(ok => ok && toast("Ubicación enviada", "success"));
   };
   $("#chat-mas", s.el).addEventListener("click", e => glideMenu(e.currentTarget,
     [["foto", "📷 Foto"], ["ubicacion", "📍 Ubicación"], ["turno", "📊 Confirmar turno / cambiar fecha"], ["retiro", "📊 Retiro hoy / mañana"]], null, k => {

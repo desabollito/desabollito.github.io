@@ -505,7 +505,8 @@ const VARS_WA = {
   fecha: v => fechaLarga(v.fechas?.peritado), peritaje: v => fechaLarga(v.fechas?.peritado),
   turno: v => fechaLarga(v.fechas?.turnado), horaturno: v => v.horaTurno, hora: v => v.horaTurno,
   usuario: () => String(S.profile?.name || "").trim().split(/\s+/)[0], yo: () => String(S.profile?.name || "").trim().split(/\s+/)[0],
-  saludo: () => { const h = new Date().getHours(); return h >= 5 && h < 12 ? "Buenos días" : h >= 12 && h < 20 ? "Buenas tardes" : "Buenas noches"; }
+  saludo: () => { const h = new Date().getHours(); return h >= 5 && h < 12 ? "Buenos días" : h >= 12 && h < 20 ? "Buenas tardes" : "Buenas noches"; },
+  direccion: () => S.company?.mensajes?.direccion, mapa: () => S.company?.mensajes?.mapa, ubicacion: () => S.company?.mensajes?.mapa
 };
 const claveVar = t => t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z]/g, "");
 export function textoWa(plantilla, v) {
@@ -513,9 +514,13 @@ export function textoWa(plantilla, v) {
   const q = t.match(/[?&]text=([\s\S]*)$/i);   // se puede pegar el link entero (wa.me/numero?text=…)
   if (q) { t = q[1]; try { t = decodeURIComponent(t.replace(/\+/g, " ")); } catch { /* texto ya legible */ } }
   else if (/^(https?:\/\/)?(wa\.me|api\.whatsapp\.com)\//i.test(t)) t = "";
-  return t.replace(/\{([^{}]+)\}/g, (m, k) => { const f = VARS_WA[claveVar(k)]; return f ? String(f(v) ?? "").trim() : m; })
-    .replace(/[ \t]{2,}/g, " ").trim();
+  // Un renglón tipo "⏰ Hora: {Hora}" sin dato se saca entero (no queda la etiqueta sola)
+  return t.split("\n").map(l => { let hay = false, lleno = false;
+    const r = l.replace(/\{([^{}]+)\}/g, (m, k) => { const f = VARS_WA[claveVar(k)]; if (!f) return m; hay = true; const x = String(f(v) ?? "").trim(); if (x) lleno = true; return x; });
+    return hay && !lleno && /:[*_\s]*$/.test(r) ? null : r; }).filter(l => l !== null).join("\n")
+    .replace(/[ \t]{2,}/g, " ").replace(/\n{3,}/g, "\n\n").trim();
 }
+console.assert(textoWa("A\n⏰ *Hora:* {Hora}\nB {Patente}", { patente: "AB123CD" }) === "A\nB AB123CD" && textoWa("Hola {Asegurado}!", {}) === "Hola !", "textoWa");
 // Solo con el vehículo reparado; antes, el WhatsApp abre sin texto
 const mensajeWa = v => ["reparado", "llamado"].includes(estadoActual(v)) ? textoWa(S.config?.mensajeWa, v) : "";
 

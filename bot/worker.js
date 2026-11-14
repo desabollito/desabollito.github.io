@@ -2619,13 +2619,16 @@ async function adminClientesQr(env, { idToken, salir, numero }) {
   return json({ ok: true, estado: estado || "creada", qr: j?.qrcode?.base64 || j?.base64 || "", codigo: num ? (j?.qrcode?.pairingCode || j?.pairingCode || "") : "" });
 }
 
+// Chat en vivo y Mensajes y turnos: el creador siempre; con el interruptor "Mensajes y turnos" encendido, también los administradores del operativo y quienes él habilitó
+async function puedeClientes(env, idToken, cid) {
+  if (await soloCreador(env, idToken)) return true;
+  const [m, cfg] = await Promise.all([miembroDe(env, idToken, cid), fsGet(env, "config/app").catch(() => null)]);
+  return !!m && cfg?.mensajesTurnos !== false && (esAdminOp(m) || (cfg?.usanClientes || []).includes(m.uid));
+}
 // Panel del creador: un mensaje a un cliente desde el número de la empresa (envío masivo y turnos; la app los manda de a uno con pausa)
 async function adminEnviarCliente(env, { idToken, cid, vid, texto, por }) {
   // El creador, los administradores del operativo, o quien él habilitó (config/app.usanClientes) si es miembro de ese operativo
-  if (!(await soloCreador(env, idToken))) {
-    const [m, cfg] = await Promise.all([miembroDe(env, idToken, cid), fsGet(env, "config/app").catch(() => null)]);
-    if (!m || !(esAdminOp(m) || (cfg?.usanClientes || []).includes(m.uid))) return json({ ok: false, error: "No autorizado" }, 403);
-  }
+  if (!(await puedeClientes(env, idToken, cid))) return json({ ok: false, error: "No autorizado" }, 403);
   if (!idValido(cid) || !idValido(vid) || typeof texto !== "string" || !texto.trim() || texto.length > 2000) return json({ ok: false, error: "Datos inválidos" }, 400);
   const ruta = `companies/${cid}/vehicles/${vid}`;
   const v = await fsGet(env, ruta);
@@ -2633,7 +2636,7 @@ async function adminEnviarCliente(env, { idToken, cid, vid, texto, por }) {
   const tel = telefonoAR(v.telefono);   // el teléfono sale del vehículo, no de la app
   if (!tel) return json({ ok: false, error: "Teléfono no válido" });
   if (await estadoEvolution(env, instanciaClientes(env)) !== "open") return json({ ok: false, error: "El número de la empresa no está conectado" });
-  const r = await enviarEvolution(env, `evo:${tel}`, { type: "text", text: { body: texto.trim() }, _inst: instanciaClientes(env) });
+  const r = await enviarEvolution(env, `evo:${tel}`, { type: "text", text: { body: texto.trim(), preview_url: true }, _inst: instanciaClientes(env) });
   if (!r?.ok) return json({ ok: false, error: "WhatsApp no aceptó el mensaje" });
   await guardarChat(env, cid, vid, v, tel, { t: Date.now(), txt: texto.trim(), yo: true, por: String(por || "").slice(0, 60) }).catch(e => console.error("chat", e));
   await fsAppend(env, ruta, "historial", { t: Date.now(), uid: "", por: String(por || CREADOR).slice(0, 60), txt: "Mensaje al cliente por WhatsApp: " + texto.trim().slice(0, 200) }).catch(() => {});
@@ -2672,10 +2675,7 @@ async function fotoCliente(env, ruta, tel) {
 }
 // Borrar (o restaurar) un mensaje del chat en vivo: va a la papelera del chat, solo en la app (en WhatsApp queda)
 async function borrarMsgChat(env, { idToken, cid, tel, t, restaurar }) {
-  if (!(await soloCreador(env, idToken))) {
-    const [m, cfg] = await Promise.all([miembroDe(env, idToken, cid), fsGet(env, "config/app").catch(() => null)]);
-    if (!m || !(esAdminOp(m) || (cfg?.usanClientes || []).includes(m.uid))) return json({ ok: false, error: "No autorizado" }, 403);
-  }
+  if (!(await puedeClientes(env, idToken, cid))) return json({ ok: false, error: "No autorizado" }, 403);
   if (!idValido(cid) || !/^549\d{10}$/.test(String(tel || "")) || !Number.isFinite(Number(t))) return json({ ok: false, error: "Datos inválidos" }, 400);
   const ruta = `companies/${cid}/chats/${tel}`, c = await fsGet(env, ruta);
   if (!c) return json({ ok: false, error: "No encontré el chat" }, 404);
@@ -2721,18 +2721,14 @@ async function asegurarWebhookClientes(env) {
 }
 const WORKER_URL = "https://desabollito-bot.desabollito.workers.dev";
 // Responder desde la app: el creador o quien él habilitó para Mensajes y turnos, miembro de ese operativo
-// tipo: texto | foto | audio | ubicacion | encuesta (turno o retiro) | reaccion (a un mensaje: t + emoji). cita: t del mensaje que se responde.
-async function responderCliente(env, { idToken, cid, tel, texto = "", por, vid, tipo = "texto", url, geo, encuesta, cita, t, emoji }) {
-  if (!(await soloCreador(env, idToken))) {
-    const [m, cfg] = await Promise.all([miembroDe(env, idToken, cid), fsGet(env, "config/app").catch(() => null)]);
-    if (!m || !(esAdminOp(m) || (cfg?.usanClientes || []).includes(m.uid))) return json({ ok: false, error: "No autorizado" }, 403);
-  }
+// tipo: texto | foto | audio | encuesta (turno o retiro) | reaccion (a un mensaje: t + emoji). cita: t del mensaje que se responde.
+async function responderCliente(env, { idToken, cid, tel, texto = "", por, vid, tipo = "texto", url, encuesta, cita, t, emoji }) {
+  if (!(await puedeClientes(env, idToken, cid))) return json({ ok: false, error: "No autorizado" }, 403);
   const cloud = `https://res.cloudinary.com/${env.CLOUDINARY_CLOUD_NAME}/`;
   const valido = idValido(cid) && /^549\d{10}$/.test(String(tel || "")) && typeof texto === "string" && texto.length <= 2000 && ({
     texto: () => !!texto.trim(),
     foto: () => String(url || "").startsWith(cloud + "image/upload/"),
     audio: () => String(url || "").startsWith(cloud + "video/upload/"),
-    ubicacion: () => Math.abs(Number(geo?.lat)) <= 90 && Math.abs(Number(geo?.lng)) <= 180 && Number.isFinite(Number(geo?.lat)) && Number.isFinite(Number(geo?.lng)),
     encuesta: () => ["turno", "retiro"].includes(encuesta),
     reaccion: () => Number.isFinite(Number(t)) && typeof emoji === "string" && emoji.length <= 8
   }[tipo]?.());
@@ -2772,11 +2768,10 @@ async function responderCliente(env, { idToken, cid, tel, texto = "", por, vid, 
   }[encuesta];
   const txt = texto.trim();
   const [ruta2, body, guardado] = {
-    texto: () => ["sendText", { number, text: txt }, { txt }],
+    texto: () => ["sendText", { number, text: txt, linkPreview: true }, { txt }],
     foto: () => ["sendMedia", { number, mediatype: "image", mimetype: "image/jpeg", media: url, fileName: "foto.jpg", caption: txt }, { txt: txt || "📷 Foto", foto: url }],
     // WhatsApp la manda como nota de voz; Cloudinary la entrega en mp3 y Evolution la pasa a opus
     audio: () => ["sendWhatsAppAudio", { number, audio: url.replace(/\.\w+$/, ".mp3") }, { txt: "🎤 Audio", audio: url.replace(/\.\w+$/, ".mp3") }],
-    ubicacion: () => ["sendLocation", { number, latitude: Number(geo.lat), longitude: Number(geo.lng), name: String(geo.nombre || "").slice(0, 80), address: "" }, { txt: "📍 Ubicación", geo: { lat: Number(geo.lat), lng: Number(geo.lng) } }],
     encuesta: () => ["sendPoll", { number, name: ENC.name, selectableCount: 1, values: ENC.values }, { txt: `📊 ${ENC.name}\n• ${ENC.values.join("\n• ")}`, encuesta }]
   }[tipo]();
   const r = await evo(ruta2, { ...body, ...quoted });

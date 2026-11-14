@@ -357,6 +357,11 @@ export async function renombrarEmpresa(nombre) {
   await updateDoc(doc(db, "companies", S.company.id), { name: nombre.trim() });
 }
 
+// Mensajes al cliente de este operativo: dirección del taller, link del mapa y mensaje de turno
+export async function guardarMensajesCliente(m) {
+  await updateDoc(doc(db, "companies", S.company.id), { mensajes: m });
+}
+
 export async function guardarSello(sello) {
   await updateDoc(doc(db, "companies", S.company.id), { seal: sello });
 }
@@ -743,7 +748,7 @@ export const borrarGasto = id => deleteDoc(doc(colGastos(), id));
 
 // ── Panel del creador (@gzmatte): todos los operativos y usuarios ─────
 export const soyCreador = () => S.profile?.username === "gzmatte";
-export const usaClientes = () => soyCreador() || soyAdmin() || (S.config?.usanClientes || []).includes(S.user?.uid);   // Chat en vivo y Mensajes y turnos: administradores del operativo y los que elige el creador
+export const usaClientes = () => soyCreador() || (S.config?.mensajesTurnos !== false && (soyAdmin() || (S.config?.usanClientes || []).includes(S.user?.uid)));   // Chat en vivo y Mensajes y turnos: el creador siempre; con el interruptor encendido, también los administradores y los que él elige
 
 // ── Chats en vivo con clientes (companies/{cid}/chats, los guarda el bot) ──
 // Lo no leído se recuerda en este equipo (chatVisto:{cid}:{tel} = hora del último mensaje visto)
