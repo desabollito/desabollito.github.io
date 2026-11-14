@@ -1390,6 +1390,11 @@ export function abrirChatDe(v) {
   if (!tel) return toast("El teléfono no parece un celular válido", "error");
   abrirChat(S.company.id, tel, null, v);
 }
+// Nueva fecha pedida por el cliente: solo la encuesta «¿Reprogramamos el turno al …?», sin repetir el mensaje
+export async function reprogramarTurnoChat(v, fecha) {
+  const j = await llamarBot("responder-cliente", { cid: S.company.id, tel: telWa(v.telefono), vid: v.id, por: S.profile?.name || "", tipo: "encuesta", encuesta: "reprogramar", fecha });
+  if (!j.ok) throw new Error(j.error || "No se pudo enviar la encuesta");
+}
 // Avisar el turno por el chat en vivo (el mismo mensaje de Mensajes y turnos)
 export function avisarTurnoChat(v, fecha) {
   const texto = textoWa(plantillaTurno(), { ...v, fechas: { ...v.fechas, turnado: fecha }, horaTurno: "" });

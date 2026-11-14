@@ -17,7 +17,7 @@ import { subir, comprimir, borrarConToken, thumb, grande, cloudinaryListo, esVid
 import { presupuestoPDF, nombreArchivo, tablaPDF } from "./pdf.js";
 import { armarZip } from "./zip.js";
 import { setTopbar, go, esAncho } from "./shell.js";
-import { abrirChatDe, avisarTurnoChat, telWa } from "./views-otros.js";
+import { abrirChatDe, avisarTurnoChat, reprogramarTurnoChat, telWa } from "./views-otros.js";
 // Chat en vivo con mensajes sin leer: puntito titilando en Contactar (y en "Chat en vivo" al abrir el menú)
 const chatNuevo = tel => !!tel && usaClientes() && chatSinLeer(chatDeTel(tel));
 onChange(e => { if (e === "chats") $$(".d-contacto[data-tel]").forEach(el => el.classList.toggle("chat-nuevo", chatNuevo(el.dataset.tel))); });
@@ -1249,7 +1249,7 @@ function conectarDeshacer(s, v, e) {
     deshacerCambio(v, e).then(() => toast("Estado deshecho", "success")).catch(err => toast(mensajeError(err), "error"));
   });
 }
-// enChat: abierto con «Elegir nueva fecha» del chat en vivo: el botón principal manda la fecha nueva y no vuelve a abrir el chat
+// enChat: abierto con «Elegir nueva fecha» del chat en vivo: el botón principal manda solo la encuesta de la fecha nueva
 export function elegirFechaEstado(v, estado, enChat) {
   const e = ESTADO[estado], paso = estadoActual(v) === estado && pasoDeshacible(v, [estado]);
   // Sin título ni X: se cierra tocando afuera. Deshacer: botón de historial arriba a la derecha (pide confirmar)
@@ -1290,7 +1290,7 @@ export function elegirFechaEstado(v, estado, enChat) {
     // Espera a que salga el mensaje (tarda ~1 s) y recién ahí abre el chat, así ya se ve
     busy(ev.submitter || $("form .btn-primary", s.el), true, "Avisando…");
     const vv = getVehiculo(v.id) || v;
-    try { await avisarTurnoChat(vv, fecha); s.close(); if (!enChat) abrirChatDe(vv); }
+    try { await (enChat ? reprogramarTurnoChat(vv, fecha) : avisarTurnoChat(vv, fecha)); s.close(); if (!enChat) abrirChatDe(vv); }
     catch (err) { s.close(); toast(err.message || mensajeError(err), "error"); }
 
   };

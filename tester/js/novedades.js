@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.18.7", items: ["«Enviar nueva fecha» ya no repite el mensaje del turno: manda solo la encuesta «¿Reprogramamos el turno al …?»."] },
   { v: "4.18.6", items: ["Fecha del turno: deshacer pasó a un botón de historial arriba a la derecha (pide confirmar).", "«Elegir nueva fecha» del chat: botón «Enviar nueva fecha» y abajo «Guardar fecha sin avisar»."] },
   { v: "4.18.5", items: ["Turno: la fecha sale con el día adelante («Lunes 19 de noviembre»), en el mensaje y en la encuesta."] },
   { v: "4.18.4", items: ["Encuesta del turno: si el cliente vota «Quiero cambiar la fecha», el chat muestra «Pidió cambiar la fecha» y un botón «Elegir nueva fecha» con el calendario."] },

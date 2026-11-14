@@ -2680,6 +2680,7 @@ const MAPAS_PAGINAS = 30;   // shortcut: chapisteriaomar.com tiene las páginas 
 function encuestaDe(v, tipo, fecha = v?.fechas?.turnado, conf = null) {
   const [yy, mm, dd] = String(fecha || "").split("-").map(Number), dm = dd ? new Date(Date.UTC(yy, mm - 1, dd)).toLocaleDateString("es-AR", { timeZone: "UTC", weekday: "long", day: "numeric", month: "long" }).replace(",", "").replace(/^./, c => c.toUpperCase()) : "";   // "Lunes 19 de noviembre"
   const opc = (conf?.opciones || []).map(o => String(o).trim().slice(0, 100)).filter(Boolean).slice(0, 12);
+  if (tipo === "reprogramar") return { name: `¿Reprogramamos el turno al ${dm}?`, values: opc.length >= 2 ? opc : ["Confirmo el turno", "Quiero cambiar la fecha"] };
   if (String(conf?.pregunta || "").trim() && opc.length >= 2) {
     const datos = { fecha: dm, hora: v?.horaTurno || "", vehiculo: v?.modelo || "vehículo", patente: v?.patente || "" };
     const name = String(conf.pregunta).replace(/\{(\w+)\}/g, (m, k) => datos[k.toLowerCase()] ?? m).replace(/\s{2,}/g, " ").replace(/\s+([?,.!])/g, "$1").trim().slice(0, 255);
@@ -2821,7 +2822,7 @@ async function asegurarWebhookClientes(env) {
 const WORKER_URL = "https://desabollito-bot.desabollito.workers.dev";
 // Responder desde la app: el creador o quien él habilitó para Mensajes y turnos, miembro de ese operativo
 // tipo: texto | foto | video | audio | doc (url + nombre) | encuesta (turno o retiro) | reaccion (a un mensaje: t + emoji). cita: t del mensaje que se responde.
-async function responderCliente(env, { idToken, cid, tel, texto = "", por, vid, tipo = "texto", url, nombre, encuesta, cita, t, emoji }) {
+async function responderCliente(env, { idToken, cid, tel, texto = "", por, vid, tipo = "texto", url, nombre, encuesta, fecha, cita, t, emoji }) {
   if (!(await puedeClientes(env, idToken, cid))) return json({ ok: false, error: "No autorizado" }, 403);
   const cloud = `https://res.cloudinary.com/${env.CLOUDINARY_CLOUD_NAME}/`;
   const valido = idValido(cid) && /^549\d{10}$/.test(String(tel || "")) && typeof texto === "string" && texto.length <= 2000 && ({
@@ -2830,7 +2831,7 @@ async function responderCliente(env, { idToken, cid, tel, texto = "", por, vid, 
     audio: () => String(url || "").startsWith(cloud + "video/upload/"),
     video: () => String(url || "").startsWith(cloud + "video/upload/"),
     doc: () => /^(image|raw)\/upload\//.test(String(url || "").startsWith(cloud) ? String(url).slice(cloud.length) : "") && typeof nombre === "string" && !!nombre.trim() && nombre.length <= 200,
-    encuesta: () => ["turno", "retiro"].includes(encuesta),
+    encuesta: () => ["turno", "retiro", "reprogramar"].includes(encuesta),
     reaccion: () => Number.isFinite(Number(t)) && typeof emoji === "string" && emoji.length <= 8
   }[tipo]?.());
   if (!valido) return json({ ok: false, error: "Datos inválidos" }, 400);
@@ -2862,7 +2863,7 @@ async function responderCliente(env, { idToken, cid, tel, texto = "", por, vid, 
 
   const number = tel, k = claveDe(citado);
   const quoted = k ? { quoted: { key: k, message: { conversation: String(citado.txt || "").slice(0, 300) } } } : {};
-  const ENC = tipo === "encuesta" ? encuestaDe(v, encuesta, undefined, (await fsGet(env, `companies/${cid}`).catch(() => null))?.mensajes?.encuestas?.[encuesta]) : null;
+  const ENC = tipo === "encuesta" ? encuestaDe(v, encuesta, /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(fecha || "") ? fecha : undefined, (await fsGet(env, `companies/${cid}`).catch(() => null))?.mensajes?.encuestas?.[encuesta === "reprogramar" ? "turno" : encuesta]) : null;
   const txt = texto.trim();
   const [ruta2, body, guardado] = {
     texto: () => ["sendText", { number, text: txt, linkPreview: true }, { txt }],
