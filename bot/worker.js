@@ -2347,14 +2347,9 @@ async function actualizarFotoWa(env, uid, numero, forzar = false, perfil = null)
   if (!p) return { foto: null, motivo: "no existe el usuario" };
   if (!forzar && (p.fotoManual || Date.now() - Number(p.fotoWaAt || 0) < 7 * 86400_000)) return { foto: p.foto || null, motivo: "revisada hace poco" };
   await fsMerge(env, `users/${uid}`, { fotoWaAt: Date.now() });   // aunque falle, no se reintenta en cada mensaje
-  const base = String(env.EVOLUTION_URL).replace(/\/+$/, "");
-  const r = await fetch(`${base}/chat/fetchProfilePictureUrl/${env.EVOLUTION_INSTANCE || "desabollito"}`, { method: "POST",
-    headers: { apikey: env.EVOLUTION_APIKEY, "Content-Type": "application/json" }, body: JSON.stringify({ number: String(numero).replace(/\D/g, "") }) }).catch(e => ({ ok: false, status: 0, text: async () => String(e?.message || e) }));
-  const crudo = await r.text().catch(() => "");
-  if (!r.ok) return { foto: p.foto || null, motivo: `Evolution respondió ${r.status}: ${crudo.slice(0, 160)}` };
-  let j = null; try { j = JSON.parse(crudo); } catch { /* respuesta rara */ }
-  const url = j?.profilePictureUrl || j?.profilePicUrl || j?.picture || j?.url || "";
-  if (!/^https:\/\//.test(url)) return { foto: p.foto || null, motivo: `sin foto visible para el bot (${crudo.slice(0, 120)})` };
+  const { url, crudo, error } = await fotoPerfilUrl(env, numero, [env.EVOLUTION_INSTANCE || "desabollito", instanciaClientes(env)]);
+  if (error) return { foto: p.foto || null, motivo: error };
+  if (!url) return { foto: p.foto || null, motivo: `sin foto visible para el bot (${crudo.slice(0, 120)})` };
   const origen = new URL(url).pathname;   // la misma foto conserva el archivo; cambia solo la firma del link
   if (origen === p.fotoWaOrigen && p.foto && !p.fotoManual) return { foto: p.foto, motivo: "ok (sin cambios)" };
   const img = await fetch(url);
@@ -2363,6 +2358,22 @@ async function actualizarFotoWa(env, uid, numero, forzar = false, perfil = null)
   await ponerFoto(env, uid, sub.secure_url, { fotoWaOrigen: origen, fotoManual: false });
   return { foto: sub.secure_url, motivo: "ok" };
 }
+// Link de la foto de perfil de WhatsApp. Con el número suelto, Evolution le saca el 9 a los celulares argentinos (549… → 54…)
+// y consulta otra cuenta (vuelve sin foto): se pide primero con el identificador completo y después como venía.
+async function fotoPerfilUrl(env, numero, instancias) {
+  const base = String(env.EVOLUTION_URL).replace(/\/+$/, ""), n = String(numero).replace(/\D/g, "");
+  let crudo = "", error = "";
+  for (const inst of instancias) for (const number of [`${n}@s.whatsapp.net`, n]) {
+    const r = await fetch(`${base}/chat/fetchProfilePictureUrl/${inst}`, { method: "POST",
+      headers: { apikey: env.EVOLUTION_APIKEY, "Content-Type": "application/json" }, body: JSON.stringify({ number }) }).catch(e => ({ ok: false, status: 0, text: async () => String(e?.message || e) }));
+    const t = await r.text().catch(() => "");
+    if (!r.ok) { error ||= `Evolution respondió ${r.status}: ${t.slice(0, 160)}`; continue; }
+    crudo = t; let j = null; try { j = JSON.parse(t); } catch { /* respuesta rara */ }
+    const url = j?.profilePictureUrl || j?.profilePicUrl || j?.picture || j?.url || "";
+    if (/^https:\/\//.test(url)) return { url, crudo };
+  }
+  return { url: "", crudo, error: crudo ? "" : error };
+}
 // Guarda la foto en el perfil y en cada operativo del usuario (los compañeros la ven en el equipo)
 async function ponerFoto(env, uid, url, extra = {}) {
   await fsMerge(env, `users/${uid}`, { foto: url, ...extra });
@@ -2370,11 +2381,11 @@ async function ponerFoto(env, uid, url, extra = {}) {
   await Promise.all(ops.map(o => fsMerge(env, `companies/${o.__id}`, { memberPhotos: { ...(o.memberPhotos || {}), [uid]: url } }).catch(() => {})));
 }
 // Panel del creador: vuelve a buscar la foto de WhatsApp de todos los vinculados (menos los que tienen foto puesta a mano).
-// De a 5 por llamada (cada una son ~8 pedidos y el Worker tiene tope de pedidos); la app sigue con `desde` hasta terminar.
+// De a 3 por llamada (cada una son hasta ~12 pedidos y el Worker tiene tope de pedidos); la app sigue con `desde` hasta terminar.
 async function adminFotosWa(env, { idToken, desde = 0 }) {
   if (!(await soloCreador(env, idToken))) return json({ ok: false, error: "No autorizado" }, 403);
   const todos = (await fsList(env, "users")).filter(u => u.whatsapp && !u.fotoManual).sort((a, b) => a.__id.localeCompare(b.__id));
-  const i = Math.max(0, Number(desde) || 0), tanda = todos.slice(i, i + 5);
+  const i = Math.max(0, Number(desde) || 0), tanda = todos.slice(i, i + 3);
   const res = await Promise.all(tanda.map(u => actualizarFotoWa(env, u.__id, u.whatsapp, true, u)
     .catch(e => { console.error("foto wa", u.__id, e?.stack || e); return { foto: null, motivo: "error: " + String(e?.message || e).slice(0, 120) }; })));
   return json({ ok: true, detalle: tanda.map((u, k) => ({ usuario: u.username || u.name || u.__id, foto: !!res[k].foto, motivo: res[k].motivo })),
@@ -2661,12 +2672,8 @@ async function fotoCliente(env, ruta, tel) {
   const c = await fsGet(env, ruta).catch(() => null);
   if (!c || Date.now() - Number(c.fotoAt || 0) < 7 * 86400_000) return;
   await fsMerge(env, ruta, { fotoAt: Date.now() });   // aunque falle, no se reintenta en cada mensaje
-  const base = String(env.EVOLUTION_URL).replace(/\/+$/, "");
-  const r = await fetch(`${base}/chat/fetchProfilePictureUrl/${instanciaClientes(env)}`, { method: "POST",
-    headers: { apikey: env.EVOLUTION_APIKEY, "Content-Type": "application/json" }, body: JSON.stringify({ number: tel }) });
-  if (!r.ok) return;
-  const j = await r.json().catch(() => null), url = j?.profilePictureUrl || j?.profilePicUrl || j?.picture || j?.url || "";
-  if (!/^https:\/\//.test(url)) return;
+  const { url } = await fotoPerfilUrl(env, tel, [instanciaClientes(env)]);
+  if (!url) return;
   const origen = new URL(url).pathname;   // misma foto = mismo archivo (cambia solo la firma del link)
   if (origen === c.fotoOrigen && c.foto) return;
   const img = await fetch(url); if (!img.ok) return;
