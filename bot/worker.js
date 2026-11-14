@@ -51,7 +51,7 @@ export default {
     const API = { "/registro": nuevoRegistro, "/avisar": avisarCliente, "/solicitud": avisarSolicitud, "/agregado": avisarAgregado, "/pedido-union": avisarPedidoUnion,
       "/admin/datos": adminDatos, "/admin/borrar-usuario": adminBorrarUsuario, "/admin/config": adminConfig, "/admin/padron": adminPadron, "/admin/fotos-wa": adminFotosWa, "/admin/foto-usuario": adminFotoUsuario, "/admin/clientes-qr": adminClientesQr, "/admin/enviar-cliente": adminEnviarCliente, "/admin/reiniciar-chats": adminReiniciarChats,"/mover-vehiculo": moverVehiculo,
       "/borrar-media": borrarMediaApi, "/eliminar-vehiculo": eliminarVehiculoApi,
-      "/compartir": compartirApi, "/compartido": compartidoApi, "/aviso-planilla": avisoPlanilla, "/responder-cliente": responderCliente, "/borrar-msg-chat": borrarMsgChat,
+      "/compartir": compartirApi, "/compartido": compartidoApi, "/aviso-planilla": avisoPlanilla, "/responder-cliente": responderCliente, "/borrar-msg-chat": borrarMsgChat, "/borrar-chat": borrarChat,
       "/aviso-version": avisoVersion, "/pedir-borrar-operativo": pedirBorrarOperativo,
       "/recuperar": recuperarApi, "/restablecer": restablecerApi, "/usuarios-app": usuariosAppApi, "/codigo-wa": codigoWaApi, "/foto-wa": fotoWaApi, "/mapa-numero": mapaNumeroApi, "/mapas-actualizar": mapasActualizarApi,
       "/admin/resumen-ahora": async (env, { idToken, forzar }) => (await soloCreador(env, idToken)) ? json({ ok: true, enviados: await enviarDiarios(env, "resumen", forzar) }) : json({ ok: false }, 403) };
@@ -2776,6 +2776,13 @@ async function borrarMsgChat(env, { idToken, cid, tel, t, restaurar }) {
   await fsMerge(env, ruta, { msgs, papelera: pap, ...(ult ? { t: ult.t, ult: String(ult.txt).slice(0, 140), ultYo: !!ult.yo } : { ult: "" }) });
   return json({ ok: true });
 }
+// Borrar todo el chat de la app (mensajes y papelera); el índice queda, así las respuestas del cliente siguen llegando
+async function borrarChat(env, { idToken, cid, tel }) {
+  if (!(await puedeClientes(env, idToken, cid))) return json({ ok: false, error: "No autorizado" }, 403);
+  if (!idValido(cid) || !/^549[0-9]{10}$/.test(String(tel || ""))) return json({ ok: false, error: "Datos inválidos" }, 400);
+  await fsDelete(env, `companies/${cid}/chats/${tel}`);
+  return json({ ok: true });
+}
 // Respuesta de un cliente: solo se guarda si es un número al que la empresa ya le escribió
 async function respuestaCliente(env, d) {
   const m = deEvolution(d); if (!m || m._grupo) return;
@@ -2893,6 +2900,7 @@ async function responderCliente(env, { idToken, cid, tel, texto = "", por, vid, 
   const r = await evo(ruta2, { ...body, ...quoted });
   if (!r.ok) {
     const d = await r.text();
+    console.error("chat", ruta2, r.status, d.slice(0, 500), JSON.stringify(body).slice(0, 300));
     await registrar(env, { ultimoErrorEnvio: `${new Date().toISOString()} · chat ${ruta2} · ${r.status} · ${d.slice(0, 300)}` }).catch(() => {});
     return json({ ok: false, error: `WhatsApp no aceptó el mensaje (${r.status})` });
   }

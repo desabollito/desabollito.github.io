@@ -2659,3 +2659,9 @@ button.aj-item:hover, a.aj-item:hover { background: var(--surface-2); }
 /* Operativo → Mensajes al cliente: pregunta y opciones de cada encuesta, debajo de su interruptor */
 .msj-enc { display: grid; gap: 10px; padding-left: 12px; border-left: 2px solid var(--line); }
 .fecha-est { position: relative; } .fecha-est > .icon-btn { position: absolute; top: -9px; right: 0; }
+/* Responder: flechita al costado de cada mensaje del chat en vivo */
+.chat-resp-btn { position: absolute; top: 50%; right: -36px; transform: translateY(-50%); width: 28px; height: 28px; display: grid; place-items: center; border: 0; border-radius: 50%; background: var(--surface-2); color: var(--muted); cursor: pointer; }
+.chat-msg.yo .chat-resp-btn { right: auto; left: -36px; }
+.chat-resp-btn .ic { width: 16px; height: 16px; }
+.chat-resp-btn:hover, .chat-resp-btn:focus-visible { color: var(--ink); }
+.chat-borrar-todo { align-self: center; color: var(--danger, #e5484d); }
