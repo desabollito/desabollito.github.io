@@ -2692,10 +2692,22 @@ async function respuestaCliente(env, d) {
   const m = deEvolution(d); if (!m || m._grupo) return;
   const tel = telefonoAR(m.from); if (!tel) return;
   const idx = await fsGet(env, `chat_idx/${tel}`).catch(() => null); if (!idx?.cid) return;
+  const raw = d?.message || {};
+  // Voto de una encuesta: Evolution lo manda descifrado según la versión; si no viene el nombre de la opción, solo se avisa
+  const voto = raw.pollUpdateMessage && [raw.pollUpdateMessage.vote?.selectedOptions, d.pollUpdates?.[0]?.vote?.selectedOptions, raw.pollUpdateMessage.selectedOptions]
+    .find(x => Array.isArray(x) && x.length && x.every(o => typeof o === "string"));
   const txt = m.type === "text" ? m.text.body : m.type === "image" ? "📷 Foto" + (m.image.caption ? ": " + m.image.caption : "")
-    : m.type === "video" ? "🎥 Video" : m.type === "document" ? "📄 " + m.document.filename : "🎤 Audio u otro mensaje (abrilo en el celular de la empresa)";
+    : m.type === "video" ? "🎥 Video" : m.type === "document" ? "📄 " + m.document.filename
+    : raw.reactionMessage ? (raw.reactionMessage.text ? `Reaccionó ${raw.reactionMessage.text}` : "")
+    : raw.pollUpdateMessage ? (voto ? `📊 Votó: ${voto.join(", ")}` : "📊 Respondió la encuesta (mirá el celular de la empresa)")
+    : raw.audioMessage ? "🎤 Audio (escuchalo en el celular de la empresa)"
+    : "Mensaje que la app no muestra (abrilo en el celular de la empresa)";
+  if (!txt) return;   // sacó una reacción
   const v = await fsGet(env, `companies/${idx.cid}/vehicles/${idx.vid}`).catch(() => null);
-  await guardarChat(env, idx.cid, idx.vid, v, tel, { t: Number(m.timestamp) * 1000 || Date.now(), txt: String(txt).slice(0, 2000), yo: false, id: m.id });
+  await guardarChat(env, idx.cid, idx.vid, v, tel, { t: Number(m.timestamp) * 1000 || Date.now(), txt: String(txt).slice(0, 2000), yo: false, id: m.id, key: m._key });
+  // Confirmó el turno desde la encuesta: queda marcado igual que con el botón de la app
+  if (voto?.includes("Confirmo el turno") && v && !v.turnoConfirmado)
+    await fsMerge(env, `companies/${idx.cid}/vehicles/${idx.vid}`, { turnoConfirmado: true }).catch(e => console.error("turno por encuesta", e));
 }
 // El número de la empresa le pasa al bot los mensajes que recibe (una vez por instancia del Worker)
 let webhookClientesOk = false;
@@ -2709,12 +2721,22 @@ async function asegurarWebhookClientes(env) {
 }
 const WORKER_URL = "https://desabollito-bot.desabollito.workers.dev";
 // Responder desde la app: el creador o quien él habilitó para Mensajes y turnos, miembro de ese operativo
-async function responderCliente(env, { idToken, cid, tel, texto, por, vid }) {
+// tipo: texto | foto | audio | ubicacion | encuesta (turno o retiro) | reaccion (a un mensaje: t + emoji). cita: t del mensaje que se responde.
+async function responderCliente(env, { idToken, cid, tel, texto = "", por, vid, tipo = "texto", url, geo, encuesta, cita, t, emoji }) {
   if (!(await soloCreador(env, idToken))) {
     const [m, cfg] = await Promise.all([miembroDe(env, idToken, cid), fsGet(env, "config/app").catch(() => null)]);
     if (!m || !(esAdminOp(m) || (cfg?.usanClientes || []).includes(m.uid))) return json({ ok: false, error: "No autorizado" }, 403);
   }
-  if (!idValido(cid) || !/^549\d{10}$/.test(String(tel || "")) || typeof texto !== "string" || !texto.trim() || texto.length > 2000) return json({ ok: false, error: "Datos inválidos" }, 400);
+  const cloud = `https://res.cloudinary.com/${env.CLOUDINARY_CLOUD_NAME}/`;
+  const valido = idValido(cid) && /^549\d{10}$/.test(String(tel || "")) && typeof texto === "string" && texto.length <= 2000 && ({
+    texto: () => !!texto.trim(),
+    foto: () => String(url || "").startsWith(cloud + "image/upload/"),
+    audio: () => String(url || "").startsWith(cloud + "video/upload/"),
+    ubicacion: () => Math.abs(Number(geo?.lat)) <= 90 && Math.abs(Number(geo?.lng)) <= 180 && Number.isFinite(Number(geo?.lat)) && Number.isFinite(Number(geo?.lng)),
+    encuesta: () => ["turno", "retiro"].includes(encuesta),
+    reaccion: () => Number.isFinite(Number(t)) && typeof emoji === "string" && emoji.length <= 8
+  }[tipo]?.());
+  if (!valido) return json({ ok: false, error: "Datos inválidos" }, 400);
   // Chat que ya existe en este operativo, o uno nuevo desde un vehículo (el número tiene que ser el de ese vehículo)
   let idx = await fsGet(env, `chat_idx/${tel}`).catch(() => null);
   if (idx?.cid !== cid && idValido(vid)) {
@@ -2723,10 +2745,50 @@ async function responderCliente(env, { idToken, cid, tel, texto, por, vid }) {
   }
   if (idx?.cid !== cid) return json({ ok: false, error: "No encontré ese chat en este operativo" }, 404);
   if (await estadoEvolution(env, instanciaClientes(env)) !== "open") return json({ ok: false, error: "El número de la empresa no está conectado" });
-  const r = await enviarEvolution(env, `evo:${tel}`, { type: "text", text: { body: texto.trim() }, _inst: instanciaClientes(env) });
-  if (!r?.ok) return json({ ok: false, error: "WhatsApp no aceptó el mensaje" });
-  const v = await fsGet(env, `companies/${cid}/vehicles/${idx.vid}`).catch(() => null);
-  await guardarChat(env, cid, idx.vid, v, tel, { t: Date.now(), txt: texto.trim(), yo: true, por: String(por || "").slice(0, 60) });
+  const ruta = `companies/${cid}/chats/${tel}`;
+  const [v, c] = await Promise.all([fsGet(env, `companies/${cid}/vehicles/${idx.vid}`).catch(() => null), tipo === "reaccion" || cita ? fsGet(env, ruta).catch(() => null) : null]);
+  // Clave de WhatsApp de un mensaje guardado (los viejos del cliente solo tienen id "evo_…")
+  const claveDe = m => m?.key || (m?.id && !m.yo ? { remoteJid: `${tel}@s.whatsapp.net`, fromMe: false, id: String(m.id).replace(/^evo_/, "") } : null);
+  const msgs = c?.msgs || [], citado = cita ? msgs.find(x => Number(x.t) === Number(cita)) : null;
+  const base = String(env.EVOLUTION_URL || "").replace(/\/+$/, ""), inst = instanciaClientes(env);
+  const evo = (fn, body) => fetch(`${base}/message/${fn}/${inst}`, { method: "POST", headers: { apikey: env.EVOLUTION_APIKEY, "Content-Type": "application/json" }, body: JSON.stringify(body) });
+
+  if (tipo === "reaccion") {
+    const i = msgs.findIndex(x => Number(x.t) === Number(t)), key = claveDe(msgs[i]);
+    if (!key) return json({ ok: false, error: "No se puede reaccionar a ese mensaje" });
+    const r = await evo("sendReaction", { key, reaction: emoji });
+    if (!r.ok) return json({ ok: false, error: "WhatsApp no aceptó la reacción" });
+    msgs[i] = { ...msgs[i], reac: emoji || null };
+    await fsMerge(env, ruta, { msgs });
+    return json({ ok: true });
+  }
+
+  const number = tel, k = claveDe(citado);
+  const quoted = k ? { quoted: { key: k, message: { conversation: String(citado.txt || "").slice(0, 300) } } } : {};
+  const dm = iso => { const [, mm, dd] = String(iso || "").split("-"); return dd ? `${dd}/${mm}` : ""; };
+  const ENC = {
+    turno: { name: `¿Confirmás el turno${dm(v?.fechas?.turnado) ? " del " + dm(v.fechas.turnado) : ""}${v?.horaTurno ? " a las " + v.horaTurno : ""}${v?.modelo ? " para tu " + v.modelo : ""}?`, values: ["Confirmo el turno", "Quiero cambiar la fecha"] },
+    retiro: { name: `${v?.modelo ? "Tu " + v.modelo : "Tu vehículo"} ya está listo. ¿Cuándo lo retirás?`, values: ["Retiro hoy", "Retiro mañana"] }
+  }[encuesta];
+  const txt = texto.trim();
+  const [ruta2, body, guardado] = {
+    texto: () => ["sendText", { number, text: txt }, { txt }],
+    foto: () => ["sendMedia", { number, mediatype: "image", mimetype: "image/jpeg", media: url, fileName: "foto.jpg", caption: txt }, { txt: txt || "📷 Foto", foto: url }],
+    // WhatsApp la manda como nota de voz; Cloudinary la entrega en mp3 y Evolution la pasa a opus
+    audio: () => ["sendWhatsAppAudio", { number, audio: url.replace(/\.\w+$/, ".mp3") }, { txt: "🎤 Audio", audio: url.replace(/\.\w+$/, ".mp3") }],
+    ubicacion: () => ["sendLocation", { number, latitude: Number(geo.lat), longitude: Number(geo.lng), name: String(geo.nombre || "").slice(0, 80), address: "" }, { txt: "📍 Ubicación", geo: { lat: Number(geo.lat), lng: Number(geo.lng) } }],
+    encuesta: () => ["sendPoll", { number, name: ENC.name, selectableCount: 1, values: ENC.values }, { txt: `📊 ${ENC.name}\n• ${ENC.values.join("\n• ")}`, encuesta }]
+  }[tipo]();
+  const r = await evo(ruta2, { ...body, ...quoted });
+  if (!r.ok) {
+    const d = await r.text();
+    await registrar(env, { ultimoErrorEnvio: `${new Date().toISOString()} · chat ${ruta2} · ${r.status} · ${d.slice(0, 300)}` }).catch(() => {});
+    return json({ ok: false, error: "WhatsApp no aceptó el mensaje" });
+  }
+  const key = (await r.json().catch(() => null))?.key;
+  await guardarChat(env, cid, idx.vid, v, tel, { t: Date.now(), ...guardado, yo: true, por: String(por || "").slice(0, 60),
+    ...(key?.id ? { key: { remoteJid: key.remoteJid, fromMe: true, id: key.id } } : {}),
+    ...(citado ? { cita: { txt: String(citado.txt || "").slice(0, 120), yo: !!citado.yo } } : {}) });
   return json({ ok: true });
 }
 

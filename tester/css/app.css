@@ -2609,3 +2609,16 @@ button.aj-item:hover, a.aj-item:hover { background: var(--surface-2); }
 ::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--ink) 22%, transparent); border: 3px solid transparent; border-radius: 999px; background-clip: padding-box; }
 ::-webkit-scrollbar-thumb:hover { background-color: color-mix(in srgb, var(--primary) 75%, transparent); }
 ::-webkit-scrollbar-corner { background: transparent; }
+/* Chat en vivo: foto, audio, ubicación, encuestas, respuesta citada y reacciones */
+.chat-mas { flex: none; width: 44px; height: 44px; }
+.chat-mic.on { background: var(--danger, #e5484d); color: #fff; border-color: transparent; }
+.chat-grab { flex: 1; min-height: 44px; display: flex; align-items: center; gap: 6px; padding: 0 12px; color: var(--danger, #e5484d); font-weight: 600; font-variant-numeric: tabular-nums; }
+.chat-grab b { color: var(--ink); }
+.chat-resp { display: flex; align-items: center; gap: 8px; padding: 4px 4px 4px 12px; border-left: 3px solid var(--primary); background: var(--surface-2); border-radius: var(--r); font-size: 13px; color: var(--muted); }
+.chat-resp span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chat-msg { position: relative; }
+.chat-cita { margin-bottom: 5px; padding: 4px 8px; border-left: 3px solid currentColor; border-radius: 6px; background: rgb(0 0 0 / .12); font-size: 13px; opacity: .85; max-height: 3.6em; overflow: hidden; }
+.chat-foto img { display: block; max-width: 100%; border-radius: 8px; margin-bottom: 4px; }
+.chat-msg audio { display: block; width: 240px; max-width: 100%; height: 40px; }
+.chat-reac { position: absolute; bottom: -10px; right: 8px; font-size: 14px; line-height: 18px; padding: 0 4px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
+.chat-msg:has(.chat-reac) { margin-bottom: 10px; }

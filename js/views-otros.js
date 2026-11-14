@@ -1295,10 +1295,17 @@ export function avisarTurnoChat(v, fecha) {
 
 function abrirChat(cid, tel, alCerrar, v = null) {
   let c = null, enviando = false, verPap = false;
-  const s = openSheet({ title: "Chat", onClose: () => { unsub(); offV(); alCerrar?.(); }, body: `<div class="chat">
+  const s = openSheet({ title: "Chat", onClose: () => { pararGrab(false); unsub(); offV(); alCerrar?.(); }, body: `<div class="chat">
       <div class="chat-msgs" id="chat-msgs"><div class="skeleton" style="height:60px"></div></div>
       <div class="chat-turno" id="chat-turno"></div>
-      <form class="chat-form" id="chat-form"><textarea name="txt" rows="1" placeholder="Escribí una respuesta…" maxlength="2000" required></textarea>
+      <div class="chat-resp" id="chat-resp" hidden><span></span><button type="button" class="icon-btn" id="chat-resp-x" aria-label="No responder a ese mensaje">${icon("x")}</button></div>
+      <form class="chat-form" id="chat-form">
+        <button class="icon-btn chat-mas" type="button" id="chat-mas" aria-label="Mandar foto, ubicación o encuesta" aria-haspopup="listbox">${icon("plus")}</button>
+        <input type="file" id="chat-foto" accept="image/*" multiple hidden>
+        <textarea name="txt" rows="1" placeholder="Escribí una respuesta…" maxlength="2000"></textarea>
+        <span class="chat-grab" id="chat-grab" hidden>● Grabando <b>0:00</b></span>
+        <button class="icon-btn chat-cancelar" type="button" id="chat-cancelar" aria-label="Descartar audio" hidden>${icon("trash")}</button>
+        <button class="btn btn-ghost chat-enviar chat-mic" type="button" id="chat-mic" aria-label="Grabar audio">${icon("mic")}</button>
         <button class="btn btn-primary chat-enviar" type="submit" aria-label="Enviar">${icon("next")}</button></form></div>` });
   s.el.classList.add("sheet-centro");   // en el celular, al medio (no desde abajo)
   // En lugar de la X: la papelera de mensajes borrados (se cierra tocando afuera)
@@ -1318,8 +1325,12 @@ function abrirChat(cid, tel, alCerrar, v = null) {
       return;
     }
     const abajo = caja.scrollHeight - caja.scrollTop - caja.clientHeight < 40;
-    caja.innerHTML = (c.msgs || []).slice().sort((a, b) => a.t - b.t).map(m => `<div class="chat-msg ${m.yo ? "yo" : ""}" data-t="${m.t}">${formatoWa(m.txt)}
-      <small>${m.yo && m.por ? esc(m.por) + " · " : ""}${horaChat(m.t)}</small></div>`).join("") || `<p class="muted small center">Sin mensajes.</p>`;
+    const media = m => m.foto ? `<a class="chat-foto" href="${esc(m.foto)}" target="_blank" rel="noopener"><img src="${esc(m.foto.replace("/upload/", "/upload/c_limit,w_480,q_auto,f_auto/"))}" alt="Foto enviada" loading="lazy"></a>${m.txt === "📷 Foto" ? "" : formatoWa(m.txt)}`
+      : m.audio ? `<audio controls preload="none" src="${esc(m.audio)}"></audio>`
+      : m.geo ? `<a href="https://maps.google.com/?q=${Number(m.geo.lat)},${Number(m.geo.lng)}" target="_blank" rel="noopener">📍 Ubicación enviada</a>`
+      : formatoWa(m.txt);
+    caja.innerHTML = (c.msgs || []).slice().sort((a, b) => a.t - b.t).map(m => `<div class="chat-msg ${m.yo ? "yo" : ""}" data-t="${m.t}">${m.cita ? `<div class="chat-cita">${formatoWa(m.cita.txt)}</div>` : ""}${media(m)}
+      <small>${m.yo && m.por ? esc(m.por) + " · " : ""}${horaChat(m.t)}</small>${m.reac ? `<span class="chat-reac">${esc(m.reac)}</span>` : ""}</div>`).join("") || `<p class="muted small center">Sin mensajes.</p>`;
     // Al entrar (o si ya estaba abajo) baja al último; se repite al siguiente cuadro porque la barra del turno y la ventana todavía cambian de alto
     if (abajo || !caja.dataset.listo) { pintarTurno(); const bajar = () => { caja.scrollTop = caja.scrollHeight; }; bajar(); requestAnimationFrame(() => requestAnimationFrame(bajar)); setTimeout(bajar, 260); caja.dataset.listo = "1"; }
     else pintarTurno();
@@ -1337,9 +1348,29 @@ function abrirChat(cid, tel, alCerrar, v = null) {
     if (!j.ok) return toast(j.error || "No se pudo", "error");
     toast(restaurar ? "Mensaje restaurado" : "Mensaje a la papelera", "success");
   };
-  const pedirBorrar = async m => {
+  const borrar = async m => {
     if (await confirmar({ title: "¿Borrar este mensaje?", message: "Va a la papelera del chat (arriba). Solo se borra en la app: en WhatsApp sigue estando.", ok: "Borrar", danger: true, centro: true })) moverMsg(m.dataset.t, false);
   };
+  // Mantener apretado un mensaje: responder citándolo, reaccionar o borrar
+  let citaT = null;
+  const responderA = el => {
+    const m = (c?.msgs || []).find(x => String(x.t) === el.dataset.t); if (!m) return;
+    citaT = m.t; const r = $("#chat-resp", s.el);
+    $("span", r).textContent = (m.yo ? "Vos: " : "Cliente: ") + String(m.txt || "").slice(0, 90); r.hidden = false; ta.focus();
+  };
+  const reaccionar = async (el, emoji) => {
+    const j = await llamarBot("responder-cliente", { cid, tel, tipo: "reaccion", t: Number(el.dataset.t), emoji });
+    if (!j.ok) toast(j.error || "No se pudo reaccionar", "error");
+  };
+  const pedirBorrar = el => {
+    const ya = (c?.msgs || []).find(x => String(x.t) === el.dataset.t)?.reac;
+    glideMenu(el, [["resp", "Responder"], ["reac", "Reaccionar"], ["borrar", "Borrar"]], null, k => {
+      if (k === "resp") responderA(el);
+      else if (k === "borrar") borrar(el);
+      else glideMenu(el, [...["👍", "❤️", "🙏", "✅", "😂", "😮"].map(e => [e, e]), ...(ya ? [["", "Quitar reacción"]] : [])], ya || null, e => reaccionar(el, e), "Reaccionar");
+    });
+  };
+  $("#chat-resp-x", s.el).addEventListener("click", () => { citaT = null; $("#chat-resp", s.el).hidden = true; });
   s.el.addEventListener("click", e => {
     if (e.target.closest("#chat-pap")) { verPap = !verPap; caja.dataset.listo = ""; return pintar(); }
     const r = e.target.closest("[data-restaurar]"); if (r) return moverMsg(r.dataset.restaurar, true);
@@ -1358,13 +1389,81 @@ function abrirChat(cid, tel, alCerrar, v = null) {
   // Enter manda, Shift+Enter baja de línea; el campo crece con el texto
   ta.addEventListener("input", () => { ta.style.height = "auto"; ta.style.height = Math.min(ta.scrollHeight, 140) + "px"; });
   ta.addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey && !matchMedia("(pointer: coarse)").matches) { e.preventDefault(); form.requestSubmit(); } });
+  // Todo sale por el mismo envío del bot; la respuesta citada se aplica a lo próximo que se mande
+  const mandar = async datos => {
+    if (enviando) return false;
+    enviando = true; const bs = $$(".chat-enviar, .chat-mas", form); bs.forEach(b => { b.disabled = true; });
+    const j = await llamarBot("responder-cliente", { cid, tel, por: S.profile?.name || "", vid: c?.vid || v?.id, ...(citaT ? { cita: citaT } : {}), ...datos })
+      .catch(() => ({ ok: false }));
+    enviando = false; bs.forEach(b => { b.disabled = false; });
+    if (!j.ok) { toast(j.error || "No se pudo enviar", "error"); return false; }
+    citaT = null; $("#chat-resp", s.el).hidden = true;
+    return true;
+  };
   form.onsubmit = async e => {
     e.preventDefault();
-    const texto = ta.value.trim(); if (!texto || enviando) return;
-    enviando = true; const b = $(".chat-enviar", form); b.disabled = true;
-    const j = await llamarBot("responder-cliente", { cid, tel, texto, por: S.profile?.name || "", vid: c?.vid || v?.id });
-    enviando = false; b.disabled = false;
-    if (!j.ok) return toast(j.error || "No se pudo enviar", "error");
-    ta.value = ""; ta.style.height = "auto";
+    if (grab) return pararGrab(true);
+    const texto = ta.value.trim(); if (!texto) return;
+    if (await mandar({ texto })) { ta.value = ""; ta.style.height = "auto"; }
   };
+
+  // Fotos (el texto escrito va como epígrafe de la primera)
+  const inFoto = $("#chat-foto", s.el);
+  inFoto.addEventListener("change", async () => {
+    const files = [...inFoto.files]; inFoto.value = "";
+    for (const [i, f] of files.entries()) {
+      try {
+        toast(files.length > 1 ? `Subiendo foto ${i + 1} de ${files.length}…` : "Subiendo foto…");
+        const { url } = await subir(await comprimir(f), "chat");
+        if (!(await mandar({ tipo: "foto", url, texto: i ? "" : ta.value.trim() }))) return;
+        if (!i) { ta.value = ""; ta.style.height = "auto"; }
+      } catch (err) { return toast(err.message || "No se pudo subir la foto", "error"); }
+    }
+  });
+  // Ubicación: la de este celular en este momento (el que la manda está en el taller)
+  const mandarUbicacion = () => {
+    if (!navigator.geolocation) return toast("Este equipo no da la ubicación", "error");
+    toast("Buscando la ubicación…");
+    navigator.geolocation.getCurrentPosition(
+      p => mandar({ tipo: "ubicacion", geo: { lat: p.coords.latitude, lng: p.coords.longitude, nombre: S.company?.name || "" } }).then(ok => ok && toast("Ubicación enviada", "success")),
+      () => toast("No se pudo leer la ubicación (revisá el permiso)", "error"), { enableHighAccuracy: true, timeout: 15000 });
+  };
+  $("#chat-mas", s.el).addEventListener("click", e => glideMenu(e.currentTarget,
+    [["foto", "📷 Foto"], ["ubicacion", "📍 Ubicación"], ["turno", "📊 Confirmar turno / cambiar fecha"], ["retiro", "📊 Retiro hoy / mañana"]], null, k => {
+      if (k === "foto") inFoto.click();
+      else if (k === "ubicacion") mandarUbicacion();
+      else mandar({ tipo: "encuesta", encuesta: k }).then(ok => ok && toast("Encuesta enviada", "success"));
+    }));
+
+  // Audio: tocar el micrófono graba; enviar (o el micrófono otra vez) lo manda; la papelera lo descarta
+  let grab = null;
+  const verGrab = on => { ta.hidden = on; $("#chat-grab", s.el).hidden = !on; $("#chat-cancelar", s.el).hidden = !on; $("#chat-mas", s.el).hidden = on;
+    $("#chat-mic", s.el).classList.toggle("on", on); };
+  const pararGrab = mandarlo => {
+    const g = grab; if (!g) return; grab = null; clearInterval(g.reloj); verGrab(false);
+    g.rec.onstop = async () => {
+      g.stream.getTracks().forEach(t => t.stop());
+      if (!mandarlo || Date.now() - g.t0 < 700) return;   // un toque sin querer no manda nada
+      try {
+        toast("Mandando audio…");
+        const { url } = await subir(new Blob(g.partes, { type: g.rec.mimeType || "audio/webm" }), "chat", { tipo: "video" });
+        await mandar({ tipo: "audio", url });
+      } catch (err) { toast(err.message || "No se pudo mandar el audio", "error"); }
+    };
+    g.rec.stop();
+  };
+  $("#chat-mic", s.el).addEventListener("click", async () => {
+    if (grab) return pararGrab(true);
+    if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) return toast("Este equipo no puede grabar audio", "error");
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const rec = new MediaRecorder(stream), g = { rec, stream, partes: [], t0: Date.now() };
+      rec.ondataavailable = e => e.data.size && g.partes.push(e.data);
+      rec.start(); grab = g; verGrab(true);
+      const b = $("#chat-grab b", s.el);
+      g.reloj = setInterval(() => { const sg = Math.floor((Date.now() - g.t0) / 1000); b.textContent = `${Math.floor(sg / 60)}:${String(sg % 60).padStart(2, "0")}`;
+        if (sg >= 300) pararGrab(true); }, 500);   // tope de 5 minutos
+    } catch { toast("No se pudo usar el micrófono (revisá el permiso)", "error"); }
+  });
+  $("#chat-cancelar", s.el).addEventListener("click", () => pararGrab(false));
 }

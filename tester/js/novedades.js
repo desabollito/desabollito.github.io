@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.16.0", items: ["Chat en vivo: mandá fotos, audios (tocá el micrófono) y tu ubicación desde el +.", "Encuestas para el cliente: confirmar turno o cambiar fecha, y retiro hoy o mañana. Si confirma el turno por la encuesta, queda marcado solo.", "Mantené apretado un mensaje para responderlo citado, reaccionar o borrarlo."] },
   { v: "4.15.4", items: ["Ventanas emergentes más livianas: menos desenfoque detrás (se ven igual y no traban el celular)."] },
   { v: "4.15.3", items: ["Compartir: «Vehículo en App» ahora se llama «Link de seguimiento».", "La lista de vehículos ya no se redibuja si no cambió nada (menos tirones al guardar)."] },
   { v: "4.15.2", items: ["Chat en vivo: la papelera muestra solo el ícono, sin número."] },
