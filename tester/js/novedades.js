@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.15.4", items: ["Ventanas emergentes más livianas: menos desenfoque detrás (se ven igual y no traban el celular)."] },
   { v: "4.15.3", items: ["Compartir: «Vehículo en App» ahora se llama «Link de seguimiento».", "La lista de vehículos ya no se redibuja si no cambió nada (menos tirones al guardar)."] },
   { v: "4.15.2", items: ["Chat en vivo: la papelera muestra solo el ícono, sin número."] },
   { v: "4.15.1", items: ["Contactar: se quitó «Llamar»."] },
