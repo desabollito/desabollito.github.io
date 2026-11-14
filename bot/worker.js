@@ -2359,11 +2359,12 @@ async function actualizarFotoWa(env, uid, numero, forzar = false, perfil = null)
   return { foto: sub.secure_url, motivo: "ok" };
 }
 // Link de la foto de perfil de WhatsApp. Con el número suelto, Evolution le saca el 9 a los celulares argentinos (549… → 54…)
-// y consulta otra cuenta (vuelve sin foto): se pide primero con el identificador completo y después como venía.
+// y consulta otra cuenta (vuelve sin foto): en WhatsApp siempre es 549 + 10 dígitos, así que se pide con el identificador completo.
 async function fotoPerfilUrl(env, numero, instancias) {
   const base = String(env.EVOLUTION_URL).replace(/\/+$/, ""), n = String(numero).replace(/\D/g, "");
   let crudo = "", error = "";
-  for (const inst of instancias) for (const number of [`${n}@s.whatsapp.net`, n]) {
+  const number = `${n}@s.whatsapp.net`;
+  for (const inst of instancias) {
     const r = await fetch(`${base}/chat/fetchProfilePictureUrl/${inst}`, { method: "POST",
       headers: { apikey: env.EVOLUTION_APIKEY, "Content-Type": "application/json" }, body: JSON.stringify({ number }) }).catch(e => ({ ok: false, status: 0, text: async () => String(e?.message || e) }));
     const t = await r.text().catch(() => "");
@@ -2381,7 +2382,7 @@ async function ponerFoto(env, uid, url, extra = {}) {
   await Promise.all(ops.map(o => fsMerge(env, `companies/${o.__id}`, { memberPhotos: { ...(o.memberPhotos || {}), [uid]: url } }).catch(() => {})));
 }
 // Panel del creador: vuelve a buscar la foto de WhatsApp de todos los vinculados (menos los que tienen foto puesta a mano).
-// De a 3 por llamada (cada una son hasta ~12 pedidos y el Worker tiene tope de pedidos); la app sigue con `desde` hasta terminar.
+// De a 3 por llamada (cada una son hasta ~10 pedidos y el Worker tiene tope de pedidos); la app sigue con `desde` hasta terminar.
 async function adminFotosWa(env, { idToken, desde = 0 }) {
   if (!(await soloCreador(env, idToken))) return json({ ok: false, error: "No autorizado" }, 403);
   const todos = (await fsList(env, "users")).filter(u => u.whatsapp && !u.fotoManual).sort((a, b) => a.__id.localeCompare(b.__id));
