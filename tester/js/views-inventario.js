@@ -168,7 +168,7 @@ export async function vistaInventario(view) {
   const disp = () => view.clientWidth >= 700 ? "ancho" : "angosto";
   const rectDe = cat => secciones?.[disp()]?.[cat] || DISPOSICION[disp()][cat];
   const zona = cat => { const l = items.filter(i => i.cat === cat), r = rectDe(cat);
-    return `<div class="inv-zona inv-z-${cat} ${["valija", "carro", "varios"].includes(cat) ? "inv-zona-baja" : ""}" data-zona="${cat}"
+    return `<div class="inv-zona inv-z-${cat}" data-zona="${cat}"
         style="left:${r.x}%;top:${r.y}%;width:${r.w}%;height:${r.h}%">
       <div class="inv-zona-cab"><span class="inv-mover" role="button" aria-label="Mover la sección ${esc(CATS[cat])}" title="Arrastrá para mover la sección">⠿</span>
         <button type="button" class="inv-etq" data-nueva="${cat}">${icon("plus")}${CATS[cat]}</button></div>
@@ -314,17 +314,20 @@ export async function vistaInventario(view) {
     };
     verCampos();
     // Todas las sugerencias, de todas las secciones (primero las de la sección donde tocó +), filtradas por lo que escribe
+    // Solo se filtra mientras escribe: con el nombre que ya tenía o el que eligió tocando un botón, se ven todas
     const inicial = it.cat;
+    let escribio = false;
+    f.nombre.addEventListener("input", () => { escribio = true; });
     const pintarSugs = () => {
-      const q = f.nombre.value.trim().toLowerCase();
+      const nombre = f.nombre.value.trim().toLowerCase(), q = escribio ? nombre : "";
       const grupos = Object.entries(SUGERENCIAS).sort(([a], [b]) => (b === inicial) - (a === inicial))
         .map(([k, l]) => [k, l.filter(s => !q || s.toLowerCase().includes(q))]).filter(([, l]) => l.length);
       $("#inv-sugs", f).innerHTML = grupos.map(([k, l]) => `<div class="inv-sug-grupo"><small>${CATS[k]}</small><div class="inv-sug-chips">${l.map(s =>
-        `<button type="button" class="inv-chip ${s.toLowerCase() === q ? "on" : ""}" data-sug="${esc(s)}">${esc(s)}</button>`).join("")}</div></div>`).join("");
+        `<button type="button" class="inv-chip ${s.toLowerCase() === nombre ? "on" : ""}" data-sug="${esc(s)}">${esc(s)}</button>`).join("")}</div></div>`).join("");
     };
     $("#inv-sugs", f).onclick = e => {
       const b = e.target.closest("[data-sug]"); if (!b) return;
-      f.nombre.value = b.dataset.sug; f.nombre.oninput();
+      escribio = false; f.nombre.value = b.dataset.sug; f.nombre.oninput();
     };
     f.nombre.oninput = () => {
       const c = catDe(f.nombre.value), ah = ahDe(f.nombre.value);
