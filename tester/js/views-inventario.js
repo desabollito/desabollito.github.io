@@ -20,7 +20,7 @@ const VIEJO = { pantalla: "lampara", pie: "lampara", pegamento: "inercial", limp
 const SUGERENCIAS = {
   varilla: ["Varilla de puerta", "Varilla cola de ballena", "Varilla de capot", "Varilla de techo", "Varilla doble punta", "Varilla de guardabarros"],
   martillo: ["Martillo de goma", "Martillo de teflón", "Martillo de bola", "Punzón de nylon", "Punzón de metal", "Tap-down", "Juego de puntas intercambiables"],
-  inercial: ["Martillo inercial", "Pinza sacabollos", "Mini lifter", "Puller", "Puente de tracción", "Pistola de pegamento a batería", "Pistola de pegamento a cable", "Barras de pegamento", "Tabs de tracción", "Removedor de pegamento"],
+  inercial: ["Martillo inercial", "BullKick", "Shotgun", "Martillo inercial a resorte", "Pinza sacabollos", "Mini lifter", "Puller", "Puente de tracción", "Pistola de pegamento a batería", "Pistola de pegamento a cable", "Barras de pegamento", "Tabs de tracción", "Removedor de pegamento"],
   gancho: ["Gancho de ventanilla", "Gancho en S", "Ventosa", "Cuña inflable", "Protector de ventanilla", "Puntas de repuesto", "Traba de capot", "Traba de puerta", "Traba", "Vara de capot", "Soporte de capot"],
   lampara: ["Lámpara de mano", "Lámpara LED de líneas", "Pantalla reflectora de mano", "Lámpara con pie", "Trípode para lámpara"],
   bateria: ["Batería 18V 6.0Ah", "Batería 18V 5.0Ah", "Batería 18V 3.0Ah", "Batería de auto 12V 65Ah", "Batería de gel 12V 7Ah"],
@@ -32,7 +32,7 @@ const SUGERENCIAS = {
 };
 // La sección sale del nombre: igual a una sugerencia, o con una palabra clave
 // (el orden importa: "Pistola de calor a batería" es herramienta, no batería; "Pads del taladro" es varios, no herramienta)
-const CLAVES = [[/varilla/i, "varilla"], [/traba|\bvara\b|soporte de capot/i, "gancho"], [/mesa sacabollo/i, "valija"],[/microfibra|compound|\bpads?\b|\blijas?\b/i, "varios"], [/pegamento|inercial|puller|lifter|pinza|\btabs?\b/i, "inercial"],
+const CLAVES = [[/varilla/i, "varilla"], [/traba|\bvara\b|soporte de capot/i, "gancho"], [/mesa sacabollo/i, "valija"],[/microfibra|compound|\bpads?\b|\blijas?\b/i, "varios"], [/pegamento|inercial|puller|lifter|pinza|bull ?kick|shotgun|\btabs?\b/i, "inercial"],
   [/taladro|pulir|pulidora|dentshock|hotbox|pistola de calor|amoladora/i, "herramienta"], [/bater[ií]a/i, "bateria"], [/l[aá]mpara|pantalla/i, "lampara"],
   [/martillo|punz[oó]n|tap.?down/i, "martillo"], [/gancho|ventosa|cu[ñn]a/i, "gancho"], [/valija|flight/i, "valija"], [/\bcarro\b/i, "carro"]];
 const catDe = nombre => Object.keys(SUGERENCIAS).find(c => SUGERENCIAS[c].some(s => s.toLowerCase() === nombre.trim().toLowerCase()))
@@ -86,8 +86,14 @@ DIBUJO.mesaSacabollos = `<svg viewBox="0 0 72 66" class="m-mesa"><path d="M12 18
 // Pinza sacabollos: cuerpo con tornillo arriba, dos mangos a la derecha y dos patas con goma
 DIBUJO.pinza = `<svg viewBox="0 0 74 58" class="m-pinza"><rect x="22" y="1" width="10" height="5" rx="1.5"/><path d="M27 6v8"/><path d="M12 14h30v12l-7 8v6H19v-6l-7-8z" class="lleno"/><path d="M42 16h30M40 26l30 9"/><path d="M27 34v12"/><path d="M4 54h18l2-6M50 54H32l-2-6" class="patas"/></svg>`;
 const esPinza = i => i.cat === "inercial" && /pinza/i.test(i.nombre || "");
+// Martillo inercial (tipo FastPDR), parado: mango con estrías arriba, barra, pesa con 3 tornillos al medio y la punta abajo
+DIBUJO.slide = `<svg viewBox="0 0 30 124" class="m-slide"><rect x="9" y="2" width="12" height="34" rx="5" class="lleno"/><path d="M9 11h12M9 19h12M9 27h12"/><rect x="8" y="36" width="14" height="4" rx="1"/><path d="M15 40v70"/><rect x="7" y="56" width="16" height="30" rx="2" class="lleno"/><circle cx="15" cy="63" r="2"/><circle cx="15" cy="71" r="2"/><circle cx="15" cy="79" r="2"/><rect x="11" y="110" width="8" height="12" rx="2"/></svg>`;
+// BullKick / Shotgun / a resorte, parado: cuerpo grueso negro con anillos rojos arriba, barra de acero y el mango chico abajo
+DIBUJO.bullkick = `<svg viewBox="0 0 30 124" class="m-bull"><rect x="5" y="2" width="20" height="64" rx="8" class="lleno"/><path d="M5 11h20M5 57h20" class="rojo2"/><path d="M10 25h10M10 33h10M10 41h10"/><path d="M15 66v34" class="acero"/><rect x="10" y="100" width="10" height="22" rx="4" class="lleno"/></svg>`;
+const esBullkick = i => i.cat === "inercial" && /bull ?kick|shotgun|resorte/i.test(i.nombre || "");
+const esSlide = i => i.cat === "inercial" && !esBullkick(i) && /martillo inercial|slide/i.test(i.nombre || "");
 const esInduccion = i => i.cat === "herramienta" && /dentshock|hotbox|inducci/i.test(i.nombre || "");
-const dibujo = i => esInduccion(i) ? DIBUJO.induccion : esPinza(i) ? DIBUJO.pinza : DIBUJO[VARIANTE[i.cat]?.[i.modelo]] || DIBUJO[i.cat] || DIBUJO.varios;
+const dibujo = i => esInduccion(i) ? DIBUJO.induccion : esPinza(i) ? DIBUJO.pinza : esBullkick(i) ? DIBUJO.bullkick : esSlide(i) ? DIBUJO.slide : DIBUJO[VARIANTE[i.cat]?.[i.modelo]] || DIBUJO[i.cat] || DIBUJO.varios;
 const largo = id => 62 + [...id].reduce((a, c) => a + c.charCodeAt(0), 0) % 38;   // varillas de distinto largo (siempre igual para la misma)
 const nuevoId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 // Lugar de cada herramienta en su sección del 2D: el que eligió (arrastrando) o uno ordenado por defecto

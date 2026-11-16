@@ -111,14 +111,31 @@ export async function montar3D(el, items, alTocar, alAgregar = () => {}, alMover
   const tocables = [], flotantes = [];   // flotantes: las lámparas de mano (suben y bajan apenas)
   const sinMovimiento = matchMedia("(prefers-reduced-motion: reduce)").matches;
   const dibujos = {
+    // Varilla: acero claro (bien visible contra el tablero), más gruesa, con el mango en T de color como las PDR
     varilla: (m, i) => { const g = new T.Group(), L = largo(i.id);
-      g.add(en(cil(0.012, L, m, 8), 0, -L / 2, 0)); g.add(en(cil(0.02, 0.16, m, 8), 0, 0, 0, 0, 0, Math.PI / 2));
-      g.add(en(cil(0.012, 0.12, m, 8), 0.04, -L, 0, 0, 0, Math.PI / 3)); return g; },
+      const mango = mat([0xd8352a, 0x2f6fd0, 0x2fa35a, 0xf08a24, 0xe8c21e][[...i.id].reduce((a, ch) => a + ch.charCodeAt(0), 0) % 5], { roughness: .5 });
+      g.add(en(cil(0.016, L, m, 10), 0, -L / 2, 0), en(cil(0.026, 0.18, mango, 12), 0, 0, 0, 0, 0, Math.PI / 2));
+      g.add(en(cil(0.016, 0.12, m, 10), 0.045, -L, 0, 0, 0, Math.PI / 3)); return g; },
     martillo: m => { const g = new T.Group();
       g.add(en(cil(0.045, 0.16, m), 0, 0, 0, 0, 0, Math.PI / 2)); g.add(en(cil(0.015, 0.34, mat(0x2b2b2e)), 0, -0.19, 0)); return g; },
     gancho: m => { const g = new T.Group();
       g.add(en(cil(0.01, 0.4, m, 8), 0, -0.2, 0)); g.add(en(new T.Mesh(new T.TorusGeometry(0.06, 0.01, 8, 16, Math.PI), m), 0.06, -0.4, 0, 0, 0, Math.PI)); return g; },
-    inercial: m => { const g = new T.Group();   // martillo inercial acostado: barra, pesa y manija en T
+    inercial: (m, i) => { const g = new T.Group(), nombre = i.nombre || "", negro = mat(0x18191c, { roughness: .6 });
+      // BullKick / Shotgun / a resorte: parado, el cuerpo grueso negro con anillos rojos arriba, la barra y el mango chico abajo
+      if (/bull ?kick|shotgun|resorte/i.test(nombre)) {
+        const rojo = mat(0xd8352a, { roughness: .5 });
+        g.add(en(cil(0.03, 0.32, negro, 16), 0, 0.42, 0), en(cil(0.031, 0.012, rojo, 16), 0, 0.3, 0), en(cil(0.031, 0.012, rojo, 16), 0, 0.55, 0));
+        g.add(en(cil(0.009, 0.2, metal(), 10), 0, 0.17, 0), en(cil(0.019, 0.08, negro, 12), 0, 0.04, 0));
+        return g;
+      }
+      // Martillo inercial (tipo FastPDR): parado, el mango con estrías arriba, la barra, la pesa al medio y la punta abajo
+      if (/martillo inercial|slide/i.test(nombre)) {
+        const acero = mat(0xc9ced6, { metalness: .5, roughness: .35 });
+        g.add(en(cil(0.022, 0.17, acero, 14), 0, 0.5, 0), en(cil(0.026, 0.012, negro, 14), 0, 0.41, 0), en(cil(0.008, 0.52, acero, 10), 0, 0.15, 0));
+        g.add(en(caja(0.06, 0.11, 0.06, acero), 0, 0.22, 0), en(cil(0.016, 0.05, acero, 10), 0, -0.015, 0));
+        g.position.y = 0.04; return g;
+      }
+      // el resto (mini lifter, puller, pegamento…): acostado, barra, pesa y manija en T
       g.add(en(cil(0.01, 0.55, metal(), 8), 0, 0, 0, 0, 0, Math.PI / 2)); g.add(en(cil(0.035, 0.12, m), 0.05, 0, 0, 0, 0, Math.PI / 2));
       g.add(en(cil(0.015, 0.14, m), -0.28, 0, 0)); g.position.y = 0.035; g.rotation.y = 0.35; return g; },
     // Lámparas PDR. De mano: panel de luz cálida a fría con marco negro, mango y batería en la punta, flotando.
@@ -272,7 +289,7 @@ export async function montar3D(el, items, alTocar, alAgregar = () => {}, alMover
   }
 
   const poner = (i, x, y, z, padre = escena, chica = false) => {
-    const m = mat(COLOR[i.cat] ?? COLOR.varios, i.cat === "varilla" ? { metalness: .85, roughness: .3 } : i.cat === "carro" ? { roughness: .85 } : {});
+    const m = mat(COLOR[i.cat] ?? COLOR.varios, i.cat === "varilla" ? { metalness: .35, roughness: .35 } : i.cat === "carro" ? { roughness: .85 } : {});
     const g = (dibujos[i.cat] || dibujos.varios)(m, i, chica);
     g.position.x += x; g.position.y += y; g.position.z += z;
     g.userData = { ...g.userData, id: i.id, nombre: i.nombre, cant: i.cant || 1 };
@@ -390,7 +407,6 @@ export async function montar3D(el, items, alTocar, alAgregar = () => {}, alMover
   };
   const elegir = o => {
     if (!o) return;
-    if (document.pointerLockElement === c) document.exitPointerLock();   // para poder usar la ventana que se abre
     if (o.userData.id) alTocar(o.userData.id); else alAgregar(o.userData.nueva);
   };
 
@@ -415,19 +431,19 @@ export async function montar3D(el, items, alTocar, alAgregar = () => {}, alMover
     if (en !== (itemDe(id)?.en || "")) alMover(id, en);
   };
 
-  // Computadora: el primer click "entra" (captura el mouse) y desde ahí mover el mouse mira, como en un juego;
-  // click = abrir o agregar lo que está en la mira; mantener el click y mover = llevar la herramienta; Esc suelta el mouse.
+  // Computadora: con el mouse sobre el visor, moverlo mira (como en un juego, sin capturarlo); la mira del centro apunta;
+  // click = abrir o agregar lo que está en la mira; mantener el click y mover = llevar la herramienta.
   // Celular: arrastrar mira, tocar abre o agrega, mantener apretado y arrastrar lleva la herramienta.
-  const conMira = "requestPointerLock" in c && !matchMedia("(pointer: coarse)").matches;
-  let bloqueado = false, pendiente = null, toque = 0;   // pendiente: click con el mouse que todavía puede ser arrastre
+  const conMira = !matchMedia("(pointer: coarse)").matches;   // compu: mirar con el mouse al pasar por el visor (sin capturarlo: el resto de la página sigue andando)
+  let bloqueado = false, pendiente = null, toque = 0, borde = 0.5;   // bloqueado: el mouse está dentro del visor; pendiente: click que todavía puede ser arrastre; borde: dónde está el mouse (0 izq … 1 der)
   const mira = document.createElement("span"); mira.className = "inv-3d-mira"; mira.hidden = true;
   const punteros = new Map();
   let ini = null, pellizco = 0;
   c.addEventListener("pointerdown", e => {
     if (e.pointerType === "mouse" && conMira) {
-      if (e.button !== 0) return;
-      if (!bloqueado) { const r = c.requestPointerLock(); r?.catch?.(() => {}); }
-      else pendiente = { o: apuntar(0, 0), mov: 0 };
+      if (e.button !== 0 || !bloqueado) return;
+      c.setPointerCapture(e.pointerId);   // si suelta afuera del visor, igual termina acá
+      pendiente = { o: apuntar(0, 0), mov: 0 };
       return;
     }
     punteros.set(e.pointerId, [e.clientX, e.clientY]); c.setPointerCapture(e.pointerId);
@@ -438,6 +454,7 @@ export async function montar3D(el, items, alTocar, alAgregar = () => {}, alMover
   });
   c.addEventListener("mousemove", e => {
     if (!bloqueado) return;
+    const r = c.getBoundingClientRect(); borde = (e.clientX - r.left) / r.width;   // cerca del borde, la vista sigue girando sola
     v.yaw -= e.movementX * 0.0025; v.pitch -= e.movementY * 0.0025;
     if (pendiente && (pendiente.mov += Math.abs(e.movementX) + Math.abs(e.movementY)) > 25) {
       if (llevable(pendiente.o)) empezarLlevar(pendiente.o);
@@ -477,13 +494,18 @@ export async function montar3D(el, items, alTocar, alAgregar = () => {}, alMover
   };
   c.addEventListener("pointerup", soltar); c.addEventListener("pointercancel", soltar);
   c.addEventListener("contextmenu", e => e.preventDefault());   // mantener apretado en el celular no abre el menú
-  c.addEventListener("pointerleave", e => { if (e.pointerType === "mouse" && !bloqueado) mostrar(null); });
+  // Compu: con el mouse sobre el visor se mira; al salir, se suelta lo que llevaba y vuelve el velo
+  c.addEventListener("pointerenter", e => { if (e.pointerType === "mouse" && conMira) entrar(true); });
+  c.addEventListener("pointerleave", e => {
+    if (e.pointerType !== "mouse") return;
+    if (conMira) { if (llevado) terminarLlevar(false); pendiente = null; entrar(false); } else mostrar(null);
+  });
   c.addEventListener("wheel", e => { e.preventDefault(); caminar(-lim(e.deltaY, -100, 100) * 0.006, 0); }, { passive: false });
   const teclas = new Set();
   const TECLAS = ["w", "a", "s", "d", "arrowup", "arrowdown", "arrowleft", "arrowright"];
   c.addEventListener("keydown", e => {
     const k = e.key.toLowerCase();
-    if (k === "escape") e.stopPropagation();   // Esc suelta el mouse; que no vuelva atrás de pantalla
+    if (k === "escape") e.stopPropagation();   // en el visor, Esc no vuelve atrás de pantalla
     if (TECLAS.includes(k)) { e.preventDefault(); teclas.add(k); }
   });
   c.addEventListener("keyup", e => teclas.delete(e.key.toLowerCase()));
@@ -510,20 +532,20 @@ export async function montar3D(el, items, alTocar, alAgregar = () => {}, alMover
   const sacarAyuda = () => ayuda.classList.add("fuera");
   if (!conMira) { c.addEventListener("pointerdown", sacarAyuda, { once: true }); pad.addEventListener("pointerdown", sacarAyuda, { once: true }); }
   else sacarAyuda();   // en la compu lo dice el velo
-  // Computadora, con el mouse suelto: la escena se oscurece y un cartel invita a entrar (click = capturar el mouse)
-  const velo = document.createElement("button");
-  velo.type = "button"; velo.className = "inv-3d-velo"; velo.hidden = !conMira;
-  velo.innerHTML = `<b>Hacé click para entrar</b><small>Mové el mouse para mirar · WASD o flechas para caminar · Esc para salir</small>`;
-  velo.onclick = () => { const r = c.requestPointerLock(); r?.catch?.(() => {}); c.focus({ preventScroll: true }); };
-  const alBloquear = () => {
-    bloqueado = document.pointerLockElement === c;
-    velo.hidden = !conMira || bloqueado;
-    mira.hidden = !bloqueado;
-    if (!bloqueado) mostrar(null);
-    ayuda.textContent = bloqueado ? "Click: abrir la herramienta o agregar donde apuntás · Esc: soltar el mouse" : TXT;
-    ayuda.classList.remove("fuera"); clearTimeout(tAyuda); if (bloqueado) tAyuda = setTimeout(sacarAyuda, 4000);
+  // Computadora, con el mouse fuera del visor: la escena se oscurece y un cartel invita a pasar el mouse.
+  // (No se captura el mouse: así el resto de la página, como el botón 2D, sigue andando.)
+  const velo = document.createElement("div");
+  velo.className = "inv-3d-velo"; velo.hidden = !conMira;
+  velo.innerHTML = `<b>Pasá el mouse por acá para entrar</b><small>Mové el mouse para mirar (en el borde sigue girando) · WASD o flechas para caminar</small>`;
+  const entrar = dentro => {
+    bloqueado = dentro; borde = 0.5;
+    velo.hidden = !conMira || dentro;
+    mira.hidden = !dentro;
+    c.style.cursor = dentro ? "none" : "";
+    if (dentro) c.focus({ preventScroll: true }); else mostrar(null);
+    ayuda.textContent = dentro ? "Click: abrir o agregar donde apunta la mira · mantené el click y mové para llevar una herramienta" : TXT;
+    ayuda.classList.remove("fuera"); clearTimeout(tAyuda); if (dentro) tAyuda = setTimeout(sacarAyuda, 4000);
   };
-  document.addEventListener("pointerlockchange", alBloquear);
   el.append(velo, centrar, pad, ayuda, mira);
 
   const medir = () => {
@@ -543,6 +565,7 @@ export async function montar3D(el, items, alTocar, alAgregar = () => {}, alMover
       caminar(ad * 0.045, de * 0.045);
     }
     if (!sinMovimiento) { const t = performance.now() / 1000; for (const f of flotantes) { f.g.position.y = f.y + Math.sin(t * 1.6 + f.fase) * 0.04; f.g.rotation.y = Math.sin(t * 0.5 + f.fase) * 0.2; } }
+    if (bloqueado && !llevado) { if (borde < 0.07) v.yaw += 0.022; else if (borde > 0.93) v.yaw -= 0.022; }   // mouse en el borde: sigue girando
     aplicar();
     if (llevado) {   // la herramienta que se lleva flota adelante, donde apunta la mira o el dedo
       p.set(llevado.nx, llevado.ny); ray.setFromCamera(p, camara);
@@ -554,8 +577,6 @@ export async function montar3D(el, items, alTocar, alAgregar = () => {}, alMover
   function desarmar() {
     if (!vivo) return; vivo = false; ro.disconnect(); clearTimeout(toque);
     escena.traverse(o => { o.geometry?.dispose(); if (o.material) { o.material.map?.dispose(); o.material.dispose(); } });
-    document.removeEventListener("pointerlockchange", alBloquear);
-    if (document.pointerLockElement === c) document.exitPointerLock();
     render.dispose(); c.remove(); centrar.remove(); pad.remove(); ayuda.remove(); mira.remove(); velo.remove();
   }
   cuadro();

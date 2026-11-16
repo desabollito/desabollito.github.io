@@ -2747,6 +2747,9 @@ button.aj-item:hover, a.aj-item:hover { background: var(--surface-2); }
 .inv-herramienta { --c: #4f8fe8; } .inv-herramienta svg { width: 48px; height: 40px; } .inv-varios { --c: #9aa3ad; }
 .inv-herramienta .m-induccion { width: 58px; height: 38px; } .inv-herramienta .cable { stroke-width: 2; } .inv-herramienta .lapiz { stroke-width: 6; }
 .inv-inercial .m-pinza { width: 58px; height: 46px; } .inv-inercial .patas { stroke-width: 4; }
+.inv-inercial .m-slide, .inv-inercial .m-bull { width: 20px; height: 84px; } .inv-inercial .m-slide { color: var(--ink-2); }
+.inv-inercial .m-bull { color: #2a2c30; } .inv-inercial .m-bull .lleno { fill-opacity: .9; } .inv-inercial .m-bull .rojo2 { stroke: #d8352a; stroke-width: 3.5; } .inv-inercial .m-bull .acero { stroke: var(--ink-2); }
+[data-theme=dark] .inv-inercial .m-bull { color: #5a5d63; }
 /* Lámparas PDR: luz cálida, blanca y fría; batería roja en la de pie; baterías: contactos naranja */
 .inv-lampara .marco { fill: #16171a; fill-opacity: 1; } .inv-lampara .luz1 { stroke: #f2b84b; stroke-width: 4; } .inv-lampara .luz2 { stroke: #fff3d6; stroke-width: 4; } .inv-lampara .luz3 { stroke: #bfe0f5; stroke-width: 4; }
 .inv-lampara .rojo { fill: #c62f24; stroke: #c62f24; } .inv-bateria .naranja { fill: #f2a33a; stroke: #f2a33a; }
@@ -2765,7 +2768,7 @@ button.aj-item:hover, a.aj-item:hover { background: var(--surface-2); }
 .inv-sub { margin: 4px 0 -4px; font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
 .inv-acciones { flex-wrap: wrap; justify-content: flex-end; }
 .inv-3d-centrar { position: absolute; top: 10px; right: 10px; padding: 6px 12px; border: 1px solid rgb(255 255 255 / .2); border-radius: 999px; background: rgb(0 0 0 / .55); color: #fff; font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; }
-.inv-3d-velo { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 16px; border: 0; background: rgb(10 10 12 / .62); color: #fff; font: inherit; text-align: center; cursor: pointer; backdrop-filter: blur(2px); }
+.inv-3d-velo { position: absolute; inset: 0; pointer-events: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 16px; border: 0; background: rgb(10 10 12 / .62); color: #fff; font: inherit; text-align: center; cursor: pointer; backdrop-filter: blur(2px); }
 .inv-3d-velo[hidden] { display: none; }
 .inv-3d-velo b { font-size: 18px; } .inv-3d-velo small { opacity: .8; font-size: 12.5px; }
 .inv-3d-velo:hover b { color: var(--primary); }
@@ -2786,8 +2789,9 @@ button.aj-item:hover, a.aj-item:hover { background: var(--surface-2); }
   background: repeating-conic-gradient(var(--surface-2) 0 25%, var(--surface) 0 50%) 0 0 / 18px 18px; }   /* cuadriculado: se ve qué quedó sin fondo */
 .inv-foto-campo { display: flex; flex-direction: column; gap: 8px; }
 /* Sugerencias del formulario: todas, agrupadas por sección, como botones */
-.inv-sugs { display: flex; flex-direction: column; gap: 8px; max-height: min(46vh, 360px); overflow-y: auto; margin-top: -4px; padding: 2px; }
+.inv-sugs { display: flex; flex-direction: column; gap: 8px; height: 210px; overflow-y: auto; margin-top: -4px; padding: 8px; border: 1px solid var(--line); border-radius: var(--r); background: var(--surface-2); }   /* caja fija con su propio desplazamiento */
 .inv-sugs:empty { display: none; }
+.inv-sug-grupo { padding: 8px 10px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }   /* cada sección en su recuadro */
 .inv-sug-grupo small { display: block; margin-bottom: 4px; color: var(--muted); font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
 .inv-sug-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .inv-chip { padding: 5px 10px; border: 1px solid var(--line-2); border-radius: 999px; background: var(--surface); color: var(--ink); font: inherit; font-size: 13px; cursor: pointer; }
