@@ -58,7 +58,7 @@ const ahDe = nombre => { const m = /(\d+(?:[.,]\d+)?)\s*ah\b/i.exec(nombre); ret
 
 // Dibujos de cada tipo (usan el color del tipo con currentColor)
 const DIBUJO = {
-  varilla: `<svg viewBox="0 0 24 120" preserveAspectRatio="none"><path d="M4 7h16M12 7v96q0 10-9 11"/></svg>`,
+  varilla: `<svg viewBox="0 0 24 120" class="m-varilla"><path d="M4 7h16M12 7v96q0 10-9 11"/></svg>`,
   martillo: `<svg viewBox="0 0 40 64"><rect x="5" y="4" width="30" height="13" rx="4" class="lleno"/><path d="M20 17v44"/></svg>`,
   inercial: `<svg viewBox="0 0 30 90"><path d="M5 6h20M15 6v80"/><rect x="8" y="34" width="14" height="22" rx="3" class="lleno"/></svg>`,
   gancho: `<svg viewBox="0 0 34 70"><path d="M17 4v40a10 10 0 1 1-12-9"/></svg>`,
@@ -105,12 +105,10 @@ const esBullkick = i => i.cat === "inercial" && /bull ?kick|shotgun|resorte/i.te
 const esSlide = i => i.cat === "inercial" && !esBullkick(i) && /martillo inercial|slide/i.test(i.nombre || "");
 const esInduccion = i => i.cat === "herramienta" && /dentshock|hotbox|inducci/i.test(i.nombre || "");
 const dibujo = i => esChupete(i) ? DIBUJO.chupete : esVentosa(i) ? DIBUJO.ventosa : esInduccion(i) ? DIBUJO.induccion :esPinza(i) ? DIBUJO.pinza : esPinzaPunta(i) ? DIBUJO.pinzaPunta :esPistola(i) ? (/bater/i.test(i.nombre) ? DIBUJO.pistolaBat : DIBUJO.pistola) :esBullkick(i) ? DIBUJO.bullkick : esSlide(i) ? DIBUJO.slide : DIBUJO[VARIANTE[i.cat]?.[i.modelo]] || DIBUJO[i.cat] || DIBUJO.varios;
-const largo = id => 62 + [...id].reduce((a, c) => a + c.charCodeAt(0), 0) % 38;   // varillas de distinto largo (siempre igual para la misma)
 const nuevoId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 // Lugar de cada herramienta en su sección del 2D: el que eligió (arrastrando) o uno ordenado por defecto
-const COLUMNAS = { valija: 2, carro: 2, lampara: 2 }, COLGADAS = ["martillo", "gancho"];
+const COLUMNAS = { valija: 2, carro: 2, lampara: 2, varilla: 8 }, COLGADAS = ["martillo", "gancho"];
 const posDefecto = (i, k, n) => {
-  if (i.cat === "varilla") { const paso = Math.min(0.07, 0.94 / Math.max(1, n)); return { x: 0.04 + paso * (k + 0.5), y: 0.97 }; }   // paradas, apoyadas abajo
   const cols = COLUMNAS[i.cat] || 3, fila = Math.floor(k / cols), x = (k % cols + 0.5) / cols;
   return COLGADAS.includes(i.cat) ? { x, y: Math.min(1, 0.48 + fila * 0.5) } : { x, y: Math.max(0.35, 1 - fila * 0.45) };
 };
@@ -182,7 +180,7 @@ export async function vistaInventario(view) {
     // Ancho y alto propios (--tx, --ty: tirador de la esquina o rueda del mouse); no dependen del tamaño de la sección.
     // Las varillas tienen su largo fijo en px (antes era % de la sección y al agrandarla se estiraban solo para abajo).
     return `<button type="button" class="inv-obj inv-${i.cat}" data-ver="${esc(i.id)}" aria-label="${esc(i.nombre)}" title="${esc(i.nombre)}"
-      style="left:${(p.x * 100).toFixed(2)}%;top:${(p.y * 100).toFixed(2)}%;--tx:${medidas(i).tx};--ty:${medidas(i).ty}${i.cat === "varilla" && !conFoto ? `;height:${Math.round(largo(i.id) * 1.6)}px` : ""}">${conFoto
+      style="left:${(p.x * 100).toFixed(2)}%;top:${(p.y * 100).toFixed(2)}%;--tx:${medidas(i).tx};--ty:${medidas(i).ty}">${conFoto
         ? `<img class="inv-obj-foto${Math.abs(medidas(i).tx - medidas(i).ty) > 0.01 ? " estirada" : ""}" src="${esc(entera(i.foto.url))}" alt="" loading="lazy" draggable="false">` : dibujo(i)}<span class="inv-tam" title="Arrastrá para agrandar o achicar"></span>${(i.cant || 1) > 1 ? `<b class="inv-n">×${i.cant}</b>` : ""}
       ${CONTENEDOR.includes(i.cat) ? `<b class="inv-n">${items.filter(x => x.en === i.id).length || ""}</b>` : ""}<span class="inv-nom">${esc(i.nombre)}</span></button>`;
   };
