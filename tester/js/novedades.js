@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.40.0", items: ["3D en la compu: se entra con un click en el visor (ahí el mouse mira, como en un juego) y se sale con Esc. El cartel «Hacé click para entrar» aparece solo dentro del visor.", "El visor 3D es más chico."] },
   { v: "4.39.2", items: ["Taller 2D: las varillas funcionan igual que el resto de las herramientas (tamaño normal, se agrandan y estiran con el tirador y se acomodan en la grilla); ya no se rompen al agregarlas."] },
   { v: "4.39.1", items: ["Vuelve la sección Herramientas al taller 2D, como estaba."] },
   { v: "4.39.0", items: ["Taller 2D: se sacó la sección Herramientas. Taladros, máquinas y pistolas de calor se ven en Desmontaje (más grande), cada uno con su dibujo."] },
