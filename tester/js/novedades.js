@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.32.0", items: ["Agregar herramienta: debajo del nombre se ven todas las sugerencias, de todas las secciones (primero las de la sección donde tocaste +). Se filtran mientras escribís; tocá una para elegirla.", "Taller 2D: arrastrá una herramienta a otra sección para pasarla ahí (la sección de destino se marca en naranja). Valijas y carros quedan en su sección."] },
   { v: "4.31.0", items: ["Taller 2D: las secciones se pueden mover (agarrándolas del ⠿ al lado del nombre) y agrandar o achicar (desde la esquina de abajo a la derecha). Queda guardado; «Restablecer secciones» las vuelve a su lugar. Hay una disposición para computadora y otra para celular.", "Las secciones se distinguen mucho más: borde marcado, sombra y franja de título.", "Pinza sacabollos en Martillos inerciales y pullers, con su propio dibujo. «Puller en T» ahora se llama «Puller»."] },
   { v: "4.30.0", items: ["Taller 2D: al soltar una herramienta se acomoda en una grilla (como los íconos del escritorio); si el lugar está ocupado, va al casillero libre más cercano."] },
   { v: "4.29.2", items: ["Taller 2D: cada sección tiene una línea fina alrededor para ver hasta dónde llega."] },
