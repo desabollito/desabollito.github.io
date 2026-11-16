@@ -120,6 +120,10 @@ export function vistaFacturacion(view) {
     // Tocar la fila (fuera de los botones) abre el vehículo; al volver queda en el mismo lugar
     if (!b) { F.volver = { y: scrollY, t: $(".table-wrap", view)?.scrollTop || 0 }; location.hash = `#/v/${vid}`; return; }
     const ponerEstado = async est => {
+      // Perfil Facturación: solo factura vehículos que figuran Entregado (no se saltea pasos)
+      const vv = activos().find(x => x.id === vid);
+      if (est === "facturado" && soyFacturacion() && vv && !["entregado", "facturado"].includes(estadoActual(vv)))
+        return toast("Solo se puede facturar un vehículo que figura Entregado", "error");
       try {
         if (!(await guardar({ ...conFecha(vid, est), ...(est !== "impreso" ? alFinal(vid) : {}) }, `${patenteDe(vid)}: pasó a ${ESTADOS_F.find(([k]) => k === est)[1]}`))) return;
         // Facturado acá también marca Facturado en el vehículo

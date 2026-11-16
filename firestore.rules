@@ -147,9 +147,11 @@ service cloud.firestore {
           && request.resource.data.get('createdByUid', '') == resource.data.get('createdByUid', '')
           && (esDueno(cid) || request.resource.data.get('deleted', false) == resource.data.get('deleted', false))
           && (esDueno(cid) || request.resource.data.get('editores', []) == resource.data.get('editores', []))
-          // Facturación: el estado solo pasa a Facturado o sale de Facturado (deshacer); lo demás no cambia
+          // Facturación: el estado solo pasa de Entregado a Facturado, o de Facturado a Entregado (deshacer); y no firma
           && (!esFacturacion(cid) || request.resource.data.get('estado', '') == resource.data.get('estado', '')
-              || request.resource.data.get('estado', '') == 'facturado' || resource.data.get('estado', '') == 'facturado')
+              || (resource.data.get('estado', '') == 'entregado' && request.resource.data.get('estado', '') == 'facturado')
+              || (resource.data.get('estado', '') == 'facturado' && request.resource.data.get('estado', '') == 'entregado'))
+          && (!esFacturacion(cid) || request.resource.data.get('firma', null) == resource.data.get('firma', null))
           && (esDueno(cid) || esFacturacion(cid) || uid() in resource.data.get('editores', [])
               || (request.resource.data.diff(resource.data).affectedKeys()
                     .hasOnly(['estado', 'fechas', 'horas', 'etapasRepuestos', 'etapasPintura', 'postReparacion', 'razonAnulacion', 'turnoConfirmado', 'horaTurno', 'conformidad', 'fotos', 'archivos', 'firma', 'historial', 'desFotos', 'desNotas', 'desmontador', 'checkIn', 'checkOut', 'fotosPintura', 'fotosRepuestos', 'updatedAt', 'updatedBy'])

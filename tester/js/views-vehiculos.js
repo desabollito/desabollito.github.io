@@ -767,7 +767,8 @@ export function renderDetalle(root, v, embebido) {
     let reloj = null;
     paso.addEventListener("pointerdown", () => {
       pasoLargo = false;
-      if (soloVer || (soyFacturacion() && paso.dataset.estado !== "facturado")) return;
+      // Facturación: mantener apretado solo Facturado y solo si ya está Entregado o Facturado (para la fecha o deshacer)
+      if (soloVer || (soyFacturacion() && (paso.dataset.estado !== "facturado" || !["entregado", "facturado"].includes(estadoActual(getVehiculo(v.id) || v))))) return;
       reloj = setTimeout(() => {
         pasoLargo = true; navigator.vibrate?.(30);
         const cur = getVehiculo(v.id) || v;
@@ -802,7 +803,7 @@ export function renderDetalle(root, v, embebido) {
     if (soloVer && (t.closest("[data-estado], .etapa-item, [data-del-foto], [data-del-doc]") || ["anular", "borrar", "firma", "mover"].includes(t.closest("[data-act]")?.dataset.act))) return;
     // Facturación: del estado solo Facturado (marcar; mantener apretado para la fecha o deshacer); no anula, borra ni mueve
     if (soyFacturacion() && ((t.closest("[data-estado]") && t.closest("[data-estado]").dataset.estado !== "facturado")
-      || ["anular", "reactivar", "borrar", "mover"].includes(t.closest("[data-act]")?.dataset.act))) return toast("Tu perfil solo puede marcar o deshacer Facturado", "info");
+      || ["anular", "reactivar", "borrar", "mover", "firma"].includes(t.closest("[data-act]")?.dataset.act))) return toast("Tu perfil solo puede marcar o deshacer Facturado", "info");
     if ((soyLector() || soySacabollos()) && [...(soyLector() ? ["desmontaje"] : []), "fotos", "subir", "docs"].includes(t.closest("[data-act]")?.dataset.act)) return;
     if (t.closest("[data-act]")?.dataset.act === "desmontaje") return abrirCheck(v);
     const fs = t.closest("[data-fsec]");
@@ -823,6 +824,16 @@ export function renderDetalle(root, v, embebido) {
         if (sig === "llamado") setTimeout(() => ofrecerAvisoCliente(cur), 350);
         if (sig === "entregado") setTimeout(() => popupConformidad(cur), 350);
         return;
+      }
+      // Perfil Facturación: solo factura vehículos Entregados (no se saltea pasos); tocar Facturado de nuevo lo deshace (vuelve a Entregado)
+      if (step.dataset.estado === "facturado" && soyFacturacion()) {
+        const ahora = estadoActual(cur);
+        if (ahora === "facturado") {
+          if (await confirmar({ title: "¿Deshacer Facturado?", message: "El vehículo vuelve a Entregado.", ok: "Deshacer" }))
+            cambiarEstado(cur, "entregado", cur.fechas?.entregado || hoyISO()).then(() => toast("Volvió a Entregado", "success")).catch(err => toast(mensajeError(err), "error"));
+          return;
+        }
+        if (ahora !== "entregado") return toast("Solo se puede facturar un vehículo que figura Entregado", "error");
       }
       // Facturado: un toque y queda con la fecha de hoy (mantener apretado para elegir otra)
       if (step.dataset.estado === "facturado") {
