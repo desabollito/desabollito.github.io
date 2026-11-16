@@ -828,9 +828,10 @@ export function marcarChatVisto(tel, t) {
 export const puedeVer = sec => {
   if (S.invitado) return S.invitado.tecnicos ? sec === "tecnicos" : sec === "planilla";
   if (sec === "planilla" && S.config?.planillaVeh === false) return false;   // el creador la apagó para todos
-  if (soyCreador()) return true;
   // Hasta que el bot copie los accesos viejos (globales) a Paraná, valen esos
   const acc = (S.config?.accesosOp ? S.config.accesosOp[S.company?.id] : S.config?.accesos)?.[uidActivo()] || {}, v = acc[sec];
+  // Creador: ve todas, salvo las que se destildó en su panel ("Quién ve las planillas")
+  if (soyCreador()) return typeof v === "boolean" ? v : true;
   // Facturación: sin tildar, solo la planilla de Facturación; lo que el creador le tilde en "Quién ve las planillas" (ej. Vehículos), también
   if (soyFacturacion()) return typeof v === "boolean" ? v : sec === "facturacion";
   // Cierre operativo sin elegir: igual que Gastos si está tildado, si no solo administradores
