@@ -150,6 +150,9 @@ export async function vistaInventario(view) {
   catch (e) { view.innerHTML = `<div class="page"><div class="empty"><p>${esc(mensajeError(e))}</p></div></div>`; return; }
 
   const de = id => items.find(i => i.id === id);
+  // Tipo (cat: define el dibujo y el grupo de la lista) y sección del 2D donde se ve (sec; si no tiene, la de su tipo)
+  const secDe = i => i.sec || i.cat;
+  const conSeccion = (i, sec) => { const { sec: _, ...r } = i; return sec && sec !== i.cat ? { ...r, sec } : r; };
   const contenedores = (sin = "") => items.filter(i => CONTENEDOR.includes(i.cat) && i.id !== sin);
   const dondeTxt = i => { const c = de(i.en); return !c ? "" : (c.cat === "carro" ? "En el carro " : "Dentro de ") + c.nombre; };
   async function guardar() {
@@ -177,7 +180,7 @@ export async function vistaInventario(view) {
   // Hay una disposición para pantallas anchas y otra para angostas (celular), así una no arruina la otra.
   const disp = () => view.clientWidth >= 700 ? "ancho" : "angosto";
   const rectDe = cat => secciones?.[disp()]?.[cat] || DISPOSICION[disp()][cat];
-  const zona = cat => { const l = items.filter(i => i.cat === cat), r = rectDe(cat);
+  const zona = cat => { const l = items.filter(i => secDe(i) === cat), r = rectDe(cat);
     return `<div class="inv-zona inv-z-${cat}" data-zona="${cat}"
         style="left:${r.x}%;top:${r.y}%;width:${r.w}%;height:${r.h}%">
       <div class="inv-zona-cab"><span class="inv-mover" role="button" aria-label="Mover la sección ${esc(CATS[cat])}" title="Arrastrá para mover la sección">⠿</span>
@@ -242,7 +245,7 @@ export async function vistaInventario(view) {
     const dato = (t, v) => v ? `<div><dt>${t}</dt><dd>${esc(v)}</dd></div>` : "";
     const s = openSheet({ title: it.nombre, body: `<div class="stack">
       ${it.foto?.url ? `<img class="inv-foto-grande" src="${esc(it.foto.url)}" alt="">` : `<div class="inv-ver-dibujo inv-${it.cat}">${dibujo(it)}</div>`}
-      <dl class="inv-datos">${dato("Sección", CATS[it.cat])}${MODELOS[it.cat] ? dato("Modelo", nombreModelo(it)) : ""}${dato("Amperaje", it.ah ? it.ah + " Ah" : "")}
+      <dl class="inv-datos">${dato("Sección", CATS[secDe(it)])}${secDe(it) !== it.cat ? dato("Tipo", CATS[it.cat]) : ""}${MODELOS[it.cat] ? dato("Modelo", nombreModelo(it)) : ""}${dato("Amperaje", it.ah ? it.ah + " Ah" : "")}
         ${dato("Cantidad", String(it.cant || 1))}${dato("Dónde está", dondeTxt(it) || "En su lugar del taller")}${dato("Nota", it.nota)}</dl>
       ${esCont ? `<h3 class="inv-sub">${it.cat === "carro" ? "En el carro" : "Adentro"} · ${dentro.length}</h3>
         ${dentro.length ? `<div class="aj-lista">${dentro.map(fila).join("")}</div>` : `<p class="muted small">${it.cat === "carro" ? "El carro está vacío." : "La valija está vacía."}</p>`}` : ""}
@@ -291,10 +294,11 @@ export async function vistaInventario(view) {
     s.el.onclick = e => { const b = e.target.closest("[data-c]"); if (b) { elegida = b.dataset.c; s.close(); } };
   });
 
-  // Agregar o editar. La sección no se elige: es la del + que tocó, o la que dice el nombre (si escribe "Martillo…", va a Martillos)
+  // Agregar o editar. Queda en la sección del + que tocó (o en la que ya estaba); el nombre decide el tipo y su dibujo (un martillo agregado en Varillas se ve como martillo)
   function editar(it) {
     const nuevo = !it.id;
     let foto = it.foto || null, cat = it.cat || null;
+    const zonaDestino = nuevo ? it.cat : secDe(it);   // sección del 2D donde va a quedar
     const s = openSheet({ title: nuevo ? "Agregar herramienta" : "Editar herramienta", body: `<form class="stack" id="inv-f" autocomplete="off">
       <label class="field"><span>Herramienta</span><input name="nombre" list="inv-sug" required maxlength="80" value="${esc(it.nombre || "")}" placeholder="Ej: Varilla cola de ballena"></label>
       <datalist id="inv-sug">${Object.values(SUGERENCIAS).flat().map(x => `<option value="${esc(x)}">`).join("")}</datalist>
@@ -313,7 +317,7 @@ export async function vistaInventario(view) {
     const f = $("#inv-f", s.el), guardarBtn = f.querySelector("[type=submit]");
     // Sección, modelo (carros, valijas, lámparas y baterías) y amperaje (baterías) según la sección
     const verCampos = () => {
-      $(".inv-seccion b", f).textContent = CATS[cat] || "se pregunta al guardar";
+      $(".inv-seccion b", f).textContent = !cat ? "se pregunta al guardar" : CATS[zonaDestino || cat] + (zonaDestino && cat !== zonaDestino ? ` · con el dibujo de ${CATS[cat]}` : "");
       $(".inv-ah", f).hidden = cat !== "bateria";
       const md = MODELOS[cat], antes = f.modelo.value || it.modelo;
       $(".inv-modelo", f).hidden = !md;
@@ -390,7 +394,7 @@ export async function vistaInventario(view) {
       // Sin campos vacíos (Firestore no acepta undefined); el lugar del 2D se conserva si sigue en la misma sección
       const datos = { nombre: f.nombre.value.trim(), cat, cant: Math.min(999, Math.max(1, parseInt(f.cant.value, 10) || 1)),
         en: cont ? "" : it.en || "", nota: f.nota.value.trim(), ...(MODELOS[cat] ? { modelo: f.modelo.value } : {}),
-        ...(cat === "bateria" && ah > 0 ? { ah } : {}), ...(foto ? { foto } : {}), ...(it.pos && it.cat === cat ? { pos: it.pos } : {}) };
+        ...(cat === "bateria" && ah > 0 ? { ah } : {}), ...(foto ? { foto } : {}), ...(it.pos ? { pos: it.pos } : {}), ...(zonaDestino && zonaDestino !== cat ? { sec: zonaDestino } : {}) };
       s.close();
       if (nuevo) cambiar([...items, { id: nuevoId(), ...datos }]);
       else cambiar(items.map(i => i.id === it.id ? { id: it.id, ...datos } : i)
@@ -452,7 +456,7 @@ export async function vistaInventario(view) {
       if (b !== d.dest) { d.dest?.classList.remove("inv-destino"); b?.classList.add("inv-destino"); d.dest = b; }
       // Si va a otra sección, se marca esa sección (valijas y carros no cambian de sección)
       let zn = b ? null : document.elementFromPoint(e.clientX, e.clientY)?.closest(".inv-sala .inv-zona");
-      if (zn === d.b.closest(".inv-zona") || CONTENEDOR.includes(d.it.cat)) zn = null;
+      if (zn === d.b.closest(".inv-zona")) zn = null;
       if (zn !== d.zona) { d.zona?.classList.remove("inv-zona-destino"); zn?.classList.add("inv-zona-destino"); d.zona = zn; }
     });
     const terminar = e => {
@@ -462,7 +466,7 @@ export async function vistaInventario(view) {
       const it = d.it, cont = destinoEn(e.clientX, e.clientY), g = d.fant.getBoundingClientRect();
       // Sección donde se soltó: otra (pasa a esa sección; valijas y carros no, por lo que llevan adentro) o la suya
       const otraZona = document.elementFromPoint(e.clientX, e.clientY)?.closest(".inv-sala .inv-zona");
-      const zonaEl = otraZona && otraZona !== d.b.closest(".inv-zona") && !CONTENEDOR.includes(it.cat) ? otraZona : d.b.closest(".inv-zona");
+      const zonaEl = otraZona && otraZona !== d.b.closest(".inv-zona") ? otraZona : d.b.closest(".inv-zona");
       const objs = zonaEl.querySelector(".inv-objs"), z = objs.getBoundingClientRect(), sec = zonaEl.getBoundingClientRect(), M = 40;
       // Dónde están apoyadas las otras herramientas de esa sección (en px), para no encimarlas
       const otros = [...objs.querySelectorAll(":scope > .inv-obj")].filter(o => o !== d.b)
@@ -473,12 +477,10 @@ export async function vistaInventario(view) {
       const cx = g.left + g.width / 2, cy = g.bottom;
       if (e.clientX < sec.left - M || e.clientX > sec.right + M || e.clientY < sec.top - M || e.clientY > sec.bottom + M) return;   // lejos: queda donde estaba
       const p = encastrar(cx - z.left, cy - z.top, z.width, z.height, g.width / 2, Math.min(z.height, g.height), otros);
-      const pos = { x: +(p.x / z.width).toFixed(4), y: +(p.y / z.height).toFixed(4) }, cat = zonaEl.dataset.zona;
-      if (cat === it.cat) return cambiar(items.map(i => i.id === it.id ? { ...i, pos } : i));
-      // Cambió de sección: el modelo y el amperaje solo quedan si la nueva sección los usa
-      const { modelo, ah, ...resto } = it;
-      cambiar(items.map(i => i.id === it.id ? { ...resto, cat, pos, ...(MODELOS[cat] ? { modelo: modeloDe(cat, it.nombre) } : {}), ...(cat === "bateria" && ah ? { ah } : {}) } : i));
-      toast(`Movida a ${CATS[cat]}`, "success");
+      const pos = { x: +(p.x / z.width).toFixed(4), y: +(p.y / z.height).toFixed(4) }, nueva = zonaEl.dataset.zona;
+      // Solo cambia la sección donde se ve: el tipo (y su dibujo, modelo y amperaje) sigue igual
+      cambiar(items.map(i => i.id === it.id ? conSeccion({ ...i, pos }, nueva) : i));
+      if (nueva !== secDe(it)) toast(`Movida a ${CATS[nueva]}`, "success");
     };
     pag.addEventListener("pointerup", terminar); pag.addEventListener("pointercancel", terminar);
     // Con el dedo, mientras se lleva una herramienta la página no se desplaza
