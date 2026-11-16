@@ -90,10 +90,14 @@ const esPinza = i => i.cat === "inercial" && /pinza/i.test(i.nombre || "");
 DIBUJO.slide = `<svg viewBox="0 0 30 124" class="m-slide"><rect x="9" y="2" width="12" height="34" rx="5" class="lleno"/><path d="M9 11h12M9 19h12M9 27h12"/><rect x="8" y="36" width="14" height="4" rx="1"/><path d="M15 40v70"/><rect x="7" y="56" width="16" height="30" rx="2" class="lleno"/><circle cx="15" cy="63" r="2"/><circle cx="15" cy="71" r="2"/><circle cx="15" cy="79" r="2"/><rect x="11" y="110" width="8" height="12" rx="2"/></svg>`;
 // BullKick / Shotgun / a resorte, parado: cuerpo grueso negro con anillos rojos arriba, barra de acero y el mango chico abajo
 DIBUJO.bullkick = `<svg viewBox="0 0 30 124" class="m-bull"><rect x="5" y="2" width="20" height="64" rx="8" class="lleno"/><path d="M5 11h20M5 57h20" class="rojo2"/><path d="M10 25h10M10 33h10M10 41h10"/><path d="M15 66v34" class="acero"/><rect x="10" y="100" width="10" height="22" rx="4" class="lleno"/></svg>`;
+// Pistola de pegamento: cuerpo con boquilla, mango con gatillo y la barra de pegamento atrás; a batería, con la batería abajo
+const PISTOLA = bat => `<svg viewBox="0 0 74 60" class="m-pistola"><path d="M10 8h40a8 8 0 0 1 0 16H36l-5 22H19l5-22H10z" class="lleno"/><path d="M58 16h12"/><path d="M1 16h9" class="barra"/><path d="M33 26q-5 6-2 11"/>${bat ? `<rect x="14" y="46" width="22" height="11" rx="2" class="bat"/>` : ""}</svg>`;
+DIBUJO.pistola = PISTOLA(false); DIBUJO.pistolaBat = PISTOLA(true);
+const esPistola = i => i.cat === "inercial" && /pistola/i.test(i.nombre || "");
 const esBullkick = i => i.cat === "inercial" && /bull ?kick|shotgun|resorte/i.test(i.nombre || "");
 const esSlide = i => i.cat === "inercial" && !esBullkick(i) && /martillo inercial|slide/i.test(i.nombre || "");
 const esInduccion = i => i.cat === "herramienta" && /dentshock|hotbox|inducci/i.test(i.nombre || "");
-const dibujo = i => esInduccion(i) ? DIBUJO.induccion : esPinza(i) ? DIBUJO.pinza : esBullkick(i) ? DIBUJO.bullkick : esSlide(i) ? DIBUJO.slide : DIBUJO[VARIANTE[i.cat]?.[i.modelo]] || DIBUJO[i.cat] || DIBUJO.varios;
+const dibujo = i => esInduccion(i) ? DIBUJO.induccion : esPinza(i) ? DIBUJO.pinza : esPistola(i) ? (/bater/i.test(i.nombre) ? DIBUJO.pistolaBat : DIBUJO.pistola) :esBullkick(i) ? DIBUJO.bullkick : esSlide(i) ? DIBUJO.slide : DIBUJO[VARIANTE[i.cat]?.[i.modelo]] || DIBUJO[i.cat] || DIBUJO.varios;
 const largo = id => 62 + [...id].reduce((a, c) => a + c.charCodeAt(0), 0) % 38;   // varillas de distinto largo (siempre igual para la misma)
 const nuevoId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 // Lugar de cada herramienta en su sección del 2D: el que eligió (arrastrando) o uno ordenado por defecto

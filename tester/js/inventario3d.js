@@ -128,6 +128,15 @@ export async function montar3D(el, items, alTocar, alAgregar = () => {}, alMover
         g.add(en(cil(0.009, 0.2, metal(), 10), 0, 0.17, 0), en(cil(0.019, 0.08, negro, 12), 0, 0.04, 0));
         return g;
       }
+      // Pistola de pegamento, parada sobre el mango: cuerpo con boquilla, gatillo, la barra de pegamento atrás; a batería, con la batería abajo
+      if (/pistola/i.test(nombre)) {
+        const bat = /bater/i.test(nombre), base = bat ? 0.06 : 0;
+        g.add(en(caja(0.22, 0.075, 0.06, m), 0, base + 0.2, 0), en(cil(0.012, 0.06, metal(), 10), 0.14, base + 0.2, 0, 0, 0, Math.PI / 2));
+        g.add(en(caja(0.05, 0.15, 0.05, m), -0.035, base + 0.09, 0, 0, 0, 0.25), en(caja(0.012, 0.04, 0.02, negro), 0.01, base + 0.13, 0));
+        g.add(en(cil(0.011, 0.09, mat(0xf3efe2, { roughness: .3, transparent: true, opacity: .85 }), 10), -0.15, base + 0.2, 0, 0, 0, Math.PI / 2));
+        if (bat) g.add(en(caja(0.09, 0.06, 0.08, negro), -0.05, 0.03, 0));
+        g.rotation.y = 0.5; return g;
+      }
       // Martillo inercial (tipo FastPDR): parado, el mango con estrías arriba, la barra, la pesa al medio y la punta abajo
       if (/martillo inercial|slide/i.test(nombre)) {
         const acero = mat(0xc9ced6, { metalness: .5, roughness: .35 });
