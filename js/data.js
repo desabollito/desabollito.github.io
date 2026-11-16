@@ -2,7 +2,7 @@ import {
   auth, db, google, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword,
   signInWithPopup, signInWithRedirect, signOut, updateProfile,
   collection, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc, onSnapshot,
-  query, where, serverTimestamp, arrayUnion, writeBatch, deleteField
+  query, where, serverTimestamp, arrayUnion, writeBatch, deleteField, MSJ_VER_COMO
 } from "./firebase.js";
 import { USER_DOMAIN, BOT_API } from "./config.js";
 import { hoyISO, horaAhora } from "./ui.js";
@@ -290,6 +290,7 @@ function escucharEmpresas() {
   let creando = false;
   unsubCompanies = onSnapshot(q, { includeMetadataChanges: true }, async snap => {
     S.companies = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort(ordenOps);
+    if (S.verComo) { companiesReales = S.companies; S.companies = S.companies.filter(c => (c.members || []).includes(S.verComo.uid)); }   // en «Ver como», solo los de esa persona
     // Sin operativos: la app ofrece pedir unirse a uno o crear uno (ya no se crea solo)
     const sinOp = !S.companies.length && !snap.metadata.fromCache;
     if (sinOp !== !!S.sinOperativo) { S.sinOperativo = sinOp; emit("sin-operativo"); }
@@ -342,7 +343,37 @@ export async function crearEmpresa(nombre) {
   return ref.id;
 }
 
-export const miRol = () => S.invitado ? "lectura" : (S.company?.roles?.[S.user?.uid] || "tecnico");
+// ── «Ver como» (panel del creador): la app con el rol y los accesos de otra persona, solo para mirar ──
+// Las escrituras a la base las frena firebase.js; acá se frenan también los envíos al bot y las subidas a Cloudinary.
+S.verComo = null;
+export const uidActivo = () => S.verComo?.uid || S.user?.uid;
+let companiesReales = null;
+const fetchReal = globalThis.fetch.bind(globalThis);
+globalThis.fetch = (url, opt) => {
+  const u = String(url?.url || url), escribe = (opt?.method || "GET").toUpperCase() !== "GET";
+  if (globalThis.__verComo && escribe && ((u.startsWith(BOT_API) && !u.includes("/admin/")) || u.includes("api.cloudinary.com")))
+    return Promise.reject(new Error(MSJ_VER_COMO));
+  return fetchReal(url, opt);
+};
+export function verComo(persona) {   // persona: { uid, name, username }, o null para volver a la propia cuenta
+  if (persona) {
+    const comunes = (companiesReales || S.companies).filter(c => (c.members || []).includes(persona.uid));
+    if (!comunes.length) throw new Error(`${persona.name || "@" + persona.username} no está en ninguno de tus operativos`);
+    companiesReales ||= S.companies;
+    S.verComo = persona; globalThis.__verComo = true;
+    S.companies = comunes;
+  } else {
+    if (!S.verComo) return;
+    S.verComo = null; globalThis.__verComo = false;
+    if (companiesReales) S.companies = companiesReales;
+    companiesReales = null;
+  }
+  // Sin elegirEmpresa (eso guarda el operativo activo): se cambia en memoria y se vuelven a escuchar sus datos
+  S.company = S.companies.find(c => c.id === S.company?.id) || S.companies[0] || null;
+  escucharVehiculos(); escucharGastos(); escucharSolicitudes();
+  emit("companies"); emit("config"); emit("verComo");
+}
+export const miRol = () =>S.invitado ? "lectura" : (S.company?.roles?.[uidActivo()] || "tecnico");
 // Link de solo lectura (perito de una compañía): ve, no toca nada
 export const soyLector = () => !!S.invitado;
 export const soyAdmin = () => ["owner", "admin"].includes(miRol());
@@ -353,7 +384,7 @@ export const soloVer = () => soyLector() || soySacabollos();
 // Facturación: ve vehículos y solo la planilla de Facturación; edita vehículos, pero del estado solo marca o deshace Facturado
 export const soyFacturacion = () => !S.invitado && !!S.company && miRol() === "facturacion";
 // Solo tiene el rol Desmontaje (en todos sus operativos): no puede crear operativos
-export const soloDesmontaje = () => S.companies?.length > 0 && S.companies.every(c => c.roles?.[S.user?.uid] === "desmontaje");
+export const soloDesmontaje = () => S.companies?.length > 0 && S.companies.every(c => c.roles?.[uidActivo()] === "desmontaje");
 
 export async function renombrarEmpresa(nombre) {
   await updateDoc(doc(db, "companies", S.company.id), { name: nombre.trim() });
@@ -639,8 +670,8 @@ export function cargadoPor(v) {
   return String(v?.createdByName || "").replace(/\s*\(WhatsApp\)\s*$/, "") || "otra persona";
 }
 // Permisos sobre un vehículo: quien lo cargó, los administradores y a quienes se les dio acceso
-export const esMioV = v => !!v && (v.createdBy === S.user?.uid || v.createdByUid === S.user?.uid);
-export const puedoEditar = v => !soyDesmontaje() && !soloVer() && (esMioV(v) || soyAdmin() || soyFacturacion() || (v?.editores || []).includes(S.user?.uid));   // Facturación edita todos
+export const esMioV = v => !!v && (v.createdBy === uidActivo() || v.createdByUid === uidActivo());
+export const puedoEditar = v => !soyDesmontaje() && !soloVer() && (esMioV(v) || soyAdmin() || soyFacturacion() || (v?.editores || []).includes(uidActivo()));   // Facturación edita todos
 
 // ── Desmontaje: fotos y notas (cada una con quién la subió) y el técnico desmontador ──
 export async function agregarDesmontaje(v, fotos, texto) {
@@ -757,16 +788,16 @@ export async function guardarGasto(id, data) {
 export const borrarGasto = id => deleteDoc(doc(colGastos(), id));
 
 // ── Panel del creador (@gzmatte): todos los operativos y usuarios ─────
-export const soyCreador = () => S.profile?.username === "gzmatte";
-export const usaClientes = () => soyCreador() || (S.config?.mensajesTurnos !== false && (soyAdmin() || (S.config?.usanClientes || []).includes(S.user?.uid)));   // Chat en vivo y Mensajes y turnos: el creador siempre; con el interruptor encendido, también los administradores y los que él elige
+export const soyCreador = () => !S.verComo && S.profile?.username === "gzmatte";   // en «Ver como» se ve la app como la otra persona
+export const usaClientes = () => soyCreador() || (S.config?.mensajesTurnos !== false && (soyAdmin() || (S.config?.usanClientes || []).includes(uidActivo())));   // Chat en vivo y Mensajes y turnos: el creador siempre; con el interruptor encendido, también los administradores y los que él elige
 // Inventario de herramientas (inventario/{uid}): sacabollos, desmontadores y los que elige el creador
-export const usaInventario = () => !S.invitado && (soyCreador() || (!!S.company && ["tecnico", "desmontaje"].includes(miRol())) || (S.config?.usanInventario || []).includes(S.user?.uid));
+export const usaInventario = () => !S.invitado && (soyCreador() || (!!S.company && ["tecnico", "desmontaje"].includes(miRol())) || (S.config?.usanInventario || []).includes(uidActivo()));
 // { items, secciones }: las herramientas y dónde puso cada sección del taller 2D (si las movió)
 export const leerInventario = async () => { const d = (await getDoc(doc(db, "inventario", S.user.uid))).data() || {}; return { items: d.items || [], secciones: d.secciones || {} }; };
 // shortcut: toda la lista en un solo doc (tope 2000 herramientas por las reglas), pasar a subcolección si alguien se acerca
 export const guardarInventario = (items, secciones = {}) => setDoc(doc(db, "inventario", S.user.uid), { items, secciones, updatedAt: serverTimestamp() });
 // Tenía el chat pero el creador apagó Mensajes y turnos: el botón se ve y avisa que está en mantenimiento
-export const chatEnMantenimiento = () => !usaClientes() && (soyAdmin() || (S.config?.usanClientes || []).includes(S.user?.uid));
+export const chatEnMantenimiento = () => !usaClientes() && (soyAdmin() || (S.config?.usanClientes || []).includes(uidActivo()));
 
 // ── Chats en vivo con clientes (companies/{cid}/chats, los guarda el bot) ──
 // Lo no leído se recuerda en este equipo (chatVisto:{cid}:{tel} = hora del último mensaje visto)
@@ -799,7 +830,7 @@ export const puedeVer = sec => {
   if (sec === "planilla" && S.config?.planillaVeh === false) return false;   // el creador la apagó para todos
   if (soyCreador()) return true;
   // Hasta que el bot copie los accesos viejos (globales) a Paraná, valen esos
-  const acc = (S.config?.accesosOp ? S.config.accesosOp[S.company?.id] : S.config?.accesos)?.[S.user?.uid] || {}, v = acc[sec];
+  const acc = (S.config?.accesosOp ? S.config.accesosOp[S.company?.id] : S.config?.accesos)?.[uidActivo()] || {}, v = acc[sec];
   // Facturación: sin tildar, solo la planilla de Facturación; lo que el creador le tilde en "Quién ve las planillas" (ej. Vehículos), también
   if (soyFacturacion()) return typeof v === "boolean" ? v : sec === "facturacion";
   // Cierre operativo sin elegir: igual que Gastos si está tildado, si no solo administradores

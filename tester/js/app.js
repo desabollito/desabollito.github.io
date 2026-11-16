@@ -1,5 +1,5 @@
 import {
-  S, onChange, iniciarSesion, ingresar, crearCuenta, mensajeError, elegirEmpresa
+  S, onChange, iniciarSesion, ingresar, crearCuenta, mensajeError, elegirEmpresa, verComo
 } from "./data.js";
 import { cerrarSplash, logoEnCurso, trasLogo } from "./efectos.js";
 import { $, $$, esc, toast, busy, openSheet, icon, cerrarHojas } from "./ui.js";
@@ -287,7 +287,18 @@ document.addEventListener("click", e => {
 matchMedia("(min-width: 1100px)").addEventListener("change", () => render({ conservarScroll: true }));
 
 // Cambios de datos en vivo (otro técnico cargó algo, llegó la sincronización, etc.)
+// «Ver como»: franja arriba con a quién se está viendo (solo para mirar) y el botón para volver a la propia cuenta
+function pintarVerComo() {
+  let b = document.getElementById("ver-como");
+  document.body.classList.toggle("viendo-como", !!S.verComo);
+  if (!S.verComo) { b?.remove(); return; }
+  if (!b) { b = document.createElement("div"); b.id = "ver-como"; b.setAttribute("role", "status"); document.body.append(b); }
+  b.innerHTML = `${icon("user")}<span>Viendo como <b>${esc(S.verComo.name || "@" + S.verComo.username)}</b> · solo mirar, no se guarda nada</span>
+    <button type="button" class="btn btn-sm" id="ver-como-salir">Volver a mi cuenta</button>`;
+  b.querySelector("#ver-como-salir").onclick = () => { verComo(null); location.hash = "#/ajustes"; };
+}
 onChange(what => {
+  if (what === "verComo") { pintarVerComo(); pintarLateral(); render(); return; }
   if (what?.tipo === "agregado") { avisarAgregado(what.operativos); return; }
   if (what?.tipo === "pedidos-union") { mostrarPedidosUnion(); return; }
   if (what === "sin-operativo") { mostrarSinOperativo(); if (!S.sinOperativo) { pintarLateral(); render(); } return; }

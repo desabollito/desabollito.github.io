@@ -2,7 +2,7 @@ import {
   S, activos, papelera, restaurar, eliminarDefinitivo, soyAdmin, miRol, renombrarEmpresa, guardarSello, guardarMensajesCliente, deshaciblesDe, deshacerCambio, soyDesmontaje,
   agregarMiembro, cambiarRol, quitarMiembro, guardarEtiquetas, resolverSolicitud, desvincularWhatsApp, salirDeEmpresa, eliminarEmpresa, crearEmpresa, elegirEmpresa,
   actualizarPerfil, ponerMiFoto, salir, mensajeError, llamarAdmin, soloDesmontaje, pedirUnion, linksCompartidos, getVehiculo, soloVer, soySacabollos, guardarOrdenOps, cambiarEstado, usaClientes, usaInventario,
-  onChange, chatSinLeer, marcarChatVisto, actualizarVehiculo, guardarColor, guardarVehiculo, nuevoIdVehiculo, esPrueba, nombrePropio
+  onChange, chatSinLeer, marcarChatVisto, actualizarVehiculo, guardarColor, guardarVehiculo, nuevoIdVehiculo, esPrueba, nombrePropio, verComo
 } from "./data.js";
 import { cargarExcelJS } from "./excel.js";
 import { db, doc, onSnapshot } from "./firebase.js";
@@ -1044,6 +1044,7 @@ export async function panelCreador() {
           <small class="muted">@${esc(u.username)}${u.whatsapp ? ` · +${esc(u.whatsapp)}` : ""}${!u.aprobado ? " · pendiente" : ""}${u.rechazado ? " · rechazado" : ""}</small>
           <small class="adm-ops">${(() => { const ops = operativos.filter(o => o.miembros.some(m => m.uid === u.uid));
             return ops.length ? ops.map(o => `${esc(o.name)} <b>${nVeh(o.vehiculos)}</b>`).join(" · ") : `<span class="muted">Sin operativos</span>`; })()}</small></div>
+          ${u.username === "gzmatte" ? "" : `<button type="button" class="icon-btn sm" data-ver-como="${esc(u.uid)}" aria-label="Ver la app como ${esc(u.name || u.username)}" title="Ver la app como esta persona (solo mirar)">${icon("eye")}</button>`}
           <button type="button" class="icon-btn sm ${u.whatsapp ? "on" : ""}" data-wa-u="${esc(u.uid)}" aria-label="${u.whatsapp ? "Quitar" : "Asignar"} WhatsApp de ${esc(u.name || u.username)}" title="${u.whatsapp ? "Quitarle el WhatsApp" : "Asignarle un WhatsApp (sin código)"}">${icon("chat")}</button>
           <button type="button" class="icon-btn sm" data-foto-u="${esc(u.uid)}" ${u.foto ? "data-tiene" : ""} aria-haspopup="listbox" aria-label="Foto de ${esc(u.name || u.username)}" title="${u.fotoManual ? "Cambiar la foto (puesta a mano)" : "Poner una foto a mano"}">${icon("camera")}</button>
           ${u.username === "gzmatte" ? "" : `<button type="button" class="icon-btn sm danger" data-borrar="${esc(u.uid)}" aria-label="Eliminar usuario" title="Eliminar de la app">${icon("trash")}</button>`}</li>`).join("")}</ul>`}`;
@@ -1204,6 +1205,14 @@ export async function panelCreador() {
     }
     const t = e.target.closest("[data-tab]");
     if (t) { tab = t.dataset.tab; return pintar(); }
+    // Ver la app como esta persona (su rol y accesos; solo mirar)
+    const vc = e.target.closest("[data-ver-como]");
+    if (vc) {
+      const u = datos.usuarios.find(x => x.uid === vc.dataset.verComo);
+      try { verComo({ uid: u.uid, name: u.name || "", username: u.username }); s.close(); location.hash = "#/"; }
+      catch (err) { toast(err.message, "error"); }
+      return;
+    }
     // WhatsApp de un usuario: asignárselo sin código de vinculación, o quitárselo
     const w = e.target.closest("[data-wa-u]");
     if (w) {
