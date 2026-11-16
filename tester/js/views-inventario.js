@@ -117,7 +117,7 @@ const posDefecto = (i, k, n) => {
 const lim = (v, a, b) => Math.max(a, Math.min(b, v));
 // Encastre en grilla, como los íconos del escritorio: el punto de apoyo (px dentro del recuadro W×H) va al casillero más cercano
 // donde la herramienta entera (media ancho mw, alto mh) queda adentro; si ahí ya hay otra apoyada, al casillero libre más cercano.
-const GRILLA = 28;
+const GRILLA = 14;   // un agujerito del tablero
 const encastrar = (px, py, W, H, mw, mh, otros = []) => {
   const xs = [], ys = [];
   for (let x = Math.ceil(mw / GRILLA) * GRILLA; x <= W - mw + 0.01; x += GRILLA) xs.push(x);
@@ -130,7 +130,7 @@ const encastrar = (px, py, W, H, mw, mh, otros = []) => {
   return mejor || { x: lim(px, mw, W - mw), y: lim(py, mh, H) };
 };
 { const a = encastrar(50, 100, 200, 100, 10, 20), b = encastrar(50, 100, 200, 100, 10, 20, [{ x: 56, y: 100 }]);
-  console.assert(a.x === 56 && a.y === 100 && b.x === 56 && b.y === 84, "inventario: encastre en grilla"); }
+  console.assert(a.x === 56 && a.y === 100 && b.x === 42 && b.y === 100, "inventario: encastre en grilla"); }
 // Dónde va cada sección del taller 2D si no la movió (en % del taller): pared arriba, mesa al medio, lo de abajo y las lámparas a la derecha.
 // En pantallas angostas, de a dos por fila.
 const R = (x, y, w, h) => ({ x, y, w, h });
@@ -508,7 +508,7 @@ export async function vistaInventario(view) {
     // Mover una sección (agarrándola del ⠿) o cambiarle el tamaño (esquina de abajo a la derecha), siempre dentro del taller.
     // Se guarda en % del taller, redondeado a medio punto para que se alineen fácil.
     let sz = null;
-    const MEDIO = v => Math.round(v * 2) / 2;
+    const MEDIO = v => Math.round(v * 4) / 4;   // de a un cuarto de punto
     pag.addEventListener("pointerdown", e => {
       const h = e.target.closest(".inv-mover, .inv-redim"); if (!h) return;
       e.stopPropagation(); e.preventDefault(); ocultarPrevia();
