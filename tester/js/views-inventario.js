@@ -20,7 +20,7 @@ const VIEJO = { pantalla: "lampara", pie: "lampara", pegamento: "inercial", limp
 const SUGERENCIAS = {
   varilla: ["Varilla de puerta", "Varilla cola de ballena", "Varilla de capot", "Varilla de techo", "Varilla doble punta", "Varilla de guardabarros"],
   martillo: ["Martillo de goma", "Martillo de teflón", "Martillo de bola", "Punzón de nylon", "Punzón de metal", "Tap-down", "Juego de puntas intercambiables"],
-  inercial: ["Martillo inercial", "Mini lifter", "Puller en T", "Puente de tracción", "Pistola de pegamento a batería", "Pistola de pegamento a cable", "Barras de pegamento", "Tabs de tracción", "Removedor de pegamento"],
+  inercial: ["Martillo inercial", "Pinza sacabollos", "Mini lifter", "Puller", "Puente de tracción", "Pistola de pegamento a batería", "Pistola de pegamento a cable", "Barras de pegamento", "Tabs de tracción", "Removedor de pegamento"],
   gancho: ["Gancho de ventanilla", "Gancho en S", "Ventosa", "Cuña inflable", "Protector de ventanilla", "Puntas de repuesto"],
   lampara: ["Lámpara de mano", "Lámpara LED de líneas", "Pantalla reflectora de mano", "Lámpara con pie", "Trípode para lámpara"],
   bateria: ["Batería 18V 6.0Ah", "Batería 18V 5.0Ah", "Batería 18V 3.0Ah", "Batería de auto 12V 65Ah", "Batería de gel 12V 7Ah"],
@@ -32,7 +32,7 @@ const SUGERENCIAS = {
 };
 // La sección sale del nombre: igual a una sugerencia, o con una palabra clave
 // (el orden importa: "Pistola de calor a batería" es herramienta, no batería; "Pads del taladro" es varios, no herramienta)
-const CLAVES = [[/varilla/i, "varilla"], [/microfibra|compound|\bpads?\b|\blijas?\b/i, "varios"], [/pegamento|inercial|puller|lifter|\btabs?\b/i, "inercial"],
+const CLAVES = [[/varilla/i, "varilla"], [/microfibra|compound|\bpads?\b|\blijas?\b/i, "varios"], [/pegamento|inercial|puller|lifter|pinza|\btabs?\b/i, "inercial"],
   [/taladro|pulir|pulidora|dentshock|hotbox|pistola de calor|amoladora/i, "herramienta"], [/bater[ií]a/i, "bateria"], [/l[aá]mpara|pantalla/i, "lampara"],
   [/martillo|punz[oó]n|tap.?down/i, "martillo"], [/gancho|ventosa|cu[ñn]a/i, "gancho"], [/valija|flight/i, "valija"], [/\bcarro\b/i, "carro"]];
 const catDe = nombre => Object.keys(SUGERENCIAS).find(c => SUGERENCIAS[c].some(s => s.toLowerCase() === nombre.trim().toLowerCase()))
@@ -81,8 +81,11 @@ const DIBUJO = {
 const VARIANTE = { carro: { alto: "carroAlto" }, lampara: { mano: "lamparaMano" }, bateria: { auto: "bateriaAuto" }, valija: { vertical: "valijaVertical", flight: "valijaFlight" } };
 // Máquinas de inducción (Dentshock, Hotbox): caja con pantallita y perilla, y el lápiz con su cable
 DIBUJO.induccion = `<svg viewBox="0 0 76 50" class="m-induccion"><rect x="3" y="14" width="36" height="30" rx="4" class="lleno"/><rect x="9" y="20" width="15" height="9" rx="1.5"/><circle cx="31" cy="25" r="3.5"/><path d="M9 37h22"/><path d="M39 32c14 0 10-20 22-21" class="cable"/><path d="M60 12l12-9" class="lapiz"/></svg>`;
+// Pinza sacabollos: cuerpo con tornillo arriba, dos mangos a la derecha y dos patas con goma
+DIBUJO.pinza = `<svg viewBox="0 0 74 58" class="m-pinza"><rect x="22" y="1" width="10" height="5" rx="1.5"/><path d="M27 6v8"/><path d="M12 14h30v12l-7 8v6H19v-6l-7-8z" class="lleno"/><path d="M42 16h30M40 26l30 9"/><path d="M27 34v12"/><path d="M4 54h18l2-6M50 54H32l-2-6" class="patas"/></svg>`;
+const esPinza = i => i.cat === "inercial" && /pinza/i.test(i.nombre || "");
 const esInduccion = i => i.cat === "herramienta" && /dentshock|hotbox|inducci/i.test(i.nombre || "");
-const dibujo = i => esInduccion(i) ? DIBUJO.induccion : DIBUJO[VARIANTE[i.cat]?.[i.modelo]] || DIBUJO[i.cat] || DIBUJO.varios;
+const dibujo = i => esInduccion(i) ? DIBUJO.induccion : esPinza(i) ? DIBUJO.pinza : DIBUJO[VARIANTE[i.cat]?.[i.modelo]] || DIBUJO[i.cat] || DIBUJO.varios;
 const largo = id => 62 + [...id].reduce((a, c) => a + c.charCodeAt(0), 0) % 38;   // varillas de distinto largo (siempre igual para la misma)
 const nuevoId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 // Lugar de cada herramienta en su sección del 2D: el que eligió (arrastrando) o uno ordenado por defecto
@@ -109,23 +112,42 @@ const encastrar = (px, py, W, H, mw, mh, otros = []) => {
 };
 { const a = encastrar(50, 100, 200, 100, 10, 20), b = encastrar(50, 100, 200, 100, 10, 20, [{ x: 56, y: 100 }]);
   console.assert(a.x === 56 && a.y === 100 && b.x === 56 && b.y === 84, "inventario: encastre en grilla"); }
+// Dónde va cada sección del taller 2D si no la movió (en % del taller): pared arriba, mesa al medio, lo de abajo y las lámparas a la derecha.
+// En pantallas angostas, de a dos por fila.
+const R = (x, y, w, h) => ({ x, y, w, h });
+const DISPOSICION = {
+  ancho: { varilla: R(1, 2, 31, 44), martillo: R(33, 2, 25, 44), gancho: R(59, 2, 25.5, 44),
+    inercial: R(1, 47.5, 20.5, 24.5), desmontaje: R(22.5, 47.5, 20.5, 24.5), herramienta: R(44, 47.5, 20.5, 24.5), bateria: R(65.5, 47.5, 19, 24.5),
+    valija: R(1, 73.5, 27.5, 25), carro: R(29.5, 73.5, 27.5, 25), varios: R(58, 73.5, 26.5, 25), lampara: R(85.5, 2, 13.5, 96.5) },
+  angosto: { varilla: R(1, 0.5, 98, 14), martillo: R(1, 15, 48.5, 11), gancho: R(50.5, 15, 48.5, 11),
+    inercial: R(1, 26.5, 48.5, 10.5), desmontaje: R(50.5, 26.5, 48.5, 10.5), herramienta: R(1, 37.5, 48.5, 10.5), bateria: R(50.5, 37.5, 48.5, 10.5),
+    lampara: R(1, 48.5, 98, 16), valija: R(1, 65, 48.5, 11), carro: R(50.5, 65, 48.5, 11), varios: R(1, 76.5, 98, 11) }
+};
+{ const ks = Object.keys(CATS).sort().join();
+  console.assert(Object.keys(DISPOSICION.ancho).sort().join() === ks && Object.keys(DISPOSICION.angosto).sort().join() === ks
+    && Object.values(DISPOSICION.ancho).every(r => r.x + r.w <= 100 && r.y + r.h <= 100), "inventario: disposición de secciones"); }
 const FOTO = 54, TAM_MIN = 24, TAM_MAX = 320;   // lado de la foto en el 2D (px) y sus límites al agrandar o achicar
 { const p = posDefecto({ cat: "martillo" }, 4, 6); console.assert(Math.abs(p.x - 0.5) < 1e-9 && Math.abs(p.y - 0.98) < 1e-9, "inventario: lugar por defecto"); }
 
 export async function vistaInventario(view) {
   setTopbar({ title: "Inventario", back: "#/ajustes" });
   view.innerHTML = `<div class="page inventario"><div class="skeleton" style="height:340px"></div></div>`;
-  let items;
-  const normalizar = l => l.map(i => CATS[i.cat] ? i : { ...i, cat: VIEJO[i.cat] || "varios", ...(i.cat === "pantalla" ? { modelo: "mano" } : {}) });   // las pantallas de mano de antes
-  try { items = normalizar(await leerInventario()); }
+  let items, secciones;   // secciones: { ancho: { cat: {x,y,w,h} }, angosto: {...} } las que movió o agrandó (en % del taller)
+  const normalizar = l => l.map(i => i.nombre === "Puller en T" ? { ...i, nombre: "Puller" } : i).map(i => CATS[i.cat] ? i : { ...i, cat: VIEJO[i.cat] || "varios", ...(i.cat === "pantalla" ? { modelo: "mano" } : {}) });   // las pantallas de mano de antes
+  try { const r = await leerInventario(); items = normalizar(r.items); secciones = r.secciones; }
   catch (e) { view.innerHTML = `<div class="page"><div class="empty"><p>${esc(mensajeError(e))}</p></div></div>`; return; }
 
   const de = id => items.find(i => i.id === id);
   const contenedores = (sin = "") => items.filter(i => CONTENEDOR.includes(i.cat) && i.id !== sin);
   const dondeTxt = i => { const c = de(i.en); return !c ? "" : (c.cat === "carro" ? "En el carro " : "Dentro de ") + c.nombre; };
   async function guardar() {
-    try { await guardarInventario(items); }
-    catch (e) { toast(mensajeError(e), "error"); items = normalizar(await leerInventario().catch(() => items)); pintar(); }
+    try { await guardarInventario(items, secciones); }
+    catch (e) {
+      toast(mensajeError(e), "error");
+      const r = await leerInventario().catch(() => null);
+      if (r) { items = normalizar(r.items); secciones = r.secciones; }
+      pintar();
+    }
   }
   const cambiar = nuevos => { items = nuevos; pintar(); guardar(); };
 
@@ -139,9 +161,17 @@ export async function vistaInventario(view) {
       ${CONTENEDOR.includes(i.cat) ? `<b class="inv-n">${items.filter(x => x.en === i.id).length || ""}</b>` : ""}<span class="inv-nom">${esc(i.nombre)}</span></button>`;
   };
   // Cada sección: todas sus herramientas (aunque estén en una valija o un carro, siguen en la pared) y el + para agregar ahí
-  const zona = (cat, clase = "") => { const l = items.filter(i => i.cat === cat);
-    return `<div class="inv-zona ${clase}"><button type="button" class="inv-etq" data-nueva="${cat}">${icon("plus")}${CATS[cat]}</button>
-      <div class="inv-objs" data-cat="${cat}">${l.map((i, k) => obj(i, k, l.length)).join("")}</div></div>`; };
+  // Cada sección es un recuadro del taller (en % del taller) que se mueve con el ⠿ y se agranda desde la esquina de abajo a la derecha.
+  // Hay una disposición para pantallas anchas y otra para angostas (celular), así una no arruina la otra.
+  const disp = () => view.clientWidth >= 700 ? "ancho" : "angosto";
+  const rectDe = cat => secciones?.[disp()]?.[cat] || DISPOSICION[disp()][cat];
+  const zona = cat => { const l = items.filter(i => i.cat === cat), r = rectDe(cat);
+    return `<div class="inv-zona inv-z-${cat} ${["valija", "carro", "varios"].includes(cat) ? "inv-zona-baja" : ""}" data-zona="${cat}"
+        style="left:${r.x}%;top:${r.y}%;width:${r.w}%;height:${r.h}%">
+      <div class="inv-zona-cab"><span class="inv-mover" role="button" aria-label="Mover la sección ${esc(CATS[cat])}" title="Arrastrá para mover la sección">⠿</span>
+        <button type="button" class="inv-etq" data-nueva="${cat}">${icon("plus")}${CATS[cat]}</button></div>
+      <div class="inv-objs" data-cat="${cat}">${l.map((i, k) => obj(i, k, l.length)).join("")}</div>
+      <span class="inv-redim" aria-hidden="true" title="Arrastrá para cambiar el tamaño"></span></div>`; };
   const miniatura = i => i.foto?.url ? `<img class="inv-foto" src="${esc(entera(i.foto.url))}" alt="" loading="lazy">` : `<span class="inv-foto inv-${i.cat}">${dibujo(i)}</span>`;
   const fila = i => `<div class="aj-item inv-fila"><button type="button" class="inv-fila-ver" data-ver="${esc(i.id)}">${miniatura(i)}
       <span class="aj-txt">${esc(i.nombre)}</span><span class="aj-val">${[(i.cant || 1) > 1 ? "×" + i.cant : "", i.ah ? i.ah + " Ah" : "", esc(dondeTxt(i))].filter(Boolean).join(" · ")}</span></button>
@@ -155,13 +185,10 @@ export async function vistaInventario(view) {
     quitar3D(); quitar3D = () => {};
     view.innerHTML = `<div class="page inventario">
       <div class="inv-barra"><div class="seg seg-sm inv-modo" id="inv-modo"><button class="seg-btn ${en3D ? "" : "on"}" data-m="2d">2D</button><button class="seg-btn ${en3D ? "on" : ""}" data-m="3d">3D</button></div>
-        ${en3D ? "" : `<div class="seg seg-sm" id="inv-fotos" title="Ver las herramientas con su dibujo o con su foto real"><button class="seg-btn ${fotos ? "" : "on"}" data-f="0">Dibujo</button><button class="seg-btn ${fotos ? "on" : ""}" data-f="1">Foto</button></div>`}</div>
+        ${en3D ? "" : `<div class="seg seg-sm" id="inv-fotos" title="Ver las herramientas con su dibujo o con su foto real"><button class="seg-btn ${fotos ? "" : "on"}" data-f="0">Dibujo</button><button class="seg-btn ${fotos ? "on" : ""}" data-f="1">Foto</button></div>`}
+        ${!en3D && Object.keys(secciones?.[disp()] || {}).length ? `<button type="button" class="btn btn-ghost btn-sm" id="inv-restablecer">${icon("restore")}Restablecer secciones</button>` : ""}</div>
       ${en3D ? `<div class="inv-3d" id="inv-3d"><p class="inv-3d-carga">Cargando el taller en 3D…</p><span class="inv-3d-tip" hidden></span></div>` : `
-      <div class="inv-sala" role="group" aria-label="Taller">
-        <div class="inv-pared">${zona("varilla", "inv-varillas")}${zona("martillo")}${zona("gancho")}</div>
-        <div class="inv-mesa"><div class="inv-tapa">${zona("inercial")}${zona("desmontaje")}${zona("herramienta")}${zona("bateria")}</div>
-          <div class="inv-bajo">${zona("valija")}${zona("carro")}${zona("varios")}</div></div>
-        <div class="inv-piso">${zona("lampara")}</div>
+      <div class="inv-sala inv-sala-${disp()}" role="group" aria-label="Taller">${Object.keys(DISPOSICION.ancho).map(zona).join("")}
       </div>`}
       <p class="muted small">${items.length ? `${total} ${total === 1 ? "herramienta" : "herramientas"}. Tocá una para verla; arrastrala para acomodarla o para guardarla en una valija o un carro.` : "Todavía no cargaste herramientas: tocá el + de una sección del taller."}</p>
       ${Object.entries(CATS).map(([k, t]) => { const l = items.filter(i => i.cat === k).sort((a, b) => a.nombre.localeCompare(b.nombre));
@@ -172,6 +199,10 @@ export async function vistaInventario(view) {
       try { localStorage.setItem("invVista", b.dataset.m); } catch { /* sin almacenamiento */ }
       pintar();
     };
+    $("#inv-restablecer", view)?.addEventListener("click", async () => {
+      if (!(await confirmar({ title: "¿Volver las secciones a su lugar?", message: "Las secciones del taller vuelven a su tamaño y lugar de siempre. Las herramientas no se tocan.", ok: "Restablecer" }))) return;
+      secciones = { ...secciones, [disp()]: {} }; pintar(); guardar();
+    });
     $("#inv-fotos", view)?.addEventListener("click", e => {
       const b = e.target.closest("[data-f]"); if (!b) return;
       try { localStorage.setItem("invFotos", b.dataset.f); } catch { /* sin almacenamiento */ }
@@ -409,6 +440,38 @@ export async function vistaInventario(view) {
     };
     pag.addEventListener("pointerup", terminar); pag.addEventListener("pointercancel", terminar);
     // Con el dedo, mientras se lleva una herramienta la página no se desplaza
+    // Mover una sección (agarrándola del ⠿) o cambiarle el tamaño (esquina de abajo a la derecha), siempre dentro del taller.
+    // Se guarda en % del taller, redondeado a medio punto para que se alineen fácil.
+    let sz = null;
+    const MEDIO = v => Math.round(v * 2) / 2;
+    pag.addEventListener("pointerdown", e => {
+      const h = e.target.closest(".inv-mover, .inv-redim"); if (!h) return;
+      e.stopPropagation(); e.preventDefault(); ocultarPrevia();
+      const el = h.closest(".inv-zona"), s = el.parentElement.getBoundingClientRect(), cat = el.dataset.zona;
+      sz = { el, cat, redim: h.classList.contains("inv-redim"), x: e.clientX, y: e.clientY, W: s.width, H: s.height, r0: { ...rectDe(cat) }, r: { ...rectDe(cat) } };
+      h.setPointerCapture(e.pointerId); el.classList.add("inv-zona-moviendo");
+    }, true);
+    pag.addEventListener("pointermove", e => {
+      if (!sz) return;
+      e.stopPropagation();
+      const dx = (e.clientX - sz.x) / sz.W * 100, dy = (e.clientY - sz.y) / sz.H * 100, r0 = sz.r0;
+      const minW = Math.min(100, 90 / sz.W * 100), minH = Math.min(100, 70 / sz.H * 100);   // nunca más chica que ~90 × 70 px
+      sz.r = sz.redim
+        ? { ...r0, w: MEDIO(lim(r0.w + dx, minW, 100 - r0.x)), h: MEDIO(lim(r0.h + dy, minH, 100 - r0.y)) }
+        : { ...r0, x: MEDIO(lim(r0.x + dx, 0, 100 - r0.w)), y: MEDIO(lim(r0.y + dy, 0, 100 - r0.h)) };
+      Object.assign(sz.el.style, { left: sz.r.x + "%", top: sz.r.y + "%", width: sz.r.w + "%", height: sz.r.h + "%" });
+    }, true);
+    const soltarSeccion = e => {
+      if (!sz) return;
+      e.stopPropagation();
+      const { cat, r, r0, el } = sz; sz = null; el.classList.remove("inv-zona-moviendo");
+      arrastro = true; setTimeout(() => { arrastro = false; });
+      if (JSON.stringify(r) === JSON.stringify(r0)) return;
+      secciones = { ...secciones, [disp()]: { ...(secciones?.[disp()] || {}), [cat]: r } };
+      pintar(); guardar();
+    };
+    pag.addEventListener("pointerup", soltarSeccion, true); pag.addEventListener("pointercancel", soltarSeccion, true);
+
     // Agrandar o achicar una foto (modo Foto): el tirador de la esquina (hacia arriba o la derecha agranda) o la rueda del mouse.
     // Va en la fase de captura para ganarle al arrastre de la herramienta.
     let rz = null, tRueda = 0;
@@ -441,7 +504,7 @@ export async function vistaInventario(view) {
       img.style.width = img.style.height = lado + "px";
       clearTimeout(tRueda); tRueda = setTimeout(() => guardarTam(de(b.dataset.ver), lado), 450);   // se guarda cuando deja de girar
     }, { passive: false });
-    pag.addEventListener("touchmove", e => { if (d?.listo || rz) e.preventDefault(); }, { passive: false });
+    pag.addEventListener("touchmove", e => { if (d?.listo || rz || sz) e.preventDefault(); }, { passive: false });
     pag.addEventListener("contextmenu", e => { if (e.target.closest(".inv-sala .inv-obj")) e.preventDefault(); });
   };
 

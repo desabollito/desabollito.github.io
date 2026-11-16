@@ -759,9 +759,10 @@ export const soyCreador = () => S.profile?.username === "gzmatte";
 export const usaClientes = () => soyCreador() || (S.config?.mensajesTurnos !== false && (soyAdmin() || (S.config?.usanClientes || []).includes(S.user?.uid)));   // Chat en vivo y Mensajes y turnos: el creador siempre; con el interruptor encendido, también los administradores y los que él elige
 // Inventario de herramientas (inventario/{uid}): sacabollos, desmontadores y los que elige el creador
 export const usaInventario = () => !S.invitado && (soyCreador() || (!!S.company && ["tecnico", "desmontaje"].includes(miRol())) || (S.config?.usanInventario || []).includes(S.user?.uid));
-export const leerInventario = async () => (await getDoc(doc(db, "inventario", S.user.uid))).data()?.items || [];
+// { items, secciones }: las herramientas y dónde puso cada sección del taller 2D (si las movió)
+export const leerInventario = async () => { const d = (await getDoc(doc(db, "inventario", S.user.uid))).data() || {}; return { items: d.items || [], secciones: d.secciones || {} }; };
 // shortcut: toda la lista en un solo doc (tope 2000 herramientas por las reglas), pasar a subcolección si alguien se acerca
-export const guardarInventario = items => setDoc(doc(db, "inventario", S.user.uid), { items, updatedAt: serverTimestamp() });
+export const guardarInventario = (items, secciones = {}) => setDoc(doc(db, "inventario", S.user.uid), { items, secciones, updatedAt: serverTimestamp() });
 // Tenía el chat pero el creador apagó Mensajes y turnos: el botón se ve y avisa que está en mantenimiento
 export const chatEnMantenimiento = () => !usaClientes() && (soyAdmin() || (S.config?.usanClientes || []).includes(S.user?.uid));
 
