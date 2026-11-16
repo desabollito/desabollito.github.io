@@ -299,7 +299,10 @@ body[data-ruta="nuevo"] .tabbar, body[data-ruta="editar"] .tabbar { display: non
   .side-nav a:hover { background: var(--surface-2); color: var(--ink); }
   .side-nav a.on { background: var(--primary-soft); color: var(--primary); }
   .side-bottom { margin-top: auto; display: flex; flex-direction: column; gap: 8px; border-top: 1px solid var(--line); padding-top: 10px; }
-  .side-user { display: flex; align-items: center; gap: 6px; }
+  .side-user { display: flex; align-items: center; gap: 6px; position: relative; border-radius: 12px; }
+  /* Toda la fila del perfil abre Ajustes: el link de la ruedita se estira sobre la fila */
+  .side-user .icon-btn[href="#/ajustes"]::after { content: ""; position: absolute; inset: 0; border-radius: inherit; }
+  .side-user:has(.icon-btn[href="#/ajustes"]:hover) { background: var(--surface-2); }
   .side-user-info { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; padding: 4px 6px; }
   .side-user-meta { display: flex; flex-direction: column; min-width: 0; }
   .side-user-meta strong { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
