@@ -2699,7 +2699,9 @@ button.aj-item:hover, a.aj-item:hover { background: var(--surface-2); }
 .inv-objs { position: relative; flex: none; height: var(--alto, 110px); }
 .inv-objs > .inv-obj { position: absolute; transform: translate(-50%, -100%); }
 .inv-pared .inv-objs { --alto: clamp(190px, 30vh, 330px); } .inv-tapa .inv-objs { --alto: clamp(90px, 13vh, 150px); }
-.inv-bajo .inv-objs { --alto: clamp(100px, 14vh, 160px); } .inv-piso .inv-objs { --alto: clamp(170px, 30vh, 330px); }
+.inv-bajo .inv-objs { --alto: clamp(100px, 14vh, 160px); }
+/* Lámparas: el recuadro ocupa toda la columna de la derecha (alto de pared + mesa), así se pueden bajar hasta el piso */
+.inv-piso .inv-zona { height: 100%; } .inv-piso .inv-objs { flex: 1; height: auto; min-height: 170px; }
 .inv-etq { align-self: flex-start; display: inline-flex; align-items: flex-start; gap: 3px; max-width: 100%; padding: 3px 7px;
   border: 1px dashed var(--line-2); border-radius: 5px; background: var(--surface); color: var(--muted);
   font: inherit; font-size: 12px; font-weight: 600; line-height: 1.25; text-align: left; overflow-wrap: anywhere; cursor: pointer; }
@@ -2713,7 +2715,7 @@ button.aj-item:hover, a.aj-item:hover { background: var(--surface-2); }
 .inv-fantasma .inv-nom { display: none !important; }
 .inv-llevando { opacity: .35; }
 .inv-obj-foto { display: block; width: 54px; height: 54px; object-fit: contain; border-radius: 6px; pointer-events: none; }
-.inv-varilla .inv-obj-foto { width: 26px; height: 100%; object-fit: cover; }
+.inv-varilla .inv-obj-foto { width: 26px; height: 100%; object-fit: contain; }
 /* Vista previa al pasar el mouse o apoyar el dedo: la foto real (o el dibujo si no tiene) y el nombre */
 .inv-previa { position: fixed; z-index: 40; display: flex; flex-direction: column; align-items: center; gap: 6px; width: 180px; padding: 8px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); box-shadow: 0 10px 28px rgb(0 0 0 / .35); pointer-events: none; }
 .inv-previa[hidden] { display: none; }

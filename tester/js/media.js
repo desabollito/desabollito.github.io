@@ -77,6 +77,11 @@ export function thumb(url, _lado, rot = 0) {
   if (esVideo(url)) return cuadro(url, `c_fill,w_${LADO},h_${LADO},q_auto`);
   return url.replace("/upload/", `/upload/${giro(rot)}c_fill,g_auto,w_${LADO},h_${LADO},q_auto,f_auto/`);
 }
+// Foto entera, sin recortar, chica (inventario: así se ve la herramienta completa). Una variante más por foto: Cloudinary la genera una vez.
+export function entera(url) {
+  if (!url || !url.includes("/upload/") || esVideo(url)) return url;
+  return url.replace("/upload/", "/upload/c_fit,w_240,h_240,q_auto,f_auto/");
+}
 export function grande(url, _ancho, rot = 0) {
   if (!url || !url.includes("/upload/")) return url;
   if (esVideo(url)) return cuadro(url, `c_limit,w_1600,q_auto`);

@@ -5,7 +5,7 @@
 // ═════════════════════════════════════════════════════════════
 import { S, leerInventario, guardarInventario, mensajeError } from "./data.js";
 import { $, $$, esc, icon, toast, openSheet, confirmar, busy } from "./ui.js";
-import { subir, comprimir, thumb } from "./media.js";
+import { subir, comprimir, thumb, entera } from "./media.js";
 import { setTopbar } from "./shell.js";
 
 // Secciones del taller, en el orden de la lista
@@ -115,7 +115,7 @@ export async function vistaInventario(view) {
   const obj = (i, k, n) => {
     const p = i.pos || posDefecto(i, k, n);
     return `<button type="button" class="inv-obj inv-${i.cat}" data-ver="${esc(i.id)}" aria-label="${esc(i.nombre)}" title="${esc(i.nombre)}"
-      style="left:${(p.x * 100).toFixed(2)}%;top:${(p.y * 100).toFixed(2)}%${i.cat === "varilla" ? `;height:${largo(i.id)}%` : ""}">${fotos && i.foto?.url ? `<img class="inv-obj-foto" src="${esc(thumb(i.foto.url))}" alt="" loading="lazy" draggable="false">` : dibujo(i)}${(i.cant || 1) > 1 ? `<b class="inv-n">×${i.cant}</b>` : ""}
+      style="left:${(p.x * 100).toFixed(2)}%;top:${(p.y * 100).toFixed(2)}%${i.cat === "varilla" ? `;height:${largo(i.id)}%` : ""}">${fotos && i.foto?.url ? `<img class="inv-obj-foto" src="${esc(entera(i.foto.url))}" alt="" loading="lazy" draggable="false">` : dibujo(i)}${(i.cant || 1) > 1 ? `<b class="inv-n">×${i.cant}</b>` : ""}
       ${CONTENEDOR.includes(i.cat) ? `<b class="inv-n">${items.filter(x => x.en === i.id).length || ""}</b>` : ""}<span class="inv-nom">${esc(i.nombre)}</span></button>`;
   };
   // Cada sección: todas sus herramientas (aunque estén en una valija o un carro, siguen en la pared) y el + para agregar ahí
@@ -334,7 +334,7 @@ export async function vistaInventario(view) {
     const previa = document.createElement("div"); previa.className = "inv-previa"; previa.hidden = true; pag.append(previa);
     const mostrarPrevia = b => {
       const it = de(b.dataset.ver); if (!it) return;
-      previa.innerHTML = (it.foto?.url ? `<img src="${esc(thumb(it.foto.url))}" alt="">`
+      previa.innerHTML = (it.foto?.url ? `<img src="${esc(entera(it.foto.url))}" alt="">`
         : `<span class="inv-previa-dibujo inv-${it.cat}">${dibujo(it)}</span><small>Sin foto</small>`) + `<b>${esc(it.nombre)}</b>`;
       previa.hidden = false;
       const r = b.getBoundingClientRect(), w = previa.offsetWidth, h = previa.offsetHeight;
@@ -375,11 +375,12 @@ export async function vistaInventario(view) {
       if (!(d.fant && e.type === "pointerup")) return limpiar();
       arrastro = true; setTimeout(() => { arrastro = false; });   // que el click de soltar no abra la herramienta
       const it = d.it, cont = destinoEn(e.clientX, e.clientY), g = d.fant.getBoundingClientRect(), z = d.b.parentElement.getBoundingClientRect();
+      const sec = d.b.closest(".inv-zona").getBoundingClientRect(), M = 40;   // la sección entera (con su etiqueta), con un margen
       limpiar();
       if (cont) return mover(it, cont.dataset.ver);
-      // Dentro de su sección: el nuevo punto de apoyo (abajo al centro), sin que la herramienta se salga del recuadro
+      // En su sección (o apenas afuera): el nuevo punto de apoyo (abajo al centro), llevado al borde si se pasó del recuadro
       const cx = g.left + g.width / 2, cy = g.bottom;
-      if (cx < z.left || cx > z.right || g.top > z.bottom || cy < z.top) return;   // fuera de su sección: queda donde estaba
+      if (e.clientX < sec.left - M || e.clientX > sec.right + M || e.clientY < sec.top - M || e.clientY > sec.bottom + M) return;   // lejos: queda donde estaba
       const w = g.width / z.width / 2, h = Math.min(1, g.height / z.height);
       const pos = { x: lim((cx - z.left) / z.width, w, 1 - w), y: lim((cy - z.top) / z.height, h, 1) };
       cambiar(items.map(i => i.id === it.id ? { ...i, pos: { x: +pos.x.toFixed(4), y: +pos.y.toFixed(4) } } : i));
