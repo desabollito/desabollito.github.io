@@ -26,13 +26,13 @@ const SUGERENCIAS = {
   bateria: ["Batería 18V 6.0Ah", "Batería 18V 5.0Ah", "Batería 18V 3.0Ah", "Batería de auto 12V 65Ah", "Batería de gel 12V 7Ah"],
   carro: ["Carro común", "Carro alto"],
   valija: ["Valija larga de varillas", "Valija vertical con ruedas", "Flight case con ruedas", "Mesa sacabollos"],
-  desmontaje: ["Saca grampas", "Kit de palancas plásticas", "Juego de tubos y llaves", "Destornilladores"],
+  desmontaje: ["Pinza", "Pinza de punta", "Saca grampas", "Kit de palancas plásticas", "Juego de tubos y llaves", "Destornilladores"],
   herramienta: ["Taladro", "Taladro a batería", "Máquina de taladro", "Máquina de pulir", "Máquina Dentshock", "Máquina Hotbox", "Pistola de calor a batería", "Pistola de calor a cable"],
   varios: ["Paños de microfibra", "Compound de pulido", "Pads del taladro", "Lijas", "Spray con alcohol isopropílico", "Linterna de cabeza", "Cinta de enmascarar"]
 };
 // La sección sale del nombre: igual a una sugerencia, o con una palabra clave
 // (el orden importa: "Pistola de calor a batería" es herramienta, no batería; "Pads del taladro" es varios, no herramienta)
-const CLAVES = [[/varilla/i, "varilla"], [/traba|\bvara\b|soporte de capot/i, "gancho"], [/mesa sacabollo/i, "valija"],[/microfibra|compound|\bpads?\b|\blijas?\b/i, "varios"], [/pegamento|inercial|puller|lifter|pinza|bull ?kick|shotgun|\btabs?\b/i, "inercial"],
+const CLAVES = [[/varilla/i, "varilla"], [/traba|\bvara\b|soporte de capot/i, "gancho"], [/mesa sacabollo/i, "valija"],[/microfibra|compound|\bpads?\b|\blijas?\b/i, "varios"], [/pegamento|inercial|puller|lifter|pinza sacabollo|bull ?kick|shotgun|\btabs?\b/i, "inercial"], [/\bpinza\b/i, "desmontaje"],
   [/taladro|pulir|pulidora|dentshock|hotbox|pistola de calor|amoladora/i, "herramienta"], [/bater[ií]a/i, "bateria"], [/l[aá]mpara|pantalla/i, "lampara"],
   [/martillo|punz[oó]n|tap.?down/i, "martillo"], [/gancho|ventosa|cu[ñn]a/i, "gancho"], [/valija|flight/i, "valija"], [/\bcarro\b/i, "carro"]];
 const catDe = nombre => Object.keys(SUGERENCIAS).find(c => SUGERENCIAS[c].some(s => s.toLowerCase() === nombre.trim().toLowerCase()))
@@ -86,6 +86,9 @@ DIBUJO.mesaSacabollos = `<svg viewBox="0 0 72 66" class="m-mesa"><path d="M12 18
 // Pinza sacabollos: cuerpo con tornillo arriba, dos mangos a la derecha y dos patas con goma
 DIBUJO.pinza = `<svg viewBox="0 0 74 58" class="m-pinza"><rect x="22" y="1" width="10" height="5" rx="1.5"/><path d="M27 6v8"/><path d="M12 14h30v12l-7 8v6H19v-6l-7-8z" class="lleno"/><path d="M42 16h30M40 26l30 9"/><path d="M27 34v12"/><path d="M4 54h18l2-6M50 54H32l-2-6" class="patas"/></svg>`;
 const esPinza = i => i.cat === "inercial" && /pinza/i.test(i.nombre || "");
+// Pinza de punta (desmontaje), parada: puntas largas y finas arriba, el eje y los dos mangos rojos abajo
+DIBUJO.pinzaPunta = `<svg viewBox="0 0 40 92" class="m-pinza-punta"><path d="M19 2l-3 32M21 2l3 32"/><circle cx="20" cy="38" r="4" class="lleno"/><path d="M16 42q-9 22-6 46M24 42q9 22 6 46" class="mango"/></svg>`;
+const esPinzaPunta = i => i.cat === "desmontaje" && /pinza/i.test(i.nombre || "");
 // Martillo inercial (tipo FastPDR), parado: mango con estrías arriba, barra, pesa con 3 tornillos al medio y la punta abajo
 DIBUJO.slide = `<svg viewBox="0 0 30 124" class="m-slide"><rect x="9" y="2" width="12" height="34" rx="5" class="lleno"/><path d="M9 11h12M9 19h12M9 27h12"/><rect x="8" y="36" width="14" height="4" rx="1"/><path d="M15 40v70"/><rect x="7" y="56" width="16" height="30" rx="2" class="lleno"/><circle cx="15" cy="63" r="2"/><circle cx="15" cy="71" r="2"/><circle cx="15" cy="79" r="2"/><rect x="11" y="110" width="8" height="12" rx="2"/></svg>`;
 // BullKick / Shotgun / a resorte, parado: cuerpo grueso negro con anillos rojos arriba, barra de acero y el mango chico abajo
@@ -97,7 +100,7 @@ const esPistola = i => i.cat === "inercial" && /pistola/i.test(i.nombre || "");
 const esBullkick = i => i.cat === "inercial" && /bull ?kick|shotgun|resorte/i.test(i.nombre || "");
 const esSlide = i => i.cat === "inercial" && !esBullkick(i) && /martillo inercial|slide/i.test(i.nombre || "");
 const esInduccion = i => i.cat === "herramienta" && /dentshock|hotbox|inducci/i.test(i.nombre || "");
-const dibujo = i => esInduccion(i) ? DIBUJO.induccion : esPinza(i) ? DIBUJO.pinza : esPistola(i) ? (/bater/i.test(i.nombre) ? DIBUJO.pistolaBat : DIBUJO.pistola) :esBullkick(i) ? DIBUJO.bullkick : esSlide(i) ? DIBUJO.slide : DIBUJO[VARIANTE[i.cat]?.[i.modelo]] || DIBUJO[i.cat] || DIBUJO.varios;
+const dibujo = i => esInduccion(i) ? DIBUJO.induccion : esPinza(i) ? DIBUJO.pinza : esPinzaPunta(i) ? DIBUJO.pinzaPunta :esPistola(i) ? (/bater/i.test(i.nombre) ? DIBUJO.pistolaBat : DIBUJO.pistola) :esBullkick(i) ? DIBUJO.bullkick : esSlide(i) ? DIBUJO.slide : DIBUJO[VARIANTE[i.cat]?.[i.modelo]] || DIBUJO[i.cat] || DIBUJO.varios;
 const largo = id => 62 + [...id].reduce((a, c) => a + c.charCodeAt(0), 0) % 38;   // varillas de distinto largo (siempre igual para la misma)
 const nuevoId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 // Lugar de cada herramienta en su sección del 2D: el que eligió (arrastrando) o uno ordenado por defecto

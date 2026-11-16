@@ -177,7 +177,16 @@ export async function montar3D(el, items, alTocar, alAgregar = () => {}, alMover
       // chica (de herramienta, tipo 18V): cuerpo, rieles grises y contactos naranja
       g.add(en(caja(0.08, 0.06, 0.115, m), 0, 0.03, 0), en(caja(0.06, 0.014, 0.09, mat(0xc9ccd1)), 0, 0.067, 0), en(caja(0.028, 0.008, 0.03, mat(0xf2a33a)), 0, 0.078, 0.01));
       g.rotation.y = 0.3; return g; },
-    desmontaje: m => { const g = new T.Group();
+    desmontaje: (m, i) => { const g = new T.Group();
+      if (/pinza/i.test(i.nombre || "")) {   // pinza de punta acostada: puntas finas de acero, eje y dos mangos rojos abiertos en V
+        const acero = metal(), rojo = mat(0xd8352a, { roughness: .55 });
+        for (const s of [-1, 1]) {
+          g.add(en(caja(0.11, 0.008, 0.008, acero), 0.07, 0.006, s * 0.004, 0, -s * 0.03, 0));
+          g.add(en(caja(0.12, 0.016, 0.018, rojo), -0.06, 0.009, s * 0.022, 0, s * 0.3, 0));
+        }
+        g.add(en(cil(0.009, 0.02, acero, 10), 0.01, 0.01, 0));
+        g.rotation.y = 0.6; return g;
+      }
       g.add(en(cil(0.022, 0.11, m), -0.08, 0, 0, 0, 0, Math.PI / 2)); g.add(en(cil(0.006, 0.18, metal(), 8), 0.06, 0, 0, 0, 0, Math.PI / 2));
       g.position.y = 0.025; g.rotation.y = 0.5; return g; },
     herramienta: (m, i) => { const g = new T.Group(), negro = mat(0x1d1e21);

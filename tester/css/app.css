@@ -2748,6 +2748,7 @@ button.aj-item:hover, a.aj-item:hover { background: var(--surface-2); }
 .inv-herramienta { --c: #4f8fe8; } .inv-herramienta svg { width: 48px; height: 40px; } .inv-varios { --c: #9aa3ad; }
 .inv-herramienta .m-induccion { width: 58px; height: 38px; } .inv-herramienta .cable { stroke-width: 2; } .inv-herramienta .lapiz { stroke-width: 6; }
 .inv-inercial .m-pinza { width: 58px; height: 46px; } .inv-inercial .patas { stroke-width: 4; }
+.inv-desmontaje .m-pinza-punta { width: 22px; height: 52px; } .inv-desmontaje .m-pinza-punta .mango { stroke: #d8352a; stroke-width: 5; }
 .inv-inercial .m-pistola { width: 52px; height: 42px; } .inv-inercial .m-pistola .barra { stroke: #e9e2cf; stroke-width: 4; } .inv-inercial .m-pistola .bat { fill: #2a2c30; stroke: #2a2c30; }
 .inv-inercial .m-slide, .inv-inercial .m-bull { width: 20px; height: 84px; } .inv-inercial .m-slide { color: var(--ink-2); }
 .inv-inercial .m-bull { color: #2a2c30; } .inv-inercial .m-bull .lleno { fill-opacity: .9; } .inv-inercial .m-bull .rojo2 { stroke: #d8352a; stroke-width: 3.5; } .inv-inercial .m-bull .acero { stroke: var(--ink-2); }
