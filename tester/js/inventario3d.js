@@ -7,7 +7,7 @@ const cargarThree = () => cargando ||= (async () => {
   cargando = null; throw new Error("No se pudo cargar el 3D. Revisá la conexión.");
 })();
 
-const COLOR = { varilla: 0xc4cad3, martillo: 0xe2a93a, inercial: 0xec6a38, gancho: 0x4ea2e4, lampara: 0xf2f4f7, carro: 0x232427, valija: 0x56606c, desmontaje: 0x4fbf92, varios: 0x9d92d4 };
+const COLOR = { varilla: 0xc4cad3, martillo: 0xe2a93a, inercial: 0xec6a38, gancho: 0x4ea2e4, lampara: 0xf2f4f7, carro: 0x232427, valija: 0x1d1f23, desmontaje: 0x4fbf92, varios: 0x9d92d4 };
 const largo = id => 0.9 + ([...id].reduce((a, c) => a + c.charCodeAt(0), 0) % 38) / 60;   // varillas de distinto largo, siempre igual para la misma
 const lim = (v, a, b) => Math.max(a, Math.min(b, v));
 
@@ -97,9 +97,7 @@ export async function montar3D(el, items, alTocar) {
       g.add(en(cil(0.022, 0.11, m), -0.08, 0, 0, 0, 0, Math.PI / 2)); g.add(en(cil(0.006, 0.18, metal(), 8), 0.06, 0, 0, 0, 0, Math.PI / 2));
       g.position.y = 0.025; g.rotation.y = 0.5; return g; },
     varios: m => { const g = new T.Group(); g.add(en(caja(0.16, 0.1, 0.13, m), 0, 0.05, 0)); return g; },
-    valija: m => { const g = new T.Group();
-      g.add(en(caja(0.55, 0.14, 0.38, m), 0, 0.07, 0)); g.add(en(caja(0.56, 0.02, 0.39, mat(0xff8a3d, { roughness: .5 })), 0, 0.1, 0));
-      g.add(en(caja(0.14, 0.03, 0.03, mat(0x222222)), 0, 0.07, 0.205)); return g; },
+    valija: (m, i) => i.modelo === "vertical" ? valijaVertical(m) : i.modelo === "flight" ? valijaFlight(m) : valijaLarga(m),
     carro: (m, i) => i.modelo === "alto" ? carroAlto(m) : carroComun(m)
   };
   // Carro común (tipo utilitario, 16:9): dos bandejas, y arriba unas plaquetas perforadas que sobresalen para colgar varillas
@@ -114,6 +112,38 @@ export async function montar3D(el, items, alTocar) {
     bandeja(0.82, 0.13); bandeja(0.24, 0.09);
     for (const z of [-1, 1]) g.add(en(caja(W + 0.12, 0.015, 0.13, mat(0xffffff, { map: texRejilla, metalness: .4, roughness: .5 })), 0, 0.95, z * (D / 2 + 0.065)));
     g.userData.lugar = { colgar: { y: 0.95, xs: [-W / 2, W / 2], zs: [-(D / 2 + 0.07), D / 2 + 0.07] }, estantes: [{ y: 0.835, w: W - 0.14, d: D - 0.14 }, { y: 0.255, w: W - 0.14, d: D - 0.14 }] };
+    return g;
+  }
+  // Valijas PDR. Larga (de varillas): chata, con nervios arriba, 4 trabas y manija; se guarda acostada en la estantería
+  function valijaLarga(m) {
+    const g = new T.Group(), negro = mat(0x111214);
+    g.add(en(caja(1.3, 0.13, 0.36, m), 0, 0.065, 0));
+    for (const x of [-0.45, -0.15, 0.15, 0.45]) g.add(en(caja(0.22, 0.02, 0.3, m), x, 0.14, 0));
+    for (const x of [-0.5, -0.17, 0.17, 0.5]) g.add(en(caja(0.05, 0.05, 0.025, negro), x, 0.075, 0.19));
+    g.add(en(caja(0.18, 0.025, 0.03, negro), 0, 0.06, 0.21));
+    return g;
+  }
+  // Vertical con ruedas (tipo SKB): parada, con franjas al frente, manija arriba y ruedas
+  function valijaVertical(m) {
+    const g = new T.Group(), negro = mat(0x111214);
+    g.add(en(caja(0.42, 1.1, 0.28, m), 0, 0.6, 0));
+    for (let k = 0; k < 10; k++) g.add(en(caja(0.36, 0.025, 0.02, m), 0, 0.17 + k * 0.1, 0.15));
+    g.add(en(caja(0.18, 0.03, 0.04, negro), 0, 1.22, 0)); for (const x of [-0.08, 0.08]) g.add(en(caja(0.025, 0.06, 0.03, negro), x, 1.17, 0));
+    for (const y of [0.3, 0.9]) g.add(en(caja(0.03, 0.06, 0.05, mat(0xb8bec6, { metalness: .6 })), -0.22, y, 0));
+    for (const x of [-0.15, 0.15]) rueda(g, x, -0.1);
+    return g;
+  }
+  // Flight case (tipo FAST): caja con cantoneras de aluminio y ruedas; con los caños y la tapa arriba se arma como carro
+  function valijaFlight(m) {
+    const g = new T.Group(), alu = mat(0xc9ced6, { metalness: .7, roughness: .35 });
+    g.add(en(caja(1.3, 0.32, 0.42, m), 0, 0.25, 0));
+    for (const y of [0.09, 0.41]) for (const z of [-0.21, 0.21]) g.add(en(caja(1.32, 0.02, 0.02, alu), 0, y, z));
+    for (const x of [-0.65, 0.65]) for (const z of [-0.21, 0.21]) g.add(en(caja(0.025, 0.34, 0.025, alu), x, 0.25, z));
+    g.add(en(caja(0.12, 0.08, 0.02, alu), 0, 0.27, 0.215));
+    for (const x of [-0.55, 0.55]) for (const z of [-0.16, 0.16]) rueda(g, x, z);
+    for (const x of [-0.52, -0.42, 0.42, 0.52]) g.add(en(cil(0.014, 1.0, alu, 10), x, 0.91, 0));
+    g.add(en(caja(1.32, 0.05, 0.44, m), 0, 1.43, 0));
+    for (const z of [-0.22, 0.22]) g.add(en(caja(1.34, 0.02, 0.02, alu), 0, 1.45, z));
     return g;
   }
   // Carro alto: base con ruedas, un estante en el medio y la bandeja arriba (espuma azul y bordes perforados para colgar)
@@ -139,7 +169,7 @@ export async function montar3D(el, items, alTocar) {
     padre.add(g); tocables.push(g);
     return g;
   };
-  const sueltas = cat => items.filter(i => i.cat === cat && items.find(x => x.id === i.en)?.cat !== "valija");   // lo del carro se ve en la pared y también en el carro
+  const sueltas = cat => items.filter(i => i.cat === cat);   // todo se ve en su lugar, aunque esté en una valija o un carro (lo del carro, también en el carro)
   // Pared: varillas a la izquierda, martillos y punzones al medio, ganchos a la derecha
   sueltas("varilla").forEach((i, k, l) => poner(i, -2.55 + k * Math.min(0.11, 1.35 / l.length), 2.85, 0.07));
   sueltas("martillo").forEach((i, k) => poner(i, -1.0 + (k % 4) * 0.22, 2.7 - Math.floor(k / 4) * 0.62, 0.09));
@@ -147,12 +177,23 @@ export async function montar3D(el, items, alTocar) {
   // Mesa: cada tipo en su tramo, en filas hacia el frente
   ["inercial", "desmontaje", "varios"].forEach((cat, t) =>
     sueltas(cat).forEach((i, k) => poner(i, -2.45 + t * 1.3 + (k % 4) * 0.28, 0.985, 0.3 + Math.floor(k / 4) % 3 * 0.22)));
-  // Valijas: debajo de la mesa, apiladas de a tres
-  sueltas("valija").forEach((i, k) => poner(i, -2.3 + Math.floor(k / 3) * 0.65, 0.2 + (k % 3) * 0.16, 0.5));
+  // Valijas: estantería en la pared izquierda; las largas acostadas de a dos por estante (a distintas alturas),
+  // las verticales paradas al lado y los flight cases en el piso, después
+  const EST = { x: -3.27, z: 1.8, alturas: [0.05, 0.62, 1.19, 1.76, 2.33] }, mEst = metal();
+  for (const x of [-3.47, -3.07]) for (const z of [1.0, 2.6]) escena.add(en(caja(0.04, 2.45, 0.04, mEst), x, 1.225, z));
+  EST.alturas.forEach(y => escena.add(en(caja(0.44, 0.03, 1.64, mat(0x8d939b, { metalness: .4, roughness: .5 })), EST.x, y, EST.z)));
+  const valijas = sueltas("valija"), modelo = i => i.modelo === "vertical" || i.modelo === "flight" ? i.modelo : "larga";
+  valijas.filter(i => modelo(i) === "larga").forEach((i, k) => {
+    const est = Math.min(Math.floor(k / 2), EST.alturas.length - 1), pila = k - est * 2;
+    poner(i, EST.x, EST.alturas[est] + 0.015 + pila * 0.15, EST.z).rotation.y = Math.PI / 2;
+  });
+  const verticales = valijas.filter(i => modelo(i) === "vertical");
+  verticales.forEach((i, k) => { poner(i, -3.25, 0, 2.95 + k * 0.5).rotation.y = Math.PI / 2; });
+  valijas.filter(i => modelo(i) === "flight").forEach((i, k) => { poner(i, -3.22, 0, 3.65 + verticales.length * 0.5 + k * 1.45).rotation.y = Math.PI / 2; });
   // Lámparas: a la derecha, sobre el piso
   sueltas("lampara").forEach((i, k) => poner(i, 1.75 + (k % 3) * 0.55, 0, 0.9 + Math.floor(k / 3) * 0.6));
   // Carros: adelante, con lo que el técnico puso en cada uno
-  const LUGARES = [[2.0, 2.3, -0.5], [-2.4, 2.5, 0.4], [0.1, 3.2, 0], [-0.9, 2.2, 0.2], [1.3, 3.6, -0.3]];
+  const LUGARES = [[2.0, 2.3, -0.5], [-1.7, 3.3, 0.3], [0.1, 3.2, 0], [-0.9, 2.2, 0.2], [1.3, 3.6, -0.3]];
   items.filter(i => i.cat === "carro").forEach((cr, k) => {
     const [x, z, giro] = LUGARES[k % LUGARES.length];
     const g = poner(cr, x, 0, z + Math.floor(k / LUGARES.length) * 1.2); g.rotation.y = giro;
