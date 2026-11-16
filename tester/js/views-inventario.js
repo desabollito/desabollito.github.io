@@ -103,7 +103,7 @@ const nuevoId = () => Date.now().toString(36) + Math.random().toString(36).slice
 // Lugar de cada herramienta en su sección del 2D: el que eligió (arrastrando) o uno ordenado por defecto
 const COLUMNAS = { valija: 2, carro: 2, lampara: 2 }, COLGADAS = ["martillo", "gancho"];
 const posDefecto = (i, k, n) => {
-  if (i.cat === "varilla") { const paso = Math.min(0.07, 0.94 / Math.max(1, n)); return { x: 0.04 + paso * (k + 0.5), y: largo(i.id) / 100 }; }
+  if (i.cat === "varilla") { const paso = Math.min(0.07, 0.94 / Math.max(1, n)); return { x: 0.04 + paso * (k + 0.5), y: 0.97 }; }   // paradas, apoyadas abajo
   const cols = COLUMNAS[i.cat] || 3, fila = Math.floor(k / cols), x = (k % cols + 0.5) / cols;
   return COLGADAS.includes(i.cat) ? { x, y: Math.min(1, 0.48 + fila * 0.5) } : { x, y: Math.max(0.35, 1 - fila * 0.45) };
 };
@@ -138,7 +138,7 @@ const DISPOSICION = {
 { const ks = Object.keys(CATS).sort().join();
   console.assert(Object.keys(DISPOSICION.ancho).sort().join() === ks && Object.keys(DISPOSICION.angosto).sort().join() === ks
     && Object.values(DISPOSICION.ancho).every(r => r.x + r.w <= 100 && r.y + r.h <= 100), "inventario: disposición de secciones"); }
-const FOTO = 54, TAM_MIN = 24, TAM_MAX = 320;   // lado de la foto en el 2D (px) y sus límites al agrandar o achicar
+const TAM_MIN = 0.4, TAM_MAX = 6;   // cuánto se puede achicar o agrandar cada herramienta en el 2D (1 = normal)
 { const p = posDefecto({ cat: "martillo" }, 4, 6); console.assert(Math.abs(p.x - 0.5) < 1e-9 && Math.abs(p.y - 0.98) < 1e-9, "inventario: lugar por defecto"); }
 
 export async function vistaInventario(view) {
@@ -167,12 +167,12 @@ export async function vistaInventario(view) {
   const cambiar = nuevos => { items = nuevos; pintar(); guardar(); };
 
   const obj = (i, k, n) => {
-    const p = i.pos || posDefecto(i, k, n), conFoto = fotos && i.foto?.url, lado = Math.round(FOTO * (i.tam || 1));
-    // En modo Foto: la foto entera, del tamaño que eligió (tirador de la esquina o rueda del mouse)
+    const p = i.pos || posDefecto(i, k, n), conFoto = fotos && i.foto?.url;
+    // Tamaño propio (--tam, tirador de la esquina o rueda del mouse), igual a lo largo y a lo ancho; no depende del tamaño de la sección.
+    // Las varillas tienen su largo fijo en px (antes era % de la sección y al agrandarla se estiraban solo para abajo).
     return `<button type="button" class="inv-obj inv-${i.cat}" data-ver="${esc(i.id)}" aria-label="${esc(i.nombre)}" title="${esc(i.nombre)}"
-      style="left:${(p.x * 100).toFixed(2)}%;top:${(p.y * 100).toFixed(2)}%${i.cat === "varilla" && !conFoto ? `;height:${largo(i.id)}%` : ""}">${conFoto
-        ? `<img class="inv-obj-foto" src="${esc(entera(i.foto.url))}" alt="" loading="lazy" draggable="false" style="width:${lado}px;height:${lado}px"><span class="inv-tam" title="Arrastrá para agrandar o achicar"></span>`
-        : dibujo(i)}${(i.cant || 1) > 1 ? `<b class="inv-n">×${i.cant}</b>` : ""}
+      style="left:${(p.x * 100).toFixed(2)}%;top:${(p.y * 100).toFixed(2)}%;--tam:${i.tam || 1}${i.cat === "varilla" && !conFoto ? `;height:${Math.round(largo(i.id) * 1.6)}px` : ""}">${conFoto
+        ? `<img class="inv-obj-foto" src="${esc(entera(i.foto.url))}" alt="" loading="lazy" draggable="false">` : dibujo(i)}<span class="inv-tam" title="Arrastrá para agrandar o achicar"></span>${(i.cant || 1) > 1 ? `<b class="inv-n">×${i.cant}</b>` : ""}
       ${CONTENEDOR.includes(i.cat) ? `<b class="inv-n">${items.filter(x => x.en === i.id).length || ""}</b>` : ""}<span class="inv-nom">${esc(i.nombre)}</span></button>`;
   };
   // Cada sección: todas sus herramientas (aunque estén en una valija o un carro, siguen en la pared) y el + para agregar ahí
@@ -476,7 +476,7 @@ export async function vistaInventario(view) {
       // En la sección (o apenas afuera): el punto de apoyo (abajo al centro) se encastra en la grilla, dentro del recuadro
       const cx = g.left + g.width / 2, cy = g.bottom;
       if (e.clientX < sec.left - M || e.clientX > sec.right + M || e.clientY < sec.top - M || e.clientY > sec.bottom + M) return;   // lejos: queda donde estaba
-      const p = encastrar(cx - z.left, cy - z.top, z.width, z.height, g.width / 2, Math.min(z.height, g.height), otros);
+      const p = encastrar(cx - z.left, cy - z.top, z.width, z.height, 0, 0, otros);   // solo el punto de apoyo queda adentro: la herramienta puede asomar fuera de la sección
       const pos = { x: +(p.x / z.width).toFixed(4), y: +(p.y / z.height).toFixed(4) }, nueva = zonaEl.dataset.zona;
       // Solo cambia la sección donde se ve: el tipo (y su dibujo, modelo y amperaje) sigue igual
       cambiar(items.map(i => i.id === it.id ? conSeccion({ ...i, pos }, nueva) : i));
@@ -519,34 +519,35 @@ export async function vistaInventario(view) {
     // Agrandar o achicar una foto (modo Foto): el tirador de la esquina (hacia arriba o la derecha agranda) o la rueda del mouse.
     // Va en la fase de captura para ganarle al arrastre de la herramienta.
     let rz = null, tRueda = 0;
-    const guardarTam = (it, lado) => cambiar(items.map(i => i.id === it.id ? { ...i, tam: +(lado / FOTO).toFixed(2) } : i));
+    // tam: factor de tamaño (1 = normal), de TAM_MIN a TAM_MAX; arrastrar el tirador hacia arriba o la derecha agranda
+    const guardarTam = (it, tam) => cambiar(items.map(i => i.id === it.id ? { ...i, tam: +tam.toFixed(2) } : i));
     pag.addEventListener("pointerdown", e => {
       const h = e.target.closest(".inv-tam"); if (!h) return;
       e.stopPropagation(); e.preventDefault();
-      const b = h.closest(".inv-obj"), img = b.querySelector(".inv-obj-foto");
-      rz = { it: de(b.dataset.ver), img, x: e.clientX, y: e.clientY, base: img.offsetWidth, lado: img.offsetWidth };
+      const b = h.closest(".inv-obj"), it = de(b.dataset.ver);
+      rz = { it, b, x: e.clientX, y: e.clientY, base: it.tam || 1, tam: it.tam || 1 };
       h.setPointerCapture(e.pointerId); ocultarPrevia();
     }, true);
     pag.addEventListener("pointermove", e => {
       if (!rz) return;
       e.stopPropagation();
-      rz.lado = Math.round(lim(rz.base + (e.clientX - rz.x) - (e.clientY - rz.y), TAM_MIN, TAM_MAX));
-      rz.img.style.width = rz.img.style.height = rz.lado + "px";
+      rz.tam = lim(rz.base * (1 + ((e.clientX - rz.x) - (e.clientY - rz.y)) / 120), TAM_MIN, TAM_MAX);
+      rz.b.style.setProperty("--tam", rz.tam.toFixed(3));
     }, true);
     const soltarTam = e => {
       if (!rz) return;
       e.stopPropagation();
-      const { it, lado, base } = rz; rz = null;
+      const { it, tam, base } = rz; rz = null;
       arrastro = true; setTimeout(() => { arrastro = false; });   // que soltar el tirador no abra la herramienta
-      if (lado !== base) guardarTam(it, lado);
+      if (Math.abs(tam - base) > 0.01) guardarTam(it, tam);
     };
     pag.addEventListener("pointerup", soltarTam, true); pag.addEventListener("pointercancel", soltarTam, true);
     pag.addEventListener("wheel", e => {
-      const b = e.target.closest(".inv-sala .inv-obj"), img = b?.querySelector(".inv-obj-foto"); if (!img) return;
+      const b = e.target.closest(".inv-sala .inv-obj"); if (!b) return;
       e.preventDefault();
-      const lado = Math.round(lim(img.offsetWidth * (e.deltaY < 0 ? 1.1 : 1 / 1.1), TAM_MIN, TAM_MAX));
-      img.style.width = img.style.height = lado + "px";
-      clearTimeout(tRueda); tRueda = setTimeout(() => guardarTam(de(b.dataset.ver), lado), 450);   // se guarda cuando deja de girar
+      const it = de(b.dataset.ver), tam = lim(parseFloat(b.style.getPropertyValue("--tam")) * (e.deltaY < 0 ? 1.1 : 1 / 1.1) || 1, TAM_MIN, TAM_MAX);
+      b.style.setProperty("--tam", tam.toFixed(3));
+      clearTimeout(tRueda); tRueda = setTimeout(() => guardarTam(it, tam), 450);   // se guarda cuando deja de girar
     }, { passive: false });
     pag.addEventListener("touchmove", e => { if (d?.listo || rz || sz) e.preventDefault(); }, { passive: false });
     pag.addEventListener("contextmenu", e => { if (e.target.closest(".inv-sala .inv-obj")) e.preventDefault(); });
