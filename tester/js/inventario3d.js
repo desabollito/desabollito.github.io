@@ -8,7 +8,7 @@ const cargarThree = () => cargando ||= (async () => {
   cargando = null; throw new Error("No se pudo cargar el 3D. Revisá la conexión.");
 })();
 
-const COLOR = { varilla: 0xc4cad3, martillo: 0xe2a93a, inercial: 0xec6a38, gancho: 0x4ea2e4, lampara: 0xf2f4f7, carro: 0x232427, valija: 0x1d1f23, desmontaje: 0x4fbf92, varios: 0x9d92d4 };
+const COLOR = { varilla: 0xc4cad3, martillo: 0xe2a93a, inercial: 0xec6a38, gancho: 0x4ea2e4, lampara: 0x1b1c1f, bateria: 0x1e2023, carro: 0x232427, valija: 0x1d1f23, desmontaje: 0x4fbf92, varios: 0x9d92d4 };
 const largo = id => 0.9 + ([...id].reduce((a, c) => a + c.charCodeAt(0), 0) % 38) / 60;   // varillas de distinto largo, siempre igual para la misma
 const lim = (v, a, b) => Math.max(a, Math.min(b, v));
 
@@ -26,6 +26,17 @@ export async function montar3D(el, items, alTocar, alAgregar = () => {}, alMover
   const texPerforada = canvasTex(64, 64, agujeros("#6f747c", "#222427"), [26, 12]);
   const texRejilla = canvasTex(64, 64, agujeros("#c9ced6", "#2a2c30"), [14, 2]);
   const texRayas = canvasTex(64, 64, (g, w, h) => { g.fillStyle = "#f4f6f8"; g.fillRect(0, 0, w, h); g.fillStyle = "#15171a"; for (let y = 4; y < h; y += 16) g.fillRect(0, y, w, 8); });
+  // Luz de las lámparas PDR: la de mano, franjas de cálida a fría; la de pie, tres franjas cálidas sobre fondo oscuro
+  const franjas = (colores, fondo) => (g, w, h) => {
+    g.fillStyle = fondo; g.fillRect(0, 0, w, h);
+    colores.forEach((col, k) => {
+      const x = (k + 0.5) * w / colores.length, r = g.createLinearGradient(x - w / colores.length / 2, 0, x + w / colores.length / 2, 0);
+      r.addColorStop(0, fondo); r.addColorStop(0.5, col); r.addColorStop(1, fondo);
+      g.fillStyle = r; g.fillRect(x - w / colores.length / 2, 0, w / colores.length, h);
+    });
+  };
+  const texMano = canvasTex(96, 32, franjas(["#f4b648", "#ffe6a8", "#fff6e2", "#e4f0f8", "#bcd9ee"], "#d9c9a6"));
+  const texPie = canvasTex(48, 32, franjas(["#ffd38a", "#ffe2ad", "#ffd38a"], "#2a2622"));
   // Espuma tipo huevera de las valijas (una textura por tamaño, para que las ondas no se estiren)
   const espumas = {};
   const espuma = (rx, ry) => mat(0xffffff, { roughness: 1, map: espumas[rx + "x" + ry] ||= canvasTex(64, 64, (g, w, h) => {
@@ -110,15 +121,36 @@ export async function montar3D(el, items, alTocar, alAgregar = () => {}, alMover
     inercial: m => { const g = new T.Group();   // martillo inercial acostado: barra, pesa y manija en T
       g.add(en(cil(0.01, 0.55, metal(), 8), 0, 0, 0, 0, 0, Math.PI / 2)); g.add(en(cil(0.035, 0.12, m), 0.05, 0, 0, 0, 0, Math.PI / 2));
       g.add(en(cil(0.015, 0.14, m), -0.28, 0, 0)); g.position.y = 0.035; g.rotation.y = 0.35; return g; },
-    lampara: (m, i, chica) => { const g = new T.Group(), luz = mat(0xffffff, { map: texRayas, emissive: 0xffffff, emissiveMap: texRayas, emissiveIntensity: .4 });
-      if (chica) { g.add(en(caja(0.3, 0.02, 0.22, luz), 0, 0.02, 0)); return g; }   // en un carro: la pantalla acostada
-      if (i.modelo === "mano") {   // de mano: sin trípode, flotando a la altura de la mano (el vaivén lo hace cada cuadro)
-        g.add(en(caja(0.4, 0.5, 0.03, luz), 0, 1.35, 0), en(cil(0.022, 0.2, mat(0x222326)), 0, 1.0, 0));
-        g.userData.flota = true; return g;
+    // Lámparas PDR. De mano: panel de luz cálida a fría con marco negro, mango y batería en la punta, flotando.
+    // De pie: panel alto con tres franjas de luz, colgado de un caño con brazos, batería roja y base con ruedas.
+    lampara: (m, i, chica) => { const g = new T.Group(), negro = m;
+      const luz = (tex, w, h) => mat(0xffffff, { map: tex, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: 0.9, roughness: .4 });
+      if (chica) { g.add(en(caja(0.24, 0.02, 0.5, negro), 0, 0.012, 0), en(caja(0.21, 0.004, 0.47, luz(texMano)), 0, 0.024, 0)); return g; }   // en un carro: acostada
+      if (i.modelo === "mano") {
+        const panel = new T.Group(); panel.position.set(0, 1.3, 0); panel.rotation.z = -0.25;
+        panel.add(en(caja(0.27, 0.6, 0.03, negro), 0, 0, 0), en(caja(0.235, 0.565, 0.004, luz(texMano)), 0, 0, 0.017));
+        panel.add(en(cil(0.024, 0.26, negro), 0, -0.43, 0), en(caja(0.085, 0.075, 0.12, negro), 0, -0.6, 0));
+        g.add(panel); g.userData.flota = true; return g;
       }
-      g.add(en(caja(0.55, 0.65, 0.03, luz), 0, 1.45, 0)); g.add(en(cil(0.02, 1.15, metal()), 0, 0.6, 0));
-      for (const a of [0, 2.1, 4.2]) g.add(en(cil(0.012, 0.42, metal()), Math.cos(a) * 0.14, 0.12, Math.sin(a) * 0.14, Math.sin(a) * 0.7, 0, -Math.cos(a) * 0.7));
+      // Base en cruz con ruedas, caño, batería roja, brazos y el panel alto
+      for (const a of [0, Math.PI / 2, Math.PI, Math.PI * 1.5]) {
+        g.add(en(caja(0.3, 0.03, 0.035, metal()), Math.cos(a) * 0.15, 0.07, -Math.sin(a) * 0.15, 0, a, 0));
+        rueda(g, Math.cos(a) * 0.29, -Math.sin(a) * 0.29);
+      }
+      g.add(en(cil(0.018, 1.95, negro), 0, 1.03, 0), en(caja(0.13, 0.11, 0.08, mat(0xb3261e, { roughness: .5 })), 0.03, 0.3, 0.05));
+      for (const y of [0.55, 1.75]) g.add(en(caja(0.16, 0.02, 0.02, negro), 0.08, y, 0));
+      g.add(en(cil(0.01, 0.4, negro, 8), -0.08, 2.05, 0, 0, 0, 0.6));   // mástil de arriba, inclinado
+      g.add(en(caja(0.19, 1.35, 0.03, negro), 0.2, 1.15, 0), en(caja(0.16, 1.31, 0.004, luz(texPie)), 0.2, 1.15, 0.017));
       return g; },
+    bateria: (m, i) => { const g = new T.Group();
+      if (i.modelo === "auto") {   // de auto: caja con tapa y dos bornes
+        g.add(en(caja(0.28, 0.19, 0.17, m), 0, 0.095, 0), en(caja(0.29, 0.02, 0.18, mat(0x111214)), 0, 0.2, 0));
+        for (const x of [-0.1, 0.1]) g.add(en(cil(0.014, 0.03, mat(0xbfc3c8, { metalness: .7, roughness: .3 }), 10), x, 0.225, -0.05));
+        return g;
+      }
+      // chica (de herramienta, tipo 18V): cuerpo, rieles grises y contactos naranja
+      g.add(en(caja(0.08, 0.06, 0.115, m), 0, 0.03, 0), en(caja(0.06, 0.014, 0.09, mat(0xc9ccd1)), 0, 0.067, 0), en(caja(0.028, 0.008, 0.03, mat(0xf2a33a)), 0, 0.078, 0.01));
+      g.rotation.y = 0.3; return g; },
     desmontaje: m => { const g = new T.Group();
       g.add(en(cil(0.022, 0.11, m), -0.08, 0, 0, 0, 0, Math.PI / 2)); g.add(en(cil(0.006, 0.18, metal(), 8), 0.06, 0, 0, 0, 0, Math.PI / 2));
       g.position.y = 0.025; g.rotation.y = 0.5; return g; },
@@ -223,8 +255,8 @@ export async function montar3D(el, items, alTocar, alAgregar = () => {}, alMover
   sueltas("martillo").forEach((i, k) => poner(i, -1.0 + (k % 4) * 0.22, 2.7 - Math.floor(k / 4) * 0.62, 0.09));
   sueltas("gancho").forEach((i, k) => poner(i, 0.05 + (k % 4) * 0.24, 2.75 - Math.floor(k / 4) * 0.62, 0.07));
   // Mesa: cada tipo en su tramo, en filas hacia el frente
-  ["inercial", "desmontaje", "varios"].forEach((cat, t) =>
-    sueltas(cat).forEach((i, k) => poner(i, -2.45 + t * 1.3 + (k % 4) * 0.28, 0.985, 0.3 + Math.floor(k / 4) % 3 * 0.22)));
+  ["inercial", "desmontaje", "varios", "bateria"].forEach((cat, t) =>
+    sueltas(cat).forEach((i, k) => poner(i, -2.6 + t * 1.0 + (k % 3) * 0.3, 0.985, 0.3 + Math.floor(k / 3) % 3 * 0.22)));
   // Valijas: estantería en la pared izquierda con una valija larga abierta por estante (a distintas alturas);
   // las verticales, los flight cases y las largas que no entran, abiertas en el piso a lo largo de la misma pared
   const EST = { x: -3.27, z: 1.8, alturas: [0.05, 0.62, 1.19, 1.76, 2.33] }, mEst = metal();
@@ -289,11 +321,11 @@ export async function montar3D(el, items, alTocar, alAgregar = () => {}, alMover
   const tip = el.querySelector(".inv-3d-tip");
   const ray = new T.Raycaster(), p = new T.Vector2();
   // Zonas vacías para agregar con un click (van detrás de las herramientas: si hay una adelante, gana ella)
-  const NOMBRE = { varilla: "varillas", martillo: "martillos y punzones", gancho: "ganchos y accesorios", inercial: "martillos inerciales y pullers", desmontaje: "desmontaje", varios: "varios", valija: "valijas", lampara: "lámparas" };
+  const NOMBRE = { varilla: "varillas", martillo: "martillos y punzones", gancho: "ganchos y accesorios", inercial: "martillos inerciales y pullers", desmontaje: "desmontaje", varios: "varios", valija: "valijas", lampara: "lámparas", bateria: "baterías" };
   const zonas = [], invisible = new T.MeshBasicMaterial({ visible: false });
   const zona = (cat, w, h, x, y, z, rx = 0, ry = 0) => { const m = en(new T.Mesh(new T.PlaneGeometry(w, h), invisible), x, y, z, rx, ry); m.userData.nueva = cat; escena.add(m); zonas.push(m); };
   zona("varilla", 1.55, 1.85, -1.925, 2.05, 0.04); zona("martillo", 1.05, 1.85, -0.625, 2.05, 0.04); zona("gancho", 1.3, 1.85, 0.55, 2.05, 0.04);
-  [["inercial", -2.1], ["desmontaje", -0.8], ["varios", 0.55]].forEach(([cat, x]) => zona(cat, 1.3, 0.85, x, 0.99, 0.5, -Math.PI / 2));
+  [["inercial", -2.25], ["desmontaje", -1.25], ["varios", -0.25], ["bateria", 0.75]].forEach(([cat, x]) => zona(cat, 1.0, 0.85, x, 0.99, 0.5, -Math.PI / 2));
   zona("valija", 1.64, 2.45, -3.46, 1.225, 1.8, 0, Math.PI / 2);
   zona("lampara", 1.55, 1.7, 2.22, 0.01, 1.35, -Math.PI / 2);
   // Lo que hay en un punto de la pantalla (-1..1): una herramienta (userData.id) o una zona para agregar (userData.nueva)
@@ -437,15 +469,22 @@ export async function montar3D(el, items, alTocar, alAgregar = () => {}, alMover
   let tAyuda = 0;
   const sacarAyuda = () => ayuda.classList.add("fuera");
   if (!conMira) { c.addEventListener("pointerdown", sacarAyuda, { once: true }); pad.addEventListener("pointerdown", sacarAyuda, { once: true }); }
+  else sacarAyuda();   // en la compu lo dice el velo
+  // Computadora, con el mouse suelto: la escena se oscurece y un cartel invita a entrar (click = capturar el mouse)
+  const velo = document.createElement("button");
+  velo.type = "button"; velo.className = "inv-3d-velo"; velo.hidden = !conMira;
+  velo.innerHTML = `<b>Hacé click para entrar</b><small>Mové el mouse para mirar · WASD o flechas para caminar · Esc para salir</small>`;
+  velo.onclick = () => { const r = c.requestPointerLock(); r?.catch?.(() => {}); c.focus({ preventScroll: true }); };
   const alBloquear = () => {
     bloqueado = document.pointerLockElement === c;
+    velo.hidden = !conMira || bloqueado;
     mira.hidden = !bloqueado;
     if (!bloqueado) mostrar(null);
     ayuda.textContent = bloqueado ? "Click: abrir la herramienta o agregar donde apuntás · Esc: soltar el mouse" : TXT;
     ayuda.classList.remove("fuera"); clearTimeout(tAyuda); if (bloqueado) tAyuda = setTimeout(sacarAyuda, 4000);
   };
   document.addEventListener("pointerlockchange", alBloquear);
-  el.append(centrar, pad, ayuda, mira);
+  el.append(velo, centrar, pad, ayuda, mira);
 
   const medir = () => {
     const w = el.clientWidth, h = el.clientHeight; if (!w || !h) return;
@@ -477,7 +516,7 @@ export async function montar3D(el, items, alTocar, alAgregar = () => {}, alMover
     escena.traverse(o => { o.geometry?.dispose(); if (o.material) { o.material.map?.dispose(); o.material.dispose(); } });
     document.removeEventListener("pointerlockchange", alBloquear);
     if (document.pointerLockElement === c) document.exitPointerLock();
-    render.dispose(); c.remove(); centrar.remove(); pad.remove(); ayuda.remove(); mira.remove();
+    render.dispose(); c.remove(); centrar.remove(); pad.remove(); ayuda.remove(); mira.remove(); velo.remove();
   }
   cuadro();
   return desarmar;
