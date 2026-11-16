@@ -3406,6 +3406,18 @@ async function adminPadron(env, { idToken, filas }) {
   return json({ ok: true, n: nuevas.length });
 }
 
+// Los operativos que nunca guardaron sus Mensajes al cliente arrancan con los de Paraná, sin la dirección ni la ubicación del taller.
+// Corre al abrir el panel del creador; los operativos nuevos la reciben la próxima vez.
+const SOLO_DEL_TALLER = ["direccion", "mapa", "mapaN", "mapaImg"];
+const sinTaller = m => Object.fromEntries(Object.entries(m || {}).filter(([k]) => !SOLO_DEL_TALLER.includes(k)));
+async function copiarMensajesParana(env) {
+  const ops = await fsList(env, "companies"), parana = ops.find(o => /paran/i.test(o.name || ""));
+  const modelo = sinTaller(parana?.mensajes);
+  if (!Object.keys(modelo).length) return;
+  await Promise.all(ops.filter(o => o !== parana && !Object.keys(sinTaller(o.mensajes)).length)
+    .map(o => fsMerge(env, `companies/${o.__id}`, { mensajes: { ...modelo, ...(o.mensajes || {}) } })));
+}
+
 const CONFIG_CLAVES = ["avisoReparado", "documentos", "fechaVista", "etapasPdf", "planillaVeh", "mensajesTurnos"];   // interruptores del creador (todos arrancan encendidos, salvo etapasPdf)
 async function adminConfig(env, body) {
   if (!(await soloCreador(env, body.idToken))) return json({ ok: false, error: "No autorizado" }, 403);
@@ -3420,6 +3432,7 @@ async function adminConfig(env, body) {
     const parana = (await fsList(env, "companies")).find(o => /paran/i.test(o.name || ""));
     if (parana) cambios.accesosOp = { [parana.__id]: c.accesos };
   }
+  await copiarMensajesParana(env).catch(e => console.error("copiar mensajes", e));
   if (idValido(body.cid) && body.accesos && typeof body.accesos === "object")
     cambios.accesosOp = { ...(cambios.accesosOp || c?.accesosOp), [body.cid]: Object.fromEntries(Object.entries(body.accesos)
       .filter(([u, a]) => idValido(u) && a && typeof a === "object")
