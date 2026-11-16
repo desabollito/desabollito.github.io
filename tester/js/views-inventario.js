@@ -50,7 +50,7 @@ const nuevoId = () => Date.now().toString(36) + Math.random().toString(36).slice
 
 export async function vistaInventario(view) {
   setTopbar({ title: "Inventario", back: "#/ajustes" });
-  view.innerHTML = `<div class="page narrow inventario"><div class="skeleton" style="height:340px"></div></div>`;
+  view.innerHTML = `<div class="page inventario"><div class="skeleton" style="height:340px"></div></div>`;
   let items;
   try { items = await leerInventario(); }
   catch (e) { view.innerHTML = `<div class="page"><div class="empty"><p>${esc(mensajeError(e))}</p></div></div>`; return; }
@@ -66,21 +66,27 @@ export async function vistaInventario(view) {
       ${i.cat === "varilla" ? `style="height:${largo(i.id)}%"` : ""}>${DIBUJO[i.cat]}${(i.cant || 1) > 1 ? `<b class="inv-n">×${i.cant}</b>` : ""}
       ${i.cat === "valija" ? `<b class="inv-n">${items.filter(x => x.en === i.id).length || ""}</b>` : ""}<span class="inv-nom">${esc(i.nombre)}</span></button>`;
   // Cada zona: sus herramientas sueltas (las que están en una valija no se ven) y una etiqueta para agregar ahí
-  const zona = (cat, clase = "") => `<div class="inv-zona ${clase}">${items.filter(i => i.cat === cat && !i.en).map(obj).join("")}
-      <button type="button" class="inv-etq" data-nueva="${cat}">${icon("plus")}${CATS[cat].t}</button></div>`;
+  const zona = (cat, clase = "") => `<div class="inv-zona ${clase}"><button type="button" class="inv-etq" data-nueva="${cat}">${icon("plus")}${CATS[cat].t}</button>
+      <div class="inv-objs">${items.filter(i => i.cat === cat && !i.en).map(obj).join("")}</div></div>`;
   const fila = i => `<button type="button" class="aj-item inv-fila" data-id="${esc(i.id)}">
       ${i.foto?.url ? `<img class="inv-foto" src="${esc(thumb(i.foto.url))}" alt="" loading="lazy">` : `<span class="inv-foto inv-${i.cat}">${DIBUJO[i.cat]}</span>`}
       <span class="aj-txt">${esc(i.nombre)}</span><span class="aj-val">${[(i.cant || 1) > 1 ? "×" + i.cant : "", i.en ? "en " + esc(nombreDe(i.en)) : ""].filter(Boolean).join(" · ")}</span>${icon("next")}</button>`;
 
+  let quitar3D = () => {};
+  const abrir = id => { const it = items.find(i => i.id === id); if (it) (it.cat === "valija" ? verValija : editar)(it); };
   function pintar() {
     const total = items.reduce((a, i) => a + (i.cant || 1), 0);
-    view.innerHTML = `<div class="page narrow inventario">
+    const en3D = (() => { try { return localStorage.getItem("invVista") === "3d"; } catch { return false; } })();
+    quitar3D();
+    view.innerHTML = `<div class="page inventario">
+      <div class="seg seg-sm inv-modo" id="inv-modo"><button class="seg-btn ${en3D ? "" : "on"}" data-m="2d">2D</button><button class="seg-btn ${en3D ? "on" : ""}" data-m="3d">3D</button></div>
+      ${en3D ? `<div class="inv-3d" id="inv-3d"><p class="inv-3d-carga muted small">Cargando el taller en 3D…</p><span class="inv-3d-tip" hidden></span></div>` : `
       <div class="inv-sala" role="group" aria-label="Taller">
         <div class="inv-pared">${zona("varilla", "inv-varillas")}${zona("martillo")}${zona("pantalla")}</div>
         <div class="inv-mesa"><div class="inv-tapa">${zona("pegamento")}${zona("desmontaje")}${zona("limpieza")}${zona("otro")}</div>
           <div class="inv-bajo">${zona("valija")}</div></div>
         <div class="inv-piso">${zona("pie")}</div>
-      </div>
+      </div>`}
       <form class="inv-rapido" id="inv-rapido" autocomplete="off">
         <span class="field"><input name="nombre" list="inv-sug" required maxlength="80" placeholder="Agregar herramienta…" aria-label="Herramienta"></span>
         <select name="cat" aria-label="Tipo">${Object.entries(CATS).map(([k, c]) => `<option value="${k}">${c.t}</option>`).join("")}</select>
@@ -99,6 +105,17 @@ export async function vistaInventario(view) {
       const cat = f.cat.value; pintar(); guardar();
       $("#inv-rapido", view).cat.value = cat; $("#inv-rapido", view).nombre.focus();
     };
+    $("#inv-modo", view).onclick = e => {
+      const b = e.target.closest("[data-m]"); if (!b) return;
+      try { localStorage.setItem("invVista", b.dataset.m); } catch { /* sin almacenamiento */ }
+      pintar();
+    };
+    if (en3D) {
+      const caja = $("#inv-3d", view);
+      import("./inventario3d.js").then(m => m.montar3D(caja, items, abrir))
+        .then(q => { quitar3D = q; caja.querySelector(".inv-3d-carga")?.remove(); })
+        .catch(e => { caja.querySelector(".inv-3d-carga").textContent = e.message; });
+    }
     view.querySelector(".inventario").onclick = e => {
       const b = e.target.closest("[data-id], [data-nueva]"); if (!b) return;
       if (b.dataset.nueva) return editar({ cat: b.dataset.nueva });
