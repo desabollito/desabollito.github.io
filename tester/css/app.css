@@ -347,6 +347,9 @@ fieldset.card legend + * { clear: both; }
 .est span { font-size: 13px; color: var(--muted); font-weight: 600; }
 .est.on { background: color-mix(in srgb, var(--c) 15%, var(--surface)); border-color: var(--c); }
 .est.on span { color: var(--ink); }
+.est.no { border-color: #e5484d; background: rgb(229 72 77 / .1); box-shadow: inset 0 0 0 1px #e5484d; }   /* estado excluido (mantener apretado) */
+.est.no span { color: #e5484d; text-decoration: line-through; }
+.est, .fo-op { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }   /* mantener apretado no selecciona el texto */
 
 .vlist { display: flex; flex-direction: column; gap: 8px; padding-bottom: 12px; }
 .vcard {
@@ -1592,6 +1595,9 @@ a.g-bar-fijo { text-decoration: none; color: inherit; }
 .fo-op:hover { color: var(--ink); }
 .fo-op.on { background: var(--surface); color: var(--ink); box-shadow: var(--shadow); outline: 2px solid color-mix(in srgb, var(--c) 70%, transparent); outline-offset: -2px; }
 .fo-chips .fo-op.on { background: color-mix(in srgb, var(--primary) 14%, var(--surface)); border-color: var(--primary); outline: 0; }
+/* Filtro inverso (mantener apretado): la opción excluida, delineada y tachada en rojo */
+.fo-op.no, .fo-chips .fo-op.no { outline: 2px solid #e5484d; outline-offset: -2px; border-color: #e5484d; background: rgb(229 72 77 / .1); color: #e5484d; box-shadow: none; }
+.fo-op.no .fo-txt { text-decoration: line-through; }
 .fo-op.on b { color: var(--ink); }
 .fo-dir { display: inline-flex; align-items: center; gap: 6px; padding: 0 12px; border-radius: var(--r); border: 1px solid var(--line); background: var(--surface); color: var(--ink);
   font-weight: 650; font-size: 13.5px; white-space: nowrap; cursor: pointer; }

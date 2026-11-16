@@ -1478,8 +1478,10 @@ export async function reprogramarTurnoChat(v, fecha) {
   if (!j.ok) throw new Error(j.error || "No se pudo enviar la encuesta");
 }
 // Avisar el turno por el chat en vivo (el mismo mensaje de Mensajes y turnos)
+// El mismo texto sirve para avisar por el chat en vivo o por privado (WhatsApp propio)
+export const textoTurno = (v, fecha) => textoWa(plantillaTurno(), { ...v, fechas: { ...v.fechas, turnado: fecha }, horaTurno: "" });
 export function avisarTurnoChat(v, fecha) {
-  const texto = textoWa(plantillaTurno(), { ...v, fechas: { ...v.fechas, turnado: fecha }, horaTurno: "" });
+  const texto = textoTurno(v, fecha);
   return llamarAdmin("enviar-cliente", { cid: S.company.id, vid: v.id, texto, por: S.profile?.name || "", encuesta: "turno", fecha });
 }
 

@@ -17,13 +17,14 @@ import { subir, comprimir, borrarConToken, thumb, grande, cloudinaryListo, esVid
 import { presupuestoPDF, nombreArchivo, tablaPDF } from "./pdf.js";
 import { armarZip } from "./zip.js";
 import { setTopbar, go, esAncho } from "./shell.js";
-import { abrirChatDe, avisarTurnoChat, reprogramarTurnoChat, telWa } from "./views-otros.js";
+import { abrirChatDe, avisarTurnoChat, reprogramarTurnoChat, telWa, textoTurno } from "./views-otros.js";
 // Chat en vivo con mensajes sin leer: puntito titilando en Contactar (y en "Chat en vivo" al abrir el menú)
 const chatNuevo = tel => !!tel && usaClientes() && chatSinLeer(chatDeTel(tel));
 onChange(e => { if (e === "chats") $$(".d-contacto[data-tel]").forEach(el => el.classList.toggle("chat-nuevo", chatNuevo(el.dataset.tel))); });
 
 // Filtros de la lista (se conservan al navegar)
-const nuevoF = () => ({ estado: new Set(), q: "", mios: false, sinAnul: false, orden: "fecha", dir: -1, grado: new Set(), repuestos: new Set(), pintura: new Set(), cliente: new Set(), cargado: new Set(), cias: new Set() }); // cada filtro: Set vacío = todos (se pueden marcar varias opciones de cada uno); grado 0 = sin grado
+const nuevoF = () => ({ estado: new Set(), q: "", mios: false, sinAnul: false, orden: "fecha", dir: -1, grado: new Set(), repuestos: new Set(), pintura: new Set(), cliente: new Set(), cargado: new Set(), cias: new Set(),
+  no: { estado: new Set(), grado: new Set(), repuestos: new Set(), pintura: new Set(), cliente: new Set(), cargado: new Set(), cias: new Set() } }); // cada filtro: Set vacío; no: los excluidos (mantener apretado = filtro inverso) = todos (se pueden marcar varias opciones de cada uno); grado 0 = sin grado
 // Vehículos y calendario tienen filtros separados: F apunta a los de la pantalla que está usando el filtro en ese momento
 const FV = nuevoF(), FC = nuevoF();
 let F = FV;
@@ -137,6 +138,10 @@ function filtrar(lista, conAnul) {
     (!F.cliente.size || F.cliente.has(v.conformidad)) &&
     (!F.cargado.size || [...F.cargado].some(k => CARGADO[k](v))) &&
     (!F.cias.size || F.cias.has(ciaDe(v))) &&
+    // Excluidos (mantener apretado un filtro): sacan los que coinciden
+    !F.no.estado.has(estadoActual(v)) && !F.no.grado.has(v.grado || 0) && !F.no.cliente.has(v.conformidad) && !F.no.cias.has(ciaDe(v)) &&
+    ![...F.no.repuestos].some(f => tieneEtapa(v, "repuestos", f)) && ![...F.no.pintura].some(f => tieneEtapa(v, "pintura", f)) &&
+    ![...F.no.cargado].some(k => CARGADO[k](v)) &&
     (!q || (q.startsWith("@")
       // "@usuario": los vehículos que cargó esa persona
       ? (q.length < 2 || cargadoPor(v).toLowerCase().startsWith(q) || ("@" + String(v.createdByName || "").toLowerCase().replace(/\s+/g, "")).startsWith(q.replace(/\s+/g, "")))
@@ -145,10 +150,31 @@ function filtrar(lista, conAnul) {
 }
 // Filtra con todos los filtros menos uno: así cada número dice cuántos quedarían al elegir esa opción
 function filtrarSin(clave, lista) {
-  const prev = F[clave];
+  const prev = F[clave], prevNo = F.no[clave];   // sin lo elegido ni lo excluido de ese grupo
   F[clave] = prev instanceof Set ? new Set() : null;
-  try { return filtrar(lista); } finally { F[clave] = prev; }
+  if (prevNo) F.no[clave] = new Set();
+  try { return filtrar(lista); } finally { F[clave] = prev; if (prevNo) F.no[clave] = prevNo; }
 }
+// Filtro inverso: mantener apretado una opción la excluye (en rojo); de nuevo, la vuelve normal. Elegida y excluida no van juntas.
+let ultimoLargo = 0;   // el click que sigue a mantener apretado no cuenta como toque
+const excluir = (g, k) => { if (F.no[g].has(k)) F.no[g].delete(k); else { F.no[g].add(k); F[g].delete(k); } };
+// Toque normal: si estaba excluida, deja de estarlo; si no, se elige o se deja de elegir
+const tocarFiltro = (g, k) => { if (F.no[g].has(k)) F.no[g].delete(k); else F[g].has(k) ? F[g].delete(k) : F[g].add(k); };
+const grupoDe = b => b.dataset.cia !== undefined ? ["cias", b.dataset.cia] : b.dataset.e ? ["estado", b.dataset.e]
+  : b.dataset.g && b.dataset.g !== "orden" ? [b.dataset.g, b.dataset.g === "grado" ? Number(b.dataset.v) : b.dataset.v] : null;
+function mantenerParaExcluir(caja, listo) {
+  let t = 0, x = 0, y = 0;
+  const cortar = () => clearTimeout(t);
+  caja.addEventListener("pointerdown", e => {
+    const b = e.target.closest("[data-g], [data-cia], [data-e]"), gk = b && grupoDe(b); if (!gk) return;
+    x = e.clientX; y = e.clientY; cortar();
+    t = setTimeout(() => { ultimoLargo = Date.now(); navigator.vibrate?.(25); listo(gk); }, 500);
+  });
+  caja.addEventListener("pointermove", e => { if (Math.hypot(e.clientX - x, e.clientY - y) > 8) cortar(); });
+  ["pointerup", "pointercancel", "pointerleave"].forEach(ev => caja.addEventListener(ev, cortar));
+  caja.addEventListener("contextmenu", e => { if (e.target.closest("[data-g], [data-cia], [data-e]")) e.preventDefault(); });
+}
+const recienMantenido = () => Date.now() - ultimoLargo < 700;
 
 // PDF de la lista filtrada (lo mismo que se ve: estados, anulados, búsqueda…): una fila por repuesto / paño (el vehículo va solo en la primera)
 // Repuestos y Pintura Sí/No: Sí = solo los que tienen y va su columna; No = solo los que no tienen. Los dos en No = sin repuestos ni pintura.
@@ -278,7 +304,8 @@ function tarjeta(v, sel) {
 }
 
 // Cuántos filtros/órdenes distintos de lo normal hay puestos (se ve en el botón)
-const cuantosActivos = () => [F.mios, F.sinAnul, F.grado.size, F.repuestos.size, F.pintura.size, F.cliente.size, F.cargado.size, F.cias.size, F.orden !== "fecha" || F.dir !== -1].filter(Boolean).length;
+const cuantosActivos = () => [F.mios, F.sinAnul, F.grado.size, F.repuestos.size, F.pintura.size, F.cliente.size, F.cargado.size, F.cias.size, F.orden !== "fecha" || F.dir !== -1].filter(Boolean).length
+  + ["grado", "repuestos", "pintura", "cliente", "cargado", "cias"].filter(g => F.no[g].size).length;   // los excluidos también cuentan
 const marcarBoton = () => { const b = $("#tb-filtros"); if (!b) return; const k = cuantosActivos();
   b.classList.toggle("activo", k > 0); const n = $(".fo-badge", b); if (n) { n.textContent = k; n.hidden = !k; } };
 export const botonFiltros = (cal = false) => cal ? conF(FC, () => botonFiltros()) : `<button class="icon-btn filtro-btn ${cuantosActivos() ? "activo" : ""}" id="tb-filtros" aria-label="Filtrar y ordenar" title="Filtrar y ordenar">${icon("filter")}<span class="fo-badge" ${cuantosActivos() ? "" : "hidden"}>${cuantosActivos()}</span></button>`;
@@ -318,7 +345,7 @@ function abrirFiltrosCon(alCambiar, cal) {
   }, true);
   const n = (grupo, f) => filtrarSin(grupo, activos()).filter(f).length;
   // Opción de una fila: texto, cantidad y color opcional
-  const op = (grupo, val, txt, cant, on, color) => `<button type="button" class="fo-op ${on ? "on" : ""}" data-g="${grupo}" data-v="${esc(String(val))}" ${color ? `style="--c:${color}"` : ""}>
+  const op = (grupo, val, txt, cant, on, color) => `<button type="button" class="fo-op ${on ? "on" : ""} ${F.no[grupo]?.has(val) ? "no" : ""}" data-g="${grupo}" data-v="${esc(String(val))}" ${color ? `style="--c:${color}"` : ""}>
     <span class="fo-txt">${color ? `<i class="f-dot"></i>` : ""}${txt}</span>${cant !== null && cant !== undefined ? `<b>${cant}</b>` : ""}</button>`;
   const pintarHoja = () => usar(() => {
     const ob = el("#fo-orden-btn");   // fijo "Ordenar por"; se resalta si no es el orden normal (fecha, lo más nuevo arriba)
@@ -330,7 +357,7 @@ function abrirFiltrosCon(alCambiar, cal) {
     ["pintura", "repuestos"].forEach(tipo => {
       el(`#fo-${tipo}`).innerHTML = ETAPAS[tipo].map(([k, t, c]) => op(tipo, k, t, n(tipo, v => tieneEtapa(v, tipo, k)), F[tipo].has(k), c)).join("");
     });
-    if (el("#fo-cias")) el("#fo-cias").innerHTML = ciasDisponibles().map(([c]) => [c, n("cias", v => ciaDe(v) === c)]).map(([c, k]) => `<button type="button" class="fo-op ${F.cias.has(c) ? "on" : ""}" data-cia="${esc(c)}"><span class="fo-txt">${esc(c)}</span><b>${k}</b></button>`).join("")
+    if (el("#fo-cias")) el("#fo-cias").innerHTML = ciasDisponibles().map(([c]) => [c, n("cias", v => ciaDe(v) === c)]).map(([c, k]) => `<button type="button" class="fo-op ${F.cias.has(c) ? "on" : ""} ${F.no.cias.has(c) ? "no" : ""}" data-cia="${esc(c)}"><span class="fo-txt">${esc(c)}</span><b>${k}</b></button>`).join("")
       || `<span class="muted small">Sin vehículos</span>`;
     const cant = filtrar(activos()).length;
     [["#fo-anul", F.sinAnul]].forEach(([id, on]) => { const b = el(id); if (b) { b.classList.toggle("on", on); b.setAttribute("aria-pressed", on); } });
@@ -347,8 +374,10 @@ function abrirFiltrosCon(alCambiar, cal) {
     if (ob) return glideMenu(ob, ORDENES.map(([k, t]) => [k, F.orden === k ? `${t} ${F.dir > 0 ? "↓" : "↑"} (invertir)` : t]), null,
       k => { if (F.orden === k) F.dir *= -1; else { F.orden = k; F.dir = k === "fecha" ? -1 : 1; } aplicar(); });
     const c = e.target.closest("[data-cia]");
-    if (c) { const k = c.dataset.cia; F.cias.has(k) ? F.cias.delete(k) : F.cias.add(k); return aplicar(); }
+    if (recienMantenido()) return;   // venía de mantener apretado (ya se excluyó)
+    if (c) { tocarFiltro("cias", c.dataset.cia); return aplicar(); }
     if (e.target.closest("#fo-reset")) { F.mios = false; F.sinAnul = false; F.cargado.clear(); F.grado.clear(); F.repuestos.clear(); F.pintura.clear(); F.cliente.clear(); F.cias.clear(); F.orden = "fecha"; F.dir = -1;
+      Object.entries(F.no).forEach(([g, s]) => g !== "estado" && s.clear());
       return aplicar(); }
     if (e.target.closest("#fo-pdf")) return exportarPDF();
     if (e.target.closest("#fo-anul")) { F.sinAnul = !F.sinAnul; return aplicar(); }
@@ -356,9 +385,10 @@ function abrirFiltrosCon(alCambiar, cal) {
     const g = b.dataset.g, v = b.dataset.v;
     if (g === "orden") { if (F.orden === v) F.dir *= -1; else { F.orden = v; F.dir = v === "fecha" ? -1 : 1; } }
     // Sin "Todos": tocar la opción elegida la quita (ninguna elegida = todos)
-    else { const k = g === "grado" ? Number(v) : v; F[g].has(k) ? F[g].delete(k) : F[g].add(k); }   // se pueden marcar varias en cada fila
+    else tocarFiltro(g, g === "grado" ? Number(v) : v);   // se pueden marcar varias en cada fila
     aplicar();
   }));
+  mantenerParaExcluir(hoja.el, gk => usar(() => { excluir(...gk); aplicar(); }));
   pintarHoja();
 }
 
@@ -376,6 +406,11 @@ export function vistaVehiculos(view, selId = null) {
     F.cliente.forEach(k => o.push([`Cliente ${CARAS[k]?.[0].toLowerCase() || k}`, () => F.cliente.delete(k)]));
     F.cargado.forEach(k => o.push([{ desm: "Con desmontaje", check: "Con chequeo", firma: "Firmados" }[k] || k, () => F.cargado.delete(k)]));
     F.cias.forEach(c => o.push([c, () => F.cias.delete(c)]));
+    // Excluidos (filtro inverso): "Sin …"
+    const nom = { estado: k => ESTADO[k]?.label || k, grado: g => g ? `grado ${g}` : "grado", cias: c => c, cliente: k => `cliente ${CARAS[k]?.[0].toLowerCase() || k}`,
+      cargado: k => ({ desm: "desmontaje", check: "chequeo", firma: "firma" }[k] || k), pintura: k => `pintura ${ETAPAS.pintura.find(e => e[0] === k)?.[1] || k}`,
+      repuestos: k => `repuestos ${ETAPAS.repuestos.find(e => e[0] === k)?.[1] || k}` };
+    Object.entries(F.no).forEach(([g, s]) => s.forEach(k => o.push([`Sin ${nom[g](k)}`, () => F.no[g].delete(k)])));
     if (F.orden !== "fecha" || F.dir !== -1) o.push([`Orden: ${ORDENES.find(x => x[0] === F.orden)?.[1]} ${F.dir > 0 ? "↑" : "↓"}`, () => { F.orden = "fecha"; F.dir = -1; }]);
     return o; };
   const pintarPuestos = () => { const c = $("#filtros-act", view); if (!c) return; const o = puestos(), k = o.map(x => x[0]).join("|");
@@ -417,7 +452,7 @@ export function vistaVehiculos(view, selId = null) {
     filtrarSin("estado", todos).forEach(v => cuenta[estadoActual(v)]++);
     $("#estado-strip", view).innerHTML =
       // Link de perito: solo los estados que tienen algún vehículo
-      ESTADOS.filter(e => !soyLector() || cuenta[e.key] || F.estado.has(e.key)).map(e => `<button class="est ${F.estado.has(e.key) ? "on" : ""}" data-e="${e.key}" style="--c:${e.color}">
+      ESTADOS.filter(e => !soyLector() || cuenta[e.key] || F.estado.has(e.key) || F.no.estado.has(e.key)).map(e => `<button class="est ${F.estado.has(e.key) ? "on" : ""} ${F.no.estado.has(e.key) ? "no" : ""}" data-e="${e.key}" style="--c:${e.color}">
         <b>${cuenta[e.key]}</b><span>${e.label}</span></button>`).join("");
     $("#estado-strip", view).setAttribute("aria-label", `Filtrar por estado (${todos.length} en total)`);
     pintarPuestos();
@@ -445,7 +480,7 @@ export function vistaVehiculos(view, selId = null) {
     box.innerHTML = html;
     box.classList.toggle("lista-anim", animar);
     if (animar) [...box.children].forEach((c, i) => c.style.setProperty("--i", i));
-    $("#limpiar", box)?.addEventListener("click", () => { F.estado.clear(); F.mios = false; F.sinAnul = false; F.cias.clear(); F.grado.clear(); F.repuestos.clear(); F.pintura.clear(); F.cliente.clear(); F.cargado.clear(); marcarBoton(); pintar(); });
+    $("#limpiar", box)?.addEventListener("click", () => { F.estado.clear(); F.mios = false; F.sinAnul = false; F.cias.clear(); F.grado.clear(); F.repuestos.clear(); F.pintura.clear(); F.cliente.clear(); F.cargado.clear(); Object.values(F.no).forEach(s => s.clear()); marcarBoton(); pintar(); });
   };
 
   // Computadora: tocar de nuevo el vehículo marcado lo desmarca y cierra el detalle
@@ -458,9 +493,10 @@ export function vistaVehiculos(view, selId = null) {
   // Doble clic selecciona toda la búsqueda (en Mac no lo hacía solo)
   $("#q").addEventListener("dblclick", e => { e.target.select(); });
   $("#estado-strip", view).addEventListener("click", e => {
-    const b = e.target.closest("[data-e]"); if (!b) return;
-    { const k = b.dataset.e; F.estado.has(k) ? F.estado.delete(k) : F.estado.add(k); } pintar();
+    const b = e.target.closest("[data-e]"); if (!b || recienMantenido()) return;
+    tocarFiltro("estado", b.dataset.e); pintar();
   });
+  mantenerParaExcluir($("#estado-strip", view), gk => { excluir(...gk); marcarBoton(); pintar(); });
   $("#filtros-act", view).addEventListener("click", e => {
     const b = e.target.closest("[data-quitar]"); if (!b) return;
     puestos()[+b.dataset.quitar]?.[1](); marcarBoton(); pintar(true);
@@ -1205,8 +1241,25 @@ async function ofrecerAvisoCliente(v) {
   const no = S.config?.avisoReparado === false ? "El aviso al cliente está apagado en el panel del creador" : !v.telefono ? "Sin teléfono: no se le puede avisar al cliente" : v.avisoReparado ? "A este cliente ya se le avisó" : "";
   if (no) return toast(no);
   const chat = usaClientes() && !!telWa(v.telefono);
-  if (!(await confirmar({ title: chat ? "¿Avisarle al cliente desde el chat en vivo?" : "¿Avisarle al cliente desde el teléfono de la empresa?",
-    message: `Se le avisará ${v.asegurado ? "a " + v.asegurado : "al cliente"} que está listo su vehículo.`, ok: "Enviar mensaje", centro: true }))) return;
+  // Elegir cómo avisar: desde el chat en vivo (o el teléfono de la empresa) o por privado (WhatsApp propio, mismo texto ya escrito)
+  const como = await new Promise(listo => {
+    let r = null;
+    const s = openSheet({ title: "¿Avisarle al cliente?", onClose: () => listo(r), body: `<div class="stack">
+      <p class="muted">Se le avisará ${esc(v.asegurado ? "a " + v.asegurado : "al cliente")} que está listo su vehículo.</p>
+      <button type="button" class="btn btn-primary btn-block" data-como="empresa">${icon("chat")}${chat ? "Avisar desde chat en vivo" : "Avisar desde el teléfono de la empresa"}</button>
+      <button type="button" class="btn btn-ghost btn-block" data-como="privado">${icon("share")}Avisar por privado</button></div>` });
+    s.el.classList.add("sheet-centro");
+    s.el.addEventListener("click", e => { const b = e.target.closest("[data-como]"); if (b) { r = b.dataset.como; s.close(); } });
+  });
+  if (!como) return;
+  if (como === "privado") {
+    // Por privado: abre WhatsApp con el texto y lo deja marcado como Contactado y avisado (igual que desde el chat)
+    open(waLink(v.telefono, textoAviso(v)), "_blank", "noopener");
+    const cur = getVehiculo(v.id) || v;
+    if (!["llamado", "entregado", "facturado"].includes(estadoActual(cur))) await cambiarEstado(cur, "llamado", hoyISO()).catch(err => toast(mensajeError(err), "error"));
+    actualizarVehiculo(v.id, { avisoReparado: true }, "Avisó al cliente por privado").catch(err => toast(mensajeError(err), "error"));
+    return toast("Marcado como contactado", "success");
+  }
   const espera = openSheet({ title: "Avisando al cliente", body: `<p class="aviso-cargando"><span class="spin"></span>Enviando mensaje…</p>` });
   espera.el.classList.add("sheet-centro");   // en el celular, al medio como la pregunta de antes
   try {
@@ -1276,7 +1329,8 @@ export function elegirFechaEstado(v, estado, enChat) {
       ${estado === "turnado" ? `<div class="turno-conf"><span>¿Confirmó el turno?</span>
         <button type="button" class="switch ${v.turnoConfirmado === true ? "on" : ""}" id="t-conf" role="switch" aria-checked="${v.turnoConfirmado === true}">
           <span class="sw-txt sw-si">Sí</span><span class="sw-txt sw-no">No</span><i class="sw-bola"></i></button></div>` : ""}
-      ${!enChat && estado === "turnado" && usaClientes() && telWaOk(v) ? `<button type="button" class="btn btn-ghost btn-block" id="t-avisar">${icon("chat")}Avisar desde chat en vivo</button>` : ""}
+      ${!enChat && estado === "turnado" && usaClientes() && telWaOk(v) ? `<button type="button" class="btn btn-ghost btn-block" id="t-avisar">${icon("chat")}Turnar desde chat en vivo</button>` : ""}
+      ${!enChat && estado === "turnado" && v.telefono ? `<button type="button" class="btn btn-ghost btn-block" id="t-privado">${icon("share")}Turnar por privado</button>` : ""}
       ${enChat ? `<button class="btn btn-primary btn-block" style="--btn:${e.color}" data-avisar>${icon("chat")}Enviar nueva fecha</button>
       <button class="btn btn-ghost btn-block">Guardar fecha sin avisar</button>` : `<button class="btn btn-primary btn-block" style="--btn:${e.color}">Guardar</button>`}</form>`
   });
@@ -1287,9 +1341,11 @@ export function elegirFechaEstado(v, estado, enChat) {
     deshacerCambio(v, paso).then(() => toast("Estado deshecho", "success")).catch(err => toast(mensajeError(err), "error"));
   });
   let confirmado = v.turnoConfirmado === true;
-  let avisar = false;
-  // Avisar desde chat en vivo: guarda el turno, manda el mensaje y abre el chat
+  let avisar = false, privado = false;
+  // Turnar desde chat en vivo: guarda el turno, manda el mensaje y abre el chat
   $("#t-avisar", s.el)?.addEventListener("click", () => { avisar = true; $("form", s.el).requestSubmit(); });
+  // Turnar por privado: guarda el turno y abre WhatsApp propio con el mismo mensaje, ya escrito
+  $("#t-privado", s.el)?.addEventListener("click", () => { privado = true; $("form", s.el).requestSubmit(); });
   $("#t-conf", s.el)?.addEventListener("click", e => {
     confirmado = !confirmado;
     e.currentTarget.classList.toggle("on", confirmado); e.currentTarget.setAttribute("aria-checked", confirmado);
@@ -1299,8 +1355,9 @@ export function elegirFechaEstado(v, estado, enChat) {
     if (ev.submitter?.hasAttribute("data-avisar")) avisar = true;
     const fecha = ev.target.f.value;
     // Avisado por el chat en vivo: queda sin confirmar hasta que el cliente responda y alguien lo confirme
-    cambiarEstado(v, estado, fecha, estado === "turnado" ? { turnoConfirmado: avisar ? false : confirmado } : {}).catch(err => toast(mensajeError(err), "error"));
+    cambiarEstado(v, estado, fecha, estado === "turnado" ? { turnoConfirmado: avisar || privado ? false : confirmado } : {}).catch(err => toast(mensajeError(err), "error"));
     toast(`${e.label} · ${fechaCorta(ev.target.f.value)}`, "success");
+    if (privado) { open(waLink(v.telefono, textoTurno(v, fecha)), "_blank", "noopener"); return s.close(); }
     if (!avisar) return s.close();
     // Espera a que salga el mensaje (tarda ~1 s) y recién ahí abre el chat, así ya se ve
     busy(ev.submitter || $("form .btn-primary", s.el), true, "Avisando…");
