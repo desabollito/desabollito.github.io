@@ -2695,6 +2695,8 @@ button.aj-item:hover, a.aj-item:hover { background: var(--surface-2); }
 .inv-piso { grid-area: piso; display: flex; padding: 22px 8px 10px; border-left: 1px solid var(--line); background: rgb(0 0 0 / .08); }
 /* Cada zona: la etiqueta arriba (puede ocupar dos líneas, nunca se corta) y las herramientas abajo */
 .inv-zona { display: flex; flex-direction: column; gap: 6px; min-width: 0; width: 100%; }
+/* Línea fina alrededor de cada sección: se ve hasta dónde llega cada una */
+.inv-sala .inv-zona { border: 1px dashed var(--line-2); border-radius: 8px; padding: 6px; }
 /* Cada sección es un recuadro donde cada herramienta tiene su lugar (punto de apoyo abajo al centro, en %) */
 .inv-objs { position: relative; flex: none; height: var(--alto, 110px); }
 .inv-objs > .inv-obj { position: absolute; transform: translate(-50%, -100%); }
