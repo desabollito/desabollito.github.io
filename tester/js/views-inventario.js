@@ -178,7 +178,6 @@ export async function vistaInventario(view) {
   const obj = (i, k, n) => {
     const p = i[CLAVE().pos] || posDefecto(i, k, n), conFoto = fotos && i.foto?.url;
     // Ancho y alto propios (--tx, --ty: tirador de la esquina o rueda del mouse); no dependen del tamaño de la sección.
-    // Las varillas tienen su largo fijo en px (antes era % de la sección y al agrandarla se estiraban solo para abajo).
     return `<button type="button" class="inv-obj inv-${i.cat}" data-ver="${esc(i.id)}" aria-label="${esc(i.nombre)}" title="${esc(i.nombre)}"
       style="left:${(p.x * 100).toFixed(2)}%;top:${(p.y * 100).toFixed(2)}%;--tx:${medidas(i).tx};--ty:${medidas(i).ty}">${conFoto
         ? `<img class="inv-obj-foto${Math.abs(medidas(i).tx - medidas(i).ty) > 0.01 ? " estirada" : ""}" src="${esc(entera(i.foto.url))}" alt="" loading="lazy" draggable="false">` : dibujo(i)}<span class="inv-tam" title="Arrastrá para agrandar o achicar"></span>${(i.cant || 1) > 1 ? `<b class="inv-n">×${i.cant}</b>` : ""}
