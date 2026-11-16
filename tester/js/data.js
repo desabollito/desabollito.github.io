@@ -798,9 +798,10 @@ export const puedeVer = sec => {
   if (S.invitado) return S.invitado.tecnicos ? sec === "tecnicos" : sec === "planilla";
   if (sec === "planilla" && S.config?.planillaVeh === false) return false;   // el creador la apagó para todos
   if (soyCreador()) return true;
-  if (soyFacturacion()) return sec === "facturacion";   // ni Vehículos (planilla), ni Técnicos, ni Gastos, ni Fijos, ni Cierre
   // Hasta que el bot copie los accesos viejos (globales) a Paraná, valen esos
   const acc = (S.config?.accesosOp ? S.config.accesosOp[S.company?.id] : S.config?.accesos)?.[S.user?.uid] || {}, v = acc[sec];
+  // Facturación: sin tildar, solo la planilla de Facturación; lo que el creador le tilde en "Quién ve las planillas" (ej. Vehículos), también
+  if (soyFacturacion()) return typeof v === "boolean" ? v : sec === "facturacion";
   // Cierre operativo sin elegir: igual que Gastos si está tildado, si no solo administradores
   if (sec === "cierre" && typeof v !== "boolean") return typeof acc.gastos === "boolean" ? acc.gastos : soyAdmin();
   // Sacabollos: Vehículos (sin precios), Técnicos y Fijos; no Gastos

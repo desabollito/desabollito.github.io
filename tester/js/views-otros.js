@@ -957,6 +957,8 @@ export async function panelCreador() {
   const accesoDe = (op, m) => { const e = datos.config?.accesosOp?.[op.id]?.[m.uid] || {}, adm = ["admin", "owner"].includes(m.rol);
     // Igual que puedeVer: Sacabollos (rol técnico) ve Vehículos, Técnicos y Fijos, no Gastos
     const sac = ["", "tecnico"].includes(m.rol);
+    // Facturación: sin tildar, solo la planilla de Facturación
+    if (m.rol === "facturacion") return { planilla: e.planilla ?? false, tecnicos: e.tecnicos ?? false, gastos: e.gastos ?? false, fijos: e.fijos ?? false, facturacion: e.facturacion ?? true, cierre: e.cierre ?? false };
     return { planilla: e.planilla ?? true, tecnicos: e.tecnicos ?? (adm || sac), gastos: e.gastos ?? !sac, fijos: e.fijos ?? (adm || sac), facturacion: e.facturacion ?? adm, cierre: e.cierre ?? e.gastos ?? adm }; };
   const nVeh = n => n === null || n === undefined ? "" : `${n} ${n === 1 ? "vehículo" : "vehículos"}`;
   const pintar = () => {
