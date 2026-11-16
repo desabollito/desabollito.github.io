@@ -8,7 +8,7 @@ const cargarThree = () => cargando ||= (async () => {
   cargando = null; throw new Error("No se pudo cargar el 3D. Revisá la conexión.");
 })();
 
-const COLOR = { varilla: 0xc4cad3, martillo: 0xe2a93a, inercial: 0xec6a38, gancho: 0x4ea2e4, lampara: 0x1b1c1f, bateria: 0x1e2023, carro: 0x232427, valija: 0x1d1f23, desmontaje: 0x4fbf92, varios: 0x9d92d4 };
+const COLOR = { varilla: 0xc4cad3, martillo: 0xe2a93a, inercial: 0xec6a38, gancho: 0x4ea2e4, lampara: 0x1b1c1f, bateria: 0x1e2023, carro: 0x232427, valija: 0x1d1f23, desmontaje: 0x4fbf92, herramienta: 0x2f6fd0, varios: 0x9d92d4 };
 const largo = id => 0.9 + ([...id].reduce((a, c) => a + c.charCodeAt(0), 0) % 38) / 60;   // varillas de distinto largo, siempre igual para la misma
 const lim = (v, a, b) => Math.max(a, Math.min(b, v));
 
@@ -154,6 +154,10 @@ export async function montar3D(el, items, alTocar, alAgregar = () => {}, alMover
     desmontaje: m => { const g = new T.Group();
       g.add(en(cil(0.022, 0.11, m), -0.08, 0, 0, 0, 0, Math.PI / 2)); g.add(en(cil(0.006, 0.18, metal(), 8), 0.06, 0, 0, 0, 0, Math.PI / 2));
       g.position.y = 0.025; g.rotation.y = 0.5; return g; },
+    herramienta: m => { const g = new T.Group(), negro = mat(0x1d1e21);   // taladro (o máquina) apoyado: cuerpo, mandril, mango y batería
+      g.add(en(caja(0.2, 0.07, 0.065, m), 0, 0.2, 0), en(cil(0.014, 0.07, metal(), 10), 0.13, 0.2, 0, 0, 0, Math.PI / 2));
+      g.add(en(caja(0.045, 0.12, 0.05, negro), -0.03, 0.105, 0), en(caja(0.09, 0.045, 0.08, negro), -0.03, 0.0225, 0));
+      g.rotation.y = 0.4; return g; },
     varios: m => { const g = new T.Group(); g.add(en(caja(0.16, 0.1, 0.13, m), 0, 0.05, 0)); return g; },
     valija: (m, i) => i.modelo === "vertical" ? valijaVertical(m) : i.modelo === "flight" ? valijaFlight(m) : valijaLarga(m),
     carro: (m, i) => i.modelo === "alto" ? carroAlto(m) : carroComun(m)
@@ -255,8 +259,10 @@ export async function montar3D(el, items, alTocar, alAgregar = () => {}, alMover
   sueltas("martillo").forEach((i, k) => poner(i, -1.0 + (k % 4) * 0.22, 2.7 - Math.floor(k / 4) * 0.62, 0.09));
   sueltas("gancho").forEach((i, k) => poner(i, 0.05 + (k % 4) * 0.24, 2.75 - Math.floor(k / 4) * 0.62, 0.07));
   // Mesa: cada tipo en su tramo, en filas hacia el frente
-  ["inercial", "desmontaje", "varios", "bateria"].forEach((cat, t) =>
+  ["inercial", "desmontaje", "herramienta", "bateria"].forEach((cat, t) =>
     sueltas(cat).forEach((i, k) => poner(i, -2.6 + t * 1.0 + (k % 3) * 0.3, 0.985, 0.3 + Math.floor(k / 3) % 3 * 0.22)));
+  // Varios (microfibras, compounds, pads, lijas…): en el estante de abajo de la mesa
+  sueltas("varios").forEach((i, k) => poner(i, -2.5 + (k % 11) * 0.34, 0.2, 0.32 + Math.floor(k / 11) % 2 * 0.3));
   // Valijas: estantería en la pared izquierda con una valija larga abierta por estante (a distintas alturas);
   // las verticales, los flight cases y las largas que no entran, abiertas en el piso a lo largo de la misma pared
   const EST = { x: -3.27, z: 1.8, alturas: [0.05, 0.62, 1.19, 1.76, 2.33] }, mEst = metal();
@@ -321,11 +327,12 @@ export async function montar3D(el, items, alTocar, alAgregar = () => {}, alMover
   const tip = el.querySelector(".inv-3d-tip");
   const ray = new T.Raycaster(), p = new T.Vector2();
   // Zonas vacías para agregar con un click (van detrás de las herramientas: si hay una adelante, gana ella)
-  const NOMBRE = { varilla: "varillas", martillo: "martillos y punzones", gancho: "ganchos y accesorios", inercial: "martillos inerciales y pullers", desmontaje: "desmontaje", varios: "varios", valija: "valijas", lampara: "lámparas", bateria: "baterías" };
+  const NOMBRE = { varilla: "varillas", martillo: "martillos y punzones", gancho: "ganchos y accesorios", inercial: "martillos inerciales y pullers", desmontaje: "desmontaje", varios: "varios", valija: "valijas", lampara: "lámparas", bateria: "baterías", herramienta: "herramientas" };
   const zonas = [], invisible = new T.MeshBasicMaterial({ visible: false });
   const zona = (cat, w, h, x, y, z, rx = 0, ry = 0) => { const m = en(new T.Mesh(new T.PlaneGeometry(w, h), invisible), x, y, z, rx, ry); m.userData.nueva = cat; escena.add(m); zonas.push(m); };
   zona("varilla", 1.55, 1.85, -1.925, 2.05, 0.04); zona("martillo", 1.05, 1.85, -0.625, 2.05, 0.04); zona("gancho", 1.3, 1.85, 0.55, 2.05, 0.04);
-  [["inercial", -2.25], ["desmontaje", -1.25], ["varios", -0.25], ["bateria", 0.75]].forEach(([cat, x]) => zona(cat, 1.0, 0.85, x, 0.99, 0.5, -Math.PI / 2));
+  [["inercial", -2.25], ["desmontaje", -1.25], ["herramienta", -0.25], ["bateria", 0.75]].forEach(([cat, x]) => zona(cat, 1.0, 0.85, x, 0.99, 0.5, -Math.PI / 2));
+  zona("varios", 3.8, 0.7, -0.75, 0.205, 0.5, -Math.PI / 2);   // estante de abajo de la mesa
   zona("valija", 1.64, 2.45, -3.46, 1.225, 1.8, 0, Math.PI / 2);
   zona("lampara", 1.55, 1.7, 2.22, 0.01, 1.35, -Math.PI / 2);
   // Lo que hay en un punto de la pantalla (-1..1): una herramienta (userData.id) o una zona para agregar (userData.nueva)

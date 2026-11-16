@@ -11,7 +11,7 @@ import { setTopbar } from "./shell.js";
 // Secciones del taller, en el orden de la lista
 const CATS = {
   varilla: "Varillas", martillo: "Martillos y punzones", inercial: "Martillos inerciales y pullers", gancho: "Ganchos y accesorios",
-  lampara: "Lámparas", bateria: "Baterías", carro: "Carro", valija: "Valijas", desmontaje: "Desmontaje", varios: "Varios"
+  lampara: "Lámparas", bateria: "Baterías", carro: "Carro", valija: "Valijas", desmontaje: "Desmontaje", herramienta: "Herramientas", varios: "Varios"
 };
 const CONTENEDOR = ["valija", "carro"];
 // Tipos de la primera versión → los de ahora
@@ -20,17 +20,20 @@ const VIEJO = { pantalla: "lampara", pie: "lampara", pegamento: "inercial", limp
 const SUGERENCIAS = {
   varilla: ["Varilla de puerta", "Varilla cola de ballena", "Varilla de capot", "Varilla de techo", "Varilla doble punta", "Varilla de guardabarros"],
   martillo: ["Martillo de goma", "Martillo de teflón", "Martillo de bola", "Punzón de nylon", "Punzón de metal", "Tap-down", "Juego de puntas intercambiables"],
-  inercial: ["Martillo inercial", "Mini lifter", "Puller en T", "Puente de tracción", "Pistola de pegamento", "Barras de pegamento", "Tabs de tracción", "Removedor de pegamento"],
+  inercial: ["Martillo inercial", "Mini lifter", "Puller en T", "Puente de tracción", "Pistola de pegamento a batería", "Pistola de pegamento a cable", "Barras de pegamento", "Tabs de tracción", "Removedor de pegamento"],
   gancho: ["Gancho de ventanilla", "Gancho en S", "Ventosa", "Cuña inflable", "Protector de ventanilla", "Puntas de repuesto"],
   lampara: ["Lámpara de mano", "Lámpara LED de líneas", "Pantalla reflectora de mano", "Lámpara con pie", "Trípode para lámpara"],
   bateria: ["Batería 18V 6.0Ah", "Batería 18V 5.0Ah", "Batería 18V 3.0Ah", "Batería de auto 12V 65Ah", "Batería de gel 12V 7Ah"],
   carro: ["Carro común", "Carro alto"],
   valija: ["Valija larga de varillas", "Valija vertical con ruedas", "Flight case con ruedas"],
   desmontaje: ["Saca grampas", "Kit de palancas plásticas", "Juego de tubos y llaves", "Destornilladores"],
-  varios: ["Spray con alcohol isopropílico", "Paños de microfibra", "Linterna de cabeza", "Cinta de enmascarar"]
+  herramienta: ["Taladro", "Taladro a batería", "Máquina de taladro", "Máquina de pulir", "Máquina Dentshock", "Máquina Hotbox", "Pistola de calor a batería", "Pistola de calor a cable"],
+  varios: ["Paños de microfibra", "Compound de pulido", "Pads del taladro", "Lijas", "Spray con alcohol isopropílico", "Linterna de cabeza", "Cinta de enmascarar"]
 };
 // La sección sale del nombre: igual a una sugerencia, o con una palabra clave
-const CLAVES = [[/varilla/i, "varilla"], [/bater[ií]a/i, "bateria"], [/l[aá]mpara|pantalla/i, "lampara"], [/inercial|puller|lifter|pegamento|\btabs?\b/i, "inercial"],
+// (el orden importa: "Pistola de calor a batería" es herramienta, no batería; "Pads del taladro" es varios, no herramienta)
+const CLAVES = [[/varilla/i, "varilla"], [/microfibra|compound|\bpads?\b|\blijas?\b/i, "varios"], [/pegamento|inercial|puller|lifter|\btabs?\b/i, "inercial"],
+  [/taladro|pulir|pulidora|dentshock|hotbox|pistola de calor|amoladora/i, "herramienta"], [/bater[ií]a/i, "bateria"], [/l[aá]mpara|pantalla/i, "lampara"],
   [/martillo|punz[oó]n|tap.?down/i, "martillo"], [/gancho|ventosa|cu[ñn]a/i, "gancho"], [/valija|flight/i, "valija"], [/\bcarro\b/i, "carro"]];
 const catDe = nombre => Object.keys(SUGERENCIAS).find(c => SUGERENCIAS[c].some(s => s.toLowerCase() === nombre.trim().toLowerCase()))
   || CLAVES.find(([re]) => re.test(nombre))?.[1];
@@ -48,7 +51,7 @@ const modeloDe = (cat, nombre) => cat === "carro" ? (/alto/i.test(nombre) ? "alt
 const nombreModelo = i => MODELOS[i.cat]?.l.find(([k]) => k === i.modelo)?.[1] || MODELOS[i.cat]?.l[0][1];
 const ahDe = nombre => { const m = /(\d+(?:[.,]\d+)?)\s*ah\b/i.exec(nombre); return m ? parseFloat(m[1].replace(",", ".")) : null; };
 { console.assert(Object.keys(SUGERENCIAS).every(c => CATS[c]) && Object.values(VIEJO).every(c => CATS[c]) && catDe(" mini LIFTER ") === "inercial" && !catDe("xyz")
-    && catDe("Varilla 60cm") === "varilla" && catDe("Batería Makita") === "bateria"
+    && catDe("Varilla 60cm") === "varilla" && catDe("Batería Makita") === "bateria" && catDe("Taladro a batería") === "herramienta" && catDe("Pistola de pegamento a batería") === "inercial" && catDe("Pads del taladro") === "varios" && catDe("Pistola de calor 2000W") === "herramienta"
     && modeloDe("carro", "Carro alto") === "alto" && SUGERENCIAS.valija.map(n => modeloDe("valija", n)).join() === "larga,vertical,flight"
     && modeloDe("lampara", "Pantalla reflectora de mano") === "mano" && modeloDe("bateria", "Batería de auto 12V 65Ah") === "auto" && modeloDe("bateria", "Batería 18V 6.0Ah") === "chica"
     && ahDe("Batería 18V 6.0Ah") === 6 && ahDe("12V 7,5 Ah") === 7.5 && ahDe("sin dato") === null, "inventario: tipos"); }
@@ -72,6 +75,7 @@ const DIBUJO = {
   valijaVertical: `<svg viewBox="0 0 40 92" class="m-vertical"><path d="M14 8V3h12v5"/><rect x="4" y="8" width="32" height="74" rx="5" class="lleno"/><path d="M10 20h20M10 30h20M10 40h20M10 50h20M10 60h20M10 70h20"/><circle cx="10" cy="86" r="3"/><circle cx="30" cy="86" r="3"/></svg>`,
   valijaFlight: `<svg viewBox="0 0 100 82" class="m-flight"><rect x="4" y="4" width="92" height="6" rx="2" class="lleno"/><path d="M14 10v42M86 10v42M24 10v42M76 10v42"/><rect x="4" y="52" width="92" height="20" rx="2" class="lleno"/><circle cx="12" cy="77" r="3.5"/><circle cx="88" cy="77" r="3.5"/></svg>`,
   desmontaje: `<svg viewBox="0 0 64 24"><rect x="2" y="5" width="24" height="14" rx="5" class="lleno"/><path d="M26 12h26l8-5"/></svg>`,
+  herramienta: `<svg viewBox="0 0 60 50"><rect x="6" y="6" width="40" height="16" rx="6" class="lleno"/><path d="M46 14h12"/><rect x="15" y="22" width="11" height="17" rx="3"/><rect x="10" y="39" width="22" height="8" rx="2" class="lleno"/></svg>`,
   varios: `<svg viewBox="0 0 40 34"><rect x="3" y="8" width="34" height="23" rx="3" class="lleno"/><path d="M3 15h34M17 15v5h6v-5"/></svg>`
 };
 const VARIANTE = { carro: { alto: "carroAlto" }, lampara: { mano: "lamparaMano" }, bateria: { auto: "bateriaAuto" }, valija: { vertical: "valijaVertical", flight: "valijaFlight" } };
@@ -132,8 +136,8 @@ export async function vistaInventario(view) {
       ${en3D ? `<div class="inv-3d" id="inv-3d"><p class="inv-3d-carga">Cargando el taller en 3D…</p><span class="inv-3d-tip" hidden></span></div>` : `
       <div class="inv-sala" role="group" aria-label="Taller">
         <div class="inv-pared">${zona("varilla", "inv-varillas")}${zona("martillo")}${zona("gancho")}</div>
-        <div class="inv-mesa"><div class="inv-tapa">${zona("inercial")}${zona("desmontaje")}${zona("varios")}${zona("bateria")}</div>
-          <div class="inv-bajo">${zona("valija")}${zona("carro")}</div></div>
+        <div class="inv-mesa"><div class="inv-tapa">${zona("inercial")}${zona("desmontaje")}${zona("herramienta")}${zona("bateria")}</div>
+          <div class="inv-bajo">${zona("valija")}${zona("carro")}${zona("varios")}</div></div>
         <div class="inv-piso">${zona("lampara")}</div>
       </div>`}
       <p class="muted small">${items.length ? `${total} ${total === 1 ? "herramienta" : "herramientas"}. Tocá una para verla; arrastrala para acomodarla o para guardarla en una valija o un carro.` : "Todavía no cargaste herramientas: tocá el + de una sección del taller."}</p>
