@@ -168,7 +168,7 @@ export async function montar3D(el, items, alTocar, alAgregar = () => {}, alMover
       g.add(en(caja(0.045, 0.12, 0.05, negro), -0.03, 0.105, 0), en(caja(0.09, 0.045, 0.08, negro), -0.03, 0.0225, 0));
       g.rotation.y = 0.4; return g; },
     varios: m => { const g = new T.Group(); g.add(en(caja(0.16, 0.1, 0.13, m), 0, 0.05, 0)); return g; },
-    valija: (m, i) => i.modelo === "vertical" ? valijaVertical(m) : i.modelo === "flight" ? valijaFlight(m) : valijaLarga(m),
+    valija: (m, i) => i.modelo === "mesa" ? mesaSacabollos(m) : i.modelo === "vertical" ? valijaVertical(m) : i.modelo === "flight" ? valijaFlight(m) : valijaLarga(m),
     carro: (m, i) => i.modelo === "alto" ? carroAlto(m) : carroComun(m)
   };
   // Carro común (tipo utilitario, 16:9): dos bandejas, y arriba unas plaquetas perforadas que sobresalen para colgar varillas
@@ -221,6 +221,24 @@ export async function montar3D(el, items, alTocar, alAgregar = () => {}, alMover
     return g;
   }
   // Flight case (tipo FAST): caja abierta con cantoneras de aluminio y ruedas; con los caños y la tapa arriba se arma como carro
+  // Mesa sacabollos: tapa oscura, 4 patas con ruedas, tijeras en X a los costados y soportes en U en las esquinas (para apoyar el panel)
+  function mesaSacabollos(m) {
+    const g = new T.Group(), azul = mat(0x24448a, { metalness: .4, roughness: .45 }), tubo = mat(0xb9bec6, { metalness: .7, roughness: .3 }), L = 0.8, A = 0.86;
+    g.add(en(caja(L, 0.035, L, m), 0, A, 0));
+    for (const x of [-1, 1]) for (const z of [-1, 1]) {
+      g.add(en(cil(0.018, A - 0.07, azul, 10), x * 0.37, (A + 0.07) / 2, z * 0.37)); rueda(g, x * 0.37, z * 0.37);
+      // soporte en U: sube desde la esquina, va hacia afuera y vuelve a subir
+      g.add(en(cil(0.012, 0.22, tubo, 8), x * 0.37, A + 0.11, z * 0.37), en(cil(0.012, 0.1, tubo, 8), x * 0.42, A + 0.22, z * 0.37, 0, 0, Math.PI / 2));
+      g.add(en(cil(0.012, 0.12, tubo, 8), x * 0.47, A + 0.28, z * 0.37), en(cil(0.02, 0.04, mat(0x111214), 8), x * 0.47, A + 0.35, z * 0.37));
+    }
+    // tijeras en X (dos diagonales por costado)
+    const diag = Math.hypot(0.74, A - 0.15), ang = Math.atan2(A - 0.15, 0.74);
+    for (const z of [-0.37, 0.37]) for (const s of [-1, 1]) g.add(en(cil(0.008, diag, mat(0x16171a), 6), 0, (A + 0.07) / 2, z, 0, 0, s * (Math.PI / 2 - ang)));
+    for (const x of [-0.37, 0.37]) for (const s of [-1, 1]) g.add(en(cil(0.008, diag, mat(0x16171a), 6), x, (A + 0.07) / 2, 0, s * (Math.PI / 2 - ang), 0, 0));
+    const tapa = { y: A + 0.018, w: L - 0.1, d: L - 0.1 };
+    g.userData.lugar = { acostar: tapa, estantes: [tapa] };
+    return g;
+  }
   function valijaFlight(m) {
     const g = new T.Group(), alu = mat(0xc9ced6, { metalness: .7, roughness: .35 }), W = 1.3, D = 0.42, H = 0.32, y0 = 0.09;
     g.add(en(caja(W, 0.02, D, m), 0, y0, 0));
@@ -277,7 +295,13 @@ export async function montar3D(el, items, alTocar, alAgregar = () => {}, alMover
   const EST = { x: -3.27, z: 1.8, alturas: [0.05, 0.62, 1.19, 1.76, 2.33] }, mEst = metal();
   for (const x of [-3.47, -3.07]) for (const z of [1.0, 2.6]) escena.add(en(caja(0.04, 2.45, 0.04, mEst), x, 1.225, z));
   EST.alturas.forEach(y => escena.add(en(caja(0.44, 0.03, 1.64, mat(0x8d939b, { metalness: .4, roughness: .5 })), EST.x, y, EST.z)));
-  const valijas = sueltas("valija"), modelo = i => i.modelo === "vertical" || i.modelo === "flight" ? i.modelo : "larga";
+  const valijas = sueltas("valija"), modelo = i => ["vertical", "flight", "mesa"].includes(i.modelo) ? i.modelo : "larga";
+  // Mesas sacabollos: sueltas por el taller (como los carros), con lo que tienen arriba
+  const MESAS = [[0.9, 5.3, 0.2], [-1.4, 5.6, -0.15], [2.3, 4.6, 0.4], [-0.3, 6.6, 0], [1.6, 6.7, -0.3]];
+  valijas.filter(i => modelo(i) === "mesa").forEach((i, k) => {
+    const [x, z, giro] = MESAS[k % MESAS.length], g = poner(i, x, 0, Math.min(FONDO - 0.6, z + Math.floor(k / MESAS.length) * 0.9));
+    g.rotation.y = giro; llenar(g, items.filter(d => d.en === i.id));
+  });
   const abrir = (i, x, y, z) => { const g = poner(i, x, y, z); g.rotation.y = Math.PI / 2; llenar(g, items.filter(d => d.en === i.id)); };
   const largas = valijas.filter(i => modelo(i) === "larga");
   largas.slice(0, EST.alturas.length).forEach((i, k) => abrir(i, EST.x, EST.alturas[k] + 0.015, EST.z));

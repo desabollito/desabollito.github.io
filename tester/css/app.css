@@ -2743,7 +2743,7 @@ button.aj-item:hover, a.aj-item:hover { background: var(--surface-2); }
 .inv-varilla { width: 18px; } .inv-varilla svg { width: 100%; height: 100%; } .inv-varilla path { vector-effect: non-scaling-stroke; }
 .inv-martillo svg { width: 28px; height: 46px; } .inv-inercial svg { width: 22px; height: 62px; } .inv-gancho svg { width: 24px; height: 50px; }
 .inv-lampara .m-pie { width: 48px; height: 128px; } .inv-bateria svg { width: 40px; height: 32px; } .inv-obj.inv-bateria .m-auto { width: 50px; height: 38px; } .inv-carro svg { width: 74px; height: 62px; } .inv-carro.inv-obj svg[viewBox="0 0 54 96"] { width: 50px; height: 90px; }
-.inv-desmontaje svg { width: 50px; height: 20px; } .inv-varios svg { width: 32px; height: 28px; } .inv-obj.inv-valija .m-larga { width: 96px; height: 26px; } .inv-obj.inv-valija .m-vertical { width: 30px; height: 70px; } .inv-obj.inv-valija .m-flight { width: 66px; height: 54px; }
+.inv-desmontaje svg { width: 50px; height: 20px; } .inv-varios svg { width: 32px; height: 28px; } .inv-obj.inv-valija .m-larga { width: 96px; height: 26px; } .inv-obj.inv-valija .m-vertical { width: 30px; height: 70px; } .inv-obj.inv-valija .m-flight { width: 66px; height: 54px; } .inv-obj.inv-valija .m-mesa { width: 62px; height: 57px; }
 .inv-varilla { --c: var(--ink-2); } .inv-lampara { --c: var(--ink); } .inv-carro { --c: var(--ink-2); } .inv-martillo { --c: #e2a93a; } .inv-inercial { --c: #ec6a38; } .inv-bateria { --c: var(--ink-2); }
 .inv-herramienta { --c: #4f8fe8; } .inv-herramienta svg { width: 48px; height: 40px; } .inv-varios { --c: #9aa3ad; }
 .inv-herramienta .m-induccion { width: 58px; height: 38px; } .inv-herramienta .cable { stroke-width: 2; } .inv-herramienta .lapiz { stroke-width: 6; }
