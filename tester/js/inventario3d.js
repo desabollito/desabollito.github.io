@@ -22,7 +22,7 @@ export async function montar3D(el, items, alTocar) {
     return t;
   };
   const agujeros = (fondo, hueco) => (g, w, h) => { g.fillStyle = fondo; g.fillRect(0, 0, w, h); g.fillStyle = hueco; g.beginPath(); g.arc(w / 2, h / 2, 6, 0, 7); g.fill(); };
-  const texPerforada = canvasTex(64, 64, agujeros("#4a4e55", "#1c1e21"), [26, 12]);
+  const texPerforada = canvasTex(64, 64, agujeros("#8a8f97", "#2a2c30"), [26, 12]);
   const texRejilla = canvasTex(64, 64, agujeros("#c9ced6", "#2a2c30"), [14, 2]);
   const texRayas = canvasTex(64, 64, (g, w, h) => { g.fillStyle = "#f4f6f8"; g.fillRect(0, 0, w, h); g.fillStyle = "#15171a"; for (let y = 4; y < h; y += 16) g.fillRect(0, y, w, 8); });
   // Espuma tipo huevera de las valijas (una textura por tamaño, para que las ondas no se estiren)
@@ -39,8 +39,8 @@ export async function montar3D(el, items, alTocar) {
     g.fillStyle = base; g.fillRect(0, 0, w, h);
     for (let i = 0; i < n; i++) { g.fillStyle = `rgba(${Math.random() < .5 ? "0,0,0" : "255,255,255"},${Math.random() * a})`; g.fillRect(Math.random() * w, Math.random() * h, 3, 3); }
   };
-  const texPared = canvasTex(256, 256, ruido("#3b3f44", 2200, .06), [3, 2]);
-  const texPiso = canvasTex(256, 256, (g, w, h) => { ruido("#2a2c30", 1500, .04)(g, w, h); g.strokeStyle = "rgba(0,0,0,.45)"; g.lineWidth = 3; g.strokeRect(0, 0, w, h); }, [6, 9]);
+  const texPared = canvasTex(256, 256, ruido("#a3a7ad", 2200, .07), [3, 2]);
+  const texPiso = canvasTex(256, 256, (g, w, h) => { ruido("#6d7077", 1500, .05)(g, w, h); g.strokeStyle = "rgba(0,0,0,.45)"; g.lineWidth = 3; g.strokeRect(0, 0, w, h); }, [6, 9]);
 
   const escena = new T.Scene();
   escena.background = new T.Color(0x16171a);
@@ -69,12 +69,12 @@ export async function montar3D(el, items, alTocar) {
   escena.add(en(plano(FONDO, 3.4, mat(0xffffff, { map: texPared, roughness: .95 })), 3.5, 1.7, FONDO / 2, 0, -Math.PI / 2));
   escena.add(en(plano(7, 3.4, mat(0xffffff, { map: texPared, roughness: .95 })), 0, 1.7, FONDO, 0, Math.PI));
   escena.add(en(plano(7, FONDO, mat(0xffffff, { map: texPiso, roughness: .9 })), 0, 0, FONDO / 2, -Math.PI / 2));
-  escena.add(en(plano(7, FONDO, mat(0x3a3d42, { roughness: 1 })), 0, 3.4, FONDO / 2, Math.PI / 2));
+  escena.add(en(plano(7, FONDO, mat(0xe4e6e9, { roughness: 1 })), 0, 3.4, FONDO / 2, Math.PI / 2));
   // Paneles de luz en el techo (6), cada uno con su luz: toda la habitación iluminada
   const LUCES = [-2, 0, 2].flatMap(x => [1.8, 5.4].map(z => [x, z]));
   for (const [x, z] of LUCES) {
     escena.add(en(caja(1.1, 0.04, 0.5, new T.MeshStandardMaterial({ color: 0xffffff, emissive: 0xfff4e6, emissiveIntensity: 1.6 })), x, 3.38, z));
-    const l = new T.PointLight(0xfff1de, 9, 0, 2); l.position.set(x, 3.2, z); escena.add(l);
+    const l = new T.PointLight(0xfff1de, 28, 0, 1.6); l.position.set(x, 3.2, z); escena.add(l);
   }
   escena.add(en(caja(0.5, 3.4, 0.5, mat(0x5a4038, { roughness: .8 })), 3.25, 1.7, 0.25));
   for (const y of [0.6, 2.6]) escena.add(en(caja(0.52, 0.08, 0.52, mat(0x8a5a40)), 3.25, y, 0.25));
@@ -87,8 +87,8 @@ export async function montar3D(el, items, alTocar) {
   escena.add(en(caja(3.9, 0.04, 0.75, mMesa), -0.75, 0.18, 0.5));
 
   // ── Luces: luz general pareja, un foco sobre la mesa (sombras) y un toque naranja al costado ──
-  escena.add(new T.HemisphereLight(0xeef2f8, 0x4a4038, 1.7), new T.AmbientLight(0xffffff, 0.35));
-  render.toneMappingExposure = 1.15;
+  escena.add(new T.HemisphereLight(0xf4f6fa, 0x8a8178, 2.2), new T.AmbientLight(0xffffff, 0.6));
+  render.toneMappingExposure = 1.3;
   const foco = new T.SpotLight(0xffe2c0, 70, 0, 1.0, 0.6, 2);
   foco.position.set(-0.3, 3.4, 2.6); foco.target.position.set(-0.3, 0.6, 0.8);
   foco.castShadow = true; foco.shadow.mapSize.set(1024, 1024); foco.shadow.bias = -0.0004;
@@ -268,7 +268,7 @@ export async function montar3D(el, items, alTocar) {
   // ── Cámara en primera persona, a la altura de los ojos: arrastrar mira alrededor; WASD / flechas (o los botones en el celular)
   //    caminan; la rueda o el pellizco avanzan y retroceden. Tocar una herramienta la abre.
   // shortcut: solo choca con las paredes, no con los muebles; agregar cajas de choque si molesta atravesar la mesa o los carros
-  const OJOS = 1.6, INICIO = { x: -0.3, z: 4.6, yaw: 0, pitch: -0.15 };
+  const OJOS = 1.6, INICIO = { x: -0.5, z: 4.4, yaw: 0.1, pitch: 0.1 };
   const v = { ...INICIO };
   const caminar = (ad, de) => {   // ad: adelante (+) / atrás (-); de: derecha (+) / izquierda (-)
     const fx = -Math.sin(v.yaw), fz = -Math.cos(v.yaw);
@@ -340,7 +340,13 @@ export async function montar3D(el, items, alTocar) {
   const soltarPad = e => { const b = e.target.closest("[data-k]"); if (b) teclas.delete(b.dataset.k); };
   pad.addEventListener("pointerup", soltarPad); pad.addEventListener("pointercancel", soltarPad);
   pad.addEventListener("contextmenu", e => e.preventDefault());
-  el.append(centrar, pad);
+  // Cartel con los controles; se va al primer movimiento
+  const ayuda = document.createElement("p");
+  ayuda.className = "inv-3d-ayuda";
+  ayuda.textContent = matchMedia("(pointer: coarse)").matches ? "Arrastrá para mirar · caminá con los botones o pellizcando" : "Arrastrá para mirar · caminá con WASD, flechas o la rueda";
+  const sacarAyuda = () => ayuda.classList.add("fuera");
+  c.addEventListener("pointerdown", sacarAyuda, { once: true }); c.addEventListener("wheel", sacarAyuda, { once: true }); c.addEventListener("keydown", sacarAyuda, { once: true }); pad.addEventListener("pointerdown", sacarAyuda, { once: true });
+  el.append(centrar, pad, ayuda);
 
   const medir = () => {
     const w = el.clientWidth, h = el.clientHeight; if (!w || !h) return;
@@ -365,7 +371,7 @@ export async function montar3D(el, items, alTocar) {
   function desarmar() {
     if (!vivo) return; vivo = false; ro.disconnect();
     escena.traverse(o => { o.geometry?.dispose(); if (o.material) { o.material.map?.dispose(); o.material.dispose(); } });
-    render.dispose(); c.remove(); centrar.remove(); pad.remove();
+    render.dispose(); c.remove(); centrar.remove(); pad.remove(); ayuda.remove();
   }
   cuadro();
   return desarmar;

@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.23.1", items: ["3D: habitación clara y bien iluminada (paredes, piso y techo claros, paneles de luz más fuertes); arrancás más adentro y un cartel muestra cómo mirar y caminar."] },
   { v: "4.23.0", items: ["3D en primera persona: arrastrá para mirar alrededor y caminá con WASD / flechas, la rueda del mouse o, en el celular, los botones de abajo a la izquierda (o pellizcando).", "La habitación del 3D ahora es cerrada, con techo y paneles de luz: está iluminada en toda su extensión."] },
   { v: "4.22.1", items: ["3D: las valijas se ven abiertas, con espuma tipo huevera y lo que tienen adentro (la larga con la tapa levantada, la vertical con la puerta abierta y el flight case abierto)."] },
   { v: "4.22.0", items: ["Inventario: lo que está dentro de una valija también se ve en la pared (y lo del carro, en la pared y en el carro).", "Valijas PDR en tres modelos: larga de varillas, vertical con ruedas y flight case (se arma como carro).", "3D: estantería en la pared izquierda con las valijas largas a distintas alturas; las verticales y los flight cases al lado, en el piso."] },
