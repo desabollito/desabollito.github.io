@@ -12,7 +12,7 @@ const largo = id => 0.9 + ([...id].reduce((a, c) => a + c.charCodeAt(0), 0) % 38
 const lim = (v, a, b) => Math.max(a, Math.min(b, v));
 
 // Devuelve una función para desarmar la escena
-export async function montar3D(el, items, alTocar) {
+export async function montar3D(el, items, alTocar, alAgregar = () => {}) {
   const T = await cargarThree();
   if (!el.isConnected) return () => {};
   const canvasTex = (w, h, dibujar, rep) => {
@@ -281,50 +281,88 @@ export async function montar3D(el, items, alTocar) {
   };
   const tip = el.querySelector(".inv-3d-tip");
   const ray = new T.Raycaster(), p = new T.Vector2();
-  let sobre = null;
-  const tocado = e => {
-    const r = c.getBoundingClientRect();
-    p.set((e.clientX - r.left) / r.width * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
-    ray.setFromCamera(p, camara);
-    let o = ray.intersectObjects(tocables, true)[0]?.object;
-    while (o && !o.userData.id) o = o.parent;
+  // Zonas vacías para agregar con un click (van detrás de las herramientas: si hay una adelante, gana ella)
+  const NOMBRE = { varilla: "varillas", martillo: "martillos y punzones", gancho: "ganchos y accesorios", inercial: "martillos inerciales y pullers", desmontaje: "desmontaje", varios: "varios", valija: "valijas", lampara: "lámparas" };
+  const zonas = [], invisible = new T.MeshBasicMaterial({ visible: false });
+  const zona = (cat, w, h, x, y, z, rx = 0, ry = 0) => { const m = en(new T.Mesh(new T.PlaneGeometry(w, h), invisible), x, y, z, rx, ry); m.userData.nueva = cat; escena.add(m); zonas.push(m); };
+  zona("varilla", 1.55, 1.85, -1.925, 2.05, 0.04); zona("martillo", 1.05, 1.85, -0.625, 2.05, 0.04); zona("gancho", 1.3, 1.85, 0.55, 2.05, 0.04);
+  [["inercial", -2.1], ["desmontaje", -0.8], ["varios", 0.55]].forEach(([cat, x]) => zona(cat, 1.3, 0.85, x, 0.99, 0.5, -Math.PI / 2));
+  zona("valija", 1.64, 2.45, -3.46, 1.225, 1.8, 0, Math.PI / 2);
+  zona("lampara", 1.55, 1.7, 2.22, 0.01, 1.35, -Math.PI / 2);
+  // Lo que hay en un punto de la pantalla (-1..1): una herramienta (userData.id) o una zona para agregar (userData.nueva)
+  const apuntar = (nx, ny) => {
+    p.set(nx, ny); ray.setFromCamera(p, camara);
+    let o = ray.intersectObjects([...tocables, ...zonas], true)[0]?.object;
+    while (o && !o.userData.id && !o.userData.nueva) o = o.parent;
     return o || null;
   };
+  const enPantalla = e => { const r = c.getBoundingClientRect(); return [(e.clientX - r.left) / r.width * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1]; };
   // Resalta solo esa herramienta (no lo que lleva adentro un carro)
   const resaltar = (g, on) => { const rec = o => { if (o !== g && o.userData.id) return; if (o.material?.emissive && !o.material.emissiveMap) o.material.emissive.setHex(on ? 0x553311 : 0); o.children.forEach(rec); }; if (g) rec(g); };
+  let sobre = null;
+  const mostrar = (o, x, y) => {   // resalta y pone el cartelito (x, y en px dentro del lienzo)
+    const g = o?.userData.id ? o : null;
+    if (g !== sobre) { resaltar(sobre, false); resaltar(g, true); sobre = g; }
+    if (!tip) return;
+    tip.hidden = !o;
+    if (o) { tip.textContent = o.userData.id ? o.userData.nombre + (o.userData.cant > 1 ? ` ×${o.userData.cant}` : "") : "+ Agregar " + NOMBRE[o.userData.nueva]; tip.style.left = lim(x, 60, c.clientWidth - 60) + "px"; tip.style.top = y + "px"; }
+  };
+  const elegir = o => {
+    if (!o) return;
+    if (document.pointerLockElement === c) document.exitPointerLock();   // para poder usar la ventana que se abre
+    if (o.userData.id) alTocar(o.userData.id); else alAgregar(o.userData.nueva);
+  };
+
+  // Computadora: el primer click "entra" (captura el mouse) y desde ahí mover el mouse mira, como en un juego;
+  // click = abrir o agregar lo que está en la mira; Esc suelta el mouse. Celular: arrastrar mira, tocar abre.
+  const conMira = "requestPointerLock" in c && !matchMedia("(pointer: coarse)").matches;
+  let bloqueado = false;
+  const mira = document.createElement("span"); mira.className = "inv-3d-mira"; mira.hidden = true;
   const punteros = new Map();
   let ini = null, pellizco = 0;
   c.addEventListener("pointerdown", e => {
+    if (e.pointerType === "mouse" && conMira) {
+      if (e.button !== 0) return;
+      if (!bloqueado) { const r = c.requestPointerLock(); r?.catch?.(() => {}); }
+      else elegir(apuntar(0, 0));
+      return;
+    }
     punteros.set(e.pointerId, [e.clientX, e.clientY]); c.setPointerCapture(e.pointerId);
     ini = punteros.size === 1 ? [e.clientX, e.clientY] : null;
     if (punteros.size === 2) { const [a, b] = [...punteros.values()]; pellizco = Math.hypot(a[0] - b[0], a[1] - b[1]); }
   });
+  c.addEventListener("mousemove", e => { if (bloqueado) { v.yaw -= e.movementX * 0.0025; v.pitch -= e.movementY * 0.0025; } });
   c.addEventListener("pointermove", e => {
     const ant = punteros.get(e.pointerId);
     if (ant) {
       punteros.set(e.pointerId, [e.clientX, e.clientY]);
-      if (punteros.size === 1) { v.yaw += (e.clientX - ant[0]) * 0.004; v.pitch += (e.clientY - ant[1]) * 0.004; }   // se "agarra" la escena
+      const dx = e.clientX - ant[0], dy = e.clientY - ant[1], sentido = e.pointerType === "mouse" ? -1 : 1;   // mouse: hacia donde lo movés; dedo: se "agarra" la escena
+      if (punteros.size === 1) { v.yaw += sentido * dx * 0.004; v.pitch += sentido * dy * 0.004; }
       else if (punteros.size === 2) { const [a, b] = [...punteros.values()], d = Math.hypot(a[0] - b[0], a[1] - b[1]); if (pellizco) caminar((d - pellizco) * 0.01, 0); pellizco = d; }
       if (tip) tip.hidden = true;
       return;
     }
-    if (e.pointerType !== "mouse") return;
-    const g = tocado(e);
-    if (g !== sobre) { resaltar(sobre, false); resaltar(g, true); sobre = g; }
-    c.style.cursor = g ? "pointer" : "grab";
-    if (tip) { tip.hidden = !g; if (g) { const r = c.getBoundingClientRect(); tip.textContent = g.userData.nombre + (g.userData.cant > 1 ? ` ×${g.userData.cant}` : ""); tip.style.left = lim(e.clientX - r.left, 60, r.width - 60) + "px"; tip.style.top = (e.clientY - r.top) + "px"; } }
+    if (e.pointerType !== "mouse" || bloqueado) return;
+    const r = c.getBoundingClientRect();
+    mostrar(apuntar(...enPantalla(e)), e.clientX - r.left, e.clientY - r.top);
+    c.style.cursor = conMira ? "crosshair" : "grab";
   });
   const soltar = e => {
+    if (!punteros.has(e.pointerId)) return;
     punteros.delete(e.pointerId); pellizco = 0;
-    if (ini && e.type === "pointerup" && Math.hypot(e.clientX - ini[0], e.clientY - ini[1]) < 8) { const g = tocado(e); if (g) alTocar(g.userData.id); }
+    if (ini && e.type === "pointerup" && Math.hypot(e.clientX - ini[0], e.clientY - ini[1]) < 8) elegir(apuntar(...enPantalla(e)));
     ini = null;
   };
   c.addEventListener("pointerup", soltar); c.addEventListener("pointercancel", soltar);
-  c.addEventListener("pointerleave", e => { if (e.pointerType === "mouse") { resaltar(sobre, false); sobre = null; if (tip) tip.hidden = true; } });
+  c.addEventListener("pointerleave", e => { if (e.pointerType === "mouse" && !bloqueado) mostrar(null); });
   c.addEventListener("wheel", e => { e.preventDefault(); caminar(-lim(e.deltaY, -100, 100) * 0.006, 0); }, { passive: false });
   const teclas = new Set();
   const TECLAS = ["w", "a", "s", "d", "arrowup", "arrowdown", "arrowleft", "arrowright"];
-  c.addEventListener("keydown", e => { const k = e.key.toLowerCase(); if (TECLAS.includes(k)) { e.preventDefault(); teclas.add(k); } });
+  c.addEventListener("keydown", e => {
+    const k = e.key.toLowerCase();
+    if (k === "escape") e.stopPropagation();   // Esc suelta el mouse; que no vuelva atrás de pantalla
+    if (TECLAS.includes(k)) { e.preventDefault(); teclas.add(k); }
+  });
   c.addEventListener("keyup", e => teclas.delete(e.key.toLowerCase()));
   c.addEventListener("blur", () => teclas.clear());
   c.addEventListener("pointerenter", e => { if (e.pointerType === "mouse") c.focus({ preventScroll: true }); });
@@ -340,13 +378,23 @@ export async function montar3D(el, items, alTocar) {
   const soltarPad = e => { const b = e.target.closest("[data-k]"); if (b) teclas.delete(b.dataset.k); };
   pad.addEventListener("pointerup", soltarPad); pad.addEventListener("pointercancel", soltarPad);
   pad.addEventListener("contextmenu", e => e.preventDefault());
-  // Cartel con los controles; se va al primer movimiento
+  // Cartel con los controles
   const ayuda = document.createElement("p");
   ayuda.className = "inv-3d-ayuda";
-  ayuda.textContent = matchMedia("(pointer: coarse)").matches ? "Arrastrá para mirar · caminá con los botones o pellizcando" : "Arrastrá para mirar · caminá con WASD, flechas o la rueda";
+  const TXT = !conMira ? "Arrastrá para mirar · caminá con los botones o pellizcando" : "Hacé click para mirar con el mouse · WASD o flechas para caminar";
+  ayuda.textContent = TXT;
+  let tAyuda = 0;
   const sacarAyuda = () => ayuda.classList.add("fuera");
-  c.addEventListener("pointerdown", sacarAyuda, { once: true }); c.addEventListener("wheel", sacarAyuda, { once: true }); c.addEventListener("keydown", sacarAyuda, { once: true }); pad.addEventListener("pointerdown", sacarAyuda, { once: true });
-  el.append(centrar, pad, ayuda);
+  if (!conMira) { c.addEventListener("pointerdown", sacarAyuda, { once: true }); pad.addEventListener("pointerdown", sacarAyuda, { once: true }); }
+  const alBloquear = () => {
+    bloqueado = document.pointerLockElement === c;
+    mira.hidden = !bloqueado;
+    if (!bloqueado) mostrar(null);
+    ayuda.textContent = bloqueado ? "Click: abrir la herramienta o agregar donde apuntás · Esc: soltar el mouse" : TXT;
+    ayuda.classList.remove("fuera"); clearTimeout(tAyuda); if (bloqueado) tAyuda = setTimeout(sacarAyuda, 4000);
+  };
+  document.addEventListener("pointerlockchange", alBloquear);
+  el.append(centrar, pad, ayuda, mira);
 
   const medir = () => {
     const w = el.clientWidth, h = el.clientHeight; if (!w || !h) return;
@@ -365,13 +413,16 @@ export async function montar3D(el, items, alTocar) {
       caminar(ad * 0.045, de * 0.045);
     }
     aplicar();
+    if (bloqueado) mostrar(apuntar(0, 0), c.clientWidth / 2, c.clientHeight / 2 - 16);   // lo que está en la mira
     render.render(escena, camara);
     requestAnimationFrame(cuadro);
   };
   function desarmar() {
     if (!vivo) return; vivo = false; ro.disconnect();
     escena.traverse(o => { o.geometry?.dispose(); if (o.material) { o.material.map?.dispose(); o.material.dispose(); } });
-    render.dispose(); c.remove(); centrar.remove(); pad.remove(); ayuda.remove();
+    document.removeEventListener("pointerlockchange", alBloquear);
+    if (document.pointerLockElement === c) document.exitPointerLock();
+    render.dispose(); c.remove(); centrar.remove(); pad.remove(); ayuda.remove(); mira.remove();
   }
   cuadro();
   return desarmar;

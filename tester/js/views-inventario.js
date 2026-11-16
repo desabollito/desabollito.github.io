@@ -114,7 +114,7 @@ export async function vistaInventario(view) {
     };
     if (en3D) {
       const caja = $("#inv-3d", view);
-      import("./inventario3d.js").then(m => m.montar3D(caja, items, id => de(id) && ver(de(id))))
+      import("./inventario3d.js").then(m => m.montar3D(caja, items, id => de(id) && ver(de(id)), cat => editar({ cat })))
         .then(q => { quitar3D = q; caja.querySelector(".inv-3d-carga")?.remove(); })
         .catch(e => { caja.querySelector(".inv-3d-carga").textContent = e.message; });
     }

@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.24.0", items: ["3D en computadora: hacé click para entrar y mirá moviendo el mouse, sin apretar (hacia donde lo movés). Click sobre una herramienta la abre; sobre un lugar vacío del tablero, la mesa, la estantería o las lámparas, agrega una de ese tipo. Esc suelta el mouse.", "En el celular sigue igual: arrastrar mira, tocar abre o agrega."] },
   { v: "4.23.2", items: ["3D: luz más equilibrada (ya no se ve lavado)."] },
   { v: "4.23.1", items: ["3D: habitación clara y bien iluminada (paredes, piso y techo claros, paneles de luz más fuertes); arrancás más adentro y un cartel muestra cómo mirar y caminar."] },
   { v: "4.23.0", items: ["3D en primera persona: arrastrá para mirar alrededor y caminá con WASD / flechas, la rueda del mouse o, en el celular, los botones de abajo a la izquierda (o pellizcando).", "La habitación del 3D ahora es cerrada, con techo y paneles de luz: está iluminada en toda su extensión."] },

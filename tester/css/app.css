@@ -2728,6 +2728,8 @@ button.aj-item:hover, a.aj-item:hover { background: var(--surface-2); }
 .inv-sub { margin: 4px 0 -4px; font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
 .inv-acciones { flex-wrap: wrap; justify-content: flex-end; }
 .inv-3d-centrar { position: absolute; top: 10px; right: 10px; padding: 6px 12px; border: 1px solid rgb(255 255 255 / .2); border-radius: 999px; background: rgb(0 0 0 / .55); color: #fff; font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; }
+.inv-3d-mira { position: absolute; left: 50%; top: 50%; width: 14px; height: 14px; margin: -7px 0 0 -7px; border: 2px solid rgb(255 255 255 / .9); border-radius: 50%; box-shadow: 0 0 0 1px rgb(0 0 0 / .5); pointer-events: none; }
+.inv-3d-mira[hidden] { display: none; }
 .inv-3d-ayuda { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); max-width: calc(100% - 24px); margin: 0; padding: 7px 14px; border-radius: 999px; background: rgb(0 0 0 / .6); color: #fff; font-size: 12.5px; font-weight: 600; text-align: center; pointer-events: none; transition: opacity .4s; }
 .inv-3d-ayuda.fuera { opacity: 0; }
 @media (pointer: coarse) { .inv-3d-ayuda { bottom: auto; top: 12px; left: 12px; transform: none; max-width: calc(100% - 110px); text-align: left; } }
