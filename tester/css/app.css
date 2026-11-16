@@ -308,7 +308,6 @@ body[data-ruta="nuevo"] .tabbar, body[data-ruta="editar"] .tabbar { display: non
   .side-user-meta strong { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .side-user-meta small { color: var(--muted); font-size: 12.5px; }
   .side-user .icon-btn { color: var(--muted); }
-  .side-user .icon-btn.on { background: var(--primary-soft); color: var(--primary); }
 }
 
 /* ── Tarjetas genéricas ───────────────────────────────────── */
@@ -2690,9 +2689,9 @@ button.aj-item:hover, a.aj-item:hover { background: var(--surface-2); }
 .inv-pared { grid-area: pared; display: grid; grid-template-columns: 1.3fr 1fr 1fr; gap: 10px; padding: 22px 10px 10px;
   background-image: radial-gradient(circle, rgb(127 127 127 / .38) 1.4px, transparent 1.9px); background-size: 14px 14px; }
 .inv-mesa { grid-area: mesa; }
-.inv-tapa { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; padding: 6px 10px 2px;
+.inv-tapa { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; padding: 6px 10px 2px;
   border-bottom: 9px solid color-mix(in srgb, var(--ink-2) 40%, var(--surface)); box-shadow: 0 6px 10px -4px rgb(0 0 0 / .35); }
-.inv-bajo { padding: 8px 10px 10px; background: rgb(0 0 0 / .14); }
+.inv-bajo { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding: 8px 10px 10px; background: rgb(0 0 0 / .14); }
 .inv-piso { grid-area: piso; display: flex; padding: 22px 8px 10px; border-left: 1px solid var(--line); background: rgb(0 0 0 / .08); }
 /* Cada zona: la etiqueta arriba (puede ocupar dos líneas, nunca se corta) y las herramientas abajo */
 .inv-zona { display: flex; flex-direction: column; gap: 6px; min-width: 0; width: 100%; }
@@ -2710,38 +2709,48 @@ button.aj-item:hover, a.aj-item:hover { background: var(--surface-2); }
 .inv-obj .lleno, .inv-foto .lleno { fill: currentColor; fill-opacity: .35; }
 .inv-obj .rayas, .inv-foto .rayas { opacity: .55; }
 .inv-varilla { width: 18px; } .inv-varilla svg { width: 100%; height: 100%; } .inv-varilla path { vector-effect: non-scaling-stroke; }
-.inv-martillo svg { width: 28px; height: 46px; } .inv-pantalla svg { width: 38px; height: 48px; } .inv-pie svg { width: 42px; height: 132px; }
-.inv-pegamento svg { width: 46px; height: 34px; } .inv-desmontaje svg { width: 50px; height: 20px; } .inv-limpieza svg { width: 22px; height: 44px; }
-.inv-otro svg { width: 32px; height: 28px; } .inv-valija svg { width: 70px; height: 44px; }
-.inv-varilla { --c: var(--ink-2); } .inv-pantalla, .inv-pie { --c: var(--ink); } .inv-martillo { --c: #e2a93a; } .inv-pegamento { --c: #ec6a38; }
-.inv-desmontaje { --c: #4ea2e4; } .inv-limpieza { --c: #4fbf92; } .inv-otro { --c: #9d92d4; } .inv-valija { --c: #8893a2; }
+.inv-martillo svg { width: 28px; height: 46px; } .inv-inercial svg { width: 22px; height: 62px; } .inv-gancho svg { width: 24px; height: 50px; }
+.inv-lampara svg { width: 42px; height: 132px; } .inv-carro svg { width: 74px; height: 62px; } .inv-carro.inv-obj svg[viewBox="0 0 54 96"] { width: 50px; height: 90px; }
+.inv-desmontaje svg { width: 50px; height: 20px; } .inv-varios svg { width: 32px; height: 28px; } .inv-valija svg { width: 70px; height: 44px; }
+.inv-varilla { --c: var(--ink-2); } .inv-lampara { --c: var(--ink); } .inv-carro { --c: var(--ink-2); } .inv-martillo { --c: #e2a93a; } .inv-inercial { --c: #ec6a38; }
+.inv-gancho { --c: #4ea2e4; } .inv-desmontaje { --c: #4fbf92; } .inv-varios { --c: #9d92d4; } .inv-valija { --c: #8893a2; }
+/* Lista: tocar la fila la muestra; el lápiz del final la edita */
+.inv-fila { padding: 0 6px 0 0; gap: 4px; }
+.inv-fila-ver { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 8px 4px 8px 14px; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.inv-fila-ver .aj-txt { min-width: 0; overflow-wrap: anywhere; }
+.inv-tilde { cursor: pointer; } .inv-tilde input { width: 20px; height: 20px; flex: none; accent-color: var(--primary); }
+/* Ver una herramienta */
+.inv-ver-dibujo { display: grid; place-items: center; height: 150px; border-radius: var(--r); background: var(--surface-2); color: var(--c); }
+.inv-ver-dibujo svg { width: auto; height: 120px; max-width: 70%; fill: none; stroke: currentColor; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+.inv-ver-dibujo .lleno { fill: currentColor; fill-opacity: .35; } .inv-ver-dibujo .rayas { opacity: .55; }
+.inv-datos { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px 16px; margin: 0; }
+.inv-datos dt { font-size: 12px; font-weight: 600; color: var(--muted); } .inv-datos dd { margin: 2px 0 0; font-weight: 600; overflow-wrap: anywhere; }
+.inv-sub { margin: 4px 0 -4px; font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+.inv-acciones { flex-wrap: wrap; justify-content: flex-end; }
+.inv-3d-centrar { position: absolute; top: 10px; right: 10px; padding: 6px 12px; border: 1px solid rgb(255 255 255 / .2); border-radius: 999px; background: rgb(0 0 0 / .55); color: #fff; font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; }
 .inv-n { position: absolute; top: -3px; right: -5px; min-width: 15px; padding: 0 4px; border-radius: 8px; background: var(--primary); color: #fff; font-size: 10px; line-height: 15px; }
 .inv-n:empty { display: none; }
 .inv-nom { display: none; }
 .inv-obj:hover .inv-nom, .inv-obj:focus-visible .inv-nom { display: block; position: absolute; bottom: calc(100% + 4px); left: 50%; transform: translateX(-50%); z-index: 2;
   padding: 3px 7px; border-radius: 6px; background: var(--ink); color: var(--bg); font-size: 11.5px; font-weight: 600; white-space: nowrap; pointer-events: none; }
-.inv-rapido { display: flex; gap: 8px; }
-.inv-rapido .field { flex: 1; }
-.inv-rapido select { width: auto; max-width: 42%; }
 .inv-foto { flex: none; display: grid; place-items: center; width: 38px; height: 38px; border-radius: 8px; object-fit: cover; background: var(--surface-2); color: var(--c); }
 .inv-foto svg { max-width: 26px; max-height: 28px; }
 .inv-foto-grande { display: block; width: 100%; max-height: 260px; object-fit: contain; border-radius: var(--r); background: var(--surface-2); }
 .inv-foto-campo { display: flex; flex-direction: column; gap: 8px; }
 /* Tablet angosta y celular: la mesa en 2×2; celular angosto: la pared en dos columnas y las pantallas de pie abajo, a lo ancho */
-@media (max-width: 760px) { .inv-tapa { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 760px) { .inv-tapa { grid-template-columns: repeat(2, minmax(0, 1fr)); } .inv-tapa > :last-child { grid-column: 1 / -1; } }
 @media (max-width: 520px) {
   .inv-sala { grid-template-columns: 1fr; grid-template-areas: "pared" "mesa" "piso"; }
   .inv-pared { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .inv-varillas { grid-column: 1 / -1; }
   .inv-piso { padding-top: 10px; border-left: 0; border-top: 1px solid var(--line); }
   .inv-piso .inv-objs { flex-direction: row; flex-wrap: wrap; align-items: flex-end; justify-content: flex-start; }
-  .inv-pie svg { width: 34px; height: 100px; }
-  .inv-rapido select { max-width: 46%; }
+  .inv-lampara svg { width: 34px; height: 100px; }
 }
-@media (max-width: 360px) { .inv-rapido { flex-wrap: wrap; } .inv-rapido .field { flex-basis: 100%; } .inv-rapido select { flex: 1; max-width: none; } }
 /* 3D: alto según la pantalla (en vertical más alto para que entre la mesa) */
-.inv-3d { position: relative; height: clamp(320px, 58vh, 640px); border: 1px solid var(--line); border-radius: var(--r-lg); overflow: hidden; background: #16171a; touch-action: pan-y; }
+.inv-3d { position: relative; height: clamp(320px, 58vh, 640px); border: 1px solid var(--line); border-radius: var(--r-lg); overflow: hidden; background: #16171a; touch-action: none; }
 .inv-3d canvas { display: block; width: 100%; height: 100%; }
+.inv-3d canvas:focus { outline: none; }
 @media (orientation: portrait) and (max-width: 760px) { .inv-3d { height: clamp(360px, 66vh, 620px); } }
 .inv-3d-carga { position: absolute; inset: 0; display: grid; place-items: center; margin: 0; padding: 16px; text-align: center; color: #a8acb3; }
 .inv-3d-tip { position: absolute; transform: translate(-50%, calc(-100% - 12px)); padding: 4px 8px; border-radius: 6px; background: rgb(0 0 0 / .78); color: #fff;
