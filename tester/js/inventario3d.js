@@ -97,7 +97,8 @@ export async function montar3D(el, items, alTocar, alAgregar = () => {}, alMover
   const naranja = new T.PointLight(0xff7a33, 9, 0, 2); naranja.position.set(2.7, 2.3, 1.3); escena.add(naranja);
 
   // ── Las herramientas ── (cada una es un grupo con userData.id para poder tocarla)
-  const tocables = [];
+  const tocables = [], flotantes = [];   // flotantes: las lámparas de mano (suben y bajan apenas)
+  const sinMovimiento = matchMedia("(prefers-reduced-motion: reduce)").matches;
   const dibujos = {
     varilla: (m, i) => { const g = new T.Group(), L = largo(i.id);
       g.add(en(cil(0.012, L, m, 8), 0, -L / 2, 0)); g.add(en(cil(0.02, 0.16, m, 8), 0, 0, 0, 0, 0, Math.PI / 2));
@@ -111,6 +112,10 @@ export async function montar3D(el, items, alTocar, alAgregar = () => {}, alMover
       g.add(en(cil(0.015, 0.14, m), -0.28, 0, 0)); g.position.y = 0.035; g.rotation.y = 0.35; return g; },
     lampara: (m, i, chica) => { const g = new T.Group(), luz = mat(0xffffff, { map: texRayas, emissive: 0xffffff, emissiveMap: texRayas, emissiveIntensity: .4 });
       if (chica) { g.add(en(caja(0.3, 0.02, 0.22, luz), 0, 0.02, 0)); return g; }   // en un carro: la pantalla acostada
+      if (i.modelo === "mano") {   // de mano: sin trípode, flotando a la altura de la mano (el vaivén lo hace cada cuadro)
+        g.add(en(caja(0.4, 0.5, 0.03, luz), 0, 1.35, 0), en(cil(0.022, 0.2, mat(0x222326)), 0, 1.0, 0));
+        g.userData.flota = true; return g;
+      }
       g.add(en(caja(0.55, 0.65, 0.03, luz), 0, 1.45, 0)); g.add(en(cil(0.02, 1.15, metal()), 0, 0.6, 0));
       for (const a of [0, 2.1, 4.2]) g.add(en(cil(0.012, 0.42, metal()), Math.cos(a) * 0.14, 0.12, Math.sin(a) * 0.14, Math.sin(a) * 0.7, 0, -Math.cos(a) * 0.7));
       return g; },
@@ -209,6 +214,7 @@ export async function montar3D(el, items, alTocar, alAgregar = () => {}, alMover
     g.position.x += x; g.position.y += y; g.position.z += z;
     g.userData = { ...g.userData, id: i.id, nombre: i.nombre, cant: i.cant || 1 };
     padre.add(g); tocables.push(g);
+    if (g.userData.flota) flotantes.push({ g, y: g.position.y, fase: Math.random() * 6 });
     return g;
   };
   const sueltas = cat => items.filter(i => i.cat === cat);   // todo se ve en su lugar, aunque esté en una valija o un carro (lo del carro, también en el carro)
@@ -457,6 +463,7 @@ export async function montar3D(el, items, alTocar, alAgregar = () => {}, alMover
       const de = (teclas.has("d") || teclas.has("arrowright") ? 1 : 0) - (teclas.has("a") || teclas.has("arrowleft") ? 1 : 0);
       caminar(ad * 0.045, de * 0.045);
     }
+    if (!sinMovimiento) { const t = performance.now() / 1000; for (const f of flotantes) { f.g.position.y = f.y + Math.sin(t * 1.6 + f.fase) * 0.04; f.g.rotation.y = Math.sin(t * 0.5 + f.fase) * 0.2; } }
     aplicar();
     if (llevado) {   // la herramienta que se lleva flota adelante, donde apunta la mira o el dedo
       p.set(llevado.nx, llevado.ny); ray.setFromCamera(p, camara);

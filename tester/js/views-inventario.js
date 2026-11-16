@@ -21,7 +21,7 @@ const SUGERENCIAS = {
   martillo: ["Martillo de goma", "Martillo de teflón", "Martillo de bola", "Punzón de nylon", "Punzón de metal", "Tap-down", "Juego de puntas intercambiables"],
   inercial: ["Martillo inercial", "Mini lifter", "Puller en T", "Puente de tracción", "Pistola de pegamento", "Barras de pegamento", "Tabs de tracción", "Removedor de pegamento"],
   gancho: ["Gancho de ventanilla", "Gancho en S", "Ventosa", "Cuña inflable", "Protector de ventanilla", "Puntas de repuesto"],
-  lampara: ["Lámpara LED de líneas", "Pantalla reflectora de mano", "Lámpara con pie", "Trípode para lámpara"],
+  lampara: ["Lámpara de mano", "Lámpara LED de líneas", "Pantalla reflectora de mano", "Lámpara con pie", "Trípode para lámpara"],
   carro: ["Carro común", "Carro alto"],
   valija: ["Valija larga de varillas", "Valija vertical con ruedas", "Flight case con ruedas"],
   desmontaje: ["Saca grampas", "Kit de palancas plásticas", "Juego de tubos y llaves", "Destornilladores"],
@@ -31,13 +31,16 @@ const catDe = nombre => Object.keys(SUGERENCIAS).find(c => SUGERENCIAS[c].some(s
 // Modelos de carro y de valija (el primero es el que toma si no eligió)
 const MODELOS = {
   carro: { t: "Modelo de carro", l: [["comun", "Común (dos estantes)"], ["alto", "Alto (con bandeja arriba)"]] },
-  valija: { t: "Modelo de valija", l: [["larga", "Larga de varillas"], ["vertical", "Vertical con ruedas"], ["flight", "Flight case (se arma como carro)"]] }
+  valija: { t: "Modelo de valija", l: [["larga", "Larga de varillas"], ["vertical", "Vertical con ruedas"], ["flight", "Flight case (se arma como carro)"]] },
+  lampara: { t: "Tipo de lámpara", l: [["pie", "Con pie (trípode)"], ["mano", "De mano"]] }
 };
 const modeloDe = (cat, nombre) => cat === "carro" ? (/alto/i.test(nombre) ? "alto" : "comun")
+  : cat === "lampara" ? (/mano|reflectora/i.test(nombre) ? "mano" : "pie")
   : /vertical/i.test(nombre) ? "vertical" : /flight|ruedas/i.test(nombre) ? "flight" : "larga";
 const nombreModelo = i => MODELOS[i.cat]?.l.find(([k]) => k === i.modelo)?.[1] || MODELOS[i.cat]?.l[0][1];
 { console.assert(Object.keys(SUGERENCIAS).every(c => CATS[c]) && Object.values(VIEJO).every(c => CATS[c]) && catDe(" mini LIFTER ") === "inercial" && !catDe("xyz")
-    && modeloDe("carro", "Carro alto") === "alto" && SUGERENCIAS.valija.map(n => modeloDe("valija", n)).join() === "larga,vertical,flight", "inventario: tipos"); }
+    && modeloDe("carro", "Carro alto") === "alto" && SUGERENCIAS.valija.map(n => modeloDe("valija", n)).join() === "larga,vertical,flight"
+    && modeloDe("lampara", "Pantalla reflectora de mano") === "mano" && modeloDe("lampara", "Lámpara con pie") === "pie", "inventario: tipos"); }
 
 // Dibujos simples de cada tipo (usan el color del tipo con currentColor)
 const DIBUJO = {
@@ -46,6 +49,7 @@ const DIBUJO = {
   inercial: `<svg viewBox="0 0 30 90"><path d="M5 6h20M15 6v80"/><rect x="8" y="34" width="14" height="22" rx="3" class="lleno"/></svg>`,
   gancho: `<svg viewBox="0 0 34 70"><path d="M17 4v40a10 10 0 1 1-12-9"/></svg>`,
   lampara: `<svg viewBox="0 0 48 150"><rect x="4" y="4" width="40" height="50" rx="4"/><path d="M10 14h28M10 24h28M10 34h28M10 44h28" class="rayas"/><path d="M24 54v80M24 134l-16 14M24 134l16 14M24 134v14"/></svg>`,
+  lamparaMano: `<svg viewBox="0 0 48 84" class="m-mano"><rect x="4" y="4" width="40" height="50" rx="4"/><path d="M10 14h28M10 24h28M10 34h28M10 44h28" class="rayas"/><rect x="19" y="54" width="10" height="26" rx="4" class="lleno"/></svg>`,
   carro: `<svg viewBox="0 0 74 62"><rect x="4" y="8" width="66" height="13" rx="3" class="lleno"/><rect x="4" y="38" width="66" height="9" rx="3" class="lleno"/><path d="M9 21v29M65 21v29M1 8h72"/><circle cx="10" cy="56" r="4"/><circle cx="64" cy="56" r="4"/></svg>`,
   carroAlto: `<svg viewBox="0 0 54 96"><rect x="3" y="5" width="48" height="9" rx="2" class="lleno"/><path d="M27 14v66"/><rect x="8" y="50" width="38" height="6" rx="2" class="lleno"/><path d="M6 84h42"/><circle cx="8" cy="90" r="4"/><circle cx="46" cy="90" r="4"/></svg>`,
   valija: `<svg viewBox="0 0 110 30" class="m-larga"><rect x="3" y="6" width="104" height="20" rx="4" class="lleno"/><path d="M48 6V2h14v4M3 16h104M20 9h16M74 9h16"/></svg>`,
@@ -54,7 +58,7 @@ const DIBUJO = {
   desmontaje: `<svg viewBox="0 0 64 24"><rect x="2" y="5" width="24" height="14" rx="5" class="lleno"/><path d="M26 12h26l8-5"/></svg>`,
   varios: `<svg viewBox="0 0 40 34"><rect x="3" y="8" width="34" height="23" rx="3" class="lleno"/><path d="M3 15h34M17 15v5h6v-5"/></svg>`
 };
-const dibujo = i => i.cat === "carro" && i.modelo === "alto" ? DIBUJO.carroAlto
+const dibujo = i => i.cat === "carro" && i.modelo === "alto" ? DIBUJO.carroAlto : i.cat === "lampara" && i.modelo === "mano" ? DIBUJO.lamparaMano
   : i.cat === "valija" && i.modelo === "vertical" ? DIBUJO.valijaVertical : i.cat === "valija" && i.modelo === "flight" ? DIBUJO.valijaFlight
   : DIBUJO[i.cat] || DIBUJO.varios;
 const largo = id => 62 + [...id].reduce((a, c) => a + c.charCodeAt(0), 0) % 38;   // varillas de distinto largo (siempre igual para la misma)
@@ -64,7 +68,7 @@ export async function vistaInventario(view) {
   setTopbar({ title: "Inventario", back: "#/ajustes" });
   view.innerHTML = `<div class="page inventario"><div class="skeleton" style="height:340px"></div></div>`;
   let items;
-  const normalizar = l => l.map(i => CATS[i.cat] ? i : { ...i, cat: VIEJO[i.cat] || "varios" });
+  const normalizar = l => l.map(i => CATS[i.cat] ? i : { ...i, cat: VIEJO[i.cat] || "varios", ...(i.cat === "pantalla" ? { modelo: "mano" } : {}) });   // las pantallas de mano de antes
   try { items = normalizar(await leerInventario()); }
   catch (e) { view.innerHTML = `<div class="page"><div class="empty"><p>${esc(mensajeError(e))}</p></div></div>`; return; }
 
@@ -78,7 +82,7 @@ export async function vistaInventario(view) {
   const cambiar = nuevos => { items = nuevos; pintar(); guardar(); };
 
   const obj = i => `<button type="button" class="inv-obj inv-${i.cat}" data-ver="${esc(i.id)}" aria-label="${esc(i.nombre)}" title="${esc(i.nombre)}"
-      ${i.cat === "varilla" ? `style="height:${largo(i.id)}%"` : ""}>${dibujo(i)}${(i.cant || 1) > 1 ? `<b class="inv-n">×${i.cant}</b>` : ""}
+      ${i.cat === "varilla" ? `style="height:${largo(i.id)}%"` : ""}>${fotos && i.foto?.url ? `<img class="inv-obj-foto" src="${esc(thumb(i.foto.url))}" alt="" loading="lazy" draggable="false">` : dibujo(i)}${(i.cant || 1) > 1 ? `<b class="inv-n">×${i.cant}</b>` : ""}
       ${CONTENEDOR.includes(i.cat) ? `<b class="inv-n">${items.filter(x => x.en === i.id).length || ""}</b>` : ""}<span class="inv-nom">${esc(i.nombre)}</span></button>`;
   // Cada zona: todas las herramientas de ese tipo (aunque estén en una valija o un carro, siguen en la pared) y una etiqueta para agregar ahí
   const zona = (cat, clase = "") => `<div class="inv-zona ${clase}"><button type="button" class="inv-etq" data-nueva="${cat}">${icon("plus")}${CATS[cat]}</button>
@@ -88,13 +92,15 @@ export async function vistaInventario(view) {
       <span class="aj-txt">${esc(i.nombre)}</span><span class="aj-val">${[(i.cant || 1) > 1 ? "×" + i.cant : "", esc(dondeTxt(i))].filter(Boolean).join(" · ")}</span></button>
       <button type="button" class="icon-btn sm" data-ed="${esc(i.id)}" aria-label="Editar ${esc(i.nombre)}" title="Editar">${icon("edit")}</button></div>`;
 
-  let quitar3D = () => {};
+  let quitar3D = () => {}, fotos = false;   // fotos: el taller 2D muestra la foto real en vez del dibujo
   function pintar() {
     const total = items.reduce((a, i) => a + (i.cant || 1), 0);
     const en3D = (() => { try { return localStorage.getItem("invVista") === "3d"; } catch { return false; } })();
+    fotos = (() => { try { return localStorage.getItem("invFotos") === "1"; } catch { return false; } })();
     quitar3D(); quitar3D = () => {};
     view.innerHTML = `<div class="page inventario">
-      <div class="seg seg-sm inv-modo" id="inv-modo"><button class="seg-btn ${en3D ? "" : "on"}" data-m="2d">2D</button><button class="seg-btn ${en3D ? "on" : ""}" data-m="3d">3D</button></div>
+      <div class="inv-barra"><div class="seg seg-sm inv-modo" id="inv-modo"><button class="seg-btn ${en3D ? "" : "on"}" data-m="2d">2D</button><button class="seg-btn ${en3D ? "on" : ""}" data-m="3d">3D</button></div>
+        ${en3D ? "" : `<div class="seg seg-sm" id="inv-fotos" title="Ver las herramientas con su dibujo o con su foto real"><button class="seg-btn ${fotos ? "" : "on"}" data-f="0">Dibujo</button><button class="seg-btn ${fotos ? "on" : ""}" data-f="1">Foto</button></div>`}</div>
       ${en3D ? `<div class="inv-3d" id="inv-3d"><p class="inv-3d-carga">Cargando el taller en 3D…</p><span class="inv-3d-tip" hidden></span></div>` : `
       <div class="inv-sala" role="group" aria-label="Taller">
         <div class="inv-pared">${zona("varilla", "inv-varillas")}${zona("martillo")}${zona("gancho")}</div>
@@ -112,6 +118,11 @@ export async function vistaInventario(view) {
       try { localStorage.setItem("invVista", b.dataset.m); } catch { /* sin almacenamiento */ }
       pintar();
     };
+    $("#inv-fotos", view)?.addEventListener("click", e => {
+      const b = e.target.closest("[data-f]"); if (!b) return;
+      try { localStorage.setItem("invFotos", b.dataset.f); } catch { /* sin almacenamiento */ }
+      pintar();
+    });
     if (en3D) {
       const caja = $("#inv-3d", view);
       import("./inventario3d.js").then(m => m.montar3D(caja, items, id => de(id) && ver(de(id)), cat => editar({ cat }), (id, en) => de(id) && mover(de(id), en)))
@@ -269,6 +280,22 @@ export async function vistaInventario(view) {
     clearTimeout(d.t); d = null;
   };
   const escucharArrastre = pag => {
+  // Vista previa con la foto real al pasar el mouse o apoyar el dedo sobre una herramienta del taller
+  const previa = document.createElement("div"); previa.className = "inv-previa"; previa.hidden = true; pag.append(previa);
+  const mostrarPrevia = b => {
+    const it = de(b.dataset.ver); if (!it) return;
+    previa.innerHTML = (it.foto?.url ? `<img src="${esc(thumb(it.foto.url))}" alt="">`
+      : `<span class="inv-previa-dibujo inv-${it.cat}">${dibujo(it)}</span><small>Sin foto</small>`) + `<b>${esc(it.nombre)}</b>`;
+    previa.hidden = false;
+    const r = b.getBoundingClientRect(), w = previa.offsetWidth, h = previa.offsetHeight;
+    previa.style.left = Math.min(innerWidth - w - 8, Math.max(8, r.left + r.width / 2 - w / 2)) + "px";
+    previa.style.top = (r.top - h - 8 > 8 ? r.top - h - 8 : r.bottom + 8) + "px";
+  };
+  const ocultarPrevia = () => { previa.hidden = true; };
+  pag.addEventListener("pointerover", e => { const b = e.pointerType === "mouse" && !d?.fant && e.target.closest(".inv-sala .inv-obj"); if (b) mostrarPrevia(b); });
+  pag.addEventListener("pointerout", e => { const b = e.target.closest(".inv-sala .inv-obj"); if (b && !b.contains(e.relatedTarget)) ocultarPrevia(); });
+  pag.addEventListener("pointerdown", e => { const b = e.target.closest(".inv-sala .inv-obj"); if (b && e.pointerType !== "mouse") mostrarPrevia(b); else ocultarPrevia(); });
+  pag.addEventListener("pointerup", ocultarPrevia); pag.addEventListener("pointercancel", ocultarPrevia);
   pag.addEventListener("pointerdown", e => {
     const b = e.target.closest(".inv-sala .inv-obj"), it = b && de(b.dataset.ver);
     if (!it || CONTENEDOR.includes(it.cat) || e.button > 0) return;
@@ -281,6 +308,7 @@ export async function vistaInventario(view) {
     if (!d.listo) { if (Math.hypot(e.clientX - d.x, e.clientY - d.y) > 8) limpiar(); return; }   // se movió antes: era para desplazar la página
     if (!d.fant) {
       if (Math.hypot(e.clientX - d.x, e.clientY - d.y) < 6) return;
+      ocultarPrevia();
       d.fant = d.b.cloneNode(true); d.fant.classList.add("inv-fantasma"); d.fant.removeAttribute("style");
       document.body.append(d.fant); d.b.classList.add("inv-llevando");
     }
