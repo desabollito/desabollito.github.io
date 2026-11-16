@@ -4,7 +4,7 @@ import {
   S, activos, getVehiculo, guardarVehiculo, actualizarVehiculo, cambiarEstado, moverAPapelera,
   solicitarEliminacion, cargadoPor, esDeWhatsApp, puedoEditar, esMioV, crearSolicitud, yaPedi,
   nuevoIdVehiculo, soyAdmin, mensajeError, deshaciblesDe, deshacerCambio, aseguradoDePadron,
-  soyDesmontaje, agregarDesmontaje, elegirDesmontador, borrarMedia, soyLector, linkVehiculo, soloVer, soySacabollos, usaClientes, chatEnMantenimiento,
+  soyDesmontaje, agregarDesmontaje, elegirDesmontador, borrarMedia, soyLector, linkVehiculo, soloVer, soySacabollos, usaClientes, chatEnMantenimiento, soyFacturacion,
   onChange, chatSinLeer, chatDeTel
 } from "./data.js";
 import { ESTADOS, ESTADO, SECUENCIA, PASO_REP, PIEZA, ORDEN_PIEZAS, estadoActual, esAnulado, piezasMarcadas } from "./domain.js";
@@ -49,6 +49,7 @@ function elegirConformidad(el, v, alElegir) {
 const PROX = { peritado: "turnado", turnado: "enreparacion", ausente: "enreparacion", enreparacion: "reparado", reparado: "llamado", llamado: "entregado", entregado: "facturado" };
 function avanzarEstado(v) {
   const sig = PROX[estadoActual(v)]; if (!sig) return;
+  if (soyFacturacion() && sig !== "facturado") return toast("Tu perfil solo puede marcar o deshacer Facturado", "info");
   if (sig === "turnado") return elegirFechaEstado(v, "turnado");   // el turno pide día y hora
   cambiarEstado(v, sig, hoyISO()).then(() => toast(`${v.patente || v.modelo || "Vehículo"} · ${ESTADO[sig].label}`, "success")).catch(err => toast(mensajeError(err), "error"));
   if (sig === "llamado") setTimeout(() => ofrecerAvisoCliente(v), 350);
@@ -200,7 +201,7 @@ function exportarPDF() {
 const sinPaso = txt => String(txt || "").replace(/Pasó a /g, "");
 // Historial con botón para deshacer: al tocarlo se elige qué cambio deshacer
 function abrirHistorial(v0) {
-  const v = getVehiculo(v0.id) || v0, lista = soyDesmontaje() || soloVer() ? [] : deshaciblesDe(v);
+  const v = getVehiculo(v0.id) || v0, lista = soyDesmontaje() || soloVer() || soyFacturacion() ? [] : deshaciblesDe(v);   // Facturación deshace Facturado manteniendo apretado ese paso
   const s = openSheet({ title: "Historial", body: `${lista.length ? `<details class="hist-undo-op"><summary class="btn btn-ghost btn-block hist-undo">${icon("rotate")}Eliminar cambios</summary>
     <div class="stack hist-undo-lista">${lista.map((e, i) => `<button type="button" class="btn btn-ghost btn-block hist-undo-item" data-deshacer="${i}">${icon("x")}<span>${esc(sinPaso(e.txt))}</span><small class="muted">${fechaHora(e.t)}</small></button>`).join("")}</div></details>` : ""}${historialHTML(v)}` });
   s.el.addEventListener("click", async e => {
@@ -743,7 +744,7 @@ export function renderDetalle(root, v, embebido) {
     pasoLargo = false;
     if (soloVer) return;
     const est = estadoActual(v);
-    if (est !== "turnado" && est !== "ausente") return;
+    if ((est !== "turnado" && est !== "ausente") || soyFacturacion()) return;
     relojPaso = setTimeout(() => {
       pasoLargo = true; navigator.vibrate?.(30);
       // Ventanita: Ausente (o volver a Turnado) y deshacer ese estado
@@ -766,7 +767,7 @@ export function renderDetalle(root, v, embebido) {
     let reloj = null;
     paso.addEventListener("pointerdown", () => {
       pasoLargo = false;
-      if (soloVer) return;
+      if (soloVer || (soyFacturacion() && paso.dataset.estado !== "facturado")) return;
       reloj = setTimeout(() => {
         pasoLargo = true; navigator.vibrate?.(30);
         const cur = getVehiculo(v.id) || v;
@@ -799,6 +800,9 @@ export function renderDetalle(root, v, embebido) {
     const t = e.target;
     // Rol Desmontaje: no modifica nada del vehículo
     if (soloVer && (t.closest("[data-estado], .etapa-item, [data-del-foto], [data-del-doc]") || ["anular", "borrar", "firma", "mover"].includes(t.closest("[data-act]")?.dataset.act))) return;
+    // Facturación: del estado solo Facturado (marcar; mantener apretado para la fecha o deshacer); no anula, borra ni mueve
+    if (soyFacturacion() && ((t.closest("[data-estado]") && t.closest("[data-estado]").dataset.estado !== "facturado")
+      || ["anular", "reactivar", "borrar", "mover"].includes(t.closest("[data-act]")?.dataset.act))) return toast("Tu perfil solo puede marcar o deshacer Facturado", "info");
     if ((soyLector() || soySacabollos()) && [...(soyLector() ? ["desmontaje"] : []), "fotos", "subir", "docs"].includes(t.closest("[data-act]")?.dataset.act)) return;
     if (t.closest("[data-act]")?.dataset.act === "desmontaje") return abrirCheck(v);
     const fs = t.closest("[data-fsec]");

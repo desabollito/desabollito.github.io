@@ -49,7 +49,7 @@ export default {
     const mp = url.pathname.match(/^\/mapa\/(\d{1,3})(\/img)?$/);
     if (mp) return mapaRedir(env, Number(mp[1]), !!mp[2]);
     const API = { "/registro": nuevoRegistro, "/avisar": avisarCliente, "/solicitud": avisarSolicitud, "/agregado": avisarAgregado, "/pedido-union": avisarPedidoUnion,
-      "/admin/datos": adminDatos, "/admin/borrar-usuario": adminBorrarUsuario, "/admin/config": adminConfig, "/admin/padron": adminPadron, "/admin/fotos-wa": adminFotosWa, "/admin/foto-usuario": adminFotoUsuario, "/admin/clientes-qr": adminClientesQr, "/admin/enviar-cliente": adminEnviarCliente, "/admin/reiniciar-chats": adminReiniciarChats,"/mover-vehiculo": moverVehiculo,
+      "/admin/datos": adminDatos, "/admin/borrar-usuario": adminBorrarUsuario, "/admin/config": adminConfig, "/admin/padron": adminPadron, "/admin/fotos-wa": adminFotosWa, "/admin/foto-usuario": adminFotoUsuario, "/admin/whatsapp": adminWhatsapp, "/admin/clientes-qr": adminClientesQr, "/admin/enviar-cliente": adminEnviarCliente, "/admin/reiniciar-chats": adminReiniciarChats,"/mover-vehiculo": moverVehiculo,
       "/borrar-media": borrarMediaApi, "/eliminar-vehiculo": eliminarVehiculoApi,
       "/compartir": compartirApi, "/compartido": compartidoApi, "/aviso-planilla": avisoPlanilla, "/responder-cliente": responderCliente, "/borrar-msg-chat": borrarMsgChat, "/borrar-chat": borrarChat,
       "/aviso-version": avisoVersion, "/pedir-borrar-operativo": pedirBorrarOperativo,
@@ -2409,6 +2409,30 @@ async function adminFotoUsuario(env, { idToken, uid, url }) {
   if (!(await fsGet(env, `users/${uid}`))) return json({ ok: false, error: "No existe el usuario" }, 404);
   await ponerFoto(env, uid, url, { fotoManual: true });
   return json({ ok: true, foto: url });
+}
+
+// Panel del creador: asignarle a un usuario su WhatsApp sin código de vinculación (numero) o quitárselo (numero vacío)
+async function adminWhatsapp(env, { idToken, uid, numero }) {
+  if (!(await soloCreador(env, idToken))) return json({ ok: false, error: "No autorizado" }, 403);
+  if (!idValido(uid)) return json({ ok: false, error: "Datos inválidos" }, 400);
+  const perfil = await fsGet(env, `users/${uid}`).catch(() => null);
+  if (!perfil) return json({ ok: false, error: "No existe el usuario" }, 404);
+  if (!numero) {   // quitar
+    if (perfil.whatsapp) await fsDelete(env, `bot_numeros/${perfil.whatsapp}`).catch(() => {});
+    await fsMerge(env, `users/${uid}`, { whatsapp: null });
+    return json({ ok: true, whatsapp: "" });
+  }
+  let n = normalizarNumero(String(numero));
+  if (/^\d{10}$/.test(n)) n = "549" + n;   // con área sin el 54 9 (ej: 11 2233 4455)
+  if (!/^549\d{10}$/.test(n)) return json({ ok: false, error: "No parece un celular argentino. Escribilo así: 5491122334455 (o 11 2233 4455)" }, 400);
+  const otro = await fsGet(env, `bot_numeros/${n}`).catch(() => null);
+  if (otro?.uid && otro.uid !== uid) return json({ ok: false, error: `Ese WhatsApp ya está vinculado a @${otro.username || "otro usuario"}. Quitáselo primero.` }, 409);
+  if (perfil.whatsapp && perfil.whatsapp !== n) await fsDelete(env, `bot_numeros/${perfil.whatsapp}`).catch(() => {});
+  const u = perfil.username || "";
+  await fsSet(env, `bot_numeros/${n}`, { uid, username: u, name: perfil.name || u, ts: Date.now() });
+  await fsMerge(env, `users/${uid}`, { whatsapp: n });
+  await responder(env, destinoNumero(env, n), `✅ El administrador vinculó este WhatsApp a tu usuario *@${u}* de Desabollito.\n\n` + INSTRUCCIONES).catch(() => {});
+  return json({ ok: true, whatsapp: n });
 }
 
 // Ajustes → "Usar mi foto de WhatsApp": la trae ya (sin esperar a la revisión semanal)

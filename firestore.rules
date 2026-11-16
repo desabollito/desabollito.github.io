@@ -23,6 +23,8 @@ service cloud.firestore {
     function esDesmontaje(cid) { return isMember(cid) && company(cid).roles.get(uid(), '') == 'desmontaje'; }
     // Sacabollos (el rol por defecto): por ahora solo mira; lee Técnicos y Fijos, no escribe nada
     function esSacabollos(cid) { return isMember(cid) && company(cid).roles.get(uid(), 'tecnico') == 'tecnico'; }
+    // Facturación: ve vehículos y la planilla de Facturación; edita vehículos, pero del estado solo marca o deshace Facturado
+    function esFacturacion(cid) { return isMember(cid) && company(cid).roles.get(uid(), '') == 'facturacion'; }
     // Cuentas aprobadas (las cuentas viejas no tienen el campo y cuentan como aprobadas)
     function aprobado() {
       let p = /databases/$(database)/documents/users/$(uid());
@@ -145,7 +147,10 @@ service cloud.firestore {
           && request.resource.data.get('createdByUid', '') == resource.data.get('createdByUid', '')
           && (esDueno(cid) || request.resource.data.get('deleted', false) == resource.data.get('deleted', false))
           && (esDueno(cid) || request.resource.data.get('editores', []) == resource.data.get('editores', []))
-          && (esDueno(cid) || uid() in resource.data.get('editores', [])
+          // Facturación: el estado solo pasa a Facturado o sale de Facturado (deshacer); lo demás no cambia
+          && (!esFacturacion(cid) || request.resource.data.get('estado', '') == resource.data.get('estado', '')
+              || request.resource.data.get('estado', '') == 'facturado' || resource.data.get('estado', '') == 'facturado')
+          && (esDueno(cid) || esFacturacion(cid) || uid() in resource.data.get('editores', [])
               || (request.resource.data.diff(resource.data).affectedKeys()
                     .hasOnly(['estado', 'fechas', 'horas', 'etapasRepuestos', 'etapasPintura', 'postReparacion', 'razonAnulacion', 'turnoConfirmado', 'horaTurno', 'conformidad', 'fotos', 'archivos', 'firma', 'historial', 'desFotos', 'desNotas', 'desmontador', 'checkIn', 'checkOut', 'fotosPintura', 'fotosRepuestos', 'updatedAt', 'updatedBy'])
                   && request.resource.data.get('fotos', []).size() >= resource.data.get('fotos', []).size()
@@ -165,8 +170,8 @@ service cloud.firestore {
       match /planTec/{d} {
         // La lectura no puede depender de {d} en primer lugar: la planilla escucha la colección entera
         // shortcut: _factura viejo sigue legible para Técnicos hasta que Facturación lo migre a /factura, sacar esa parte después
-        allow read: if puede(cid, 'tecnicos', isAdmin(cid) || esSacabollos(cid)) || (d == '_fijos' && puede(cid, 'fijos', isAdmin(cid) || esSacabollos(cid))) || (d == '_factura' && puede(cid, 'facturacion', isAdmin(cid)));
-        function escribe() { return d == '_fijos' ? puede(cid, 'fijos', isAdmin(cid)) : d == '_factura' ? puede(cid, 'facturacion', isAdmin(cid)) : puede(cid, 'tecnicos', isAdmin(cid)); }
+        allow read: if puede(cid, 'tecnicos', isAdmin(cid) || esSacabollos(cid)) || (d == '_fijos' && puede(cid, 'fijos', isAdmin(cid) || esSacabollos(cid))) || (d == '_factura' && puede(cid, 'facturacion', isAdmin(cid) || esFacturacion(cid)));
+        function escribe() { return d == '_fijos' ? puede(cid, 'fijos', isAdmin(cid)) : d == '_factura' ? puede(cid, 'facturacion', isAdmin(cid) || esFacturacion(cid)) : puede(cid, 'tecnicos', isAdmin(cid)); }
         allow create, delete: if escribe();
         // "creado" de una fila no cambia nunca: así un equipo con datos viejos no puede volver a crear encima de una fila existente
         allow update: if escribe() && (d.matches('_.*') || request.resource.data.get('creado', null) == resource.data.get('creado', null));
@@ -174,7 +179,7 @@ service cloud.firestore {
 
       // ── Historial de las planillas: lo agrega cada uno a su nombre, con la hora del servidor; nadie lo cambia ni lo borra ──
       match /planHist/{p}/cambios/{id} {
-        function accede() { return (p == 'fijos' || p == 'tecnicos' || p == 'facturacion') && puede(cid, p, isAdmin(cid)); }
+        function accede() { return (p == 'fijos' || p == 'tecnicos' || p == 'facturacion') && puede(cid, p, isAdmin(cid) || (p == 'facturacion' && esFacturacion(cid))); }
         allow read: if accede();
         allow create: if accede() && request.resource.data.uid == uid() && request.resource.data.at == request.time && request.resource.data.txt is string;
       }
@@ -186,7 +191,7 @@ service cloud.firestore {
 
       // ── Facturación (documentos firmados por vehículo): solo administradores, Sacabollos no lo ve ──
       match /factura/{d} {
-        allow read, write: if puede(cid, 'facturacion', isAdmin(cid));
+        allow read, write: if puede(cid, 'facturacion', isAdmin(cid) || esFacturacion(cid));
       }
 
       // ── Cierre operativo: sin elegir, quien tenga Gastos tildado (si no, administradores) ──
@@ -198,10 +203,10 @@ service cloud.firestore {
 
       // ── Gastos del operativo ───────────────────────────────
       match /gastos/{gid} {
-        allow read: if puede(cid, 'gastos', !esSacabollos(cid));   // Sacabollos no ve los gastos (salvo que el creador se lo habilite)
-        allow create: if puede(cid, 'gastos', true) && !esSacabollos(cid) && request.resource.data.createdBy == uid()
+        allow read: if puede(cid, 'gastos', !esSacabollos(cid) && !esFacturacion(cid));   // Sacabollos y Facturación no ven los gastos (salvo que el creador se lo habilite)
+        allow create: if puede(cid, 'gastos', true) && !esSacabollos(cid) && !esFacturacion(cid) && request.resource.data.createdBy == uid()
           && request.resource.data.monto is number && request.resource.data.monto >= 0;
-        allow update: if puede(cid, 'gastos', true) && !esSacabollos(cid)
+        allow update: if puede(cid, 'gastos', true) && !esSacabollos(cid) && !esFacturacion(cid)
           && request.resource.data.createdBy == resource.data.createdBy
           && (isAdmin(cid) || resource.data.createdBy == uid());
         allow delete: if isAdmin(cid)

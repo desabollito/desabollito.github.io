@@ -2110,6 +2110,9 @@ body[data-solo-ver="1"] :is(.fab, a[href="#/nuevo"], a[href^="#/editar"], .viewe
 /* Sacabollos ve el check in / out y el desmontaje, sin poder cambiarlos */
 body[data-solo-ver="1"] .chk-form :is(.chk-tog, input, textarea) { pointer-events: none; }
 body[data-solo-ver="1"] :is(.step, .etapa-item) { pointer-events: none; }
+/* Perfil Facturación: del estado solo Facturado; no anula, borra ni mueve vehículos */
+body[data-facturacion="1"] :is([data-act="anular"], [data-act="reactivar"], [data-act="borrar"], [data-act="mover"]) { display: none !important; }
+body[data-facturacion="1"] .step:not([data-estado="facturado"]) { pointer-events: none; opacity: .75; }
 /* Historial de planillas: lista de cambios y barra para moverse en el tiempo */
 .ver-lista { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
 .ver-item { all: unset; box-sizing: border-box; cursor: pointer; display: flex; justify-content: space-between; gap: 12px; width: 100%; padding: 10px; border-radius: var(--r); font-size: 14px; }

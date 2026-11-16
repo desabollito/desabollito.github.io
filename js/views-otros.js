@@ -1,7 +1,7 @@
 import {
   S, activos, papelera, restaurar, eliminarDefinitivo, soyAdmin, miRol, renombrarEmpresa, guardarSello, guardarMensajesCliente, deshaciblesDe, deshacerCambio, soyDesmontaje,
   agregarMiembro, cambiarRol, quitarMiembro, guardarEtiquetas, resolverSolicitud, desvincularWhatsApp, salirDeEmpresa, eliminarEmpresa, crearEmpresa, elegirEmpresa,
-  actualizarPerfil, ponerMiFoto, salir, mensajeError, llamarAdmin, soloDesmontaje, pedirUnion, linksCompartidos, getVehiculo, soloVer, soySacabollos, guardarOrdenOps, cambiarEstado, usaClientes,
+  actualizarPerfil, ponerMiFoto, salir, mensajeError, llamarAdmin, soloDesmontaje, pedirUnion, linksCompartidos, getVehiculo, soloVer, soySacabollos, guardarOrdenOps, cambiarEstado, usaClientes, usaInventario,
   onChange, chatSinLeer, marcarChatVisto, actualizarVehiculo, guardarColor, guardarVehiculo, nuevoIdVehiculo, esPrueba, nombrePropio
 } from "./data.js";
 import { cargarExcelJS } from "./excel.js";
@@ -327,7 +327,7 @@ export function vistaEmpresa(view) {
           </span>
           ${admin && m.rol !== "owner" && m.uid !== S.user.uid ? `
             <span class="m-actions">
-              <select class="rol-sel" data-rol="${m.uid}" aria-label="Rol de ${esc(m.name)}">${[["desmontaje", "Desmontador"], ["tecnico", "Sacabollos"], ["admin", "Administrador"]].map(([k, l]) =>
+              <select class="rol-sel" data-rol="${m.uid}" aria-label="Rol de ${esc(m.name)}">${[["desmontaje", "Desmontador"], ["tecnico", "Sacabollos"], ["facturacion", "Facturación"], ["admin", "Administrador"]].map(([k, l]) =>
                 `<option value="${k}" ${m.rol === k ? "selected" : ""}>${l}</option>`).join("")}</select>
               <button class="icon-btn sm" data-quitar="${m.uid}" aria-label="Quitar a ${esc(m.name)}">${icon("x")}</button>
             </span>` : ""}
@@ -424,7 +424,7 @@ export function vistaEmpresa(view) {
           <input name="u" placeholder="Nombre o @usuario" autocapitalize="none" spellcheck="false" autocomplete="off" required></label>
         <div class="usr-tira" id="usr-tira"><span class="muted small">Cargando usuarios…</span></div>
         <div class="field"><span>Rol</span>
-          <select id="rol-nuevo">${[["desmontaje", "Desmontador"], ["tecnico", "Sacabollos"], ["admin", "Administrador"]].map(([k, l]) => `<option value="${k}" ${k === "admin" ? "selected" : ""}>${l}</option>`).join("")}</select></div>
+          <select id="rol-nuevo">${[["desmontaje", "Desmontador"], ["tecnico", "Sacabollos"], ["facturacion", "Facturación"], ["admin", "Administrador"]].map(([k, l]) => `<option value="${k}" ${k === "admin" ? "selected" : ""}>${l}</option>`).join("")}</select></div>
         <button class="btn btn-primary btn-block btn-lg">${icon("plus")}Agregar</button>
       </form>`
     });
@@ -730,6 +730,7 @@ export function vistaAjustes(view) {
 
     <section class="aj-grupo"><h3>Cuenta</h3><div class="aj-lista">
       ${fila("editar-perfil", "edit", "Perfil", esc(p.name))}
+      ${usaInventario() ? `<a class="aj-item" href="#/inventario">${icon("tool")}<span class="aj-txt">Inventario</span><span class="aj-val"></span>${icon("next")}</a>` : ""}
       ${WHATSAPP_BOT ? `<a class="aj-item" href="https://wa.me/${WHATSAPP_BOT}?text=ayuda" target="_blank" rel="noopener">${icon("chat")}<span class="aj-txt">Chat con el bot</span><span class="aj-val"></span>${icon("next")}</a>` : ""}
       ${usaClientes() && S.company ? (S.config?.mensajesTurnos !== false ? fila("mt-abrir", "calendar", "Mensajes y turnos") : "") : ""}
     </div></section>
@@ -1012,6 +1013,12 @@ export async function panelCreador() {
           <span>${esc(u.name || "Sin nombre")} <small class="muted">@${esc(u.username)}</small></span></label>`).join("")}
         <small class="muted">Lo ven en Ajustes y solo pueden usarlo en los operativos donde son miembros. Conectar el número sigue siendo solo tuyo.</small>
       </details>
+      <details class="adm-toggles">
+        <summary><b>Quién tiene Inventario</b> <small class="muted">sacabollos y desmontadores${(datos.config?.usanInventario || []).length ? ` + ${datos.config.usanInventario.length}` : ""}</small></summary>
+        ${usuarios.filter(u => u.username !== "gzmatte" && u.aprobado).map(u => `<label class="toggle"><input type="checkbox" data-inv="${esc(u.uid)}" ${(datos.config?.usanInventario || []).includes(u.uid) ? "checked" : ""}>
+          <span>${esc(u.name || "Sin nombre")} <small class="muted">@${esc(u.username)}</small></span></label>`).join("")}
+        <small class="muted">Los sacabollos y desmontadores ya lo tienen. Tildá a quien más quieras que lo vea en Ajustes.</small>
+      </details>
       <details class="adm-toggles adm-accesos" ${accAbierto ? "open" : ""}>
         <summary><b>Quién ve las planillas</b> <small class="muted">Vehículos · Técnicos · Gastos · Fijos · Facturación · Cierre</small></summary>
         ${(() => { const op = opAcc(); if (!op) return `<small class="muted">No hay operativos.</small>`;
@@ -1035,6 +1042,7 @@ export async function panelCreador() {
           <small class="muted">@${esc(u.username)}${u.whatsapp ? ` · +${esc(u.whatsapp)}` : ""}${!u.aprobado ? " · pendiente" : ""}${u.rechazado ? " · rechazado" : ""}</small>
           <small class="adm-ops">${(() => { const ops = operativos.filter(o => o.miembros.some(m => m.uid === u.uid));
             return ops.length ? ops.map(o => `${esc(o.name)} <b>${nVeh(o.vehiculos)}</b>`).join(" · ") : `<span class="muted">Sin operativos</span>`; })()}</small></div>
+          <button type="button" class="icon-btn sm ${u.whatsapp ? "on" : ""}" data-wa-u="${esc(u.uid)}" aria-label="${u.whatsapp ? "Quitar" : "Asignar"} WhatsApp de ${esc(u.name || u.username)}" title="${u.whatsapp ? "Quitarle el WhatsApp" : "Asignarle un WhatsApp (sin código)"}">${icon("chat")}</button>
           <button type="button" class="icon-btn sm" data-foto-u="${esc(u.uid)}" ${u.foto ? "data-tiene" : ""} aria-haspopup="listbox" aria-label="Foto de ${esc(u.name || u.username)}" title="${u.fotoManual ? "Cambiar la foto (puesta a mano)" : "Poner una foto a mano"}">${icon("camera")}</button>
           ${u.username === "gzmatte" ? "" : `<button type="button" class="icon-btn sm danger" data-borrar="${esc(u.uid)}" aria-label="Eliminar usuario" title="Eliminar de la app">${icon("trash")}</button>`}</li>`).join("")}</ul>`}`;
   };
@@ -1070,6 +1078,13 @@ export async function panelCreador() {
       const uid = e.target.dataset.usa, on = e.target.checked, l = (datos.config?.usanClientes || []).filter(x => x !== uid);
       e.target.disabled = true;
       try { const r = await llamarAdmin("config", { usanClientes: on ? [...l, uid] : l }); datos.config = r.config; e.target.disabled = false; toast("Guardado", "success"); }
+      catch (err) { e.target.checked = !on; e.target.disabled = false; toast(err.message, "error"); }
+      return;
+    }
+    if (e.target.dataset.inv) {
+      const uid = e.target.dataset.inv, on = e.target.checked, l = (datos.config?.usanInventario || []).filter(x => x !== uid);
+      e.target.disabled = true;
+      try { const r = await llamarAdmin("config", { usanInventario: on ? [...l, uid] : l }); datos.config = r.config; e.target.disabled = false; toast("Guardado", "success"); }
       catch (err) { e.target.checked = !on; e.target.disabled = false; toast(err.message, "error"); }
       return;
     }
@@ -1187,6 +1202,25 @@ export async function panelCreador() {
     }
     const t = e.target.closest("[data-tab]");
     if (t) { tab = t.dataset.tab; return pintar(); }
+    // WhatsApp de un usuario: asignárselo sin código de vinculación, o quitárselo
+    const w = e.target.closest("[data-wa-u]");
+    if (w) {
+      const u = datos.usuarios.find(x => x.uid === w.dataset.waU), quien = u.name || "@" + u.username;
+      let numero = "";
+      if (u.whatsapp) {
+        if (!(await confirmar({ title: `¿Quitarle el WhatsApp a ${quien}?`, message: `Se desvincula el +${u.whatsapp}. Para volver a usar el bot tiene que vincularlo de nuevo (o se lo asignás vos).`, ok: "Quitar", danger: true }))) return;
+      } else {
+        numero = await pedirTexto({ title: `WhatsApp de ${quien}`, label: "Celular (con o sin 54 9)", placeholder: "11 2233 4455", ok: "Asignar" });
+        if (!numero?.trim()) return;
+      }
+      w.disabled = true;
+      try {
+        const r = await llamarAdmin("whatsapp", { uid: u.uid, numero: numero.trim() });
+        u.whatsapp = r.whatsapp; pintar();
+        toast(r.whatsapp ? `Vinculado al +${r.whatsapp}` : "WhatsApp quitado", "success");
+      } catch (err) { w.disabled = false; toast(err.message, "error"); }
+      return;
+    }
     const b = e.target.closest("[data-borrar]");
     if (!b) return;
     const u = datos.usuarios.find(x => x.uid === b.dataset.borrar);

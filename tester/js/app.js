@@ -5,7 +5,7 @@ import { cerrarSplash, logoEnCurso, trasLogo } from "./efectos.js";
 import { $, $$, esc, toast, busy, openSheet, icon, cerrarHojas } from "./ui.js";
 import { FIREBASE, BOT_API } from "./config.js";
 import { iniciarFechas } from "./fecha.js";
-import { cuentaPendiente, salir, marcarOperativosVistos, soyCreador, crearEmpresa, pedirUnion, cancelarPedidoUnion, escucharMiPedido, responderPedidoUnion, soyDesmontaje, miRol, soyAdmin, getVehiculo, iniciarInvitado, soyLector, puedeVer, soySacabollos, registrarRuta, usaInventario } from "./data.js";
+import { cuentaPendiente, salir, marcarOperativosVistos, soyCreador, crearEmpresa, pedirUnion, cancelarPedidoUnion, escucharMiPedido, responderPedidoUnion, soyDesmontaje, miRol, soyAdmin, getVehiculo, iniciarInvitado, soyLector, puedeVer, soySacabollos, registrarRuta, usaInventario, soyFacturacion } from "./data.js";
 import { marcarNav, pintarLateral, esAncho } from "./shell.js";
 import { vistaVehiculos, vistaDetalle, vistaFormulario, elegirVehiculoDesmontaje, vistaCheckForm } from "./views-vehiculos.js";
 import {
@@ -149,6 +149,7 @@ function render({ conservarScroll = false, reabrir = false, reabrirCal = false }
   const enCal = hit[1] === "vehiculos" && arg && S.volverA === "#/calendario" && esAncho() && !S.invitado?.uno;
   document.body.dataset.ruta = enCal ? "calendario" : hit[1];
   document.body.dataset.soloVer = soySacabollos() ? "1" : "";   // Sacabollos: solo mira (el CSS esconde lo que edita)
+  document.body.dataset.facturacion = soyFacturacion() ? "1" : "";   // Facturación: el CSS esconde anular, borrar y mover y apaga los pasos que no son Facturado
   document.body.dataset.detalle = hit[1] === "vehiculos" && arg ? "1" : "";
   marcarNav(enCal ? "calendario" : ["nuevo", "editar", "operativo"].includes(hit[1]) ? "" : ["papelera", "inventario"].includes(hit[1]) ? "ajustes" : ["planilla", "gastos", "tecnicos", "fijos", "facturacion", "factdigital", "cierre"].includes(hit[1]) ? "planillas" : hit[1]);
   pintarTabPlanilla(hit[1]);
@@ -630,7 +631,7 @@ function mostrarPedidosUnion() {
   const s = openSheet({ title: "Pedido para unirse", body: `<form class="stack">
       <p><strong>${esc(p.name || "")}</strong> (@${esc(p.username || "")}) quiere unirse a tu operativo.</p>
       <label class="field"><span>Sumarlo a</span><select name="cid">${mios.map(c => `<option value="${esc(c.id)}" ${c.id === S.company?.id ? "selected" : ""}>${esc(c.name)}</option>`).join("")}</select></label>
-      <label class="field"><span>Rol</span><select name="rol">${[["desmontaje", "Desmontador"], ["tecnico", "Sacabollos"], ["admin", "Administrador"]].map(([k, l]) =>
+      <label class="field"><span>Rol</span><select name="rol">${[["desmontaje", "Desmontador"], ["tecnico", "Sacabollos"], ["facturacion", "Facturación"], ["admin", "Administrador"]].map(([k, l]) =>
         `<option value="${k}" ${(p.rol || "admin") === k ? "selected" : ""}>${l}</option>`).join("")}</select></label>
       <div class="row-btns"><button type="button" class="btn btn-ghost" data-no>Rechazar</button>
         <button class="btn btn-primary" type="submit">Sumar</button></div></form>` });

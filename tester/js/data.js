@@ -350,6 +350,8 @@ export const soyDesmontaje = () => miRol() === "desmontaje";
 // Sacabollos: por ahora solo mira (como el link de perito), sin precios; también ve Técnicos y Fijos
 export const soySacabollos = () => !S.invitado && !!S.company && miRol() === "tecnico";
 export const soloVer = () => soyLector() || soySacabollos();
+// Facturación: ve vehículos y solo la planilla de Facturación; edita vehículos, pero del estado solo marca o deshace Facturado
+export const soyFacturacion = () => !S.invitado && !!S.company && miRol() === "facturacion";
 // Solo tiene el rol Desmontaje (en todos sus operativos): no puede crear operativos
 export const soloDesmontaje = () => S.companies?.length > 0 && S.companies.every(c => c.roles?.[S.user?.uid] === "desmontaje");
 
@@ -638,7 +640,7 @@ export function cargadoPor(v) {
 }
 // Permisos sobre un vehículo: quien lo cargó, los administradores y a quienes se les dio acceso
 export const esMioV = v => !!v && (v.createdBy === S.user?.uid || v.createdByUid === S.user?.uid);
-export const puedoEditar = v => !soyDesmontaje() && !soloVer() && (esMioV(v) || soyAdmin() || (v?.editores || []).includes(S.user?.uid));
+export const puedoEditar = v => !soyDesmontaje() && !soloVer() && (esMioV(v) || soyAdmin() || soyFacturacion() || (v?.editores || []).includes(S.user?.uid));   // Facturación edita todos
 
 // ── Desmontaje: fotos y notas (cada una con quién la subió) y el técnico desmontador ──
 export async function agregarDesmontaje(v, fotos, texto) {
@@ -796,6 +798,7 @@ export const puedeVer = sec => {
   if (S.invitado) return S.invitado.tecnicos ? sec === "tecnicos" : sec === "planilla";
   if (sec === "planilla" && S.config?.planillaVeh === false) return false;   // el creador la apagó para todos
   if (soyCreador()) return true;
+  if (soyFacturacion()) return sec === "facturacion";   // ni Vehículos (planilla), ni Técnicos, ni Gastos, ni Fijos, ni Cierre
   // Hasta que el bot copie los accesos viejos (globales) a Paraná, valen esos
   const acc = (S.config?.accesosOp ? S.config.accesosOp[S.company?.id] : S.config?.accesos)?.[S.user?.uid] || {}, v = acc[sec];
   // Cierre operativo sin elegir: igual que Gastos si está tildado, si no solo administradores

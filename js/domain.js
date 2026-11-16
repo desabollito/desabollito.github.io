@@ -105,7 +105,8 @@ export const ROLES = {
   owner:   { label: "Dueño" },
   admin:   { label: "Administrador" },
   tecnico: { label: "Sacabollos" },
-  desmontaje: { label: "Desmontador" }   // solo ve los vehículos y carga desmontajes
+  desmontaje: { label: "Desmontador" },   // solo ve los vehículos y carga desmontajes
+  facturacion: { label: "Facturación" }   // ve vehículos y la planilla de Facturación; edita vehículos pero del estado solo marca o deshace Facturado
 };
 
 export function estadoActual(v) {

@@ -3,7 +3,7 @@
 //  Se guarda en companies/{cid}/factura/docs (antes planTec/_factura, se migra solo): { vids: [vid elegidos], estados: { [vid]: impreso|firmado|facturado }, docs: { [vid]: { url, publicId, name, bytes, at } } }
 // ═════════════════════════════════════════════════════════════
 import { db, collection, doc, getDoc, onSnapshot, setDoc, deleteDoc, arrayUnion, arrayRemove } from "./firebase.js";
-import { S, activos, puedeVer, mensajeError, cambiarEstado } from "./data.js";
+import { S, activos, puedeVer, mensajeError, cambiarEstado, soyFacturacion } from "./data.js";
 import { $, esc, icon, toast, plate, openSheet, glideMenu, fechaCorta } from "./ui.js";
 import { estadoActual } from "./domain.js";
 import { setTopbar } from "./shell.js";
@@ -25,8 +25,10 @@ const traer = async d => { const r = await fetch(d.url); if (!r.ok) throw new Er
 
 export function vistaFacturacion(view) {
   setTopbar({ title: "Facturación", sub: S.company?.name, back: "#/planillas",
+    // Perfil Facturación: todo menos el modo edición (cambiar o quitar órdenes) y las versiones
     actions: `<button class="btn btn-ghost btn-sm" id="f-todos">${icon("download")}<span class="hide-sm">Descargar todos</span></button>
-      ${botonesVersion(F.editando)}<button class="btn btn-sm ${F.editando ? "btn-primary" : "btn-ghost"}" id="f-edit" aria-label="Editar">${icon(F.editando ? "check" : "edit")}${F.editando ? "<span>Listo</span>" : ""}</button>` });
+      ${soyFacturacion() ? "" : `${botonesVersion(F.editando)}<button class="btn btn-sm ${F.editando ? "btn-primary" : "btn-ghost"}" id="f-edit" aria-label="Editar">${icon(F.editando ? "check" : "edit")}${F.editando ? "<span>Listo</span>" : ""}</button>`}` });
+  if (soyFacturacion()) F.editando = false;
   if (!puedeVer("facturacion")) { view.innerHTML = `<div class="empty"><p>No tenés acceso a esta planilla.</p></div>`; return; }
   if (!S.company) { view.innerHTML = `<div class="skeleton tall"></div>`; return; }
   const ref = doc(db, "companies", S.company.id, "factura", "docs"), viejo = doc(db, "companies", S.company.id, "planTec", "_factura");
@@ -178,7 +180,7 @@ export function vistaFacturacion(view) {
     b.innerHTML = `${icon(F.editando ? "check" : "edit")}${F.editando ? "<span>Listo</span>" : ""}`;
     pintar();
   };
-  $("#f-edit").onclick = () => { if (!V.viendo()) alternarEdicion(); };
+  $("#f-edit")?.addEventListener("click", () => { if (!V.viendo()) alternarEdicion(); });
   // Si cambian los vehículos solo se repinta la tabla: rearmar la página perdería el archivo elegido al volver del selector
   return { soloLista: pintar };
 }

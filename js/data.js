@@ -92,7 +92,7 @@ export const cuentaPendiente = () => S.profile?.aprobado === false;
 // ── Trackeo de movimientos (lo activa el creador desde el bot: users/{uid}.tracking = true) ──
 let movN = 0, movUlt = "";
 const SECMOV = { vehiculos: "Vehículos", calendario: "Calendario", planillas: "Planillas", planilla: "Planilla",
-  gastos: "Gastos", tecnicos: "Técnicos", fijos: "Fijos", facturacion: "Facturación", ajustes: "Ajustes", papelera: "Papelera", nuevo: "Cargar vehículo", editar: "Editar vehículo" };
+  gastos: "Gastos", tecnicos: "Técnicos", fijos: "Fijos", facturacion: "Facturación", ajustes: "Ajustes", inventario: "Inventario", papelera: "Papelera", nuevo: "Cargar vehículo", editar: "Editar vehículo" };
 const etiquetaAuto = v => [v?.modelo, v?.patente].filter(Boolean).join(" ") || "auto";
 export function registrarRuta(nombre, arg) {
   if (nombre === "vehiculos" && arg) registrarMov("Abrió auto " + etiquetaAuto(getVehiculo(arg)));
@@ -350,6 +350,8 @@ export const soyDesmontaje = () => miRol() === "desmontaje";
 // Sacabollos: por ahora solo mira (como el link de perito), sin precios; también ve Técnicos y Fijos
 export const soySacabollos = () => !S.invitado && !!S.company && miRol() === "tecnico";
 export const soloVer = () => soyLector() || soySacabollos();
+// Facturación: ve vehículos y solo la planilla de Facturación; edita vehículos, pero del estado solo marca o deshace Facturado
+export const soyFacturacion = () => !S.invitado && !!S.company && miRol() === "facturacion";
 // Solo tiene el rol Desmontaje (en todos sus operativos): no puede crear operativos
 export const soloDesmontaje = () => S.companies?.length > 0 && S.companies.every(c => c.roles?.[S.user?.uid] === "desmontaje");
 
@@ -638,7 +640,7 @@ export function cargadoPor(v) {
 }
 // Permisos sobre un vehículo: quien lo cargó, los administradores y a quienes se les dio acceso
 export const esMioV = v => !!v && (v.createdBy === S.user?.uid || v.createdByUid === S.user?.uid);
-export const puedoEditar = v => !soyDesmontaje() && !soloVer() && (esMioV(v) || soyAdmin() || (v?.editores || []).includes(S.user?.uid));
+export const puedoEditar = v => !soyDesmontaje() && !soloVer() && (esMioV(v) || soyAdmin() || soyFacturacion() || (v?.editores || []).includes(S.user?.uid));   // Facturación edita todos
 
 // ── Desmontaje: fotos y notas (cada una con quién la subió) y el técnico desmontador ──
 export async function agregarDesmontaje(v, fotos, texto) {
@@ -757,6 +759,12 @@ export const borrarGasto = id => deleteDoc(doc(colGastos(), id));
 // ── Panel del creador (@gzmatte): todos los operativos y usuarios ─────
 export const soyCreador = () => S.profile?.username === "gzmatte";
 export const usaClientes = () => soyCreador() || (S.config?.mensajesTurnos !== false && (soyAdmin() || (S.config?.usanClientes || []).includes(S.user?.uid)));   // Chat en vivo y Mensajes y turnos: el creador siempre; con el interruptor encendido, también los administradores y los que él elige
+// Inventario de herramientas (inventario/{uid}): sacabollos, desmontadores y los que elige el creador
+export const usaInventario = () => !S.invitado && (soyCreador() || (!!S.company && ["tecnico", "desmontaje"].includes(miRol())) || (S.config?.usanInventario || []).includes(S.user?.uid));
+// { items, secciones }: las herramientas y dónde puso cada sección del taller 2D (si las movió)
+export const leerInventario = async () => { const d = (await getDoc(doc(db, "inventario", S.user.uid))).data() || {}; return { items: d.items || [], secciones: d.secciones || {} }; };
+// shortcut: toda la lista en un solo doc (tope 2000 herramientas por las reglas), pasar a subcolección si alguien se acerca
+export const guardarInventario = (items, secciones = {}) => setDoc(doc(db, "inventario", S.user.uid), { items, secciones, updatedAt: serverTimestamp() });
 // Tenía el chat pero el creador apagó Mensajes y turnos: el botón se ve y avisa que está en mantenimiento
 export const chatEnMantenimiento = () => !usaClientes() && (soyAdmin() || (S.config?.usanClientes || []).includes(S.user?.uid));
 
@@ -790,6 +798,7 @@ export const puedeVer = sec => {
   if (S.invitado) return S.invitado.tecnicos ? sec === "tecnicos" : sec === "planilla";
   if (sec === "planilla" && S.config?.planillaVeh === false) return false;   // el creador la apagó para todos
   if (soyCreador()) return true;
+  if (soyFacturacion()) return sec === "facturacion";   // ni Vehículos (planilla), ni Técnicos, ni Gastos, ni Fijos, ni Cierre
   // Hasta que el bot copie los accesos viejos (globales) a Paraná, valen esos
   const acc = (S.config?.accesosOp ? S.config.accesosOp[S.company?.id] : S.config?.accesos)?.[S.user?.uid] || {}, v = acc[sec];
   // Cierre operativo sin elegir: igual que Gastos si está tildado, si no solo administradores
@@ -850,7 +859,7 @@ export function escucharConfig() {
   if (unsubConfig) return;
   unsubConfig = onSnapshot(doc(db, "config", "app"), d => {
     const antes = JSON.stringify(S.config);
-    S.config = { avisoReparado: d.data()?.avisoReparado !== false, documentos: d.data()?.documentos !== false, fechaVista: d.data()?.fechaVista !== false, mensajeWa: d.data()?.mensajeWa || "", accesosOp: d.data()?.accesosOp || null, accesos: d.data()?.accesos || {}, sonidoAuto: d.data()?.sonidoAuto || "deportivo", etapasPdf: d.data()?.etapasPdf === true, planillaVeh: d.data()?.planillaVeh !== false, usanClientes: d.data()?.usanClientes || [], mensajesTurnos: d.data()?.mensajesTurnos !== false };
+    S.config = { avisoReparado: d.data()?.avisoReparado !== false, documentos: d.data()?.documentos !== false, fechaVista: d.data()?.fechaVista !== false, mensajeWa: d.data()?.mensajeWa || "", accesosOp: d.data()?.accesosOp || null, accesos: d.data()?.accesos || {}, sonidoAuto: d.data()?.sonidoAuto || "deportivo", etapasPdf: d.data()?.etapasPdf === true, planillaVeh: d.data()?.planillaVeh !== false, usanClientes: d.data()?.usanClientes || [], usanInventario: d.data()?.usanInventario || [], mensajesTurnos: d.data()?.mensajesTurnos !== false };
     if (JSON.stringify(S.config) !== antes) {
       // Si cambió el permiso de gastos, prender o apagar la escucha
       if (S.company && puedeVer("gastos") !== !!unsubGastos) escucharGastos();
