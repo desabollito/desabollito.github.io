@@ -179,7 +179,8 @@ export async function vistaInventario(view) {
       <label class="field"><span>Nota</span><input name="nota" maxlength="200" value="${esc(it.nota || "")}" placeholder="Medida, marca, estado…"></label>
       <div class="inv-foto-campo"><span id="inv-prev">${foto ? `<img class="inv-foto-grande" src="${esc(foto.url)}" alt="">` : ""}</span>
         <div class="row-btns"><label class="btn btn-ghost">${icon("camera")}${foto ? "Cambiar foto" : "Agregar foto"}<input type="file" accept="image/*" hidden id="inv-file"></label>
-          ${foto ? `<button type="button" class="btn btn-ghost" id="inv-sin-foto">Quitar foto</button>` : ""}
+          <button type="button" class="btn btn-ghost" id="inv-sin-fondo" ${foto ? "" : "hidden"}>${icon("image")}Quitar fondo</button>
+          <button type="button" class="btn btn-ghost" id="inv-sin-foto" ${foto ? "" : "hidden"}>Quitar foto</button>
           ${nuevo ? "" : `<button type="button" class="btn btn-ghost danger" id="inv-borrar">${icon("trash")}Borrar</button>`}</div></div>
       <button class="btn btn-primary btn-block" type="submit">Guardar</button></form>` });
     const f = $("#inv-f", s.el), guardarBtn = f.querySelector("[type=submit]");
@@ -190,25 +191,43 @@ export async function vistaInventario(view) {
     };
     verCampos(); f.cat.onchange = verCampos;
     f.nombre.oninput = () => { const c = catDe(f.nombre.value); if (c) { f.cat.value = c; if (c === "carro") f.modelo.value = modeloDe(f.nombre.value); verCampos(); } };
+    // La foto elegida (o sin fondo) queda acá y se sube una sola vez, al guardar: así no se gasta Cloudinary en pruebas
+    let pendiente = null;
+    const mostrarFoto = url => {
+      $("#inv-prev", f).innerHTML = url ? `<img class="inv-foto-grande" src="${esc(url)}" alt="">` : "";
+      $("#inv-sin-fondo", f).hidden = $("#inv-sin-foto", f).hidden = !url;
+    };
     $("#inv-file", f).onchange = async e => {
       const file = e.target.files[0]; if (!file) return;
-      busy(guardarBtn, true, "Subiendo foto…");
-      try {
-        const r = await subir(await comprimir(file, 1280, 0.82, "image/webp"), `inventario/${S.user.uid}`, { nombre: f.nombre.value });
-        foto = { url: r.url };
-        $("#inv-prev", f).innerHTML = `<img class="inv-foto-grande" src="${esc(foto.url)}" alt="">`;
-      } catch (err) { toast(err.message, "error"); }
-      busy(guardarBtn, false);
+      try { pendiente = await comprimir(file, 1280, 0.82, "image/webp"); mostrarFoto(URL.createObjectURL(pendiente)); }   // WebP: mantiene la transparencia
+      catch (err) { toast(err.message, "error"); }
+      e.target.value = "";
     };
-    $("#inv-sin-foto", f)?.addEventListener("click", () => { foto = null; $("#inv-prev", f).innerHTML = ""; });
+    $("#inv-sin-fondo", f).onclick = async () => {
+      const b = $("#inv-sin-fondo", f);
+      busy(b, true, "Quitando fondo…"); guardarBtn.disabled = true;
+      try {
+        const origen = pendiente || await (await fetch(foto.url)).blob();
+        const { quitarFondo } = await import("./quitarfondo.js");
+        pendiente = await quitarFondo(origen);
+        mostrarFoto(URL.createObjectURL(pendiente));
+      } catch (err) { toast(err.message || "No se pudo quitar el fondo", "error"); }
+      busy(b, false); guardarBtn.disabled = false;
+    };
+    $("#inv-sin-foto", f).onclick = () => { foto = null; pendiente = null; mostrarFoto(""); };
     $("#inv-borrar", f)?.addEventListener("click", async () => {
       const adentro = items.filter(i => i.en === it.id).length;
       if (!(await confirmar({ title: `¿Borrar «${it.nombre}»?`, message: adentro ? `Lo que tiene (${adentro}) vuelve a su lugar del taller.` : "", ok: "Borrar", danger: true }))) return;
       s.close();
       cambiar(items.filter(i => i.id !== it.id).map(i => i.en === it.id ? { ...i, en: "" } : i));
     });
-    f.onsubmit = e => {
+    f.onsubmit = async e => {
       e.preventDefault();
+      if (pendiente) {
+        busy(guardarBtn, true, "Subiendo foto…");
+        try { foto = { url: (await subir(pendiente, `inventario/${S.user.uid}`, { nombre: f.nombre.value })).url }; }
+        catch (err) { busy(guardarBtn, false); return toast(err.message, "error"); }
+      }
       const cat = f.cat.value, cont = CONTENEDOR.includes(cat);
       const datos = { nombre: f.nombre.value.trim(), cat, cant: Math.min(999, Math.max(1, parseInt(f.cant.value, 10) || 1)),
         en: cont ? "" : f.en.value, nota: f.nota.value.trim(), ...(cat === "carro" ? { modelo: f.modelo.value } : {}), ...(foto ? { foto } : {}) };
