@@ -202,7 +202,19 @@ export async function montar3D(el, items, alTocar, alAgregar = () => {}, alMover
       g.add(en(caja(0.2, 0.07, 0.065, m), 0, 0.2, 0), en(cil(0.014, 0.07, metal(), 10), 0.13, 0.2, 0, 0, 0, Math.PI / 2));
       g.add(en(caja(0.045, 0.12, 0.05, negro), -0.03, 0.105, 0), en(caja(0.09, 0.045, 0.08, negro), -0.03, 0.0225, 0));
       g.rotation.y = 0.4; return g; },
-    varios: m => { const g = new T.Group(); g.add(en(caja(0.16, 0.1, 0.13, m), 0, 0.05, 0)); return g; },
+    varios: (m, i) => { const g = new T.Group(), nombre = i.nombre || "";
+      if (/chupete/i.test(nombre)) {   // chupetes: tres tabs naranjas translúcidos (base hexagonal, vástago y disco)
+        const nar = mat(0xf28c1e, { roughness: .35, transparent: true, opacity: .85, emissive: 0x5a2400, emissiveIntensity: .25 });
+        [[-0.05, 0], [0.05, 0.02], [0, 0.07]].forEach(([x, z]) => g.add(en(cil(0.022, 0.035, nar, 6), x, 0.0175, z), en(cil(0.009, 0.03, nar, 10), x, 0.05, z), en(cil(0.03, 0.008, nar, 20), x, 0.069, z)));
+        return g;
+      }
+      if (/ventosa/i.test(nombre)) {   // ventosa: copa de goma negra y manija
+        const goma = mat(0x1b1c1f, { roughness: .8 });
+        g.add(en(new T.Mesh(new T.SphereGeometry(0.06, 20, 10, 0, Math.PI * 2, 0, Math.PI / 2), goma), 0, 0, 0), en(caja(0.1, 0.015, 0.025, metal()), 0, 0.09, 0));
+        for (const x of [-0.035, 0.035]) g.add(en(cil(0.006, 0.04, metal(), 8), x, 0.07, 0));
+        return g;
+      }
+      g.add(en(caja(0.16, 0.1, 0.13, m), 0, 0.05, 0)); return g; },
     valija: (m, i) => i.modelo === "mesa" ? mesaSacabollos(m) : i.modelo === "vertical" ? valijaVertical(m) : i.modelo === "flight" ? valijaFlight(m) : valijaLarga(m),
     carro: (m, i) => i.modelo === "alto" ? carroAlto(m) : carroComun(m)
   };

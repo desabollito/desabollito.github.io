@@ -2705,7 +2705,7 @@ button.aj-item:hover, a.aj-item:hover { background: var(--surface-2); }
 .inv-objs { position: relative; flex: 1; min-height: 0; margin: 6px 8px 8px; }
 .inv-objs > .inv-obj { position: absolute; z-index: 2; transform: translate(-50%, -100%); }   /* por encima de las otras secciones: puede asomar fuera de la suya */
 /* Tamaño propio de cada herramienta (--tam): el dibujo crece desde su punto de apoyo, abajo al centro */
-.inv-objs > .inv-obj > svg { transform: scale(var(--tam, 1)); transform-origin: 50% 100%; }
+.inv-objs > .inv-obj > svg { transform: scale(var(--tx, 1), var(--ty, 1)); transform-origin: 50% 100%; }   /* ancho y alto propios, por separado */
 .inv-etq { align-self: flex-start; display: inline-flex; align-items: flex-start; gap: 3px; max-width: 100%; padding: 3px 7px;
   border: 1px dashed var(--line-2); border-radius: 5px; background: var(--surface); color: var(--muted);
   font: inherit; font-size: 12px; font-weight: 600; line-height: 1.25; text-align: left; overflow-wrap: anywhere; cursor: pointer; }
@@ -2718,7 +2718,8 @@ button.aj-item:hover, a.aj-item:hover { background: var(--surface-2); }
 .inv-fantasma { position: fixed; z-index: 1000; pointer-events: none; transform: none; opacity: .9; filter: drop-shadow(0 6px 12px rgb(0 0 0 / .4)); }
 .inv-fantasma .inv-nom { display: none !important; }
 .inv-llevando { opacity: .35; }
-.inv-obj-foto { display: block; width: calc(54px * var(--tam, 1)); height: calc(54px * var(--tam, 1)); object-fit: contain; border-radius: 6px; pointer-events: none; }
+.inv-obj-foto { display: block; width: calc(54px * var(--tx, 1)); height: calc(54px * var(--ty, 1)); object-fit: contain; border-radius: 6px; pointer-events: none; }
+.inv-obj-foto.estirada { object-fit: fill; }   /* la estiró a lo ancho o a lo largo por separado: sigue exactamente lo que arrastró */
 /* Tirador para agrandar o achicar la foto (arriba a la derecha): con el mouse aparece al pasar; en pantallas táctiles, siempre */
 .inv-tam { position: absolute; top: -6px; right: -6px; width: 16px; height: 16px; border: 2px solid var(--primary); border-radius: 50%; background: var(--surface); cursor: nesw-resize; touch-action: none; opacity: 0; transition: opacity .15s; }
 .inv-obj:hover .inv-tam, .inv-obj:focus-visible .inv-tam { opacity: 1; }
@@ -2740,7 +2741,7 @@ button.aj-item:hover, a.aj-item:hover { background: var(--surface-2); }
 .inv-obj svg, .inv-foto svg { fill: none; stroke: currentColor; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; overflow: visible; }
 .inv-obj .lleno, .inv-foto .lleno { fill: currentColor; fill-opacity: .35; }
 .inv-obj .rayas, .inv-foto .rayas { opacity: .55; }
-.inv-varilla { width: 18px; } .inv-varilla svg { width: 100%; height: 100%; } .inv-varilla path { vector-effect: non-scaling-stroke; }
+.inv-varilla { width: 18px; } .inv-varilla svg { width: 100%; height: 100%; }
 .inv-martillo svg { width: 28px; height: 46px; } .inv-inercial svg { width: 22px; height: 62px; } .inv-gancho svg { width: 24px; height: 50px; }
 .inv-lampara .m-pie { width: 48px; height: 128px; } .inv-bateria svg { width: 40px; height: 32px; } .inv-obj.inv-bateria .m-auto { width: 50px; height: 38px; } .inv-carro svg { width: 74px; height: 62px; } .inv-carro.inv-obj svg[viewBox="0 0 54 96"] { width: 50px; height: 90px; }
 .inv-desmontaje svg { width: 50px; height: 20px; } .inv-varios svg { width: 32px; height: 28px; } .inv-obj.inv-valija .m-larga { width: 96px; height: 26px; } .inv-obj.inv-valija .m-vertical { width: 30px; height: 70px; } .inv-obj.inv-valija .m-flight { width: 66px; height: 54px; } .inv-obj.inv-valija .m-mesa { width: 62px; height: 57px; }

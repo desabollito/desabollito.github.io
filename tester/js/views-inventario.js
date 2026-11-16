@@ -21,20 +21,20 @@ const SUGERENCIAS = {
   varilla: ["Varilla de puerta", "Varilla cola de ballena", "Varilla de capot", "Varilla de techo", "Varilla doble punta", "Varilla de guardabarros"],
   martillo: ["Martillo de goma", "Martillo de teflón", "Martillo de bola", "Punzón de nylon", "Punzón de metal", "Tap-down", "Juego de puntas intercambiables"],
   inercial: ["Martillo inercial", "BullKick", "Shotgun", "Martillo inercial a resorte", "Pinza sacabollos", "Mini lifter", "Puller", "Puente de tracción", "Pistola de pegamento a batería", "Pistola de pegamento a cable", "Barras de pegamento", "Tabs de tracción", "Removedor de pegamento"],
-  gancho: ["Gancho de ventanilla", "Gancho en S", "Ventosa", "Cuña inflable", "Protector de ventanilla", "Puntas de repuesto", "Traba de capot", "Traba de puerta", "Traba", "Vara de capot", "Soporte de capot"],
+  gancho: ["Gancho de ventanilla", "Gancho en S", "Cuña inflable", "Protector de ventanilla", "Puntas de repuesto", "Traba de capot", "Traba de puerta", "Traba", "Vara de capot", "Soporte de capot"],
   lampara: ["Lámpara de mano", "Lámpara LED de líneas", "Pantalla reflectora de mano", "Lámpara con pie", "Trípode para lámpara"],
   bateria: ["Batería 18V 6.0Ah", "Batería 18V 5.0Ah", "Batería 18V 3.0Ah", "Batería de auto 12V 65Ah", "Batería de gel 12V 7Ah"],
   carro: ["Carro común", "Carro alto"],
   valija: ["Valija larga de varillas", "Valija vertical con ruedas", "Flight case con ruedas", "Mesa sacabollos"],
   desmontaje: ["Pinza", "Pinza de punta", "Saca grampas", "Kit de palancas plásticas", "Juego de tubos y llaves", "Destornilladores"],
   herramienta: ["Taladro", "Taladro a batería", "Máquina de taladro", "Máquina de pulir", "Máquina Dentshock", "Máquina Hotbox", "Pistola de calor a batería", "Pistola de calor a cable"],
-  varios: ["Paños de microfibra", "Compound de pulido", "Pads del taladro", "Lijas", "Spray con alcohol isopropílico", "Linterna de cabeza", "Cinta de enmascarar"]
+  varios: ["Chupetes", "Ventosa", "Paños de microfibra", "Compound de pulido", "Pads del taladro", "Lijas", "Spray con alcohol isopropílico", "Linterna de cabeza", "Cinta de enmascarar"]
 };
 // La sección sale del nombre: igual a una sugerencia, o con una palabra clave
 // (el orden importa: "Pistola de calor a batería" es herramienta, no batería; "Pads del taladro" es varios, no herramienta)
-const CLAVES = [[/varilla/i, "varilla"], [/traba|\bvara\b|soporte de capot/i, "gancho"], [/mesa sacabollo/i, "valija"],[/microfibra|compound|\bpads?\b|\blijas?\b/i, "varios"], [/pegamento|inercial|puller|lifter|pinza sacabollo|bull ?kick|shotgun|\btabs?\b/i, "inercial"], [/\bpinza\b/i, "desmontaje"],
+const CLAVES = [[/varilla/i, "varilla"], [/traba|\bvara\b|soporte de capot/i, "gancho"], [/mesa sacabollo/i, "valija"],[/microfibra|compound|\bpads?\b|\blijas?\b|chupete|ventosa/i, "varios"], [/pegamento|inercial|puller|lifter|pinza sacabollo|bull ?kick|shotgun|\btabs?\b/i, "inercial"], [/\bpinza\b/i, "desmontaje"],
   [/taladro|pulir|pulidora|dentshock|hotbox|pistola de calor|amoladora/i, "herramienta"], [/bater[ií]a/i, "bateria"], [/l[aá]mpara|pantalla/i, "lampara"],
-  [/martillo|punz[oó]n|tap.?down/i, "martillo"], [/gancho|ventosa|cu[ñn]a/i, "gancho"], [/valija|flight/i, "valija"], [/\bcarro\b/i, "carro"]];
+  [/martillo|punz[oó]n|tap.?down/i, "martillo"], [/gancho|cu[ñn]a/i, "gancho"], [/valija|flight/i, "valija"], [/\bcarro\b/i, "carro"]];
 const catDe = nombre => Object.keys(SUGERENCIAS).find(c => SUGERENCIAS[c].some(s => s.toLowerCase() === nombre.trim().toLowerCase()))
   || CLAVES.find(([re]) => re.test(nombre))?.[1];
 // Modelos (el primero es el que toma si no eligió)
@@ -88,6 +88,10 @@ DIBUJO.pinza = `<svg viewBox="0 0 74 58" class="m-pinza"><rect x="22" y="1" widt
 const esPinza = i => i.cat === "inercial" && /pinza/i.test(i.nombre || "");
 // Pinza de punta (desmontaje), parada: puntas largas y finas arriba, el eje y los dos mangos rojos abajo
 DIBUJO.pinzaPunta = `<svg viewBox="0 0 40 92" class="m-pinza-punta"><path d="M19 2l-3 32M21 2l3 32"/><circle cx="20" cy="38" r="4" class="lleno"/><path d="M16 42q-9 22-6 46M24 42q9 22 6 46" class="mango"/></svg>`;
+// Chupete (tab de pegado): disco arriba, vástago y base hexagonal, naranja translúcido. Ventosa: copa de goma con manija.
+DIBUJO.chupete = `<svg viewBox="0 0 40 58" class="m-chupete"><ellipse cx="20" cy="8" rx="16" ry="5" class="lleno"/><rect x="16" y="13" width="8" height="18" rx="2" class="lleno"/><path d="M7 31h26l3 6v14l-3 5H7l-3-5V37z" class="lleno"/><path d="M4 37h32"/></svg>`;
+DIBUJO.ventosa = `<svg viewBox="0 0 48 46" class="m-ventosa"><path d="M14 6h20M18 6v14M30 6v14"/><path d="M4 42q0-20 20-22q20 2 20 22z" class="lleno"/></svg>`;
+const esChupete = i => /chupete/i.test(i.nombre || ""), esVentosa = i => /ventosa/i.test(i.nombre || "");
 const esPinzaPunta = i => i.cat === "desmontaje" && /pinza/i.test(i.nombre || "");
 // Martillo inercial (tipo FastPDR), parado: mango con estrías arriba, barra, pesa con 3 tornillos al medio y la punta abajo
 DIBUJO.slide = `<svg viewBox="0 0 30 124" class="m-slide"><rect x="9" y="2" width="12" height="34" rx="5" class="lleno"/><path d="M9 11h12M9 19h12M9 27h12"/><rect x="8" y="36" width="14" height="4" rx="1"/><path d="M15 40v70"/><rect x="7" y="56" width="16" height="30" rx="2" class="lleno"/><circle cx="15" cy="63" r="2"/><circle cx="15" cy="71" r="2"/><circle cx="15" cy="79" r="2"/><rect x="11" y="110" width="8" height="12" rx="2"/></svg>`;
@@ -100,7 +104,7 @@ const esPistola = i => i.cat === "inercial" && /pistola/i.test(i.nombre || "");
 const esBullkick = i => i.cat === "inercial" && /bull ?kick|shotgun|resorte/i.test(i.nombre || "");
 const esSlide = i => i.cat === "inercial" && !esBullkick(i) && /martillo inercial|slide/i.test(i.nombre || "");
 const esInduccion = i => i.cat === "herramienta" && /dentshock|hotbox|inducci/i.test(i.nombre || "");
-const dibujo = i => esInduccion(i) ? DIBUJO.induccion : esPinza(i) ? DIBUJO.pinza : esPinzaPunta(i) ? DIBUJO.pinzaPunta :esPistola(i) ? (/bater/i.test(i.nombre) ? DIBUJO.pistolaBat : DIBUJO.pistola) :esBullkick(i) ? DIBUJO.bullkick : esSlide(i) ? DIBUJO.slide : DIBUJO[VARIANTE[i.cat]?.[i.modelo]] || DIBUJO[i.cat] || DIBUJO.varios;
+const dibujo = i => esChupete(i) ? DIBUJO.chupete : esVentosa(i) ? DIBUJO.ventosa : esInduccion(i) ? DIBUJO.induccion :esPinza(i) ? DIBUJO.pinza : esPinzaPunta(i) ? DIBUJO.pinzaPunta :esPistola(i) ? (/bater/i.test(i.nombre) ? DIBUJO.pistolaBat : DIBUJO.pistola) :esBullkick(i) ? DIBUJO.bullkick : esSlide(i) ? DIBUJO.slide : DIBUJO[VARIANTE[i.cat]?.[i.modelo]] || DIBUJO[i.cat] || DIBUJO.varios;
 const largo = id => 62 + [...id].reduce((a, c) => a + c.charCodeAt(0), 0) % 38;   // varillas de distinto largo (siempre igual para la misma)
 const nuevoId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 // Lugar de cada herramienta en su sección del 2D: el que eligió (arrastrando) o uno ordenado por defecto
@@ -141,7 +145,7 @@ const DISPOSICION = {
 { const ks = Object.keys(CATS).sort().join();
   console.assert(Object.keys(DISPOSICION.ancho).sort().join() === ks && Object.keys(DISPOSICION.angosto).sort().join() === ks
     && Object.values(DISPOSICION.ancho).every(r => r.x + r.w <= 100 && r.y + r.h <= 100), "inventario: disposición de secciones"); }
-const TAM_MIN = 0.4, TAM_MAX = 6;   // cuánto se puede achicar o agrandar cada herramienta en el 2D (1 = normal)
+const TAM_MIN = 0.3, TAM_MAX = 12;   // cuánto se puede achicar o agrandar cada herramienta en el 2D (1 = normal)
 { const p = posDefecto({ cat: "martillo" }, 4, 6); console.assert(Math.abs(p.x - 0.5) < 1e-9 && Math.abs(p.y - 0.98) < 1e-9, "inventario: lugar por defecto"); }
 
 export async function vistaInventario(view) {
@@ -157,6 +161,8 @@ export async function vistaInventario(view) {
   const secDe = i => i.sec || i.cat;
   // Lugar y tamaño en el 2D, por separado para el modo Dibujo (pos, tam) y el modo Foto (posFoto, tamFoto): acomodar uno no mueve el otro
   const CLAVE = () => fotos ? { pos: "posFoto", tam: "tamFoto" } : { pos: "pos", tam: "tam" };
+  // Ancho y alto propios en el modo actual (tamX/tamY o tamFotoX/tamFotoY); si solo tenía un tamaño parejo de antes (tam), vale para los dos
+  const medidas = i => { const k = CLAVE().tam; return { tx: i[k + "X"] ?? i[k] ?? 1, ty: i[k + "Y"] ?? i[k] ?? 1 }; };
   const conSeccion =(i, sec) => { const { sec: _, ...r } = i; return sec && sec !== i.cat ? { ...r, sec } : r; };
   const contenedores = (sin = "") => items.filter(i => CONTENEDOR.includes(i.cat) && i.id !== sin);
   const dondeTxt = i => { const c = de(i.en); return !c ? "" : (c.cat === "carro" ? "En el carro " : "Dentro de ") + c.nombre; };
@@ -173,11 +179,11 @@ export async function vistaInventario(view) {
 
   const obj = (i, k, n) => {
     const p = i[CLAVE().pos] || posDefecto(i, k, n), conFoto = fotos && i.foto?.url;
-    // Tamaño propio (--tam, tirador de la esquina o rueda del mouse), igual a lo largo y a lo ancho; no depende del tamaño de la sección.
+    // Ancho y alto propios (--tx, --ty: tirador de la esquina o rueda del mouse); no dependen del tamaño de la sección.
     // Las varillas tienen su largo fijo en px (antes era % de la sección y al agrandarla se estiraban solo para abajo).
     return `<button type="button" class="inv-obj inv-${i.cat}" data-ver="${esc(i.id)}" aria-label="${esc(i.nombre)}" title="${esc(i.nombre)}"
-      style="left:${(p.x * 100).toFixed(2)}%;top:${(p.y * 100).toFixed(2)}%;--tam:${i[CLAVE().tam] || 1}${i.cat === "varilla" && !conFoto ? `;height:${Math.round(largo(i.id) * 1.6)}px` : ""}">${conFoto
-        ? `<img class="inv-obj-foto" src="${esc(entera(i.foto.url))}" alt="" loading="lazy" draggable="false">` : dibujo(i)}<span class="inv-tam" title="Arrastrá para agrandar o achicar"></span>${(i.cant || 1) > 1 ? `<b class="inv-n">×${i.cant}</b>` : ""}
+      style="left:${(p.x * 100).toFixed(2)}%;top:${(p.y * 100).toFixed(2)}%;--tx:${medidas(i).tx};--ty:${medidas(i).ty}${i.cat === "varilla" && !conFoto ? `;height:${Math.round(largo(i.id) * 1.6)}px` : ""}">${conFoto
+        ? `<img class="inv-obj-foto${Math.abs(medidas(i).tx - medidas(i).ty) > 0.01 ? " estirada" : ""}" src="${esc(entera(i.foto.url))}" alt="" loading="lazy" draggable="false">` : dibujo(i)}<span class="inv-tam" title="Arrastrá para agrandar o achicar"></span>${(i.cant || 1) > 1 ? `<b class="inv-n">×${i.cant}</b>` : ""}
       ${CONTENEDOR.includes(i.cat) ? `<b class="inv-n">${items.filter(x => x.en === i.id).length || ""}</b>` : ""}<span class="inv-nom">${esc(i.nombre)}</span></button>`;
   };
   // Cada sección: todas sus herramientas (aunque estén en una valija o un carro, siguen en la pared) y el + para agregar ahí
@@ -399,7 +405,7 @@ export async function vistaInventario(view) {
       // Sin campos vacíos (Firestore no acepta undefined); el lugar del 2D se conserva si sigue en la misma sección
       const datos = { nombre: f.nombre.value.trim(), cat, cant: Math.min(999, Math.max(1, parseInt(f.cant.value, 10) || 1)),
         en: cont ? "" : it.en || "", nota: f.nota.value.trim(), ...(MODELOS[cat] ? { modelo: f.modelo.value } : {}),
-        ...(cat === "bateria" && ah > 0 ? { ah } : {}), ...(foto ? { foto } : {}), ...Object.fromEntries(["pos", "posFoto", "tam", "tamFoto"].filter(k => it[k] != null).map(k => [k, it[k]])), ...(zonaDestino && zonaDestino !== cat ? { sec: zonaDestino } : {}) };
+        ...(cat === "bateria" && ah > 0 ? { ah } : {}), ...(foto ? { foto } : {}), ...Object.fromEntries(["pos", "posFoto", "tam", "tamFoto", "tamX", "tamY", "tamFotoX", "tamFotoY"].filter(k => it[k] != null).map(k => [k, it[k]])), ...(zonaDestino && zonaDestino !== cat ? { sec: zonaDestino } : {}) };
       s.close();
       if (nuevo) cambiar([...items, { id: nuevoId(), ...datos }]);
       else cambiar(items.map(i => i.id === it.id ? { id: it.id, ...datos } : i)
@@ -483,9 +489,9 @@ export async function vistaInventario(view) {
       if (e.clientX < sec.left - M || e.clientX > sec.right + M || e.clientY < sec.top - M || e.clientY > sec.bottom + M) return;   // lejos: queda donde estaba
       // Modo Foto: solo el punto de apoyo queda adentro (la foto puede asomar fuera de la sección).
       // Modo Dibujo: el dibujo entero (con su tamaño propio) queda dentro de la sección.
-      const t = it[CLAVE().tam] || 1;
+      const t = medidas(it);
       const p = fotos ? encastrar(cx - z.left, cy - z.top, z.width, z.height, 0, 0, otros)
-        : encastrar(cx - z.left, cy - z.top, z.width, z.height, Math.min(z.width / 2, g.width * t / 2), Math.min(z.height, g.height * t), otros);
+        : encastrar(cx - z.left, cy - z.top, z.width, z.height, Math.min(z.width / 2, g.width * t.tx / 2), Math.min(z.height, g.height * t.ty), otros);
       const pos = { x: +(p.x / z.width).toFixed(4), y: +(p.y / z.height).toFixed(4) }, nueva = zonaEl.dataset.zona;
       // Solo cambia la sección donde se ve: el tipo (y su dibujo, modelo y amperaje) sigue igual.
       // Si cambió de sección, el lugar del otro modo era de la sección vieja: se borra y ahí se acomoda solo.
@@ -534,35 +540,41 @@ export async function vistaInventario(view) {
     // Agrandar o achicar una foto (modo Foto): el tirador de la esquina (hacia arriba o la derecha agranda) o la rueda del mouse.
     // Va en la fase de captura para ganarle al arrastre de la herramienta.
     let rz = null, tRueda = 0;
-    // tam: factor de tamaño (1 = normal), de TAM_MIN a TAM_MAX; arrastrar el tirador hacia arriba o la derecha agranda
-    const guardarTam = (it, tam) => cambiar(items.map(i => i.id === it.id ? { ...i, [CLAVE().tam]: +tam.toFixed(2) } : i));
+    // Ancho (tx) y alto (ty), 1 = normal, de TAM_MIN a TAM_MAX: el tirador a la derecha ensancha y hacia arriba alarga, cada uno por su lado;
+    // la rueda cambia los dos a la vez
+    const guardarTam = (it, m) => { const k = CLAVE().tam; cambiar(items.map(i => i.id === it.id ? { ...i, [k + "X"]: +m.tx.toFixed(2), [k + "Y"]: +m.ty.toFixed(2) } : i)); };
+    const ponerTam = (b, m) => {
+      b.style.setProperty("--tx", m.tx.toFixed(3)); b.style.setProperty("--ty", m.ty.toFixed(3));
+      b.querySelector(".inv-obj-foto")?.classList.toggle("estirada", Math.abs(m.tx - m.ty) > 0.01);
+    };
     pag.addEventListener("pointerdown", e => {
       const h = e.target.closest(".inv-tam"); if (!h) return;
       e.stopPropagation(); e.preventDefault();
       const b = h.closest(".inv-obj"), it = de(b.dataset.ver);
-      rz = { it, b, x: e.clientX, y: e.clientY, base: it[CLAVE().tam] || 1, tam: it[CLAVE().tam] || 1 };
+      rz = { it, b, x: e.clientX, y: e.clientY, base: medidas(it), m: medidas(it) };
       h.setPointerCapture(e.pointerId); ocultarPrevia();
     }, true);
     pag.addEventListener("pointermove", e => {
       if (!rz) return;
       e.stopPropagation();
-      rz.tam = lim(rz.base * (1 + ((e.clientX - rz.x) - (e.clientY - rz.y)) / 120), TAM_MIN, TAM_MAX);
-      rz.b.style.setProperty("--tam", rz.tam.toFixed(3));
+      rz.m = { tx: lim(rz.base.tx * (1 + (e.clientX - rz.x) / 70), TAM_MIN, TAM_MAX), ty: lim(rz.base.ty * (1 - (e.clientY - rz.y) / 70), TAM_MIN, TAM_MAX) };
+      ponerTam(rz.b, rz.m);
     }, true);
     const soltarTam = e => {
       if (!rz) return;
       e.stopPropagation();
-      const { it, tam, base } = rz; rz = null;
+      const { it, m, base } = rz; rz = null;
       arrastro = true; setTimeout(() => { arrastro = false; });   // que soltar el tirador no abra la herramienta
-      if (Math.abs(tam - base) > 0.01) guardarTam(it, tam);
+      if (Math.abs(m.tx - base.tx) > 0.01 || Math.abs(m.ty - base.ty) > 0.01) guardarTam(it, m);
     };
     pag.addEventListener("pointerup", soltarTam, true); pag.addEventListener("pointercancel", soltarTam, true);
     pag.addEventListener("wheel", e => {
       const b = e.target.closest(".inv-sala .inv-obj"); if (!b) return;
       e.preventDefault();
-      const it = de(b.dataset.ver), tam = lim(parseFloat(b.style.getPropertyValue("--tam")) * (e.deltaY < 0 ? 1.1 : 1 / 1.1) || 1, TAM_MIN, TAM_MAX);
-      b.style.setProperty("--tam", tam.toFixed(3));
-      clearTimeout(tRueda); tRueda = setTimeout(() => guardarTam(it, tam), 450);   // se guarda cuando deja de girar
+      const it = de(b.dataset.ver), f = e.deltaY < 0 ? 1.1 : 1 / 1.1, v = n => parseFloat(b.style.getPropertyValue(n)) || 1;
+      const m = { tx: lim(v("--tx") * f, TAM_MIN, TAM_MAX), ty: lim(v("--ty") * f, TAM_MIN, TAM_MAX) };
+      ponerTam(b, m);
+      clearTimeout(tRueda); tRueda = setTimeout(() => guardarTam(it, m), 450);   // se guarda cuando deja de girar
     }, { passive: false });
     pag.addEventListener("touchmove", e => { if (d?.listo || rz || sz) e.preventDefault(); }, { passive: false });
     pag.addEventListener("contextmenu", e => { if (e.target.closest(".inv-sala .inv-obj")) e.preventDefault(); });
