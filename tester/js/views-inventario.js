@@ -487,11 +487,8 @@ export async function vistaInventario(view) {
       // En la sección (o apenas afuera): el punto de apoyo (abajo al centro) se encastra en la grilla, dentro del recuadro
       const cx = g.left + g.width / 2, cy = g.bottom;
       if (e.clientX < sec.left - M || e.clientX > sec.right + M || e.clientY < sec.top - M || e.clientY > sec.bottom + M) return;   // lejos: queda donde estaba
-      // Modo Foto: solo el punto de apoyo queda adentro (la foto puede asomar fuera de la sección).
-      // Modo Dibujo: el dibujo entero (con su tamaño propio) queda dentro de la sección.
-      const t = medidas(it);
-      const p = fotos ? encastrar(cx - z.left, cy - z.top, z.width, z.height, 0, 0, otros)
-        : encastrar(cx - z.left, cy - z.top, z.width, z.height, Math.min(z.width / 2, g.width * t.tx / 2), Math.min(z.height, g.height * t.ty), otros);
+      // Solo el punto de apoyo queda dentro de la sección: la herramienta puede asomar (así se puede llevar bien contra el borde)
+      const p = encastrar(cx - z.left, cy - z.top, z.width, z.height, 0, 0, otros);
       const pos = { x: +(p.x / z.width).toFixed(4), y: +(p.y / z.height).toFixed(4) }, nueva = zonaEl.dataset.zona;
       // Solo cambia la sección donde se ve: el tipo (y su dibujo, modelo y amperaje) sigue igual.
       // Si cambió de sección, el lugar del otro modo era de la sección vieja: se borra y ahí se acomoda solo.

@@ -2709,7 +2709,7 @@ button.aj-item:hover, a.aj-item:hover { background: var(--surface-2); }
 .inv-redim:hover { background-color: var(--primary-soft); }
 /* Adentro de la sección, cada herramienta tiene su lugar (punto de apoyo abajo al centro, en %) */
 .inv-objs { position: relative; flex: 1; min-height: 0; margin: 6px 8px 8px; }
-.inv-objs > .inv-obj { position: absolute; z-index: 2; transform: translate(-50%, -100%); }   /* por encima de las otras secciones: puede asomar fuera de la suya */
+.inv-objs > .inv-obj { position: absolute; z-index: 2; transform: translate(-50%, -100%); width: max-content; }   /* max-content: cerca del borde no se aplasta */   /* por encima de las otras secciones: puede asomar fuera de la suya */
 /* Tamaño propio de cada herramienta (--tam): el dibujo crece desde su punto de apoyo, abajo al centro */
 .inv-objs > .inv-obj > svg { transform: scale(var(--tx, 1), var(--ty, 1)); transform-origin: 50% 100%; }   /* ancho y alto propios, por separado */
 .inv-etq { align-self: flex-start; display: inline-flex; align-items: flex-start; gap: 3px; max-width: 100%; padding: 3px 7px;
