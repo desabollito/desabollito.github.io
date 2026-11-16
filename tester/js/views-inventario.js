@@ -136,13 +136,13 @@ const encastrar = (px, py, W, H, mw, mh, otros = []) => {
 const R = (x, y, w, h) => ({ x, y, w, h });
 const DISPOSICION = {
   ancho: { varilla: R(1, 2, 31, 44), martillo: R(33, 2, 25, 44), gancho: R(59, 2, 25.5, 44),
-    inercial: R(1, 47.5, 24, 24.5), desmontaje: R(26, 47.5, 33.5, 24.5), bateria: R(60.5, 47.5, 24, 24.5),
+    inercial: R(1, 47.5, 20.5, 24.5), desmontaje: R(22.5, 47.5, 20.5, 24.5), herramienta: R(44, 47.5, 20.5, 24.5), bateria: R(65.5, 47.5, 19, 24.5),
     valija: R(1, 73.5, 27.5, 25), carro: R(29.5, 73.5, 27.5, 25), varios: R(58, 73.5, 26.5, 25), lampara: R(85.5, 2, 13.5, 96.5) },
   angosto: { varilla: R(1, 0.5, 98, 14), martillo: R(1, 15, 48.5, 11), gancho: R(50.5, 15, 48.5, 11),
-    inercial: R(1, 26.5, 48.5, 10.5), desmontaje: R(50.5, 26.5, 48.5, 21.5), bateria: R(1, 37.5, 48.5, 10.5),
+    inercial: R(1, 26.5, 48.5, 10.5), desmontaje: R(50.5, 26.5, 48.5, 10.5), herramienta: R(1, 37.5, 48.5, 10.5), bateria: R(50.5, 37.5, 48.5, 10.5),
     lampara: R(1, 48.5, 98, 16), valija: R(1, 65, 48.5, 11), carro: R(50.5, 65, 48.5, 11), varios: R(1, 76.5, 98, 11) }
 };
-{ const ks = Object.keys(CATS).filter(c => c !== "herramienta").sort().join();   // Herramientas no tiene sección: se ven en Desmontaje
+{ const ks = Object.keys(CATS).sort().join();
   console.assert(Object.keys(DISPOSICION.ancho).sort().join() === ks && Object.keys(DISPOSICION.angosto).sort().join() === ks
     && Object.values(DISPOSICION.ancho).every(r => r.x + r.w <= 100 && r.y + r.h <= 100), "inventario: disposición de secciones"); }
 const TAM_MIN = 0.3, TAM_MAX = 12;   // cuánto se puede achicar o agrandar cada herramienta en el 2D (1 = normal)
@@ -158,7 +158,7 @@ export async function vistaInventario(view) {
 
   const de = id => items.find(i => i.id === id);
   // Tipo (cat: define el dibujo y el grupo de la lista) y sección del 2D donde se ve (sec; si no tiene, la de su tipo)
-  const secDe = i => { const s = i.sec || i.cat; return s === "herramienta" ? "desmontaje" : s; };   // Herramientas (taladros, máquinas…) se ven en Desmontaje
+  const secDe = i => i.sec || i.cat;
   // Lugar y tamaño en el 2D, por separado para el modo Dibujo (pos, tam) y el modo Foto (posFoto, tamFoto): acomodar uno no mueve el otro
   const CLAVE = () => fotos ? { pos: "posFoto", tam: "tamFoto" } : { pos: "pos", tam: "tam" };
   // Ancho y alto propios en el modo actual (tamX/tamY o tamFotoX/tamFotoY); si solo tenía un tamaño parejo de antes (tam), vale para los dos

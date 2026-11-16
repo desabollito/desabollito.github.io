@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.39.1", items: ["Vuelve la sección Herramientas al taller 2D, como estaba."] },
   { v: "4.39.0", items: ["Taller 2D: se sacó la sección Herramientas. Taladros, máquinas y pistolas de calor se ven en Desmontaje (más grande), cada uno con su dibujo."] },
   { v: "4.38.2", items: ["Agregar herramienta: primero la caja de sugerencias por sección y abajo el campo para escribir el nombre."] },
   { v: "4.38.1", items: ["Taller 2D: la grilla es la mitad de grande (casilleros de 14 px, un agujerito del tablero) y las secciones se alinean de a un cuarto de punto: se acomoda más fino."] },
