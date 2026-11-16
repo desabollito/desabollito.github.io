@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.38.2", items: ["Agregar herramienta: primero la caja de sugerencias por sección y abajo el campo para escribir el nombre."] },
   { v: "4.38.1", items: ["Taller 2D: la grilla es la mitad de grande (casilleros de 14 px, un agujerito del tablero) y las secciones se alinean de a un cuarto de punto: se acomoda más fino."] },
   { v: "4.38.0", items: ["Varios: «Chupetes» (con el dibujo del tab naranja: disco, vástago y base hexagonal) y «Ventosa» (copa de goma con manija), en 2D y 3D.", "Taller 2D: el tirador de la esquina cambia el ancho (a los costados) y el largo (arriba y abajo) por separado; la rueda del mouse, los dos a la vez. Sirve para varillas, fotos y todo lo demás, en Dibujo y en Foto.", "Las fotos se pueden estirar a los costados sin límite práctico y, en modo Foto, salirse de su sección."] },
   { v: "4.37.0", items: ["Taller 2D: el modo Dibujo y el modo Foto tienen cada uno su propio lugar y tamaño para cada herramienta; acomodar uno no mueve el otro.", "En Foto las herramientas pueden asomar fuera de su sección; en Dibujo quedan adentro.", "Editar una herramienta ya no le borra el tamaño que le diste."] },

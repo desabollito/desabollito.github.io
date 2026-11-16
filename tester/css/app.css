@@ -2793,7 +2793,7 @@ button.aj-item:hover, a.aj-item:hover { background: var(--surface-2); }
   background: repeating-conic-gradient(var(--surface-2) 0 25%, var(--surface) 0 50%) 0 0 / 18px 18px; }   /* cuadriculado: se ve qué quedó sin fondo */
 .inv-foto-campo { display: flex; flex-direction: column; gap: 8px; }
 /* Sugerencias del formulario: todas, agrupadas por sección, como botones */
-.inv-sugs { display: flex; flex-direction: column; gap: 8px; height: 210px; overflow-y: auto; margin-top: -4px; padding: 8px; border: 1px solid var(--line); border-radius: var(--r); background: var(--surface-2); }   /* caja fija con su propio desplazamiento */
+.inv-sugs { display: flex; flex-direction: column; gap: 8px; height: 210px; overflow-y: auto; padding: 8px; border: 1px solid var(--line); border-radius: var(--r); background: var(--surface-2); }   /* caja fija con su propio desplazamiento */
 .inv-sugs:empty { display: none; }
 .inv-sug-grupo { padding: 8px 10px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }   /* cada sección en su recuadro */
 .inv-sug-grupo small { display: block; margin-bottom: 4px; color: var(--muted); font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }

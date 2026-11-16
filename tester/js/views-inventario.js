@@ -311,10 +311,10 @@ export async function vistaInventario(view) {
     let foto = it.foto || null, cat = it.cat || null;
     const zonaDestino = nuevo ? it.cat : secDe(it);   // sección del 2D donde va a quedar
     const s = openSheet({ title: nuevo ? "Agregar herramienta" : "Editar herramienta", body: `<form class="stack" id="inv-f" autocomplete="off">
+      <div class="inv-sugs" id="inv-sugs" aria-label="Sugerencias"></div>
       <label class="field"><span>Herramienta</span><input name="nombre" list="inv-sug" required maxlength="80" value="${esc(it.nombre || "")}" placeholder="Ej: Varilla cola de ballena"></label>
       <datalist id="inv-sug">${Object.values(SUGERENCIAS).flat().map(x => `<option value="${esc(x)}">`).join("")}</datalist>
       <p class="muted small inv-seccion">Sección: <b></b></p>
-      <div class="inv-sugs" id="inv-sugs" aria-label="Sugerencias"></div>
       <div class="aj-fila"><label class="field"><span>Cantidad</span><input name="cant" type="number" inputmode="numeric" min="1" max="999" value="${it.cant || 1}"></label>
         <label class="field inv-ah"><span>Amperaje (Ah)</span><input name="ah" type="number" inputmode="decimal" min="0" max="9999" step="0.1" value="${it.ah ?? ""}" placeholder="Ej: 6"></label></div>
       <label class="field inv-modelo"><span></span><select name="modelo"></select></label>
