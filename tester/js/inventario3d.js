@@ -1,5 +1,5 @@
 // Inventario en 3D: el taller (pared perforada, mesa, valijas, lámparas) y los carros con lo que el técnico puso en cada uno.
-// Arrastrar gira la vista, la rueda o el pellizco acerca, WASD / flechas desplazan; tocar una herramienta la abre.
+// En primera persona: arrastrar mira alrededor, WASD / flechas / botones caminan; tocar una herramienta la abre.
 const URLS = ["https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "https://unpkg.com/three@0.160.0/build/three.module.js"];
 let cargando = null;
 const cargarThree = () => cargando ||= (async () => {
@@ -44,8 +44,7 @@ export async function montar3D(el, items, alTocar) {
 
   const escena = new T.Scene();
   escena.background = new T.Color(0x16171a);
-  escena.fog = new T.Fog(0x16171a, 7, 14);
-  const camara = new T.PerspectiveCamera(50, 1, 0.05, 40);
+  const camara = new T.PerspectiveCamera(65, 1, 0.05, 40);
   const render = new T.WebGLRenderer({ antialias: true });
   render.setPixelRatio(Math.min(devicePixelRatio, 2));
   render.shadowMap.enabled = true; render.shadowMap.type = T.PCFSoftShadowMap;
@@ -64,9 +63,19 @@ export async function montar3D(el, items, alTocar) {
   // ── La habitación ──
   const plano = (w, h, m) => { const x = new T.Mesh(new T.PlaneGeometry(w, h), m); x.receiveShadow = true; return x; };
   escena.add(en(plano(7, 3.4, mat(0xffffff, { map: texPared, roughness: .95 })), 0, 1.7, 0));
-  escena.add(en(plano(10, 3.4, mat(0xffffff, { map: texPared, roughness: .95 })), -3.5, 1.7, 5, 0, Math.PI / 2));
-  escena.add(en(plano(10, 3.4, mat(0xffffff, { map: texPared, roughness: .95 })), 3.5, 1.7, 5, 0, -Math.PI / 2));
-  escena.add(en(plano(7, 10, mat(0xffffff, { map: texPiso, roughness: .9 })), 0, 0, 5, -Math.PI / 2));
+  // Habitación cerrada de 7 × 8 m, con techo: se recorre caminando adentro
+  const FONDO = 8;
+  escena.add(en(plano(FONDO, 3.4, mat(0xffffff, { map: texPared, roughness: .95 })), -3.5, 1.7, FONDO / 2, 0, Math.PI / 2));
+  escena.add(en(plano(FONDO, 3.4, mat(0xffffff, { map: texPared, roughness: .95 })), 3.5, 1.7, FONDO / 2, 0, -Math.PI / 2));
+  escena.add(en(plano(7, 3.4, mat(0xffffff, { map: texPared, roughness: .95 })), 0, 1.7, FONDO, 0, Math.PI));
+  escena.add(en(plano(7, FONDO, mat(0xffffff, { map: texPiso, roughness: .9 })), 0, 0, FONDO / 2, -Math.PI / 2));
+  escena.add(en(plano(7, FONDO, mat(0x3a3d42, { roughness: 1 })), 0, 3.4, FONDO / 2, Math.PI / 2));
+  // Paneles de luz en el techo (6), cada uno con su luz: toda la habitación iluminada
+  const LUCES = [-2, 0, 2].flatMap(x => [1.8, 5.4].map(z => [x, z]));
+  for (const [x, z] of LUCES) {
+    escena.add(en(caja(1.1, 0.04, 0.5, new T.MeshStandardMaterial({ color: 0xffffff, emissive: 0xfff4e6, emissiveIntensity: 1.6 })), x, 3.38, z));
+    const l = new T.PointLight(0xfff1de, 9, 0, 2); l.position.set(x, 3.2, z); escena.add(l);
+  }
   escena.add(en(caja(0.5, 3.4, 0.5, mat(0x5a4038, { roughness: .8 })), 3.25, 1.7, 0.25));
   for (const y of [0.6, 2.6]) escena.add(en(caja(0.52, 0.08, 0.52, mat(0x8a5a40)), 3.25, y, 0.25));
   escena.add(en(caja(3.9, 1.85, 0.03, mat(0xffffff, { map: texPerforada, roughness: .8 })), -0.75, 2.05, 0.02));
@@ -77,8 +86,9 @@ export async function montar3D(el, items, alTocar) {
   for (const x of [-2.68, 1.18]) for (const z of [0.15, 0.85]) escena.add(en(caja(0.06, 0.92, 0.06, mMesa), x, 0.46, z));
   escena.add(en(caja(3.9, 0.04, 0.75, mMesa), -0.75, 0.18, 0.5));
 
-  // ── Luces: cálida desde arriba y un toque naranja al costado, como un taller de noche ──
-  escena.add(new T.HemisphereLight(0xcfd8e6, 0x2a2420, 0.9));
+  // ── Luces: luz general pareja, un foco sobre la mesa (sombras) y un toque naranja al costado ──
+  escena.add(new T.HemisphereLight(0xeef2f8, 0x4a4038, 1.7), new T.AmbientLight(0xffffff, 0.35));
+  render.toneMappingExposure = 1.15;
   const foco = new T.SpotLight(0xffe2c0, 70, 0, 1.0, 0.6, 2);
   foco.position.set(-0.3, 3.4, 2.6); foco.target.position.set(-0.3, 0.6, 0.8);
   foco.castShadow = true; foco.shadow.mapSize.set(1024, 1024); foco.shadow.bias = -0.0004;
@@ -255,16 +265,19 @@ export async function montar3D(el, items, alTocar) {
   }
   function cupo(e) { return Math.max(1, Math.floor(e.w / 0.2)) * Math.max(1, Math.floor(e.d / 0.16)); }
 
-  // ── Cámara: gira alrededor de un punto (arrastrar), se acerca (rueda / pellizco) y se desplaza (WASD / flechas) ──
-  const INICIO = { yaw: 0, pitch: 0.12, x: -0.3, y: 1.2, z: 0.6 };
-  const v = { ...INICIO, dist: 5 };
-  let distBase = 5, tocoZoom = false;
+  // ── Cámara en primera persona, a la altura de los ojos: arrastrar mira alrededor; WASD / flechas (o los botones en el celular)
+  //    caminan; la rueda o el pellizco avanzan y retroceden. Tocar una herramienta la abre.
+  // shortcut: solo choca con las paredes, no con los muebles; agregar cajas de choque si molesta atravesar la mesa o los carros
+  const OJOS = 1.6, INICIO = { x: -0.3, z: 4.6, yaw: 0, pitch: -0.15 };
+  const v = { ...INICIO };
+  const caminar = (ad, de) => {   // ad: adelante (+) / atrás (-); de: derecha (+) / izquierda (-)
+    const fx = -Math.sin(v.yaw), fz = -Math.cos(v.yaw);
+    v.x = lim(v.x + fx * ad - fz * de, -3.2, 3.2); v.z = lim(v.z + fz * ad + fx * de, 0.95, FONDO - 0.3);
+  };
   const aplicar = () => {
-    v.pitch = lim(v.pitch, -0.05, 1.25); v.yaw = lim(v.yaw, -1.2, 1.2); v.dist = lim(v.dist, 1.2, 10);
-    v.x = lim(v.x, -3, 3); v.z = lim(v.z, 0.3, 5);
-    camara.position.set(v.x + v.dist * Math.sin(v.yaw) * Math.cos(v.pitch), Math.max(0.25, v.y + v.dist * Math.sin(v.pitch)), v.z + v.dist * Math.cos(v.yaw) * Math.cos(v.pitch));
-    camara.lookAt(v.x, v.y, v.z);
-    escena.fog.near = v.dist + 2; escena.fog.far = v.dist + 10;
+    v.pitch = lim(v.pitch, -1.3, 1.3);
+    camara.position.set(v.x, OJOS, v.z);
+    camara.lookAt(v.x - Math.sin(v.yaw) * Math.cos(v.pitch), OJOS + Math.sin(v.pitch), v.z - Math.cos(v.yaw) * Math.cos(v.pitch));
   };
   const tip = el.querySelector(".inv-3d-tip");
   const ray = new T.Raycaster(), p = new T.Vector2();
@@ -290,8 +303,8 @@ export async function montar3D(el, items, alTocar) {
     const ant = punteros.get(e.pointerId);
     if (ant) {
       punteros.set(e.pointerId, [e.clientX, e.clientY]);
-      if (punteros.size === 1) { v.yaw -= (e.clientX - ant[0]) * 0.006; v.pitch += (e.clientY - ant[1]) * 0.005; }
-      else if (punteros.size === 2) { const [a, b] = [...punteros.values()], d = Math.hypot(a[0] - b[0], a[1] - b[1]); if (pellizco) v.dist *= pellizco / d; pellizco = d; tocoZoom = true; }
+      if (punteros.size === 1) { v.yaw += (e.clientX - ant[0]) * 0.004; v.pitch += (e.clientY - ant[1]) * 0.004; }   // se "agarra" la escena
+      else if (punteros.size === 2) { const [a, b] = [...punteros.values()], d = Math.hypot(a[0] - b[0], a[1] - b[1]); if (pellizco) caminar((d - pellizco) * 0.01, 0); pellizco = d; }
       if (tip) tip.hidden = true;
       return;
     }
@@ -308,25 +321,32 @@ export async function montar3D(el, items, alTocar) {
   };
   c.addEventListener("pointerup", soltar); c.addEventListener("pointercancel", soltar);
   c.addEventListener("pointerleave", e => { if (e.pointerType === "mouse") { resaltar(sobre, false); sobre = null; if (tip) tip.hidden = true; } });
-  c.addEventListener("wheel", e => { e.preventDefault(); v.dist *= 1 + lim(e.deltaY, -100, 100) * 0.0012; tocoZoom = true; }, { passive: false });
+  c.addEventListener("wheel", e => { e.preventDefault(); caminar(-lim(e.deltaY, -100, 100) * 0.006, 0); }, { passive: false });
   const teclas = new Set();
   const TECLAS = ["w", "a", "s", "d", "arrowup", "arrowdown", "arrowleft", "arrowright"];
   c.addEventListener("keydown", e => { const k = e.key.toLowerCase(); if (TECLAS.includes(k)) { e.preventDefault(); teclas.add(k); } });
   c.addEventListener("keyup", e => teclas.delete(e.key.toLowerCase()));
   c.addEventListener("blur", () => teclas.clear());
   c.addEventListener("pointerenter", e => { if (e.pointerType === "mouse") c.focus({ preventScroll: true }); });
-  // Botón para volver a la vista de entrada
+  // Botones: volver al lugar de entrada y, en pantallas táctiles, caminar (mantener apretado)
   const centrar = document.createElement("button");
   centrar.type = "button"; centrar.className = "inv-3d-centrar"; centrar.textContent = "Centrar";
-  centrar.onclick = () => { Object.assign(v, INICIO, { dist: distBase }); tocoZoom = false; };
-  el.append(centrar);
+  centrar.onclick = () => Object.assign(v, INICIO);
+  const pad = document.createElement("div");
+  pad.className = "inv-3d-pad";
+  pad.innerHTML = [["w", "▲", "Adelante"], ["a", "◀", "Izquierda"], ["s", "▼", "Atrás"], ["d", "▶", "Derecha"]]
+    .map(([k, f, t]) => `<button type="button" data-k="${k}" aria-label="${t}">${f}</button>`).join("");
+  pad.addEventListener("pointerdown", e => { const b = e.target.closest("[data-k]"); if (b) { e.preventDefault(); b.setPointerCapture(e.pointerId); teclas.add(b.dataset.k); } });
+  const soltarPad = e => { const b = e.target.closest("[data-k]"); if (b) teclas.delete(b.dataset.k); };
+  pad.addEventListener("pointerup", soltarPad); pad.addEventListener("pointercancel", soltarPad);
+  pad.addEventListener("contextmenu", e => e.preventDefault());
+  el.append(centrar, pad);
 
-  // Al entrar, la cámara se aleja lo justo para que entren la pared y la mesa a lo ancho (en vertical queda más lejos)
   const medir = () => {
     const w = el.clientWidth, h = el.clientHeight; if (!w || !h) return;
-    render.setSize(w, h, false); camara.aspect = w / h; camara.updateProjectionMatrix();
-    distBase = lim((w / h < 1 ? 4.4 : 6.4) / 2 / (Math.tan(camara.fov * Math.PI / 360) * camara.aspect) + 0.4, 4, 9);
-    if (!tocoZoom) v.dist = distBase;
+    render.setSize(w, h, false); camara.aspect = w / h;
+    camara.fov = w / h < 1 ? 80 : 65;   // en vertical, más ángulo para no ver todo por un tubo
+    camara.updateProjectionMatrix();
   };
   const ro = new ResizeObserver(medir); ro.observe(el); medir();
   let vivo = true;
@@ -334,10 +354,9 @@ export async function montar3D(el, items, alTocar) {
     if (!vivo) return;
     if (!el.isConnected) return desarmar();
     if (teclas.size) {
-      const fx = -Math.sin(v.yaw), fz = -Math.cos(v.yaw), paso = 0.04;   // adelante = hacia donde mira la cámara, sobre el piso
       const ad = (teclas.has("w") || teclas.has("arrowup") ? 1 : 0) - (teclas.has("s") || teclas.has("arrowdown") ? 1 : 0);
       const de = (teclas.has("d") || teclas.has("arrowright") ? 1 : 0) - (teclas.has("a") || teclas.has("arrowleft") ? 1 : 0);
-      v.x += (fx * ad - fz * de) * paso; v.z += (fz * ad + fx * de) * paso;
+      caminar(ad * 0.045, de * 0.045);
     }
     aplicar();
     render.render(escena, camara);
@@ -346,7 +365,7 @@ export async function montar3D(el, items, alTocar) {
   function desarmar() {
     if (!vivo) return; vivo = false; ro.disconnect();
     escena.traverse(o => { o.geometry?.dispose(); if (o.material) { o.material.map?.dispose(); o.material.dispose(); } });
-    render.dispose(); c.remove(); centrar.remove();
+    render.dispose(); c.remove(); centrar.remove(); pad.remove();
   }
   cuadro();
   return desarmar;
