@@ -3424,6 +3424,7 @@ async function adminConfig(env, body) {
   const cambios = Object.fromEntries(CONFIG_CLAVES.filter(k => typeof body[k] === "boolean").map(k => [k, body[k]]));
   if (typeof body.mensajeWa === "string") cambios.mensajeWa = body.mensajeWa.slice(0, 2000);
   if (Array.isArray(body.usanClientes)) cambios.usanClientes = body.usanClientes.filter(idValido).slice(0, 200);   // quiénes usan Mensajes y turnos
+  if (Array.isArray(body.usanInventario)) cambios.usanInventario = body.usanInventario.filter(idValido).slice(0, 200);   // quiénes tienen Inventario (además de sacabollos y desmontadores)
   if (["deportivo", "turbo", "v8"].includes(body.sonidoAuto)) cambios.sonidoAuto = body.sonidoAuto;   // sonido al actualizar la app
   // Quién ve cada planilla, por operativo: accesosOp[cid] = { uid: { planilla, tecnicos, gastos, fijos, facturacion } } (solo booleanos)
   let c = await fsGet(env, "config/app");
@@ -3438,7 +3439,7 @@ async function adminConfig(env, body) {
       .filter(([u, a]) => idValido(u) && a && typeof a === "object")
       .map(([u, a]) => [u, Object.fromEntries(["planilla", "tecnicos", "gastos", "fijos", "facturacion", "cierre"].filter(k => typeof a[k] === "boolean").map(k => [k, a[k]]))])) };
   if (Object.keys(cambios).length) { await fsMerge(env, "config/app", cambios); c = await fsGet(env, "config/app"); }
-  return json({ ok: true, config: { ...Object.fromEntries(CONFIG_CLAVES.map(k => [k, c?.[k] !== false])), etapasPdf: c?.etapasPdf === true, padronN: c?.padronN || 0, mensajeWa: c?.mensajeWa || "", accesosOp: c?.accesosOp || {}, sonidoAuto: c?.sonidoAuto || "deportivo", usanClientes: c?.usanClientes || [] } });
+  return json({ ok: true, config: { ...Object.fromEntries(CONFIG_CLAVES.map(k => [k, c?.[k] !== false])), etapasPdf: c?.etapasPdf === true, padronN: c?.padronN || 0, mensajeWa: c?.mensajeWa || "", accesosOp: c?.accesosOp || {}, sonidoAuto: c?.sonidoAuto || "deportivo", usanClientes: c?.usanClientes || [], usanInventario: c?.usanInventario || [] } });
 }
 
 // Elimina un usuario de la app: cuenta de acceso, perfil, nombre de usuario, WhatsApp y membresías

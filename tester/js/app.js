@@ -5,13 +5,14 @@ import { cerrarSplash, logoEnCurso, trasLogo } from "./efectos.js";
 import { $, $$, esc, toast, busy, openSheet, icon, cerrarHojas } from "./ui.js";
 import { FIREBASE, BOT_API } from "./config.js";
 import { iniciarFechas } from "./fecha.js";
-import { cuentaPendiente, salir, marcarOperativosVistos, soyCreador, crearEmpresa, pedirUnion, cancelarPedidoUnion, escucharMiPedido, responderPedidoUnion, soyDesmontaje, miRol, soyAdmin, getVehiculo, iniciarInvitado, soyLector, puedeVer, soySacabollos, registrarRuta } from "./data.js";
+import { cuentaPendiente, salir, marcarOperativosVistos, soyCreador, crearEmpresa, pedirUnion, cancelarPedidoUnion, escucharMiPedido, responderPedidoUnion, soyDesmontaje, miRol, soyAdmin, getVehiculo, iniciarInvitado, soyLector, puedeVer, soySacabollos, registrarRuta, usaInventario } from "./data.js";
 import { marcarNav, pintarLateral, esAncho } from "./shell.js";
 import { vistaVehiculos, vistaDetalle, vistaFormulario, elegirVehiculoDesmontaje, vistaCheckForm } from "./views-vehiculos.js";
 import {
   vistaPlanilla, vistaCalendario, calendarioAlEntrar, reiniciarCalendario, vistaEmpresa, vistaAjustes, vistaPapelera, elegirEmpresaSheet, panelCreador
 } from "./views-otros.js";
 import { vistaGastos, formGasto } from "./views-gastos.js";
+import { vistaInventario } from "./views-inventario.js";
 import { vistaPlanillas, vistaTecnicos } from "./views-tecnicos.js";
 import { vistaFijos } from "./views-fijos.js";
 import { vistaFacturacion, vistaFactDigital } from "./views-facturacion.js";
@@ -53,6 +54,7 @@ const RUTAS = [
   [/^#\/(operativo|empresa)$/, "operativo", () => vistaEmpresa(view)],
   [/^#\/gastos$/,           "gastos",     () => vistaGastos(view)],
   [/^#\/ajustes$/,          "ajustes",    () => vistaAjustes(view)],
+  [/^#\/inventario$/,       "inventario", () => vistaInventario(view)],
   [/^#\/papelera$/,         "papelera",   () => vistaPapelera(view)]
 ];
 
@@ -105,6 +107,7 @@ function render({ conservarScroll = false, reabrir = false, reabrirCal = false }
   // Link de la planilla de técnicos: solo esa planilla
   if (S.invitado?.tecnicos && hit[1] !== "tecnicos") { history.replaceState(null, "", "#/tecnicos"); return render(); }
   if (soyLector() && !S.invitado?.tecnicos && !["vehiculos", "calendario", "planilla"].includes(hit[1])) { history.replaceState(null, "", "#/"); hit = RUTAS[0]; }
+  if (hit[1] === "inventario" && !usaInventario()) { history.replaceState(null, "", "#/ajustes"); return render(); }
   if (hit[1] === "papelera" && soySacabollos()) { history.replaceState(null, "", "#/ajustes"); return render(); }   // Sacabollos no ve la papelera
   if (["planilla", "gastos"].includes(hit[1]) && !soyLector() && !puedeVer(hit[1])) { history.replaceState(null, "", "#/planillas"); return render(); }
   // Link de un solo vehículo: siempre ese vehículo
@@ -147,7 +150,7 @@ function render({ conservarScroll = false, reabrir = false, reabrirCal = false }
   document.body.dataset.ruta = enCal ? "calendario" : hit[1];
   document.body.dataset.soloVer = soySacabollos() ? "1" : "";   // Sacabollos: solo mira (el CSS esconde lo que edita)
   document.body.dataset.detalle = hit[1] === "vehiculos" && arg ? "1" : "";
-  marcarNav(enCal ? "calendario" : ["nuevo", "editar", "operativo"].includes(hit[1]) ? "" : hit[1] === "papelera" ? "ajustes" : ["planilla", "gastos", "tecnicos", "fijos", "facturacion", "factdigital", "cierre"].includes(hit[1]) ? "planillas" : hit[1]);
+  marcarNav(enCal ? "calendario" : ["nuevo", "editar", "operativo"].includes(hit[1]) ? "" : ["papelera", "inventario"].includes(hit[1]) ? "ajustes" : ["planilla", "gastos", "tecnicos", "fijos", "facturacion", "factdigital", "cierre"].includes(hit[1]) ? "planillas" : hit[1]);
   pintarTabPlanilla(hit[1]);
   // Menú lateral (computadora): Planillas queda desplegado solo si el usuario lo desplegó (flechita)
   $(".side-grupo")?.classList.toggle("abierto", planAbiertas());

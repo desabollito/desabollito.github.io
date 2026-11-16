@@ -92,7 +92,7 @@ export const cuentaPendiente = () => S.profile?.aprobado === false;
 // ── Trackeo de movimientos (lo activa el creador desde el bot: users/{uid}.tracking = true) ──
 let movN = 0, movUlt = "";
 const SECMOV = { vehiculos: "Vehículos", calendario: "Calendario", planillas: "Planillas", planilla: "Planilla",
-  gastos: "Gastos", tecnicos: "Técnicos", fijos: "Fijos", facturacion: "Facturación", ajustes: "Ajustes", papelera: "Papelera", nuevo: "Cargar vehículo", editar: "Editar vehículo" };
+  gastos: "Gastos", tecnicos: "Técnicos", fijos: "Fijos", facturacion: "Facturación", ajustes: "Ajustes", inventario: "Inventario", papelera: "Papelera", nuevo: "Cargar vehículo", editar: "Editar vehículo" };
 const etiquetaAuto = v => [v?.modelo, v?.patente].filter(Boolean).join(" ") || "auto";
 export function registrarRuta(nombre, arg) {
   if (nombre === "vehiculos" && arg) registrarMov("Abrió auto " + etiquetaAuto(getVehiculo(arg)));
@@ -757,6 +757,11 @@ export const borrarGasto = id => deleteDoc(doc(colGastos(), id));
 // ── Panel del creador (@gzmatte): todos los operativos y usuarios ─────
 export const soyCreador = () => S.profile?.username === "gzmatte";
 export const usaClientes = () => soyCreador() || (S.config?.mensajesTurnos !== false && (soyAdmin() || (S.config?.usanClientes || []).includes(S.user?.uid)));   // Chat en vivo y Mensajes y turnos: el creador siempre; con el interruptor encendido, también los administradores y los que él elige
+// Inventario de herramientas (inventario/{uid}): sacabollos, desmontadores y los que elige el creador
+export const usaInventario = () => !S.invitado && (soyCreador() || (!!S.company && ["tecnico", "desmontaje"].includes(miRol())) || (S.config?.usanInventario || []).includes(S.user?.uid));
+export const leerInventario = async () => (await getDoc(doc(db, "inventario", S.user.uid))).data()?.items || [];
+// shortcut: toda la lista en un solo doc (tope 2000 herramientas por las reglas), pasar a subcolección si alguien se acerca
+export const guardarInventario = items => setDoc(doc(db, "inventario", S.user.uid), { items, updatedAt: serverTimestamp() });
 // Tenía el chat pero el creador apagó Mensajes y turnos: el botón se ve y avisa que está en mantenimiento
 export const chatEnMantenimiento = () => !usaClientes() && (soyAdmin() || (S.config?.usanClientes || []).includes(S.user?.uid));
 
@@ -850,7 +855,7 @@ export function escucharConfig() {
   if (unsubConfig) return;
   unsubConfig = onSnapshot(doc(db, "config", "app"), d => {
     const antes = JSON.stringify(S.config);
-    S.config = { avisoReparado: d.data()?.avisoReparado !== false, documentos: d.data()?.documentos !== false, fechaVista: d.data()?.fechaVista !== false, mensajeWa: d.data()?.mensajeWa || "", accesosOp: d.data()?.accesosOp || null, accesos: d.data()?.accesos || {}, sonidoAuto: d.data()?.sonidoAuto || "deportivo", etapasPdf: d.data()?.etapasPdf === true, planillaVeh: d.data()?.planillaVeh !== false, usanClientes: d.data()?.usanClientes || [], mensajesTurnos: d.data()?.mensajesTurnos !== false };
+    S.config = { avisoReparado: d.data()?.avisoReparado !== false, documentos: d.data()?.documentos !== false, fechaVista: d.data()?.fechaVista !== false, mensajeWa: d.data()?.mensajeWa || "", accesosOp: d.data()?.accesosOp || null, accesos: d.data()?.accesos || {}, sonidoAuto: d.data()?.sonidoAuto || "deportivo", etapasPdf: d.data()?.etapasPdf === true, planillaVeh: d.data()?.planillaVeh !== false, usanClientes: d.data()?.usanClientes || [], usanInventario: d.data()?.usanInventario || [], mensajesTurnos: d.data()?.mensajesTurnos !== false };
     if (JSON.stringify(S.config) !== antes) {
       // Si cambió el permiso de gastos, prender o apagar la escucha
       if (S.company && puedeVer("gastos") !== !!unsubGastos) escucharGastos();

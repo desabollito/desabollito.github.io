@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.19.0", items: ["Inventario (Ajustes, debajo de Perfil): cargá tus herramientas en un taller dibujado (varillas, martillos y pantallas en la pared; pegamento, desmontaje y limpieza en la mesa; valijas abajo). Se agregan escribiendo una por fila, con fotos, y se pueden guardar dentro de una valija.", "Lo tienen los sacabollos, los desmontadores y quien elija el creador."] },
   { v: "4.18.20", items: ["Computadora: se puede tocar en cualquier parte de tu perfil (abajo a la izquierda) para abrir Ajustes."] },
   { v: "4.18.19", items: ["Chat en vivo: los audios tienen su propio reproductor (play, barra y tiempo).", "Las fotos del chat se ven más chicas, todas a la misma altura."] },
   { v: "4.18.18", items: ["Los nombres de clientes que estaban en MAYÚSCULAS se muestran bien («Juan Pérez de la Torre») en toda la app, el chat y los mensajes."] },

@@ -50,6 +50,13 @@ service cloud.firestore {
       allow read, write: if signedIn() && uid() == userId;
     }
 
+    // Inventario de herramientas de cada técnico (solo lo ve y lo cambia él)
+    match /inventario/{userId} {
+      allow read, delete: if signedIn() && uid() == userId;
+      allow create, update: if signedIn() && uid() == userId && aprobado()
+        && request.resource.data.items is list && request.resource.data.items.size() <= 2000;
+    }
+
     // ── Planilla de asegurados (la escribe solo el bot, a pedido del creador) ──
     match /padron/{pat} {
       allow read: if signedIn() && aprobado();
