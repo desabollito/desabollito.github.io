@@ -178,7 +178,7 @@ export async function vistaInventario(view) {
 
   const obj = (i, k, n) => {
     const p = i[CLAVE().pos] || posDefecto(i, k, n), conFoto = fotos && i.foto?.url;
-    // Ancho y alto propios (--tx, --ty: tirador de la esquina o rueda del mouse); no dependen del tamaño de la sección.
+    // Ancho y alto propios (--tx, --ty: tirador de la esquina); no dependen del tamaño de la sección.
     return `<button type="button" class="inv-obj inv-${i.cat}" data-ver="${esc(i.id)}" aria-label="${esc(i.nombre)}" title="${esc(i.nombre)}"
       style="left:${(p.x * 100).toFixed(2)}%;top:${(p.y * 100).toFixed(2)}%;--tx:${medidas(i).tx};--ty:${medidas(i).ty}">${conFoto
         ? `<img class="inv-obj-foto" src="${esc(entera(i.foto.url))}" alt="" loading="lazy" draggable="false">` : dibujo(i)}<span class="inv-tam" title="Arrastrá para agrandar o achicar"></span>${(i.cant || 1) > 1 ? `<b class="inv-n">×${i.cant}</b>` : ""}
@@ -580,11 +580,10 @@ export async function vistaInventario(view) {
     };
     pag.addEventListener("pointerup", soltarSeccion, true); pag.addEventListener("pointercancel", soltarSeccion, true);
 
-    // Agrandar o achicar una foto (modo Foto): el tirador de la esquina (hacia arriba o la derecha agranda) o la rueda del mouse.
+    // Agrandar o achicar una foto (modo Foto): el tirador de la esquina (hacia arriba o la derecha agranda).
     // Va en la fase de captura para ganarle al arrastre de la herramienta.
-    let rz = null, tRueda = 0;
-    // Ancho (tx) y alto (ty), 1 = normal, de TAM_MIN a TAM_MAX: el tirador a la derecha ensancha y hacia arriba alarga, cada uno por su lado;
-    // la rueda cambia los dos a la vez
+    let rz = null;
+    // Ancho (tx) y alto (ty), 1 = normal, de TAM_MIN a TAM_MAX: el tirador a la derecha ensancha y hacia arriba alarga, cada uno por su lado (en Foto, parejo)
     const guardarTam = (it, m) => { const k = CLAVE().tam; cambiar(items.map(i => i.id === it.id ? { ...i, [k + "X"]: +m.tx.toFixed(2), [k + "Y"]: +m.ty.toFixed(2) } : i)); };
     const ponerTam = (b, m) => {
       b.style.setProperty("--tx", m.tx.toFixed(3)); b.style.setProperty("--ty", m.ty.toFixed(3));
@@ -612,14 +611,6 @@ export async function vistaInventario(view) {
       if (Math.abs(m.tx - base.tx) > 0.01 || Math.abs(m.ty - base.ty) > 0.01) guardarTam(it, m);
     };
     pag.addEventListener("pointerup", soltarTam, true); pag.addEventListener("pointercancel", soltarTam, true);
-    pag.addEventListener("wheel", e => {
-      const b = e.target.closest(".inv-sala .inv-obj"); if (!b) return;
-      e.preventDefault();
-      const it = de(b.dataset.ver), f = e.deltaY < 0 ? 1.1 : 1 / 1.1, v = n => parseFloat(b.style.getPropertyValue(n)) || 1;
-      const m = { tx: lim(v("--tx") * f, TAM_MIN, TAM_MAX), ty: lim(v("--ty") * f, TAM_MIN, TAM_MAX) };
-      ponerTam(b, m);
-      clearTimeout(tRueda); tRueda = setTimeout(() => guardarTam(it, m), 450);   // se guarda cuando deja de girar
-    }, { passive: false });
     pag.addEventListener("touchmove", e => { if (d?.listo || rz || sz || st) e.preventDefault(); }, { passive: false });
     pag.addEventListener("contextmenu", e => { if (e.target.closest(".inv-sala .inv-obj")) e.preventDefault(); });
   };
