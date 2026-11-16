@@ -2685,8 +2685,14 @@ button.aj-item:hover, a.aj-item:hover { background: var(--surface-2); }
    se mueve con el ⠿ y se agranda desde la esquina. Ancho: proporción de pantalla; angosto (celular): más alto que ancho. */
 .inv-sala { position: relative; border: 1px solid var(--line); border-radius: var(--r-lg); overflow: hidden;
   background: radial-gradient(circle, rgb(127 127 127 / .38) 1.4px, transparent 1.9px) 0 0 / 14px 14px, linear-gradient(180deg, rgb(255 196 130 / .16), transparent 35%), var(--surface-2); }
-.inv-sala-ancho { height: clamp(560px, 78vh, 980px); }
-.inv-sala-angosto { height: 1350px; }
+.inv-sala-ancho { height: clamp(700px, 94vh, 1250px); }   /* más grande; se puede estirar más desde la esquina */
+.inv-sala-angosto { height: 1600px; }
+/* Marco del taller: si lo estira más ancho que la pantalla, se desplaza de costado */
+.inv-sala-marco { overflow-x: auto; overflow-y: hidden; padding-bottom: 2px; }
+.inv-sala-marco > .inv-sala { min-width: 100%; }
+.inv-sala-redim { position: absolute; right: 0; bottom: 0; z-index: 6; width: 28px; height: 28px; cursor: nwse-resize; touch-action: none; border-top-left-radius: 8px;
+  background: linear-gradient(135deg, transparent 45%, var(--primary) 45% 52%, transparent 52% 64%, var(--primary) 64% 71%, transparent 71% 83%, var(--primary) 83% 90%, transparent 90%), rgb(0 0 0 / .25); }
+.inv-sala-redim:hover { background-color: var(--primary-soft); }
 .inv-sala::before { content: ""; position: absolute; top: 7px; left: 14%; right: 14%; height: 4px; border-radius: 4px;
   background: #ffe8c4; box-shadow: 0 0 20px 5px rgb(255 196 130 / .45); pointer-events: none; }
 /* Cada sección: borde marcado, franja de título (⠿ para mover y + para agregar) y abajo sus herramientas */

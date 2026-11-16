@@ -187,7 +187,9 @@ export async function vistaInventario(view) {
   // Cada sección es un recuadro del taller (en % del taller) que se mueve con el ⠿ y se agranda desde la esquina de abajo a la derecha.
   // Hay una disposición para pantallas anchas y otra para angostas (celular), así una no arruina la otra.
   const disp = () => view.clientWidth >= 700 ? "ancho" : "angosto";
-  const rectDe = cat => secciones?.[disp()]?.[cat] || DISPOSICION[disp()][cat];
+  // Tamaño del taller que eligió estirándolo (px, guardado junto a las secciones); si no, el de siempre
+  const tablero = () => secciones?.[disp()]?._tablero;
+  const rectDe = cat =>secciones?.[disp()]?.[cat] || DISPOSICION[disp()][cat];
   const zona = cat => { const l = items.filter(i => secDe(i) === cat), r = rectDe(cat);
     return `<div class="inv-zona inv-z-${cat}" data-zona="${cat}"
         style="left:${r.x}%;top:${r.y}%;width:${r.w}%;height:${r.h}%">
@@ -211,8 +213,8 @@ export async function vistaInventario(view) {
         ${en3D ? "" : `<div class="seg seg-sm" id="inv-fotos" title="Ver las herramientas con su dibujo o con su foto real"><button class="seg-btn ${fotos ? "" : "on"}" data-f="0">Dibujo</button><button class="seg-btn ${fotos ? "on" : ""}" data-f="1">Foto</button></div>`}
         ${!en3D && Object.keys(secciones?.[disp()] || {}).length ? `<button type="button" class="btn btn-ghost btn-sm" id="inv-restablecer">${icon("restore")}Restablecer secciones</button>` : ""}</div>
       ${en3D ? `<div class="inv-3d" id="inv-3d"><p class="inv-3d-carga">Cargando el taller en 3D…</p><span class="inv-3d-tip" hidden></span></div>` : `
-      <div class="inv-sala inv-sala-${disp()}" role="group" aria-label="Taller">${Object.keys(DISPOSICION.ancho).map(zona).join("")}
-      </div>`}
+      <div class="inv-sala-marco"><div class="inv-sala inv-sala-${disp()}" role="group" aria-label="Taller"${tablero() ? ` style="width:${tablero().w}px;height:${tablero().h}px"` : ""}>${Object.keys(DISPOSICION.ancho).map(zona).join("")}
+        <span class="inv-sala-redim" title="Arrastrá para agrandar el taller (abajo y a los costados)"></span></div></div>`}
       <p class="muted small">${items.length ? `${total} ${total === 1 ? "herramienta" : "herramientas"}. Tocá una para verla; arrastrala para acomodarla o para guardarla en una valija o un carro.` : "Todavía no cargaste herramientas: tocá el + de una sección del taller."}</p>
       ${Object.entries(CATS).map(([k, t]) => { const l = items.filter(i => i.cat === k).sort((a, b) => a.nombre.localeCompare(b.nombre));
         return l.length ? `<section class="aj-grupo"><h3>${t} · ${l.length}</h3><div class="aj-lista">${l.map(fila).join("")}</div></section>` : ""; }).join("")}
@@ -504,6 +506,32 @@ export async function vistaInventario(view) {
     // Con el dedo, mientras se lleva una herramienta la página no se desplaza
     // Mover una sección (agarrándola del ⠿) o cambiarle el tamaño (esquina de abajo a la derecha), siempre dentro del taller.
     // Se guarda en % del taller, redondeado a medio punto para que se alineen fácil.
+    // Agrandar el taller entero desde su esquina de abajo a la derecha (para abajo y a los costados; más ancho que la pantalla se desplaza)
+    let st = null;
+    pag.addEventListener("pointerdown", e => {
+      const h = e.target.closest(".inv-sala-redim"); if (!h) return;
+      e.stopPropagation(); e.preventDefault(); ocultarPrevia();
+      const sala = h.closest(".inv-sala");
+      st = { sala, x: e.clientX, y: e.clientY, w0: sala.offsetWidth, h0: sala.offsetHeight, w: sala.offsetWidth, h: sala.offsetHeight };
+      h.setPointerCapture(e.pointerId);
+    }, true);
+    pag.addEventListener("pointermove", e => {
+      if (!st) return;
+      e.stopPropagation();
+      st.w = Math.round(Math.max(320, st.w0 + e.clientX - st.x)); st.h = Math.round(Math.max(400, st.h0 + e.clientY - st.y));
+      st.sala.style.width = st.w + "px"; st.sala.style.height = st.h + "px";
+    }, true);
+    const soltarTablero = e => {
+      if (!st) return;
+      e.stopPropagation();
+      const { w, h, w0, h0 } = st; st = null;
+      arrastro = true; setTimeout(() => { arrastro = false; });
+      if (w === w0 && h === h0) return;
+      secciones = { ...secciones, [disp()]: { ...(secciones?.[disp()] || {}), _tablero: { w, h } } };
+      pintar(); guardar();
+    };
+    pag.addEventListener("pointerup", soltarTablero, true); pag.addEventListener("pointercancel", soltarTablero, true);
+
     let sz = null;
     const MEDIO = v => Math.round(v * 4) / 4;   // de a un cuarto de punto
     pag.addEventListener("pointerdown", e => {
@@ -573,7 +601,7 @@ export async function vistaInventario(view) {
       ponerTam(b, m);
       clearTimeout(tRueda); tRueda = setTimeout(() => guardarTam(it, m), 450);   // se guarda cuando deja de girar
     }, { passive: false });
-    pag.addEventListener("touchmove", e => { if (d?.listo || rz || sz) e.preventDefault(); }, { passive: false });
+    pag.addEventListener("touchmove", e => { if (d?.listo || rz || sz || st) e.preventDefault(); }, { passive: false });
     pag.addEventListener("contextmenu", e => { if (e.target.closest(".inv-sala .inv-obj")) e.preventDefault(); });
   };
 
