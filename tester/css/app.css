@@ -2707,6 +2707,9 @@ button.aj-item:hover, a.aj-item:hover { background: var(--surface-2); }
 .inv-zona-cab { display: flex; align-items: center; gap: 4px; padding: 4px 6px; border-bottom: 1px solid color-mix(in srgb, var(--ink-2) 16%, transparent); background: rgb(0 0 0 / .05); border-radius: 8px 8px 0 0; }
 .inv-mover { flex: none; display: grid; place-items: center; width: 22px; height: 22px; border-radius: 6px; color: var(--muted); font-size: 15px; line-height: 1; cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; }
 .inv-mover:hover { color: var(--primary); background: var(--primary-soft); }
+.inv-ocultar { flex: none; display: grid; place-items: center; width: 22px; height: 22px; margin-left: auto; padding: 0; border: 0; border-radius: 6px; background: none; color: var(--muted); cursor: pointer; }
+.inv-ocultar .ic { width: 13px; height: 13px; }
+.inv-ocultar:hover { color: var(--danger, #e5484d); background: rgb(229 72 77 / .12); }
 .inv-redim { position: absolute; right: 0; bottom: 0; width: 18px; height: 18px; cursor: nwse-resize; touch-action: none; z-index: 2;
   background: linear-gradient(135deg, transparent 50%, color-mix(in srgb, var(--ink-2) 60%, transparent) 50% 58%, transparent 58% 70%, color-mix(in srgb, var(--ink-2) 60%, transparent) 70% 78%, transparent 78%); }
 .inv-redim:hover { background-color: var(--primary-soft); }

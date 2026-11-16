@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.43.1", items: ["Taller 2D: cada sección tiene una × en su título para ocultarla del taller (sus herramientas siguen en la lista y en el 3D). Se vuelven a mostrar desde «Secciones ocultas», arriba del taller."] },
   { v: "4.43.0", items: ["Panel del creador → Usuarios: ojito al lado de cada persona para ver la app como la ve ella (su rol, sus planillas y lo que puede tocar). Es solo para mirar: mientras dura no se guarda nada. Abajo aparece el aviso con «Volver a mi cuenta»."] },
   { v: "4.42.2", items: ["Perfil Facturación: respeta lo que el creador le tilde en «Quién ve las planillas» (por ejemplo, la planilla de Vehículos). Sin tildar, sigue viendo solo Facturación, y el panel lo muestra así."] },
   { v: "4.42.1", items: ["Perfil Facturación: solo factura vehículos que figuran Entregado (no se saltea pasos); tocar Facturado de nuevo lo deshace (vuelve a Entregado). Ya no puede guardar firmas."] },

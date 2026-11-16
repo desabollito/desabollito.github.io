@@ -190,12 +190,15 @@ export async function vistaInventario(view) {
   const disp = () => view.clientWidth >= 700 ? "ancho" : "angosto";
   // Tamaño del taller que eligió estirándolo (px, guardado junto a las secciones); si no, el de siempre
   const tablero = () => secciones?.[disp()]?._tablero;
+  // Secciones que ocultó del taller 2D (valen para computadora y celular); sus herramientas siguen en la lista y en el 3D
+  const ocultas = () => secciones?._ocultas || [];
   const rectDe = cat =>secciones?.[disp()]?.[cat] || DISPOSICION[disp()][cat];
   const zona = cat => { const l = items.filter(i => secDe(i) === cat), r = rectDe(cat);
     return `<div class="inv-zona inv-z-${cat}" data-zona="${cat}"
         style="left:${r.x}%;top:${r.y}%;width:${r.w}%;height:${r.h}%">
       <div class="inv-zona-cab"><span class="inv-mover" role="button" aria-label="Mover la sección ${esc(CATS[cat])}" title="Arrastrá para mover la sección">⠿</span>
-        <button type="button" class="inv-etq" data-nueva="${cat}">${icon("plus")}${CATS[cat]}</button></div>
+        <button type="button" class="inv-etq" data-nueva="${cat}">${icon("plus")}${CATS[cat]}</button>
+        <button type="button" class="inv-ocultar" data-ocultar="${cat}" aria-label="Ocultar la sección ${esc(CATS[cat])}" title="Ocultar esta sección">${icon("x")}</button></div>
       <div class="inv-objs" data-cat="${cat}">${l.map((i, k) => obj(i, k, l.length)).join("")}</div>
       <span class="inv-redim" aria-hidden="true" title="Arrastrá para cambiar el tamaño"></span></div>`; };
   const miniatura = i => i.foto?.url ? `<img class="inv-foto" src="${esc(entera(i.foto.url))}" alt="" loading="lazy">` : `<span class="inv-foto inv-${i.cat}">${dibujo(i)}</span>`;
@@ -212,9 +215,10 @@ export async function vistaInventario(view) {
     view.innerHTML = `<div class="page inventario">
       <div class="inv-barra"><div class="seg seg-sm inv-modo" id="inv-modo"><button class="seg-btn ${en3D ? "" : "on"}" data-m="2d">2D</button><button class="seg-btn ${en3D ? "on" : ""}" data-m="3d">3D</button></div>
         ${en3D ? "" : `<div class="seg seg-sm" id="inv-fotos" title="Ver las herramientas con su dibujo o con su foto real"><button class="seg-btn ${fotos ? "" : "on"}" data-f="0">Dibujo</button><button class="seg-btn ${fotos ? "on" : ""}" data-f="1">Foto</button></div>`}
-        ${!en3D && Object.keys(secciones?.[disp()] || {}).length ? `<button type="button" class="btn btn-ghost btn-sm" id="inv-restablecer">${icon("restore")}Restablecer secciones</button>` : ""}</div>
+        ${!en3D && Object.keys(secciones?.[disp()] || {}).length ? `<button type="button" class="btn btn-ghost btn-sm" id="inv-restablecer">${icon("restore")}Restablecer secciones</button>` : ""}
+        ${!en3D && ocultas().length ? `<button type="button" class="btn btn-ghost btn-sm" id="inv-ocultas">${icon("eye")}Secciones ocultas (${ocultas().length})</button>` : ""}</div>
       ${en3D ? `<div class="inv-3d" id="inv-3d"><p class="inv-3d-carga">Cargando el taller en 3D…</p><span class="inv-3d-tip" hidden></span></div>` : `
-      <div class="inv-sala-marco"><div class="inv-sala inv-sala-${disp()}" role="group" aria-label="Taller"${tablero() ? ` style="width:${tablero().w}px;height:${tablero().h}px"` : ""}>${Object.keys(DISPOSICION.ancho).map(zona).join("")}
+      <div class="inv-sala-marco"><div class="inv-sala inv-sala-${disp()}" role="group" aria-label="Taller"${tablero() ? ` style="width:${tablero().w}px;height:${tablero().h}px"` : ""}>${Object.keys(DISPOSICION.ancho).filter(c => !ocultas().includes(c)).map(zona).join("")}
         <span class="inv-sala-redim" title="Arrastrá para agrandar el taller (abajo y a los costados)"></span></div></div>`}
       <p class="muted small">${items.length ? `${total} ${total === 1 ? "herramienta" : "herramientas"}. Tocá una para verla; arrastrala para acomodarla o para guardarla en una valija o un carro.` : "Todavía no cargaste herramientas: tocá el + de una sección del taller."}</p>
       ${Object.entries(CATS).map(([k, t]) => { const l = items.filter(i => i.cat === k).sort((a, b) => a.nombre.localeCompare(b.nombre));
@@ -242,6 +246,22 @@ export async function vistaInventario(view) {
     }
     if (!en3D) escucharArrastre(view.querySelector(".inventario"));
     view.querySelector(".inventario").onclick = e => {
+      // Ocultar una sección del taller / volver a mostrar las ocultas
+      const oc = e.target.closest("[data-ocultar]");
+      if (oc) {
+        secciones = { ...secciones, _ocultas: [...ocultas(), oc.dataset.ocultar] }; pintar(); guardar();
+        return toast(`${CATS[oc.dataset.ocultar]} oculta. La volvés a mostrar desde «Secciones ocultas».`, "info");
+      }
+      if (e.target.closest("#inv-ocultas")) {
+        const s = openSheet({ title: "Secciones ocultas", body: `<div class="stack"><p class="muted small">Tocá una para volver a mostrarla en el taller.</p>
+          <div class="aj-lista">${ocultas().map(c => `<button type="button" class="aj-item" data-mostrar="${c}">${icon("eye")}<span class="aj-txt">${CATS[c]}</span><span class="aj-val">Mostrar</span></button>`).join("")}</div></div>` });
+        s.el.onclick = ev => {
+          const m = ev.target.closest("[data-mostrar]"); if (!m) return;
+          secciones = { ...secciones, _ocultas: ocultas().filter(c => c !== m.dataset.mostrar) };
+          s.close(); pintar(); guardar(); toast(`${CATS[m.dataset.mostrar]} vuelve al taller`, "success");
+        };
+        return;
+      }
       const b = e.target.closest("[data-ver], [data-ed], [data-nueva]"); if (!b || arrastro) return;
       if (b.dataset.nueva) editar({ cat: b.dataset.nueva });
       else if (b.dataset.ed) editar(de(b.dataset.ed));
