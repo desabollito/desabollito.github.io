@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.37.0", items: ["Taller 2D: el modo Dibujo y el modo Foto tienen cada uno su propio lugar y tamaño para cada herramienta; acomodar uno no mueve el otro.", "En Foto las herramientas pueden asomar fuera de su sección; en Dibujo quedan adentro.", "Editar una herramienta ya no le borra el tamaño que le diste."] },
   { v: "4.36.1", items: ["Desmontaje: «Pinza» y «Pinza de punta», con dibujo de pinza de punta (2D y 3D). La pinza sacabollos sigue en pullers."] },
   { v: "4.36.0", items: ["Taller 2D: todas las herramientas (también en modo Dibujo) se agrandan o achican con el tirador de la esquina o la rueda del mouse, a lo largo y a lo ancho por igual.", "Las varillas tienen su propio largo: ya no se estiran al agrandar la sección.", "Las herramientas pueden asomar fuera de su sección (solo su punto de apoyo queda adentro)."] },
   { v: "4.35.0", items: ["Taller 2D: el lugar y el tipo ahora son cosas separadas. Si agregás un martillo con el + de Varillas, o lo arrastrás ahí, queda en Varillas pero con su dibujo de martillo. Valijas y carros también se pueden pasar de sección.", "En la ventana de cada herramienta se ve la sección y, si es distinto, su tipo."] },

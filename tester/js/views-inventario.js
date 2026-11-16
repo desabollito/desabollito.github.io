@@ -155,7 +155,9 @@ export async function vistaInventario(view) {
   const de = id => items.find(i => i.id === id);
   // Tipo (cat: define el dibujo y el grupo de la lista) y sección del 2D donde se ve (sec; si no tiene, la de su tipo)
   const secDe = i => i.sec || i.cat;
-  const conSeccion = (i, sec) => { const { sec: _, ...r } = i; return sec && sec !== i.cat ? { ...r, sec } : r; };
+  // Lugar y tamaño en el 2D, por separado para el modo Dibujo (pos, tam) y el modo Foto (posFoto, tamFoto): acomodar uno no mueve el otro
+  const CLAVE = () => fotos ? { pos: "posFoto", tam: "tamFoto" } : { pos: "pos", tam: "tam" };
+  const conSeccion =(i, sec) => { const { sec: _, ...r } = i; return sec && sec !== i.cat ? { ...r, sec } : r; };
   const contenedores = (sin = "") => items.filter(i => CONTENEDOR.includes(i.cat) && i.id !== sin);
   const dondeTxt = i => { const c = de(i.en); return !c ? "" : (c.cat === "carro" ? "En el carro " : "Dentro de ") + c.nombre; };
   async function guardar() {
@@ -170,11 +172,11 @@ export async function vistaInventario(view) {
   const cambiar = nuevos => { items = nuevos; pintar(); guardar(); };
 
   const obj = (i, k, n) => {
-    const p = i.pos || posDefecto(i, k, n), conFoto = fotos && i.foto?.url;
+    const p = i[CLAVE().pos] || posDefecto(i, k, n), conFoto = fotos && i.foto?.url;
     // Tamaño propio (--tam, tirador de la esquina o rueda del mouse), igual a lo largo y a lo ancho; no depende del tamaño de la sección.
     // Las varillas tienen su largo fijo en px (antes era % de la sección y al agrandarla se estiraban solo para abajo).
     return `<button type="button" class="inv-obj inv-${i.cat}" data-ver="${esc(i.id)}" aria-label="${esc(i.nombre)}" title="${esc(i.nombre)}"
-      style="left:${(p.x * 100).toFixed(2)}%;top:${(p.y * 100).toFixed(2)}%;--tam:${i.tam || 1}${i.cat === "varilla" && !conFoto ? `;height:${Math.round(largo(i.id) * 1.6)}px` : ""}">${conFoto
+      style="left:${(p.x * 100).toFixed(2)}%;top:${(p.y * 100).toFixed(2)}%;--tam:${i[CLAVE().tam] || 1}${i.cat === "varilla" && !conFoto ? `;height:${Math.round(largo(i.id) * 1.6)}px` : ""}">${conFoto
         ? `<img class="inv-obj-foto" src="${esc(entera(i.foto.url))}" alt="" loading="lazy" draggable="false">` : dibujo(i)}<span class="inv-tam" title="Arrastrá para agrandar o achicar"></span>${(i.cant || 1) > 1 ? `<b class="inv-n">×${i.cant}</b>` : ""}
       ${CONTENEDOR.includes(i.cat) ? `<b class="inv-n">${items.filter(x => x.en === i.id).length || ""}</b>` : ""}<span class="inv-nom">${esc(i.nombre)}</span></button>`;
   };
@@ -397,7 +399,7 @@ export async function vistaInventario(view) {
       // Sin campos vacíos (Firestore no acepta undefined); el lugar del 2D se conserva si sigue en la misma sección
       const datos = { nombre: f.nombre.value.trim(), cat, cant: Math.min(999, Math.max(1, parseInt(f.cant.value, 10) || 1)),
         en: cont ? "" : it.en || "", nota: f.nota.value.trim(), ...(MODELOS[cat] ? { modelo: f.modelo.value } : {}),
-        ...(cat === "bateria" && ah > 0 ? { ah } : {}), ...(foto ? { foto } : {}), ...(it.pos ? { pos: it.pos } : {}), ...(zonaDestino && zonaDestino !== cat ? { sec: zonaDestino } : {}) };
+        ...(cat === "bateria" && ah > 0 ? { ah } : {}), ...(foto ? { foto } : {}), ...Object.fromEntries(["pos", "posFoto", "tam", "tamFoto"].filter(k => it[k] != null).map(k => [k, it[k]])), ...(zonaDestino && zonaDestino !== cat ? { sec: zonaDestino } : {}) };
       s.close();
       if (nuevo) cambiar([...items, { id: nuevoId(), ...datos }]);
       else cambiar(items.map(i => i.id === it.id ? { id: it.id, ...datos } : i)
@@ -479,10 +481,20 @@ export async function vistaInventario(view) {
       // En la sección (o apenas afuera): el punto de apoyo (abajo al centro) se encastra en la grilla, dentro del recuadro
       const cx = g.left + g.width / 2, cy = g.bottom;
       if (e.clientX < sec.left - M || e.clientX > sec.right + M || e.clientY < sec.top - M || e.clientY > sec.bottom + M) return;   // lejos: queda donde estaba
-      const p = encastrar(cx - z.left, cy - z.top, z.width, z.height, 0, 0, otros);   // solo el punto de apoyo queda adentro: la herramienta puede asomar fuera de la sección
+      // Modo Foto: solo el punto de apoyo queda adentro (la foto puede asomar fuera de la sección).
+      // Modo Dibujo: el dibujo entero (con su tamaño propio) queda dentro de la sección.
+      const t = it[CLAVE().tam] || 1;
+      const p = fotos ? encastrar(cx - z.left, cy - z.top, z.width, z.height, 0, 0, otros)
+        : encastrar(cx - z.left, cy - z.top, z.width, z.height, Math.min(z.width / 2, g.width * t / 2), Math.min(z.height, g.height * t), otros);
       const pos = { x: +(p.x / z.width).toFixed(4), y: +(p.y / z.height).toFixed(4) }, nueva = zonaEl.dataset.zona;
-      // Solo cambia la sección donde se ve: el tipo (y su dibujo, modelo y amperaje) sigue igual
-      cambiar(items.map(i => i.id === it.id ? conSeccion({ ...i, pos }, nueva) : i));
+      // Solo cambia la sección donde se ve: el tipo (y su dibujo, modelo y amperaje) sigue igual.
+      // Si cambió de sección, el lugar del otro modo era de la sección vieja: se borra y ahí se acomoda solo.
+      cambiar(items.map(i => {
+        if (i.id !== it.id) return i;
+        const r = { ...i, [CLAVE().pos]: pos };
+        if (nueva !== secDe(i)) delete r[fotos ? "pos" : "posFoto"];
+        return conSeccion(r, nueva);
+      }));
       if (nueva !== secDe(it)) toast(`Movida a ${CATS[nueva]}`, "success");
     };
     pag.addEventListener("pointerup", terminar); pag.addEventListener("pointercancel", terminar);
@@ -523,12 +535,12 @@ export async function vistaInventario(view) {
     // Va en la fase de captura para ganarle al arrastre de la herramienta.
     let rz = null, tRueda = 0;
     // tam: factor de tamaño (1 = normal), de TAM_MIN a TAM_MAX; arrastrar el tirador hacia arriba o la derecha agranda
-    const guardarTam = (it, tam) => cambiar(items.map(i => i.id === it.id ? { ...i, tam: +tam.toFixed(2) } : i));
+    const guardarTam = (it, tam) => cambiar(items.map(i => i.id === it.id ? { ...i, [CLAVE().tam]: +tam.toFixed(2) } : i));
     pag.addEventListener("pointerdown", e => {
       const h = e.target.closest(".inv-tam"); if (!h) return;
       e.stopPropagation(); e.preventDefault();
       const b = h.closest(".inv-obj"), it = de(b.dataset.ver);
-      rz = { it, b, x: e.clientX, y: e.clientY, base: it.tam || 1, tam: it.tam || 1 };
+      rz = { it, b, x: e.clientX, y: e.clientY, base: it[CLAVE().tam] || 1, tam: it[CLAVE().tam] || 1 };
       h.setPointerCapture(e.pointerId); ocultarPrevia();
     }, true);
     pag.addEventListener("pointermove", e => {
