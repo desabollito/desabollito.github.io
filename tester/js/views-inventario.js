@@ -79,7 +79,10 @@ const DIBUJO = {
   varios: `<svg viewBox="0 0 40 34"><rect x="3" y="8" width="34" height="23" rx="3" class="lleno"/><path d="M3 15h34M17 15v5h6v-5"/></svg>`
 };
 const VARIANTE = { carro: { alto: "carroAlto" }, lampara: { mano: "lamparaMano" }, bateria: { auto: "bateriaAuto" }, valija: { vertical: "valijaVertical", flight: "valijaFlight" } };
-const dibujo = i => DIBUJO[VARIANTE[i.cat]?.[i.modelo]] || DIBUJO[i.cat] || DIBUJO.varios;
+// Máquinas de inducción (Dentshock, Hotbox): caja con pantallita y perilla, y el lápiz con su cable
+DIBUJO.induccion = `<svg viewBox="0 0 76 50" class="m-induccion"><rect x="3" y="14" width="36" height="30" rx="4" class="lleno"/><rect x="9" y="20" width="15" height="9" rx="1.5"/><circle cx="31" cy="25" r="3.5"/><path d="M9 37h22"/><path d="M39 32c14 0 10-20 22-21" class="cable"/><path d="M60 12l12-9" class="lapiz"/></svg>`;
+const esInduccion = i => i.cat === "herramienta" && /dentshock|hotbox|inducci/i.test(i.nombre || "");
+const dibujo = i => esInduccion(i) ? DIBUJO.induccion : DIBUJO[VARIANTE[i.cat]?.[i.modelo]] || DIBUJO[i.cat] || DIBUJO.varios;
 const largo = id => 62 + [...id].reduce((a, c) => a + c.charCodeAt(0), 0) % 38;   // varillas de distinto largo (siempre igual para la misma)
 const nuevoId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 // Lugar de cada herramienta en su sección del 2D: el que eligió (arrastrando) o uno ordenado por defecto

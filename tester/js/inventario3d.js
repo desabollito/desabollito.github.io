@@ -154,7 +154,16 @@ export async function montar3D(el, items, alTocar, alAgregar = () => {}, alMover
     desmontaje: m => { const g = new T.Group();
       g.add(en(cil(0.022, 0.11, m), -0.08, 0, 0, 0, 0, Math.PI / 2)); g.add(en(cil(0.006, 0.18, metal(), 8), 0.06, 0, 0, 0, 0, Math.PI / 2));
       g.position.y = 0.025; g.rotation.y = 0.5; return g; },
-    herramienta: m => { const g = new T.Group(), negro = mat(0x1d1e21);   // taladro (o máquina) apoyado: cuerpo, mandril, mango y batería
+    herramienta: (m, i) => { const g = new T.Group(), negro = mat(0x1d1e21);
+      if (/dentshock|hotbox|inducci/i.test(i.nombre || "")) {   // máquina de inducción: caja con pantallita y perilla, cable y lápiz
+        g.add(en(caja(0.3, 0.17, 0.24, m), 0, 0.085, 0), en(caja(0.1, 0.05, 0.005, new T.MeshStandardMaterial({ color: 0x0f2a1c, emissive: 0x3ddc84, emissiveIntensity: .6 })), -0.06, 0.11, 0.123));
+        g.add(en(cil(0.018, 0.02, negro, 12), 0.08, 0.11, 0.128, Math.PI / 2, 0, 0));
+        const curva = new T.CatmullRomCurve3([[0.15, 0.06, 0.02], [0.24, 0.02, 0.08], [0.3, 0.01, 0.2], [0.3, 0.02, 0.32]].map(p => new T.Vector3(...p)));
+        const cable = new T.Mesh(new T.TubeGeometry(curva, 24, 0.006, 6), negro); cable.castShadow = true; g.add(cable);
+        g.add(en(cil(0.014, 0.17, negro, 10), 0.3, 0.02, 0.405, Math.PI / 2, 0, 0), en(cil(0.006, 0.03, metal(), 8), 0.3, 0.02, 0.505, Math.PI / 2, 0, 0));
+        g.rotation.y = -0.3; return g;
+      }
+      // taladro (o máquina) apoyado: cuerpo, mandril, mango y batería
       g.add(en(caja(0.2, 0.07, 0.065, m), 0, 0.2, 0), en(cil(0.014, 0.07, metal(), 10), 0.13, 0.2, 0, 0, 0, Math.PI / 2));
       g.add(en(caja(0.045, 0.12, 0.05, negro), -0.03, 0.105, 0), en(caja(0.09, 0.045, 0.08, negro), -0.03, 0.0225, 0));
       g.rotation.y = 0.4; return g; },
