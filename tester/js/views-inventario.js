@@ -160,7 +160,8 @@ export async function vistaInventario(view) {
   // Lugar y tamaño en el 2D, por separado para el modo Dibujo (pos, tam) y el modo Foto (posFoto, tamFoto): acomodar uno no mueve el otro
   const CLAVE = () => fotos ? { pos: "posFoto", tam: "tamFoto" } : { pos: "pos", tam: "tam" };
   // Ancho y alto propios en el modo actual (tamX/tamY o tamFotoX/tamFotoY); si solo tenía un tamaño parejo de antes (tam), vale para los dos
-  const medidas = i => { const k = CLAVE().tam; return { tx: i[k + "X"] ?? i[k] ?? 1, ty: i[k + "Y"] ?? i[k] ?? 1 }; };
+  // En modo Foto la foto nunca se deforma: ancho y alto crecen juntos (si quedó estirada de antes, vale su ancho para los dos)
+  const medidas = i => { const k = CLAVE().tam, tx = i[k + "X"] ?? i[k] ?? 1; return { tx, ty: fotos ? tx : i[k + "Y"] ?? i[k] ?? 1 }; };
   const conSeccion =(i, sec) => { const { sec: _, ...r } = i; return sec && sec !== i.cat ? { ...r, sec } : r; };
   const contenedores = (sin = "") => items.filter(i => CONTENEDOR.includes(i.cat) && i.id !== sin);
   const dondeTxt = i => { const c = de(i.en); return !c ? "" : (c.cat === "carro" ? "En el carro " : "Dentro de ") + c.nombre; };
@@ -180,7 +181,7 @@ export async function vistaInventario(view) {
     // Ancho y alto propios (--tx, --ty: tirador de la esquina o rueda del mouse); no dependen del tamaño de la sección.
     return `<button type="button" class="inv-obj inv-${i.cat}" data-ver="${esc(i.id)}" aria-label="${esc(i.nombre)}" title="${esc(i.nombre)}"
       style="left:${(p.x * 100).toFixed(2)}%;top:${(p.y * 100).toFixed(2)}%;--tx:${medidas(i).tx};--ty:${medidas(i).ty}">${conFoto
-        ? `<img class="inv-obj-foto${Math.abs(medidas(i).tx - medidas(i).ty) > 0.01 ? " estirada" : ""}" src="${esc(entera(i.foto.url))}" alt="" loading="lazy" draggable="false">` : dibujo(i)}<span class="inv-tam" title="Arrastrá para agrandar o achicar"></span>${(i.cant || 1) > 1 ? `<b class="inv-n">×${i.cant}</b>` : ""}
+        ? `<img class="inv-obj-foto" src="${esc(entera(i.foto.url))}" alt="" loading="lazy" draggable="false">` : dibujo(i)}<span class="inv-tam" title="Arrastrá para agrandar o achicar"></span>${(i.cant || 1) > 1 ? `<b class="inv-n">×${i.cant}</b>` : ""}
       ${CONTENEDOR.includes(i.cat) ? `<b class="inv-n">${items.filter(x => x.en === i.id).length || ""}</b>` : ""}<span class="inv-nom">${esc(i.nombre)}</span></button>`;
   };
   // Cada sección: todas sus herramientas (aunque estén en una valija o un carro, siguen en la pared) y el + para agregar ahí
@@ -570,7 +571,6 @@ export async function vistaInventario(view) {
     const guardarTam = (it, m) => { const k = CLAVE().tam; cambiar(items.map(i => i.id === it.id ? { ...i, [k + "X"]: +m.tx.toFixed(2), [k + "Y"]: +m.ty.toFixed(2) } : i)); };
     const ponerTam = (b, m) => {
       b.style.setProperty("--tx", m.tx.toFixed(3)); b.style.setProperty("--ty", m.ty.toFixed(3));
-      b.querySelector(".inv-obj-foto")?.classList.toggle("estirada", Math.abs(m.tx - m.ty) > 0.01);
     };
     pag.addEventListener("pointerdown", e => {
       const h = e.target.closest(".inv-tam"); if (!h) return;
@@ -582,7 +582,9 @@ export async function vistaInventario(view) {
     pag.addEventListener("pointermove", e => {
       if (!rz) return;
       e.stopPropagation();
-      rz.m = { tx: lim(rz.base.tx * (1 + (e.clientX - rz.x) / 70), TAM_MIN, TAM_MAX), ty: lim(rz.base.ty * (1 - (e.clientY - rz.y) / 70), TAM_MIN, TAM_MAX) };
+      const tx = lim(rz.base.tx * (1 + (e.clientX - rz.x) / 70), TAM_MIN, TAM_MAX);
+      // Foto: a la derecha agranda, parejo (sin deformar); Dibujo: ancho y largo por separado
+      rz.m = fotos ? { tx, ty: tx } : { tx, ty: lim(rz.base.ty * (1 - (e.clientY - rz.y) / 70), TAM_MIN, TAM_MAX) };
       ponerTam(rz.b, rz.m);
     }, true);
     const soltarTam = e => {

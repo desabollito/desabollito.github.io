@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.41.1", items: ["Modo Foto: las fotos ya no se deforman; mantienen la forma con la que se subieron y el tirador a la derecha solo las agranda (a la izquierda, las achica). En modo Dibujo sigue el ancho y largo por separado."] },
   { v: "4.41.0", items: ["Taller 2D más grande, y se puede estirar para abajo y a los costados desde su esquina de abajo a la derecha (si queda más ancho que la pantalla, se desplaza de costado). Las secciones y herramientas crecen con él. «Restablecer secciones» también lo vuelve a su tamaño."] },
   { v: "4.40.0", items: ["3D en la compu: se entra con un click en el visor (ahí el mouse mira, como en un juego) y se sale con Esc. El cartel «Hacé click para entrar» aparece solo dentro del visor.", "El visor 3D es más chico."] },
   { v: "4.39.2", items: ["Taller 2D: las varillas funcionan igual que el resto de las herramientas (tamaño normal, se agrandan y estiran con el tirador y se acomodan en la grilla); ya no se rompen al agregarlas."] },

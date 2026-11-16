@@ -2725,7 +2725,6 @@ button.aj-item:hover, a.aj-item:hover { background: var(--surface-2); }
 .inv-fantasma .inv-nom { display: none !important; }
 .inv-llevando { opacity: .35; }
 .inv-obj-foto { display: block; width: calc(54px * var(--tx, 1)); height: calc(54px * var(--ty, 1)); object-fit: contain; border-radius: 6px; pointer-events: none; }
-.inv-obj-foto.estirada { object-fit: fill; }   /* la estiró a lo ancho o a lo largo por separado: sigue exactamente lo que arrastró */
 /* Tirador para agrandar o achicar la foto (arriba a la derecha): con el mouse aparece al pasar; en pantallas táctiles, siempre */
 .inv-tam { position: absolute; top: -6px; right: -6px; width: 16px; height: 16px; border: 2px solid var(--primary); border-radius: 50%; background: var(--surface); cursor: nesw-resize; touch-action: none; opacity: 0; transition: opacity .15s; }
 .inv-obj:hover .inv-tam, .inv-obj:focus-visible .inv-tam { opacity: 1; }
