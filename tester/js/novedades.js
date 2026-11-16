@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.30.0", items: ["Taller 2D: al soltar una herramienta se acomoda en una grilla (como los íconos del escritorio); si el lugar está ocupado, va al casillero libre más cercano."] },
   { v: "4.29.2", items: ["Taller 2D: cada sección tiene una línea fina alrededor para ver hasta dónde llega."] },
   { v: "4.29.1", items: ["Taller 2D: todo es una sola planilla con puntitos (también abajo, en gris); solo quedan divididas Lámparas y la franja de Valijas, Carro y Varios."] },
   { v: "4.29.0", items: ["Taller 2D en modo Foto: cada foto se puede agrandar o achicar con el tirador de la esquina (hacia arriba o la derecha agranda) o con la rueda del mouse. Queda guardado.", "En la lista, las miniaturas muestran la foto entera, sin agrandar la fila."] },

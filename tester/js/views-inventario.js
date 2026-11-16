@@ -93,6 +93,22 @@ const posDefecto = (i, k, n) => {
   return COLGADAS.includes(i.cat) ? { x, y: Math.min(1, 0.48 + fila * 0.5) } : { x, y: Math.max(0.35, 1 - fila * 0.45) };
 };
 const lim = (v, a, b) => Math.max(a, Math.min(b, v));
+// Encastre en grilla, como los íconos del escritorio: el punto de apoyo (px dentro del recuadro W×H) va al casillero más cercano
+// donde la herramienta entera (media ancho mw, alto mh) queda adentro; si ahí ya hay otra apoyada, al casillero libre más cercano.
+const GRILLA = 28;
+const encastrar = (px, py, W, H, mw, mh, otros = []) => {
+  const xs = [], ys = [];
+  for (let x = Math.ceil(mw / GRILLA) * GRILLA; x <= W - mw + 0.01; x += GRILLA) xs.push(x);
+  for (let y = Math.ceil(mh / GRILLA) * GRILLA; y <= H + 0.01; y += GRILLA) ys.push(y);
+  if (!xs.length) xs.push(W / 2);
+  if (!ys.length || ys[ys.length - 1] < H - 1) ys.push(H);   // siempre se puede apoyar en el piso del recuadro
+  const libre = (x, y) => !otros.some(o => Math.abs(o.x - x) < GRILLA / 2 && Math.abs(o.y - y) < GRILLA / 2);
+  let mejor = null, dm = Infinity;
+  for (const x of xs) for (const y of ys) { const dd = (x - px) ** 2 + (y - py) ** 2; if (dd < dm && libre(x, y)) { dm = dd; mejor = { x, y }; } }
+  return mejor || { x: lim(px, mw, W - mw), y: lim(py, mh, H) };
+};
+{ const a = encastrar(50, 100, 200, 100, 10, 20), b = encastrar(50, 100, 200, 100, 10, 20, [{ x: 56, y: 100 }]);
+  console.assert(a.x === 56 && a.y === 100 && b.x === 56 && b.y === 84, "inventario: encastre en grilla"); }
 const FOTO = 54, TAM_MIN = 24, TAM_MAX = 320;   // lado de la foto en el 2D (px) y sus límites al agrandar o achicar
 { const p = posDefecto({ cat: "martillo" }, 4, 6); console.assert(Math.abs(p.x - 0.5) < 1e-9 && Math.abs(p.y - 0.98) < 1e-9, "inventario: lugar por defecto"); }
 
@@ -380,14 +396,16 @@ export async function vistaInventario(view) {
       arrastro = true; setTimeout(() => { arrastro = false; });   // que el click de soltar no abra la herramienta
       const it = d.it, cont = destinoEn(e.clientX, e.clientY), g = d.fant.getBoundingClientRect(), z = d.b.parentElement.getBoundingClientRect();
       const sec = d.b.closest(".inv-zona").getBoundingClientRect(), M = 40;   // la sección entera (con su etiqueta), con un margen
+      // Dónde están apoyadas las otras herramientas de la sección (en px), para no encimarlas
+      const otros = [...d.b.parentElement.querySelectorAll(":scope > .inv-obj")].filter(o => o !== d.b)
+        .map(o => ({ x: parseFloat(o.style.left) / 100 * z.width, y: parseFloat(o.style.top) / 100 * z.height }));
       limpiar();
       if (cont) return mover(it, cont.dataset.ver);
-      // En su sección (o apenas afuera): el nuevo punto de apoyo (abajo al centro), llevado al borde si se pasó del recuadro
+      // En su sección (o apenas afuera): el punto de apoyo (abajo al centro) se encastra en la grilla, dentro del recuadro
       const cx = g.left + g.width / 2, cy = g.bottom;
       if (e.clientX < sec.left - M || e.clientX > sec.right + M || e.clientY < sec.top - M || e.clientY > sec.bottom + M) return;   // lejos: queda donde estaba
-      const w = g.width / z.width / 2, h = Math.min(1, g.height / z.height);
-      const pos = { x: lim((cx - z.left) / z.width, w, 1 - w), y: lim((cy - z.top) / z.height, h, 1) };
-      cambiar(items.map(i => i.id === it.id ? { ...i, pos: { x: +pos.x.toFixed(4), y: +pos.y.toFixed(4) } } : i));
+      const p = encastrar(cx - z.left, cy - z.top, z.width, z.height, g.width / 2, Math.min(z.height, g.height), otros);
+      cambiar(items.map(i => i.id === it.id ? { ...i, pos: { x: +(p.x / z.width).toFixed(4), y: +(p.y / z.height).toFixed(4) } } : i));
     };
     pag.addEventListener("pointerup", terminar); pag.addEventListener("pointercancel", terminar);
     // Con el dedo, mientras se lleva una herramienta la página no se desplaza
