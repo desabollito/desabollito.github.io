@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.29.0", items: ["Taller 2D en modo Foto: cada foto se puede agrandar o achicar con el tirador de la esquina (hacia arriba o la derecha agranda) o con la rueda del mouse. Queda guardado.", "En la lista, las miniaturas muestran la foto entera, sin agrandar la fila."] },
   { v: "4.28.2", items: ["Taller 2D: las lámparas se pueden bajar hasta el piso (su sección ocupa toda la columna) y soltar una herramienta apenas fuera de su sección la deja en el borde.", "Las fotos del 2D (modo Foto y vista previa) se ven enteras, sin recortar."] },
   { v: "4.28.1", items: ["Dentshock y Hotbox con su propio dibujo (2D y 3D): la caja con pantallita y perilla, y el lápiz con su cable."] },
   { v: "4.28.0", items: ["Nueva sección «Herramientas» en la mesa (donde estaba Varios): taladros, máquina de pulir, máquina de taladro, Dentshock, Hotbox y pistolas de calor a batería o a cable.", "«Varios» pasa abajo, al lado de Valijas y Carro: microfibras, compounds, pads del taladro, lijas y lo demás.", "Pistolas de pegamento a batería y a cable en Martillos inerciales y pullers."] },

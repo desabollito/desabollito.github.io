@@ -2716,6 +2716,11 @@ button.aj-item:hover, a.aj-item:hover { background: var(--surface-2); }
 .inv-llevando { opacity: .35; }
 .inv-obj-foto { display: block; width: 54px; height: 54px; object-fit: contain; border-radius: 6px; pointer-events: none; }
 .inv-varilla .inv-obj-foto { width: 26px; height: 100%; object-fit: contain; }
+/* Tirador para agrandar o achicar la foto (arriba a la derecha): con el mouse aparece al pasar; en pantallas táctiles, siempre */
+.inv-tam { position: absolute; top: -6px; right: -6px; width: 16px; height: 16px; border: 2px solid var(--primary); border-radius: 50%; background: var(--surface); cursor: nesw-resize; touch-action: none; opacity: 0; transition: opacity .15s; }
+.inv-obj:hover .inv-tam, .inv-obj:focus-visible .inv-tam { opacity: 1; }
+@media (pointer: coarse) { .inv-tam { opacity: .9; width: 20px; height: 20px; top: -9px; right: -9px; } }
+.inv-fantasma .inv-tam { display: none; }
 /* Vista previa al pasar el mouse o apoyar el dedo: la foto real (o el dibujo si no tiene) y el nombre */
 .inv-previa { position: fixed; z-index: 40; display: flex; flex-direction: column; align-items: center; gap: 6px; width: 180px; padding: 8px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); box-shadow: 0 10px 28px rgb(0 0 0 / .35); pointer-events: none; }
 .inv-previa[hidden] { display: none; }
@@ -2772,7 +2777,7 @@ button.aj-item:hover, a.aj-item:hover { background: var(--surface-2); }
 .inv-nom { display: none; }
 .inv-obj:hover .inv-nom, .inv-obj:focus-visible .inv-nom { display: block; position: absolute; bottom: calc(100% + 4px); left: 50%; transform: translateX(-50%); z-index: 2;
   padding: 3px 7px; border-radius: 6px; background: var(--ink); color: var(--bg); font-size: 11.5px; font-weight: 600; white-space: nowrap; pointer-events: none; }
-.inv-foto { flex: none; display: grid; place-items: center; width: 38px; height: 38px; border-radius: 8px; object-fit: cover; background: var(--surface-2); color: var(--c); }
+.inv-foto { flex: none; display: grid; place-items: center; width: 38px; height: 38px; border-radius: 8px; object-fit: contain; background: var(--surface-2); color: var(--c); }
 .inv-foto svg { max-width: 26px; max-height: 28px; }
 .inv-foto-grande { display: block; width: 100%; max-height: 260px; object-fit: contain; border-radius: var(--r);
   background: repeating-conic-gradient(var(--surface-2) 0 25%, var(--surface) 0 50%) 0 0 / 18px 18px; }   /* cuadriculado: se ve qué quedó sin fondo */

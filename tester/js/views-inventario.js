@@ -93,6 +93,7 @@ const posDefecto = (i, k, n) => {
   return COLGADAS.includes(i.cat) ? { x, y: Math.min(1, 0.48 + fila * 0.5) } : { x, y: Math.max(0.35, 1 - fila * 0.45) };
 };
 const lim = (v, a, b) => Math.max(a, Math.min(b, v));
+const FOTO = 54, TAM_MIN = 24, TAM_MAX = 320;   // lado de la foto en el 2D (px) y sus límites al agrandar o achicar
 { const p = posDefecto({ cat: "martillo" }, 4, 6); console.assert(Math.abs(p.x - 0.5) < 1e-9 && Math.abs(p.y - 0.98) < 1e-9, "inventario: lugar por defecto"); }
 
 export async function vistaInventario(view) {
@@ -113,16 +114,19 @@ export async function vistaInventario(view) {
   const cambiar = nuevos => { items = nuevos; pintar(); guardar(); };
 
   const obj = (i, k, n) => {
-    const p = i.pos || posDefecto(i, k, n);
+    const p = i.pos || posDefecto(i, k, n), conFoto = fotos && i.foto?.url, lado = Math.round(FOTO * (i.tam || 1));
+    // En modo Foto: la foto entera, del tamaño que eligió (tirador de la esquina o rueda del mouse)
     return `<button type="button" class="inv-obj inv-${i.cat}" data-ver="${esc(i.id)}" aria-label="${esc(i.nombre)}" title="${esc(i.nombre)}"
-      style="left:${(p.x * 100).toFixed(2)}%;top:${(p.y * 100).toFixed(2)}%${i.cat === "varilla" ? `;height:${largo(i.id)}%` : ""}">${fotos && i.foto?.url ? `<img class="inv-obj-foto" src="${esc(entera(i.foto.url))}" alt="" loading="lazy" draggable="false">` : dibujo(i)}${(i.cant || 1) > 1 ? `<b class="inv-n">×${i.cant}</b>` : ""}
+      style="left:${(p.x * 100).toFixed(2)}%;top:${(p.y * 100).toFixed(2)}%${i.cat === "varilla" && !conFoto ? `;height:${largo(i.id)}%` : ""}">${conFoto
+        ? `<img class="inv-obj-foto" src="${esc(entera(i.foto.url))}" alt="" loading="lazy" draggable="false" style="width:${lado}px;height:${lado}px"><span class="inv-tam" title="Arrastrá para agrandar o achicar"></span>`
+        : dibujo(i)}${(i.cant || 1) > 1 ? `<b class="inv-n">×${i.cant}</b>` : ""}
       ${CONTENEDOR.includes(i.cat) ? `<b class="inv-n">${items.filter(x => x.en === i.id).length || ""}</b>` : ""}<span class="inv-nom">${esc(i.nombre)}</span></button>`;
   };
   // Cada sección: todas sus herramientas (aunque estén en una valija o un carro, siguen en la pared) y el + para agregar ahí
   const zona = (cat, clase = "") => { const l = items.filter(i => i.cat === cat);
     return `<div class="inv-zona ${clase}"><button type="button" class="inv-etq" data-nueva="${cat}">${icon("plus")}${CATS[cat]}</button>
       <div class="inv-objs" data-cat="${cat}">${l.map((i, k) => obj(i, k, l.length)).join("")}</div></div>`; };
-  const miniatura = i => i.foto?.url ? `<img class="inv-foto" src="${esc(thumb(i.foto.url))}" alt="" loading="lazy">` : `<span class="inv-foto inv-${i.cat}">${dibujo(i)}</span>`;
+  const miniatura = i => i.foto?.url ? `<img class="inv-foto" src="${esc(entera(i.foto.url))}" alt="" loading="lazy">` : `<span class="inv-foto inv-${i.cat}">${dibujo(i)}</span>`;
   const fila = i => `<div class="aj-item inv-fila"><button type="button" class="inv-fila-ver" data-ver="${esc(i.id)}">${miniatura(i)}
       <span class="aj-txt">${esc(i.nombre)}</span><span class="aj-val">${[(i.cant || 1) > 1 ? "×" + i.cant : "", i.ah ? i.ah + " Ah" : "", esc(dondeTxt(i))].filter(Boolean).join(" · ")}</span></button>
       <button type="button" class="icon-btn sm" data-ed="${esc(i.id)}" aria-label="Editar ${esc(i.nombre)}" title="Editar">${icon("edit")}</button></div>`;
@@ -387,7 +391,39 @@ export async function vistaInventario(view) {
     };
     pag.addEventListener("pointerup", terminar); pag.addEventListener("pointercancel", terminar);
     // Con el dedo, mientras se lleva una herramienta la página no se desplaza
-    pag.addEventListener("touchmove", e => { if (d?.listo) e.preventDefault(); }, { passive: false });
+    // Agrandar o achicar una foto (modo Foto): el tirador de la esquina (hacia arriba o la derecha agranda) o la rueda del mouse.
+    // Va en la fase de captura para ganarle al arrastre de la herramienta.
+    let rz = null, tRueda = 0;
+    const guardarTam = (it, lado) => cambiar(items.map(i => i.id === it.id ? { ...i, tam: +(lado / FOTO).toFixed(2) } : i));
+    pag.addEventListener("pointerdown", e => {
+      const h = e.target.closest(".inv-tam"); if (!h) return;
+      e.stopPropagation(); e.preventDefault();
+      const b = h.closest(".inv-obj"), img = b.querySelector(".inv-obj-foto");
+      rz = { it: de(b.dataset.ver), img, x: e.clientX, y: e.clientY, base: img.offsetWidth, lado: img.offsetWidth };
+      h.setPointerCapture(e.pointerId); ocultarPrevia();
+    }, true);
+    pag.addEventListener("pointermove", e => {
+      if (!rz) return;
+      e.stopPropagation();
+      rz.lado = Math.round(lim(rz.base + (e.clientX - rz.x) - (e.clientY - rz.y), TAM_MIN, TAM_MAX));
+      rz.img.style.width = rz.img.style.height = rz.lado + "px";
+    }, true);
+    const soltarTam = e => {
+      if (!rz) return;
+      e.stopPropagation();
+      const { it, lado, base } = rz; rz = null;
+      arrastro = true; setTimeout(() => { arrastro = false; });   // que soltar el tirador no abra la herramienta
+      if (lado !== base) guardarTam(it, lado);
+    };
+    pag.addEventListener("pointerup", soltarTam, true); pag.addEventListener("pointercancel", soltarTam, true);
+    pag.addEventListener("wheel", e => {
+      const b = e.target.closest(".inv-sala .inv-obj"), img = b?.querySelector(".inv-obj-foto"); if (!img) return;
+      e.preventDefault();
+      const lado = Math.round(lim(img.offsetWidth * (e.deltaY < 0 ? 1.1 : 1 / 1.1), TAM_MIN, TAM_MAX));
+      img.style.width = img.style.height = lado + "px";
+      clearTimeout(tRueda); tRueda = setTimeout(() => guardarTam(de(b.dataset.ver), lado), 450);   // se guarda cuando deja de girar
+    }, { passive: false });
+    pag.addEventListener("touchmove", e => { if (d?.listo || rz) e.preventDefault(); }, { passive: false });
     pag.addEventListener("contextmenu", e => { if (e.target.closest(".inv-sala .inv-obj")) e.preventDefault(); });
   };
 
