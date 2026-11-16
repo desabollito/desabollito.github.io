@@ -2,6 +2,7 @@
 // En primera persona: arrastrar mira alrededor, WASD / flechas / botones caminan; tocar una herramienta la abre.
 const URLS = ["https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "https://unpkg.com/three@0.160.0/build/three.module.js"];
 let cargando = null;
+let vista = null;   // dónde estaba parado y hacia dónde miraba: se conserva al rearmar la escena (después de cada cambio)
 const cargarThree = () => cargando ||= (async () => {
   for (const u of URLS) { try { return await import(u); } catch { /* probar el otro CDN */ } }
   cargando = null; throw new Error("No se pudo cargar el 3D. Revisá la conexión.");
@@ -12,7 +13,7 @@ const largo = id => 0.9 + ([...id].reduce((a, c) => a + c.charCodeAt(0), 0) % 38
 const lim = (v, a, b) => Math.max(a, Math.min(b, v));
 
 // Devuelve una función para desarmar la escena
-export async function montar3D(el, items, alTocar, alAgregar = () => {}) {
+export async function montar3D(el, items, alTocar, alAgregar = () => {}, alMover = () => {}) {
   const T = await cargarThree();
   if (!el.isConnected) return () => {};
   const canvasTex = (w, h, dibujar, rep) => {
@@ -269,7 +270,7 @@ export async function montar3D(el, items, alTocar, alAgregar = () => {}) {
   //    caminan; la rueda o el pellizco avanzan y retroceden. Tocar una herramienta la abre.
   // shortcut: solo choca con las paredes, no con los muebles; agregar cajas de choque si molesta atravesar la mesa o los carros
   const OJOS = 1.6, INICIO = { x: -0.5, z: 4.4, yaw: 0.1, pitch: 0.1 };
-  const v = { ...INICIO };
+  const v = (vista ||= { ...INICIO });
   const caminar = (ad, de) => {   // ad: adelante (+) / atrás (-); de: derecha (+) / izquierda (-)
     const fx = -Math.sin(v.yaw), fz = -Math.cos(v.yaw);
     v.x = lim(v.x + fx * ad - fz * de, -3.2, 3.2); v.z = lim(v.z + fz * ad + fx * de, 0.95, FONDO - 0.3);
@@ -290,9 +291,11 @@ export async function montar3D(el, items, alTocar, alAgregar = () => {}) {
   zona("valija", 1.64, 2.45, -3.46, 1.225, 1.8, 0, Math.PI / 2);
   zona("lampara", 1.55, 1.7, 2.22, 0.01, 1.35, -Math.PI / 2);
   // Lo que hay en un punto de la pantalla (-1..1): una herramienta (userData.id) o una zona para agregar (userData.nueva)
-  const apuntar = (nx, ny) => {
+  // sin: una herramienta que no cuenta (la que se está llevando)
+  const esDe = (x, g) => { for (; x; x = x.parent) if (x === g) return true; return false; };
+  const apuntar = (nx, ny, sin) => {
     p.set(nx, ny); ray.setFromCamera(p, camara);
-    let o = ray.intersectObjects([...tocables, ...zonas], true)[0]?.object;
+    let o = ray.intersectObjects([...tocables, ...zonas], true).find(h => !sin || !esDe(h.object, sin))?.object;
     while (o && !o.userData.id && !o.userData.nueva) o = o.parent;
     return o || null;
   };
@@ -313,10 +316,32 @@ export async function montar3D(el, items, alTocar, alAgregar = () => {}) {
     if (o.userData.id) alTocar(o.userData.id); else alAgregar(o.userData.nueva);
   };
 
+  // Llevar una herramienta (arrastrar): se agarra, flota adelante y se suelta sobre una valija o un carro
+  // (queda guardada ahí) o en cualquier otro lado (vuelve a su lugar). Valijas y carros no se llevan.
+  const itemDe = id => items.find(i => i.id === id);
+  const CONT = ["valija", "carro"];
+  const llevable = o => !!o?.userData.id && !CONT.includes(itemDe(o.userData.id)?.cat);
+  const contenedorDe = o => { for (let x = o; x; x = x.parent) { const it = x.userData.id && itemDe(x.userData.id); if (it && CONT.includes(it.cat)) return it; } return null; };
+  let llevado = null;
+  const empezarLlevar = (o, nx = 0, ny = 0) => {
+    const tam = new T.Box3().setFromObject(o).getSize(new T.Vector3()), f = o.clone();
+    f.scale.copy(o.scale).multiplyScalar(Math.min(1, 0.45 / Math.max(tam.x, tam.y, tam.z, 0.01)));   // las largas se achican para que entren en la vista
+    escena.add(f); o.visible = false; mostrar(null);
+    llevado = { o, f, nx, ny }; navigator.vibrate?.(15);
+  };
+  const terminarLlevar = soltar => {
+    const { o, f, nx, ny } = llevado; llevado = null;
+    escena.remove(f); o.visible = true;
+    if (!soltar) return;
+    const id = o.userData.id, en = contenedorDe(apuntar(nx, ny, o))?.id || "";
+    if (en !== (itemDe(id)?.en || "")) alMover(id, en);
+  };
+
   // Computadora: el primer click "entra" (captura el mouse) y desde ahí mover el mouse mira, como en un juego;
-  // click = abrir o agregar lo que está en la mira; Esc suelta el mouse. Celular: arrastrar mira, tocar abre.
+  // click = abrir o agregar lo que está en la mira; mantener el click y mover = llevar la herramienta; Esc suelta el mouse.
+  // Celular: arrastrar mira, tocar abre o agrega, mantener apretado y arrastrar lleva la herramienta.
   const conMira = "requestPointerLock" in c && !matchMedia("(pointer: coarse)").matches;
-  let bloqueado = false;
+  let bloqueado = false, pendiente = null, toque = 0;   // pendiente: click con el mouse que todavía puede ser arrastre
   const mira = document.createElement("span"); mira.className = "inv-3d-mira"; mira.hidden = true;
   const punteros = new Map();
   let ini = null, pellizco = 0;
@@ -324,18 +349,29 @@ export async function montar3D(el, items, alTocar, alAgregar = () => {}) {
     if (e.pointerType === "mouse" && conMira) {
       if (e.button !== 0) return;
       if (!bloqueado) { const r = c.requestPointerLock(); r?.catch?.(() => {}); }
-      else elegir(apuntar(0, 0));
+      else pendiente = { o: apuntar(0, 0), mov: 0 };
       return;
     }
     punteros.set(e.pointerId, [e.clientX, e.clientY]); c.setPointerCapture(e.pointerId);
     ini = punteros.size === 1 ? [e.clientX, e.clientY] : null;
+    clearTimeout(toque);
     if (punteros.size === 2) { const [a, b] = [...punteros.values()]; pellizco = Math.hypot(a[0] - b[0], a[1] - b[1]); }
+    else { const pos = enPantalla(e), o = apuntar(...pos); if (llevable(o)) toque = setTimeout(() => empezarLlevar(o, ...pos), 450); }   // mantener apretado
   });
-  c.addEventListener("mousemove", e => { if (bloqueado) { v.yaw -= e.movementX * 0.0025; v.pitch -= e.movementY * 0.0025; } });
+  c.addEventListener("mousemove", e => {
+    if (!bloqueado) return;
+    v.yaw -= e.movementX * 0.0025; v.pitch -= e.movementY * 0.0025;
+    if (pendiente && (pendiente.mov += Math.abs(e.movementX) + Math.abs(e.movementY)) > 25) {
+      if (llevable(pendiente.o)) empezarLlevar(pendiente.o);
+      pendiente = null;
+    }
+  });
   c.addEventListener("pointermove", e => {
+    if (llevado && punteros.has(e.pointerId)) { [llevado.nx, llevado.ny] = enPantalla(e); return; }
     const ant = punteros.get(e.pointerId);
     if (ant) {
       punteros.set(e.pointerId, [e.clientX, e.clientY]);
+      if (ini && Math.hypot(e.clientX - ini[0], e.clientY - ini[1]) > 8) clearTimeout(toque);
       const dx = e.clientX - ant[0], dy = e.clientY - ant[1], sentido = e.pointerType === "mouse" ? -1 : 1;   // mouse: hacia donde lo movés; dedo: se "agarra" la escena
       if (punteros.size === 1) { v.yaw += sentido * dx * 0.004; v.pitch += sentido * dy * 0.004; }
       else if (punteros.size === 2) { const [a, b] = [...punteros.values()], d = Math.hypot(a[0] - b[0], a[1] - b[1]); if (pellizco) caminar((d - pellizco) * 0.01, 0); pellizco = d; }
@@ -348,12 +384,21 @@ export async function montar3D(el, items, alTocar, alAgregar = () => {}) {
     c.style.cursor = conMira ? "crosshair" : "grab";
   });
   const soltar = e => {
+    if (e.pointerType === "mouse" && conMira) {
+      if (llevado) terminarLlevar(e.type === "pointerup");
+      else if (pendiente && e.type === "pointerup") elegir(pendiente.o);
+      pendiente = null;
+      return;
+    }
     if (!punteros.has(e.pointerId)) return;
+    clearTimeout(toque);
     punteros.delete(e.pointerId); pellizco = 0;
-    if (ini && e.type === "pointerup" && Math.hypot(e.clientX - ini[0], e.clientY - ini[1]) < 8) elegir(apuntar(...enPantalla(e)));
+    if (llevado) { [llevado.nx, llevado.ny] = enPantalla(e); terminarLlevar(e.type === "pointerup"); }
+    else if (ini && e.type === "pointerup" && Math.hypot(e.clientX - ini[0], e.clientY - ini[1]) < 8) elegir(apuntar(...enPantalla(e)));
     ini = null;
   };
   c.addEventListener("pointerup", soltar); c.addEventListener("pointercancel", soltar);
+  c.addEventListener("contextmenu", e => e.preventDefault());   // mantener apretado en el celular no abre el menú
   c.addEventListener("pointerleave", e => { if (e.pointerType === "mouse" && !bloqueado) mostrar(null); });
   c.addEventListener("wheel", e => { e.preventDefault(); caminar(-lim(e.deltaY, -100, 100) * 0.006, 0); }, { passive: false });
   const teclas = new Set();
@@ -413,12 +458,15 @@ export async function montar3D(el, items, alTocar, alAgregar = () => {}) {
       caminar(ad * 0.045, de * 0.045);
     }
     aplicar();
-    if (bloqueado) mostrar(apuntar(0, 0), c.clientWidth / 2, c.clientHeight / 2 - 16);   // lo que está en la mira
+    if (llevado) {   // la herramienta que se lleva flota adelante, donde apunta la mira o el dedo
+      p.set(llevado.nx, llevado.ny); ray.setFromCamera(p, camara);
+      llevado.f.position.copy(ray.ray.origin).addScaledVector(ray.ray.direction, 0.9); llevado.f.quaternion.copy(camara.quaternion);
+    } else if (bloqueado) mostrar(apuntar(0, 0), c.clientWidth / 2, c.clientHeight / 2 - 16);   // lo que está en la mira
     render.render(escena, camara);
     requestAnimationFrame(cuadro);
   };
   function desarmar() {
-    if (!vivo) return; vivo = false; ro.disconnect();
+    if (!vivo) return; vivo = false; ro.disconnect(); clearTimeout(toque);
     escena.traverse(o => { o.geometry?.dispose(); if (o.material) { o.material.map?.dispose(); o.material.dispose(); } });
     document.removeEventListener("pointerlockchange", alBloquear);
     if (document.pointerLockElement === c) document.exitPointerLock();

@@ -114,12 +114,13 @@ export async function vistaInventario(view) {
     };
     if (en3D) {
       const caja = $("#inv-3d", view);
-      import("./inventario3d.js").then(m => m.montar3D(caja, items, id => de(id) && ver(de(id)), cat => editar({ cat })))
+      import("./inventario3d.js").then(m => m.montar3D(caja, items, id => de(id) && ver(de(id)), cat => editar({ cat }), (id, en) => de(id) && mover(de(id), en)))
         .then(q => { quitar3D = q; caja.querySelector(".inv-3d-carga")?.remove(); })
         .catch(e => { caja.querySelector(".inv-3d-carga").textContent = e.message; });
     }
+    if (!en3D) escucharArrastre(view.querySelector(".inventario"));
     view.querySelector(".inventario").onclick = e => {
-      const b = e.target.closest("[data-ver], [data-ed], [data-nueva], #inv-agregar"); if (!b) return;
+      const b = e.target.closest("[data-ver], [data-ed], [data-nueva], #inv-agregar"); if (!b || arrastro) return;
       if (b.id === "inv-agregar") editar({ cat: "varilla" });
       else if (b.dataset.nueva) editar({ cat: b.dataset.nueva });
       else if (b.dataset.ed) editar(de(b.dataset.ed));
@@ -154,7 +155,7 @@ export async function vistaInventario(view) {
       else editar(it);
     };
   }
-  const mover = (it, en) => { cambiar(items.map(i => i.id === it.id ? { ...i, en } : i)); toast(en ? `En ${de(en).nombre}` : "Fuera del carro", "success"); };
+  const mover = (it, en) => { cambiar(items.map(i => i.id === it.id ? { ...i, en } : i)); toast(en ? `En ${de(en).nombre}` : "De vuelta en su lugar", "success"); };
   function elegirCarro(it, carros) {
     const s = openSheet({ title: "¿En qué carro?", body: `<div class="stack">${carros.map(c =>
       `<button type="button" class="btn btn-block etapa-op" data-c="${esc(c.id)}">${esc(c.nombre)}</button>`).join("")}</div>` });
@@ -254,6 +255,56 @@ export async function vistaInventario(view) {
         .map(i => !cont && i.en === it.id ? { ...i, en: "" } : i));   // dejó de ser valija o carro: lo de adentro vuelve a su lugar
     };
   }
+
+  // Arrastrar herramientas en el taller 2D: soltarlas sobre una valija o un carro las guarda ahí; en otro lado del taller,
+  // vuelven a su lugar. Con el mouse se arrastra directo; con el dedo, mantener apretado un momento y arrastrar.
+  // Se escucha en la página del inventario (se rearma en cada repintado, así los eventos no se acumulan).
+  let arrastro = false, d = null;
+  const destinoEn = (x, y) => {
+    const el = document.elementFromPoint(x, y), b = el?.closest(".inv-obj"), it = b && de(b.dataset.ver);
+    return { b: it && CONTENEDOR.includes(it.cat) && it.id !== d.it.id ? b : null, enSala: !!el?.closest(".inv-sala") };
+  };
+  const limpiar = () => {
+    d.fant?.remove(); d.b.classList.remove("inv-llevando"); d.dest?.classList.remove("inv-destino");
+    clearTimeout(d.t); d = null;
+  };
+  const escucharArrastre = pag => {
+  pag.addEventListener("pointerdown", e => {
+    const b = e.target.closest(".inv-sala .inv-obj"), it = b && de(b.dataset.ver);
+    if (!it || CONTENEDOR.includes(it.cat) || e.button > 0) return;
+    d = { b, it, x: e.clientX, y: e.clientY, listo: e.pointerType === "mouse", fant: null, dest: null };
+    b.setPointerCapture(e.pointerId);
+    if (!d.listo) d.t = setTimeout(() => { if (d) { d.listo = true; navigator.vibrate?.(15); b.classList.add("inv-llevando"); } }, 350);
+  });
+  pag.addEventListener("pointermove", e => {
+    if (!d) return;
+    if (!d.listo) { if (Math.hypot(e.clientX - d.x, e.clientY - d.y) > 8) limpiar(); return; }   // se movió antes: era para desplazar la página
+    if (!d.fant) {
+      if (Math.hypot(e.clientX - d.x, e.clientY - d.y) < 6) return;
+      d.fant = d.b.cloneNode(true); d.fant.classList.add("inv-fantasma"); d.fant.removeAttribute("style");
+      document.body.append(d.fant); d.b.classList.add("inv-llevando");
+    }
+    d.fant.style.left = e.clientX + "px"; d.fant.style.top = e.clientY + "px";
+    const { b } = destinoEn(e.clientX, e.clientY);
+    if (b !== d.dest) { d.dest?.classList.remove("inv-destino"); b?.classList.add("inv-destino"); d.dest = b; }
+  });
+  const terminar = e => {
+    if (!d) return;
+    if (d.fant && e.type === "pointerup") {
+      const { b, enSala } = destinoEn(e.clientX, e.clientY), it = d.it;
+      arrastro = true; setTimeout(() => { arrastro = false; });   // que el click de soltar no abra la herramienta
+      const en = b ? b.dataset.ver : enSala ? "" : it.en || "";   // fuera del taller: no cambia nada
+      limpiar();
+      if (en !== (it.en || "")) mover(it, en);
+      return;
+    }
+    limpiar();
+  };
+  pag.addEventListener("pointerup", terminar); pag.addEventListener("pointercancel", terminar);
+  // Con el dedo, mientras se lleva una herramienta la página no se desplaza
+  pag.addEventListener("touchmove", e => { if (d?.listo) e.preventDefault(); }, { passive: false });
+  pag.addEventListener("contextmenu", e => { if (e.target.closest(".inv-sala .inv-obj")) e.preventDefault(); });
+  };
 
   pintar();
 }

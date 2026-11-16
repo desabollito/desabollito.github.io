@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.25.0", items: ["Inventario: las herramientas se arrastran. Soltalas sobre una valija o un carro para guardarlas ahí; en otro lado del taller vuelven a su lugar.", "2D: con el mouse se arrastran directo; con el dedo, mantené apretado un momento y arrastrá.", "3D: con la mira, mantené el click y mové el mouse para agarrarla (o mantené apretado con el dedo); se lleva flotando y se suelta donde apuntás.", "3D: recuerda dónde estabas parado después de cada cambio."] },
   { v: "4.24.0", items: ["3D en computadora: hacé click para entrar y mirá moviendo el mouse, sin apretar (hacia donde lo movés). Click sobre una herramienta la abre; sobre un lugar vacío del tablero, la mesa, la estantería o las lámparas, agrega una de ese tipo. Esc suelta el mouse.", "En el celular sigue igual: arrastrar mira, tocar abre o agrega."] },
   { v: "4.23.2", items: ["3D: luz más equilibrada (ya no se ve lavado)."] },
   { v: "4.23.1", items: ["3D: habitación clara y bien iluminada (paredes, piso y techo claros, paneles de luz más fuertes); arrancás más adentro y un cartel muestra cómo mirar y caminar."] },

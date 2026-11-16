@@ -2705,6 +2705,13 @@ button.aj-item:hover, a.aj-item:hover { background: var(--surface-2); }
 .inv-etq:hover { color: var(--primary); border-color: var(--primary); }
 .inv-obj { position: relative; display: grid; place-items: center; padding: 2px; border: 0; border-radius: 8px; background: none; color: var(--c); cursor: pointer; flex: none; }
 .inv-obj:hover, .inv-obj:focus-visible { background: rgb(127 127 127 / .18); }
+.inv-obj { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+/* Arrastrar: la copia que sigue al puntero, la original atenuada y la valija o el carro de destino marcado */
+.inv-fantasma { position: fixed; z-index: 1000; pointer-events: none; transform: translate(-50%, -50%) scale(1.15); opacity: .9; filter: drop-shadow(0 6px 12px rgb(0 0 0 / .4)); }
+.inv-fantasma.inv-varilla { height: 90px; }
+.inv-fantasma .inv-nom { display: none !important; }
+.inv-llevando { opacity: .35; }
+.inv-destino { background: var(--primary-soft); outline: 2px dashed var(--primary); outline-offset: 2px; }
 .inv-obj svg, .inv-foto svg { fill: none; stroke: currentColor; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; overflow: visible; }
 .inv-obj .lleno, .inv-foto .lleno { fill: currentColor; fill-opacity: .35; }
 .inv-obj .rayas, .inv-foto .rayas { opacity: .55; }
