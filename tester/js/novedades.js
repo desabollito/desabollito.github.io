@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.44.0", items: ["Turnado: «Turnar desde chat en vivo» y abajo «Turnar por privado» (abre tu WhatsApp con el mismo mensaje del turno, ya escrito).", "Contactado: pregunta si querés avisar desde el chat en vivo o por privado (también con el mismo texto)."] },
   { v: "4.43.4", items: ["3D: el oscurecido con «Hacé click para entrar» queda solo dentro del visor, no en toda la pantalla."] },
   { v: "4.43.3", items: ["Panel del creador → «Quién ve las planillas»: aparecés vos también, para ocultarte las planillas que no usás (destildándolas). Sin tocar, seguís viendo todas."] },
   { v: "4.43.2", items: ["Taller 2D: la ruedita del mouse ya no agranda ni achica las herramientas (se hace con el tirador de la esquina); vuelve a desplazar la página."] },

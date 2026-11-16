@@ -17,7 +17,7 @@ import { subir, comprimir, borrarConToken, thumb, grande, cloudinaryListo, esVid
 import { presupuestoPDF, nombreArchivo, tablaPDF } from "./pdf.js";
 import { armarZip } from "./zip.js";
 import { setTopbar, go, esAncho } from "./shell.js";
-import { abrirChatDe, avisarTurnoChat, reprogramarTurnoChat, telWa } from "./views-otros.js";
+import { abrirChatDe, avisarTurnoChat, reprogramarTurnoChat, telWa, textoTurno } from "./views-otros.js";
 // Chat en vivo con mensajes sin leer: puntito titilando en Contactar (y en "Chat en vivo" al abrir el menú)
 const chatNuevo = tel => !!tel && usaClientes() && chatSinLeer(chatDeTel(tel));
 onChange(e => { if (e === "chats") $$(".d-contacto[data-tel]").forEach(el => el.classList.toggle("chat-nuevo", chatNuevo(el.dataset.tel))); });
@@ -1205,8 +1205,18 @@ async function ofrecerAvisoCliente(v) {
   const no = S.config?.avisoReparado === false ? "El aviso al cliente está apagado en el panel del creador" : !v.telefono ? "Sin teléfono: no se le puede avisar al cliente" : v.avisoReparado ? "A este cliente ya se le avisó" : "";
   if (no) return toast(no);
   const chat = usaClientes() && !!telWa(v.telefono);
-  if (!(await confirmar({ title: chat ? "¿Avisarle al cliente desde el chat en vivo?" : "¿Avisarle al cliente desde el teléfono de la empresa?",
-    message: `Se le avisará ${v.asegurado ? "a " + v.asegurado : "al cliente"} que está listo su vehículo.`, ok: "Enviar mensaje", centro: true }))) return;
+  // Elegir cómo avisar: desde el chat en vivo (o el teléfono de la empresa) o por privado (WhatsApp propio, mismo texto ya escrito)
+  const como = await new Promise(listo => {
+    let r = null;
+    const s = openSheet({ title: "¿Avisarle al cliente?", onClose: () => listo(r), body: `<div class="stack">
+      <p class="muted">Se le avisará ${esc(v.asegurado ? "a " + v.asegurado : "al cliente")} que está listo su vehículo.</p>
+      <button type="button" class="btn btn-primary btn-block" data-como="empresa">${icon("chat")}${chat ? "Avisar desde chat en vivo" : "Avisar desde el teléfono de la empresa"}</button>
+      <button type="button" class="btn btn-ghost btn-block" data-como="privado">${icon("share")}Avisar por privado</button></div>` });
+    s.el.classList.add("sheet-centro");
+    s.el.addEventListener("click", e => { const b = e.target.closest("[data-como]"); if (b) { r = b.dataset.como; s.close(); } });
+  });
+  if (!como) return;
+  if (como === "privado") return void open(waLink(v.telefono, textoAviso(v)), "_blank", "noopener");
   const espera = openSheet({ title: "Avisando al cliente", body: `<p class="aviso-cargando"><span class="spin"></span>Enviando mensaje…</p>` });
   espera.el.classList.add("sheet-centro");   // en el celular, al medio como la pregunta de antes
   try {
@@ -1276,7 +1286,8 @@ export function elegirFechaEstado(v, estado, enChat) {
       ${estado === "turnado" ? `<div class="turno-conf"><span>¿Confirmó el turno?</span>
         <button type="button" class="switch ${v.turnoConfirmado === true ? "on" : ""}" id="t-conf" role="switch" aria-checked="${v.turnoConfirmado === true}">
           <span class="sw-txt sw-si">Sí</span><span class="sw-txt sw-no">No</span><i class="sw-bola"></i></button></div>` : ""}
-      ${!enChat && estado === "turnado" && usaClientes() && telWaOk(v) ? `<button type="button" class="btn btn-ghost btn-block" id="t-avisar">${icon("chat")}Avisar desde chat en vivo</button>` : ""}
+      ${!enChat && estado === "turnado" && usaClientes() && telWaOk(v) ? `<button type="button" class="btn btn-ghost btn-block" id="t-avisar">${icon("chat")}Turnar desde chat en vivo</button>` : ""}
+      ${!enChat && estado === "turnado" && v.telefono ? `<button type="button" class="btn btn-ghost btn-block" id="t-privado">${icon("share")}Turnar por privado</button>` : ""}
       ${enChat ? `<button class="btn btn-primary btn-block" style="--btn:${e.color}" data-avisar>${icon("chat")}Enviar nueva fecha</button>
       <button class="btn btn-ghost btn-block">Guardar fecha sin avisar</button>` : `<button class="btn btn-primary btn-block" style="--btn:${e.color}">Guardar</button>`}</form>`
   });
@@ -1287,9 +1298,11 @@ export function elegirFechaEstado(v, estado, enChat) {
     deshacerCambio(v, paso).then(() => toast("Estado deshecho", "success")).catch(err => toast(mensajeError(err), "error"));
   });
   let confirmado = v.turnoConfirmado === true;
-  let avisar = false;
-  // Avisar desde chat en vivo: guarda el turno, manda el mensaje y abre el chat
+  let avisar = false, privado = false;
+  // Turnar desde chat en vivo: guarda el turno, manda el mensaje y abre el chat
   $("#t-avisar", s.el)?.addEventListener("click", () => { avisar = true; $("form", s.el).requestSubmit(); });
+  // Turnar por privado: guarda el turno y abre WhatsApp propio con el mismo mensaje, ya escrito
+  $("#t-privado", s.el)?.addEventListener("click", () => { privado = true; $("form", s.el).requestSubmit(); });
   $("#t-conf", s.el)?.addEventListener("click", e => {
     confirmado = !confirmado;
     e.currentTarget.classList.toggle("on", confirmado); e.currentTarget.setAttribute("aria-checked", confirmado);
@@ -1299,8 +1312,9 @@ export function elegirFechaEstado(v, estado, enChat) {
     if (ev.submitter?.hasAttribute("data-avisar")) avisar = true;
     const fecha = ev.target.f.value;
     // Avisado por el chat en vivo: queda sin confirmar hasta que el cliente responda y alguien lo confirme
-    cambiarEstado(v, estado, fecha, estado === "turnado" ? { turnoConfirmado: avisar ? false : confirmado } : {}).catch(err => toast(mensajeError(err), "error"));
+    cambiarEstado(v, estado, fecha, estado === "turnado" ? { turnoConfirmado: avisar || privado ? false : confirmado } : {}).catch(err => toast(mensajeError(err), "error"));
     toast(`${e.label} · ${fechaCorta(ev.target.f.value)}`, "success");
+    if (privado) { open(waLink(v.telefono, textoTurno(v, fecha)), "_blank", "noopener"); return s.close(); }
     if (!avisar) return s.close();
     // Espera a que salga el mensaje (tarda ~1 s) y recién ahí abre el chat, así ya se ve
     busy(ev.submitter || $("form .btn-primary", s.el), true, "Avisando…");
