@@ -25,6 +25,16 @@ export async function montar3D(el, items, alTocar) {
   const texPerforada = canvasTex(64, 64, agujeros("#4a4e55", "#1c1e21"), [26, 12]);
   const texRejilla = canvasTex(64, 64, agujeros("#c9ced6", "#2a2c30"), [14, 2]);
   const texRayas = canvasTex(64, 64, (g, w, h) => { g.fillStyle = "#f4f6f8"; g.fillRect(0, 0, w, h); g.fillStyle = "#15171a"; for (let y = 4; y < h; y += 16) g.fillRect(0, y, w, 8); });
+  // Espuma tipo huevera de las valijas (una textura por tamaño, para que las ondas no se estiren)
+  const espumas = {};
+  const espuma = (rx, ry) => mat(0xffffff, { roughness: 1, map: espumas[rx + "x" + ry] ||= canvasTex(64, 64, (g, w, h) => {
+    g.fillStyle = "#18191c"; g.fillRect(0, 0, w, h);
+    for (const [x, y] of [[16, 16], [48, 48], [48, 16], [16, 48]]) {
+      const r = g.createRadialGradient(x - 4, y - 4, 2, x, y, 15), alto = (x + y) % 64 === 32;
+      r.addColorStop(0, alto ? "#4a4d53" : "#26282c"); r.addColorStop(1, "#18191c");
+      g.fillStyle = r; g.beginPath(); g.arc(x, y, 15, 0, 7); g.fill();
+    }
+  }, [rx, ry]) });
   const ruido = (base, n, a) => (g, w, h) => {
     g.fillStyle = base; g.fillRect(0, 0, w, h);
     for (let i = 0; i < n; i++) { g.fillStyle = `rgba(${Math.random() < .5 ? "0,0,0" : "255,255,255"},${Math.random() * a})`; g.fillRect(Math.random() * w, Math.random() * h, 3, 3); }
@@ -114,36 +124,57 @@ export async function montar3D(el, items, alTocar) {
     g.userData.lugar = { colgar: { y: 0.95, xs: [-W / 2, W / 2], zs: [-(D / 2 + 0.07), D / 2 + 0.07] }, estantes: [{ y: 0.835, w: W - 0.14, d: D - 0.14 }, { y: 0.255, w: W - 0.14, d: D - 0.14 }] };
     return g;
   }
-  // Valijas PDR. Larga (de varillas): chata, con nervios arriba, 4 trabas y manija; se guarda acostada en la estantería
+  // Valijas PDR, abiertas para ver lo de adentro (espuma tipo huevera).
+  // Larga (de varillas): la tapa se abre hacia atrás y queda parada; adentro, todo acostado
   function valijaLarga(m) {
-    const g = new T.Group(), negro = mat(0x111214);
-    g.add(en(caja(1.3, 0.13, 0.36, m), 0, 0.065, 0));
-    for (const x of [-0.45, -0.15, 0.15, 0.45]) g.add(en(caja(0.22, 0.02, 0.3, m), x, 0.14, 0));
-    for (const x of [-0.5, -0.17, 0.17, 0.5]) g.add(en(caja(0.05, 0.05, 0.025, negro), x, 0.075, 0.19));
-    g.add(en(caja(0.18, 0.025, 0.03, negro), 0, 0.06, 0.21));
+    const g = new T.Group(), negro = mat(0x111214), W = 1.3, D = 0.36, H = 0.12;
+    g.add(en(caja(W, 0.02, D, m), 0, 0.01, 0));
+    for (const z of [-D / 2, D / 2]) g.add(en(caja(W, H, 0.02, m), 0, H / 2, z));
+    for (const x of [-W / 2, W / 2]) g.add(en(caja(0.02, H, D, m), x, H / 2, 0));
+    g.add(en(caja(W - 0.04, 0.012, D - 0.04, espuma(20, 6)), 0, 0.026, 0));
+    for (const x of [-0.5, -0.17, 0.17, 0.5]) g.add(en(caja(0.05, 0.05, 0.025, negro), x, H / 2 + 0.01, D / 2 + 0.012));
+    g.add(en(caja(0.18, 0.025, 0.03, negro), 0, H / 2, D / 2 + 0.02));
+    const tapa = new T.Group(); tapa.position.set(0, H, -D / 2); tapa.rotation.x = -Math.PI / 2 * 1.03;   // bisagra atrás, un poco hacia la pared
+    tapa.add(en(caja(W, 0.03, D, m), 0, 0.015, D / 2), en(caja(W - 0.04, 0.012, D - 0.04, espuma(20, 6)), 0, -0.006, D / 2));
+    for (const x of [-0.45, -0.15, 0.15, 0.45]) tapa.add(en(caja(0.22, 0.02, 0.3, m), x, 0.04, D / 2));
+    g.add(tapa);
+    const fondo = { y: 0.032, w: W - 0.1, d: D - 0.08 };
+    g.userData.lugar = { acostar: fondo, estantes: [fondo] };
     return g;
   }
-  // Vertical con ruedas (tipo SKB): parada, con franjas al frente, manija arriba y ruedas
+  // Vertical con ruedas (tipo SKB): parada, la puerta abierta de costado; las varillas cuelgan adentro
   function valijaVertical(m) {
-    const g = new T.Group(), negro = mat(0x111214);
-    g.add(en(caja(0.42, 1.1, 0.28, m), 0, 0.6, 0));
-    for (let k = 0; k < 10; k++) g.add(en(caja(0.36, 0.025, 0.02, m), 0, 0.17 + k * 0.1, 0.15));
-    g.add(en(caja(0.18, 0.03, 0.04, negro), 0, 1.22, 0)); for (const x of [-0.08, 0.08]) g.add(en(caja(0.025, 0.06, 0.03, negro), x, 1.17, 0));
-    for (const y of [0.3, 0.9]) g.add(en(caja(0.03, 0.06, 0.05, mat(0xb8bec6, { metalness: .6 })), -0.22, y, 0));
+    const g = new T.Group(), negro = mat(0x111214), W = 0.42, H = 1.1, D = 0.28, y0 = 0.05;
+    g.add(en(caja(W, H, 0.02, m), 0, y0 + H / 2, -D / 2));
+    for (const x of [-W / 2, W / 2]) g.add(en(caja(0.02, H, D, m), x, y0 + H / 2, 0));
+    for (const y of [y0, y0 + H]) g.add(en(caja(W, 0.02, D, m), 0, y, 0));
+    g.add(en(caja(W - 0.04, H - 0.04, 0.012, espuma(6, 16)), 0, y0 + H / 2, -D / 2 + 0.016));
+    g.add(en(caja(0.18, 0.03, 0.04, negro), 0, y0 + H + 0.07, 0)); for (const x of [-0.08, 0.08]) g.add(en(caja(0.025, 0.06, 0.03, negro), x, y0 + H + 0.03, 0));
     for (const x of [-0.15, 0.15]) rueda(g, x, -0.1);
+    const puerta = new T.Group(); puerta.position.set(-W / 2, 0, D / 2); puerta.rotation.y = -Math.PI * 0.6;   // bisagra a la izquierda
+    puerta.add(en(caja(W, H, 0.03, m), W / 2, y0 + H / 2, 0.015), en(caja(W - 0.04, H - 0.04, 0.012, espuma(6, 16)), W / 2, y0 + H / 2, -0.006));
+    for (let k = 0; k < 10; k++) puerta.add(en(caja(0.36, 0.025, 0.02, m), W / 2, y0 + 0.12 + k * 0.1, 0.04));
+    for (const y of [0.3, 0.9]) puerta.add(en(caja(0.05, 0.06, 0.03, mat(0xb8bec6, { metalness: .6 })), W - 0.02, y, 0.03));
+    g.add(puerta);
+    g.userData.lugar = { colgar: { y: y0 + H - 0.08, xs: [-W / 2 + 0.04, W / 2 - 0.04], zs: [-D / 2 + 0.07], piso: y0 + 0.06 }, estantes: [{ y: y0 + 0.012, w: W - 0.06, d: D - 0.12, z: 0.04 }] };
     return g;
   }
-  // Flight case (tipo FAST): caja con cantoneras de aluminio y ruedas; con los caños y la tapa arriba se arma como carro
+  // Flight case (tipo FAST): caja abierta con cantoneras de aluminio y ruedas; con los caños y la tapa arriba se arma como carro
   function valijaFlight(m) {
-    const g = new T.Group(), alu = mat(0xc9ced6, { metalness: .7, roughness: .35 });
-    g.add(en(caja(1.3, 0.32, 0.42, m), 0, 0.25, 0));
-    for (const y of [0.09, 0.41]) for (const z of [-0.21, 0.21]) g.add(en(caja(1.32, 0.02, 0.02, alu), 0, y, z));
-    for (const x of [-0.65, 0.65]) for (const z of [-0.21, 0.21]) g.add(en(caja(0.025, 0.34, 0.025, alu), x, 0.25, z));
-    g.add(en(caja(0.12, 0.08, 0.02, alu), 0, 0.27, 0.215));
+    const g = new T.Group(), alu = mat(0xc9ced6, { metalness: .7, roughness: .35 }), W = 1.3, D = 0.42, H = 0.32, y0 = 0.09;
+    g.add(en(caja(W, 0.02, D, m), 0, y0, 0));
+    for (const z of [-D / 2, D / 2]) g.add(en(caja(W, H, 0.02, m), 0, y0 + H / 2, z));
+    for (const x of [-W / 2, W / 2]) g.add(en(caja(0.02, H, D, m), x, y0 + H / 2, 0));
+    g.add(en(caja(W - 0.04, 0.012, D - 0.04, espuma(20, 7)), 0, y0 + 0.016, 0));
+    for (const y of [y0, y0 + H]) for (const z of [-D / 2, D / 2]) g.add(en(caja(W + 0.02, 0.02, 0.025, alu), 0, y, z));
+    for (const x of [-W / 2, W / 2]) for (const z of [-D / 2, D / 2]) g.add(en(caja(0.025, H, 0.025, alu), x, y0 + H / 2, z));
+    g.add(en(caja(0.12, 0.08, 0.02, alu), 0, y0 + H / 2, D / 2 + 0.012));
     for (const x of [-0.55, 0.55]) for (const z of [-0.16, 0.16]) rueda(g, x, z);
-    for (const x of [-0.52, -0.42, 0.42, 0.52]) g.add(en(cil(0.014, 1.0, alu, 10), x, 0.91, 0));
-    g.add(en(caja(1.32, 0.05, 0.44, m), 0, 1.43, 0));
-    for (const z of [-0.22, 0.22]) g.add(en(caja(1.34, 0.02, 0.02, alu), 0, 1.45, z));
+    for (const x of [-0.52, -0.42, 0.42, 0.52]) g.add(en(cil(0.014, 1.0, alu, 10), x, 0.91, -0.12));
+    g.add(en(caja(W + 0.02, 0.05, D + 0.02, m), 0, 1.43, 0));
+    for (const z of [-0.22, 0.22]) g.add(en(caja(W + 0.04, 0.02, 0.02, alu), 0, 1.45, z));
+    const fondo = { y: y0 + 0.022, w: W - 0.1, d: D - 0.08 };
+    g.userData.lugar = { acostar: fondo, estantes: [fondo, { y: 1.455, w: W - 0.1, d: D - 0.06 }] };
     return g;
   }
   // Carro alto: base con ruedas, un estante en el medio y la bandeja arriba (espuma azul y bordes perforados para colgar)
@@ -177,19 +208,19 @@ export async function montar3D(el, items, alTocar) {
   // Mesa: cada tipo en su tramo, en filas hacia el frente
   ["inercial", "desmontaje", "varios"].forEach((cat, t) =>
     sueltas(cat).forEach((i, k) => poner(i, -2.45 + t * 1.3 + (k % 4) * 0.28, 0.985, 0.3 + Math.floor(k / 4) % 3 * 0.22)));
-  // Valijas: estantería en la pared izquierda; las largas acostadas de a dos por estante (a distintas alturas),
-  // las verticales paradas al lado y los flight cases en el piso, después
+  // Valijas: estantería en la pared izquierda con una valija larga abierta por estante (a distintas alturas);
+  // las verticales, los flight cases y las largas que no entran, abiertas en el piso a lo largo de la misma pared
   const EST = { x: -3.27, z: 1.8, alturas: [0.05, 0.62, 1.19, 1.76, 2.33] }, mEst = metal();
   for (const x of [-3.47, -3.07]) for (const z of [1.0, 2.6]) escena.add(en(caja(0.04, 2.45, 0.04, mEst), x, 1.225, z));
   EST.alturas.forEach(y => escena.add(en(caja(0.44, 0.03, 1.64, mat(0x8d939b, { metalness: .4, roughness: .5 })), EST.x, y, EST.z)));
   const valijas = sueltas("valija"), modelo = i => i.modelo === "vertical" || i.modelo === "flight" ? i.modelo : "larga";
-  valijas.filter(i => modelo(i) === "larga").forEach((i, k) => {
-    const est = Math.min(Math.floor(k / 2), EST.alturas.length - 1), pila = k - est * 2;
-    poner(i, EST.x, EST.alturas[est] + 0.015 + pila * 0.15, EST.z).rotation.y = Math.PI / 2;
-  });
-  const verticales = valijas.filter(i => modelo(i) === "vertical");
-  verticales.forEach((i, k) => { poner(i, -3.25, 0, 2.95 + k * 0.5).rotation.y = Math.PI / 2; });
-  valijas.filter(i => modelo(i) === "flight").forEach((i, k) => { poner(i, -3.22, 0, 3.65 + verticales.length * 0.5 + k * 1.45).rotation.y = Math.PI / 2; });
+  const abrir = (i, x, y, z) => { const g = poner(i, x, y, z); g.rotation.y = Math.PI / 2; llenar(g, items.filter(d => d.en === i.id)); };
+  const largas = valijas.filter(i => modelo(i) === "larga");
+  largas.slice(0, EST.alturas.length).forEach((i, k) => abrir(i, EST.x, EST.alturas[k] + 0.015, EST.z));
+  let zPiso = 2.9;   // lo que va en el piso, una al lado de la otra
+  valijas.filter(i => modelo(i) === "vertical").forEach(i => { abrir(i, -3.25, 0, zPiso + 0.2); zPiso += 0.85; });
+  valijas.filter(i => modelo(i) === "flight").forEach(i => { abrir(i, -3.22, 0, zPiso + 0.7); zPiso += 1.45; });
+  largas.slice(EST.alturas.length).forEach(i => { abrir(i, -3.27, 0, zPiso + 0.7); zPiso += 1.45; });
   // Lámparas: a la derecha, sobre el piso
   sueltas("lampara").forEach((i, k) => poner(i, 1.75 + (k % 3) * 0.55, 0, 0.9 + Math.floor(k / 3) * 0.6));
   // Carros: adelante, con lo que el técnico puso en cada uno
@@ -197,12 +228,22 @@ export async function montar3D(el, items, alTocar) {
   items.filter(i => i.cat === "carro").forEach((cr, k) => {
     const [x, z, giro] = LUGARES[k % LUGARES.length];
     const g = poner(cr, x, 0, z + Math.floor(k / LUGARES.length) * 1.2); g.rotation.y = giro;
-    const { colgar, estantes } = g.userData.lugar, dentro = items.filter(i => i.en === cr.id);
-    // Varillas colgadas del borde (adelante y atrás); el resto acostado en los estantes, de arriba hacia abajo
-    dentro.filter(i => i.cat === "varilla").forEach((i, n, l) => {
-      const lado = n % 2, porLado = Math.ceil(l.length / 2), paso = Math.min(0.07, (colgar.xs[1] - colgar.xs[0] - 0.1) / Math.max(1, porLado - 1));
-      const v = poner(i, colgar.xs[0] + 0.05 + Math.floor(n / 2) * paso, colgar.y, colgar.zs[lado], g);
-      v.rotation.y = Math.PI / 2; v.scale.y = lim((colgar.y - 0.12) / largo(i.id), 0.4, 1);
+    llenar(g, items.filter(i => i.en === cr.id));
+  });
+  // Pone lo de adentro de un carro o una valija según su userData.lugar:
+  // varillas colgadas (colgar) o acostadas (acostar); el resto en los estantes, de arriba hacia abajo
+  function llenar(g, dentro) {
+    const { colgar, acostar, estantes } = g.userData.lugar;
+    const varillas = dentro.filter(i => i.cat === "varilla");
+    if (colgar) varillas.forEach((i, n, l) => {
+      const lados = colgar.zs.length, porLado = Math.ceil(l.length / lados), paso = Math.min(0.07, (colgar.xs[1] - colgar.xs[0] - 0.1) / Math.max(1, porLado - 1));
+      const v = poner(i, colgar.xs[0] + 0.05 + Math.floor(n / lados) * paso, colgar.y, colgar.zs[n % lados], g);
+      v.rotation.y = Math.PI / 2; v.scale.y = lim((colgar.y - (colgar.piso ?? 0.12)) / largo(i.id), 0.3, 1);
+    });
+    else varillas.forEach((i, n) => {
+      const filas = Math.max(1, Math.floor(acostar.d / 0.035));
+      const v = poner(i, -acostar.w / 2 + 0.04, acostar.y + 0.015 + Math.floor(n / filas) * 0.025, -acostar.d / 2 + 0.03 + (n % filas) * 0.035, g);
+      v.rotation.z = Math.PI / 2; v.scale.y = lim((acostar.w - 0.1) / largo(i.id), 0.3, 1);
     });
     let n = 0;
     dentro.filter(i => i.cat !== "varilla").forEach(i => {
@@ -211,7 +252,7 @@ export async function montar3D(el, items, alTocar) {
       poner(i, -e.w / 2 + 0.1 + (p % cols) * 0.2, e.y, (e.z || 0) - e.d / 2 + 0.08 + Math.floor(p / cols) * 0.16, g, true);
       n++;
     });
-  });
+  }
   function cupo(e) { return Math.max(1, Math.floor(e.w / 0.2)) * Math.max(1, Math.floor(e.d / 0.16)); }
 
   // ── Cámara: gira alrededor de un punto (arrastrar), se acerca (rueda / pellizco) y se desplaza (WASD / flechas) ──
