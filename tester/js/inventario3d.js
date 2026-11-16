@@ -139,7 +139,7 @@ export async function montar3D(el, items, alTocar) {
     padre.add(g); tocables.push(g);
     return g;
   };
-  const sueltas = cat => items.filter(i => i.cat === cat && !i.en);
+  const sueltas = cat => items.filter(i => i.cat === cat && items.find(x => x.id === i.en)?.cat !== "valija");   // lo del carro se ve en la pared y también en el carro
   // Pared: varillas a la izquierda, martillos y punzones al medio, ganchos a la derecha
   sueltas("varilla").forEach((i, k, l) => poner(i, -2.55 + k * Math.min(0.11, 1.35 / l.length), 2.85, 0.07));
   sueltas("martillo").forEach((i, k) => poner(i, -1.0 + (k % 4) * 0.22, 2.7 - Math.floor(k / 4) * 0.62, 0.09));

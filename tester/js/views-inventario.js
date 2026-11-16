@@ -68,9 +68,9 @@ export async function vistaInventario(view) {
   const obj = i => `<button type="button" class="inv-obj inv-${i.cat}" data-ver="${esc(i.id)}" aria-label="${esc(i.nombre)}" title="${esc(i.nombre)}"
       ${i.cat === "varilla" ? `style="height:${largo(i.id)}%"` : ""}>${dibujo(i)}${(i.cant || 1) > 1 ? `<b class="inv-n">×${i.cant}</b>` : ""}
       ${CONTENEDOR.includes(i.cat) ? `<b class="inv-n">${items.filter(x => x.en === i.id).length || ""}</b>` : ""}<span class="inv-nom">${esc(i.nombre)}</span></button>`;
-  // Cada zona: sus herramientas sueltas (las guardadas en una valija o un carro no se ven) y una etiqueta para agregar ahí
+  // Cada zona: sus herramientas sueltas (las guardadas en una valija no se ven; las del carro siguen en la pared) y una etiqueta para agregar ahí
   const zona = (cat, clase = "") => `<div class="inv-zona ${clase}"><button type="button" class="inv-etq" data-nueva="${cat}">${icon("plus")}${CATS[cat]}</button>
-      <div class="inv-objs">${items.filter(i => i.cat === cat && !i.en).map(obj).join("")}</div></div>`;
+      <div class="inv-objs">${items.filter(i => i.cat === cat && de(i.en)?.cat !== "valija").map(obj).join("")}</div></div>`;
   const miniatura = i => i.foto?.url ? `<img class="inv-foto" src="${esc(thumb(i.foto.url))}" alt="" loading="lazy">` : `<span class="inv-foto inv-${i.cat}">${dibujo(i)}</span>`;
   const fila = i => `<div class="aj-item inv-fila"><button type="button" class="inv-fila-ver" data-ver="${esc(i.id)}">${miniatura(i)}
       <span class="aj-txt">${esc(i.nombre)}</span><span class="aj-val">${[(i.cant || 1) > 1 ? "×" + i.cant : "", esc(dondeTxt(i))].filter(Boolean).join(" · ")}</span></button>
@@ -128,7 +128,7 @@ export async function vistaInventario(view) {
         ${dentro.length ? `<div class="aj-lista">${dentro.map(fila).join("")}</div>` : `<p class="muted small">${it.cat === "carro" ? "El carro está vacío." : "La valija está vacía."}</p>`}` : ""}
       <div class="row-btns inv-acciones">
         ${esCont ? `<button type="button" class="btn btn-ghost" data-elegir>${icon("check")}Elegir herramientas</button>` : ""}
-        ${!esCont && enCarro ? `<button type="button" class="btn btn-ghost" data-mover="">${icon("restore")}Volver a la pared</button>`
+        ${!esCont && enCarro ? `<button type="button" class="btn btn-ghost" data-mover="">${icon("restore")}Sacar del carro</button>`
           : !esCont && carros.length ? `<button type="button" class="btn btn-ghost" data-carro>${icon("tool")}Mostrar en el carro</button>` : ""}
         <button type="button" class="btn btn-primary" data-editar>${icon("edit")}Editar</button></div></div>` });
     s.el.onclick = e => {
@@ -142,7 +142,7 @@ export async function vistaInventario(view) {
       else editar(it);
     };
   }
-  const mover = (it, en) => { cambiar(items.map(i => i.id === it.id ? { ...i, en } : i)); toast(en ? `En ${de(en).nombre}` : "De vuelta en su lugar", "success"); };
+  const mover = (it, en) => { cambiar(items.map(i => i.id === it.id ? { ...i, en } : i)); toast(en ? `En ${de(en).nombre}` : "Fuera del carro", "success"); };
   function elegirCarro(it, carros) {
     const s = openSheet({ title: "¿En qué carro?", body: `<div class="stack">${carros.map(c =>
       `<button type="button" class="btn btn-block etapa-op" data-c="${esc(c.id)}">${esc(c.nombre)}</button>`).join("")}</div>` });
