@@ -327,7 +327,7 @@ function abrirFiltrosCon(alCambiar, cal) {
   const tira = (k, titulo, activo, extra = "") => `<details class="fo-sec fo-plega" data-tira="${k}" ${activo || abiertas.includes(k) ? "open" : ""}><summary><h3>${titulo}</h3>${icon("next")}</summary><div class="fo-seg" id="fo-${k}"></div>${extra}</details>`;
   const hoja = openSheet({ title: "Filtros", body: `<div class="fo">
     ${lector ? "" : `<section class="fo-sec"><h3>Compañías</h3><div class="fo-cias-caja"><div class="fo-seg fo-cias" id="fo-cias"></div></div></section>`}
-    ${cal ? tira("estado", "Estados", F.estado.size || F.no.estado.size) : ""}
+    ${cal ? tira("estado", "Estados", F.estado.size || F.no.estado.size).replace(`<div class="fo-seg" id="fo-estado"></div>`, `<div class="fo-cias-caja"><div class="fo-seg fo-cias" id="fo-estado"></div></div>`) : ""}
     ${tira("grado", "Grado", F.grado.size).replace('class="fo-sec fo-plega"', 'class="fo-sec fo-plega fo-grados"')}
     ${tira("pintura", "Pintura", F.pintura.size)}
     ${tira("repuestos", "Repuestos", F.repuestos.size)}
@@ -370,8 +370,8 @@ function abrirFiltrosCon(alCambiar, cal) {
   });
   const aplicar = () => { alCambiar(); pintarHoja(); };
   // Compañías: se deslizan con la barra de abajo o con la rueda del mouse (en computadora no se podía)
-  const cias = el("#fo-cias");
-  cias?.addEventListener("wheel", e => { if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) { e.preventDefault(); cias.scrollLeft += e.deltaY; } }, { passive: false });
+  for (const cias of [el("#fo-cias"), el("#fo-estado")])
+    cias?.addEventListener("wheel", e => { if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) { e.preventDefault(); cias.scrollLeft += e.deltaY; } }, { passive: false });
   hoja.el.addEventListener("click", e => usar(() => {
     const ob = e.target.closest("#fo-orden-btn");
     // Elegir otra opción la pone en su sentido normal; elegir la misma da vuelta el sentido
