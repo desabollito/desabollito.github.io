@@ -407,6 +407,11 @@ export function interpretar(texto, extra = {}) {
   // 2. Grado: "grado 2", "g2", "G 3"
   resto = resto.replace(/\b(?:grado|g)\s*([1234])\b/i, (_, g) => { r.grado = Number(g); return " "; });
 
+  // 2b. Siniestro con palabra clave: "stro 02-01-02461774", "siniestro nº 123456"
+  resto = resto.replace(/\b(?:stro|siniestro)\.?\s*(?:n[º°o]?|nro)?\.?\s*:?\s*(\d[\d\s\/.-]{3,24}\d)/i, (_, n) => { r.siniestro = n.trim(); return " "; });
+  // Sin palabra clave: número con guiones de más de 10 dígitos (los teléfonos con guiones tienen 10: "11-3770-9755")
+  if (!r.siniestro) resto = resto.replace(/(?<![\d-])\d+(?:[-\/]\d+)+(?![\d-])/, m => m.replace(/\D/g, "").length > 10 ? (r.siniestro = m, " ") : m);
+
   // 3. Teléfono: 8 a 13 dígitos (con o sin +54, espacios o guiones)
   resto = resto.replace(/(?<![A-Za-zÁÉÍÓÚÑáéíóúñ\d])(?:\+?\s?\d[\d\s-]{6,16}\d)/g, m => {
     let d = m.replace(/\D/g, "");
@@ -428,6 +433,8 @@ export function interpretar(texto, extra = {}) {
       if (t.startsWith("549") && t.length === 13) t = t.slice(3);
       else if (t.startsWith("54") && t.length === 12) t = t.slice(2);
       else if (t.startsWith("0") && t.length === 11) t = t.slice(1);
+      // Más de 10 dígitos sin el 0 de larga distancia ("0341 15 5551234"): es un siniestro, no un teléfono
+      if (t.length > 10 && !t.startsWith("0")) { if (!r.siniestro) r.siniestro = m.trim(); return " "; }
       r.telefono = t; return " ";
     }
     return m;
@@ -536,6 +543,7 @@ export function interpretar(texto, extra = {}) {
   r.charla = esCharla(r.otros) || r.otros.split(/\s+/).filter(Boolean).length >= 6;
   r.otros = r.otros.replace(/^[\s\-–—.,:;]+/, "").split(/\s+/).filter(w => w && !/^(en|y|e|o|de|del|la|el|los|las|con|a|al|x\d)$/i.test(w)).join(" ");
   if (r.otros) { r.observaciones = [r.observaciones, r.otros].filter(Boolean).join("\n"); r.otros = ""; }
+  if (r.siniestro) r.observaciones = [r.observaciones, `Siniestro ${r.siniestro}`].filter(Boolean).join("\n");   // la app no muestra el campo siniestro
   return r;
 }
 
@@ -1511,6 +1519,7 @@ async function crearVehiculo(env, op, d, quien) {
   const datos = {
     modelo: d.modelo || "", patente: d.patente, asegurado: d.asegurado || "", telefono: d.telefono || "", compania: d.compania || "",
     localidad: op.operativo || "", observaciones: d.observaciones || "", repuestos: itemsRep(d.repuestos).join(", "), pintura: itemsRep(d.pintura).join(", "), precio: d.precio || 0, piezas: d.piezas || {}, grado: d.grado || null,
+    ...(d.siniestro ? { siniestro: d.siniestro.replace(/\D/g, "") } : {}),
     estado: "peritado", fechas: { peritado: hoy }, horas: { peritado: new Date(Date.now() - 3 * 3600 * 1000).toISOString().slice(11, 16) }, fotos: [], archivos: [], firma: null, deleted: false,
     createdBy: `whatsapp:${quien.numero}`, createdByName: `${quien.nombre || quien.numero} (WhatsApp)`,
     ...(quien.uid ? { createdByUid: quien.uid } : {}),
