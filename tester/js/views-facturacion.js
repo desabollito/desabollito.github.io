@@ -2,7 +2,7 @@
 //  FACTURACIÓN: el documento firmado de cada vehículo. Solo figura en esta planilla (no en el vehículo).
 //  Se guarda en companies/{cid}/factura/docs (antes planTec/_factura, se migra solo): { vids: [vid elegidos], estados: { [vid]: impreso|firmado|facturado }, docs: { [vid]: { url, publicId, name, bytes, at } } }
 // ═════════════════════════════════════════════════════════════
-import { db, collection, doc, getDoc, onSnapshot, setDoc, deleteDoc, arrayUnion, arrayRemove } from "./firebase.js";
+import { db, collection, doc, getDoc, onSnapshot, setDoc, updateDoc, deleteDoc, arrayUnion, arrayRemove } from "./firebase.js";
 import { S, activos, puedeVer, mensajeError, cambiarEstado, soyFacturacion } from "./data.js";
 import { $, esc, icon, toast, plate, openSheet, glideMenu, fechaCorta } from "./ui.js";
 import { estadoActual } from "./domain.js";
@@ -14,6 +14,7 @@ import { crearVersiones, botonesVersion } from "./versiones.js";
 const F = { q: "", editando: false, volver: null };
 const ESTADOS_F = [["impreso", "Impreso"], ["firmado", "Firmado"], ["facturado", "Facturado"]];
 let unsub = null;
+addEventListener("hashchange", () => { if (location.hash !== "#/facturacion") F.nuevas = null; });   // la próxima entrada vuelve a mirar las nuevas
 const norm = t => String(t || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
 // Se descarga como número de línea + patente (1_AA444AA.pdf), con la extensión del archivo subido
 const nombreArchivo = (v, d, n) => `${n}_${norm(v.patente) || v.id}${(String(d.name || d.url || "").match(/\.[a-z0-9]{2,5}$/i) || [""])[0].toLowerCase()}`;
@@ -70,7 +71,7 @@ export function vistaFacturacion(view) {
     body.innerHTML = vs.length ? `<div class="table-wrap"><table class="tbl tbl-fact"><thead><tr><th class="num">#</th><th>Vehículo</th><th>Patente</th><th>Compañía</th><th>Estado</th><th>Fecha</th><th></th></tr></thead>
       <tbody>${vs.map(v => { const d = docs[v.id], est = estadoDe(v.id);
         // El número de línea es el de la lista completa: buscando, cada vehículo conserva el suyo
-        return `<tr data-vid="${esc(v.id)}"><td class="num muted">${est !== "impreso" ? fs.indexOf(v) + 1 : ""}</td><td>${esc(v.modelo || "—")}</td><td>${plate(v.patente)}</td><td>${esc(v.compania || "—")}</td>
+        return `<tr data-vid="${esc(v.id)}" ${F.nuevas?.has(v.id) ? `class="f-nueva"` : ""}><td class="num muted">${est !== "impreso" ? fs.indexOf(v) + 1 : ""}</td><td>${esc(v.modelo || "—")}</td><td>${plate(v.patente)}</td><td>${esc(v.compania || "—")}</td>
           <td><button type="button" class="gs-chip" data-est="${est}" data-act="estado" aria-haspopup="listbox" aria-expanded="false" aria-label="Estado">${ESTADOS_F.find(([k]) => k === est)[1]}${icon("next")}</button></td>
           <td class="muted">${esc(fechaDe(v, est) || "—")}</td>
           <td class="num"><button type="button" class="btn btn-ghost btn-sm" data-act="hist" aria-label="Historial de estados">${icon("clock")}</button>${!d || F.editando ? `<label class="btn btn-ghost btn-sm" for="f-in" data-act="subir" aria-label="${d ? "Cambiar" : "Cargar orden firmada"}">${icon("file")}<span class="hide-sm">${d ? "Cambiar" : "Cargar orden firmada"}</span></label>` : ""}
@@ -85,7 +86,18 @@ export function vistaFacturacion(view) {
     if (!document.body.contains(view) || location.hash !== "#/facturacion") { unsub?.(); unsub = null; return; }
     real = d.data() || {};
     if (V.viendo()) return;   // mirando una versión anterior, lo nuevo se pinta al salir
-    cargar(real); pintar();
+    cargar(real);
+    // Al entrar: las órdenes que cargaron otros desde la última visita (users/{uid}.factVisto[cid]) titilan 3 s con un puntito
+    if (!F.nuevas && S.user) {
+      const cid = S.company.id, t0 = Date.now(), v0 = S.profile?.factVisto?.[cid] || 0;
+      F.nuevas = new Set(Object.entries(docs).filter(([, x]) => (x.at || 0) > v0 && x.by !== S.user.uid).map(([vid]) => vid));
+      if (F.nuevas.size) setTimeout(() => {
+        F.nuevas = new Set(); document.querySelectorAll(".tbl-fact tr.f-nueva").forEach(tr => tr.classList.remove("f-nueva"));
+        S.profile = { ...S.profile, factVisto: { ...(S.profile?.factVisto || {}), [cid]: t0 } };
+        updateDoc(doc(db, "users", S.user.uid), { [`factVisto.${cid}`]: t0 }).catch(e => console.warn("factVisto", e));
+      }, 3000);
+    }
+    pintar();
     // Volviendo de un vehículo: la planilla queda donde estaba
     if (F.volver) { const tw = $(".table-wrap", view); if (tw) tw.scrollTop = F.volver.t; scrollTo(0, F.volver.y); F.volver = null; }
     // Desde la notificación de orden firmada: va a esa fila y titila

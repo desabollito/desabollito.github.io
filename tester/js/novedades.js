@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.48.0", items: ["Facturación: al entrar, las órdenes firmadas que cargaron otros desde tu última visita titilan en amarillo 3 segundos, con un puntito al lado del número. Después quedan como vistas."] },
   { v: "4.47.2", items: ["Buscadores: la cruz blanca de la X se ve también mientras escribís (antes desaparecía hasta tocar afuera)."] },
   { v: "4.47.1", items: ["Calendario → Filtros → Estados: una fila que se desliza al costado, como Compañías; cada estado entra entero sin pisarse."] },
   { v: "4.47.0", items: ["Turnos: si pasa un día del turno y el vehículo sigue en Turnado (nunca vino), pasa solo a Ausente. Abajo de Ausente dice «Turno confirmado» o «Turnado sin confirmar», según lo que había respondido el cliente.", "Calendario: en Filtros se puede filtrar por estado del vehículo (mantener apretado lo excluye).", "Buscadores: la X para borrar es del color de la app."] },
