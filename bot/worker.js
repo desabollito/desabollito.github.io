@@ -3342,7 +3342,7 @@ async function marcarAusentes(env) {
       const cambios = { estado: "ausente", fechas: { ...v.fechas, ausente: hoy } }, [a, m, d] = hoy.split("-");
       await fsMerge(env, v.__ruta, cambios);
       await fsAppend(env, v.__ruta, "historial", { t: Date.now(), uid: "", por: "Desabollito", txt: `Pasó a Ausente (${d}/${m}/${a}): no vino al turno`, ...conDeshacer(v, cambios) }).catch(() => {});
-      n++;
+      n++; console.log("ausente", c.name || c.__id, v.patente, v.fechas.turnado, v.turnoConfirmado === true ? "confirmado" : "sin confirmar");
     }
   if (n) await registrar(env, { ultimosAusentes: `${new Date().toISOString()} · ${n} vehículo(s)` }).catch(() => {});
   return n;
