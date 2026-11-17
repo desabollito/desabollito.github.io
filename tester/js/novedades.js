@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.47.0", items: ["Turnos: si pasa un día del turno y el vehículo sigue en Turnado (nunca vino), pasa solo a Ausente. Abajo de Ausente dice «Turno confirmado» o «Turnado sin confirmar», según lo que había respondido el cliente.", "Calendario: en Filtros se puede filtrar por estado del vehículo (mantener apretado lo excluye).", "Buscadores: la X para borrar es del color de la app."] },
   { v: "4.46.1", items: ["Facturación: tocar la notificación de orden firmada lleva a esa fila y la hace titilar en amarillo.", "Facturación: al cargar una orden o cambiar algo, la planilla se queda donde estabas (ya no vuelve arriba)."] },
   { v: "4.46.0", items: ["Facturación: cuando alguien carga una orden firmada, avisa en Notificaciones solo a los que tienen acceso a Facturación. Tocarla abre la planilla."] },
   { v: "4.45.1", items: ["3D: el oscurecido y «Hacé click para entrar» quedan solo en el visor (había un error en los estilos que lo extendía a toda la página)."] },

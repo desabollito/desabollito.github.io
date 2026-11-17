@@ -305,7 +305,8 @@ function tarjeta(v, sel) {
 
 // Cuántos filtros/órdenes distintos de lo normal hay puestos (se ve en el botón)
 const cuantosActivos = () => [F.mios, F.sinAnul, F.grado.size, F.repuestos.size, F.pintura.size, F.cliente.size, F.cargado.size, F.cias.size, F.orden !== "fecha" || F.dir !== -1].filter(Boolean).length
-  + ["grado", "repuestos", "pintura", "cliente", "cargado", "cias"].filter(g => F.no[g].size).length;   // los excluidos también cuentan
+  + ["grado", "repuestos", "pintura", "cliente", "cargado", "cias"].filter(g => F.no[g].size).length   // los excluidos también cuentan
+  + (F === FC ? [F.estado.size, F.no.estado.size].filter(Boolean).length : 0);   // en Vehículos los estados se ven en su fila; en el calendario, en el botón
 const marcarBoton = () => { const b = $("#tb-filtros"); if (!b) return; const k = cuantosActivos();
   b.classList.toggle("activo", k > 0); const n = $(".fo-badge", b); if (n) { n.textContent = k; n.hidden = !k; } };
 export const botonFiltros = (cal = false) => cal ? conF(FC, () => botonFiltros()) : `<button class="icon-btn filtro-btn ${cuantosActivos() ? "activo" : ""}" id="tb-filtros" aria-label="Filtrar y ordenar" title="Filtrar y ordenar">${icon("filter")}<span class="fo-badge" ${cuantosActivos() ? "" : "hidden"}>${cuantosActivos()}</span></button>`;
@@ -326,6 +327,7 @@ function abrirFiltrosCon(alCambiar, cal) {
   const tira = (k, titulo, activo, extra = "") => `<details class="fo-sec fo-plega" data-tira="${k}" ${activo || abiertas.includes(k) ? "open" : ""}><summary><h3>${titulo}</h3>${icon("next")}</summary><div class="fo-seg" id="fo-${k}"></div>${extra}</details>`;
   const hoja = openSheet({ title: "Filtros", body: `<div class="fo">
     ${lector ? "" : `<section class="fo-sec"><h3>Compañías</h3><div class="fo-cias-caja"><div class="fo-seg fo-cias" id="fo-cias"></div></div></section>`}
+    ${cal ? tira("estado", "Estados", F.estado.size || F.no.estado.size) : ""}
     ${tira("grado", "Grado", F.grado.size).replace('class="fo-sec fo-plega"', 'class="fo-sec fo-plega fo-grados"')}
     ${tira("pintura", "Pintura", F.pintura.size)}
     ${tira("repuestos", "Repuestos", F.repuestos.size)}
@@ -353,6 +355,8 @@ function abrirFiltrosCon(alCambiar, cal) {
     const gr = [[1, "G1"], [2, "G2"], [3, "G3"], [4, "G4"], [0, "–"]].filter(([g]) => !(g === 4 && lector) && (g !== 0 || n("grado", v => !v.grado) || F.grado.has(0)));
     el("#fo-grado").innerHTML = gr.map(([g, t]) => op("grado", g, t, n("grado", v => (v.grado || 0) === g), F.grado.has(g))).join("");
     if (el("#fo-cliente")) el("#fo-cliente").innerHTML = Object.entries(CARAS).map(([k, [t, c]]) => op("cliente", k, t, n("cliente", v => v.conformidad === k), F.cliente.has(k), c)).join("");
+    // Calendario: los estados van en los filtros (los anulados no están en el calendario)
+    if (el("#fo-estado")) el("#fo-estado").innerHTML = ESTADOS.filter(e => !["anular", "anulado"].includes(e.key)).map(e => op("estado", e.key, e.label, n("estado", v => estadoActual(v) === e.key), F.estado.has(e.key), e.color)).join("");
     if (el("#fo-cargado")) el("#fo-cargado").innerHTML = [["desm", "Desmontaje"], ["check", "Chequeo"], ["firma", "Firmados"]].map(([k, t]) => op("cargado", k, t, n("cargado", CARGADO[k]), F.cargado.has(k))).join("");
     ["pintura", "repuestos"].forEach(tipo => {
       el(`#fo-${tipo}`).innerHTML = ETAPAS[tipo].map(([k, t, c]) => op(tipo, k, t, n(tipo, v => tieneEtapa(v, tipo, k)), F[tipo].has(k), c)).join("");
@@ -377,7 +381,7 @@ function abrirFiltrosCon(alCambiar, cal) {
     if (recienMantenido()) return;   // venía de mantener apretado (ya se excluyó)
     if (c) { tocarFiltro("cias", c.dataset.cia); return aplicar(); }
     if (e.target.closest("#fo-reset")) { F.mios = false; F.sinAnul = false; F.cargado.clear(); F.grado.clear(); F.repuestos.clear(); F.pintura.clear(); F.cliente.clear(); F.cias.clear(); F.orden = "fecha"; F.dir = -1;
-      Object.entries(F.no).forEach(([g, s]) => g !== "estado" && s.clear());
+      Object.entries(F.no).forEach(([g, s]) => (cal || g !== "estado") && s.clear()); if (cal) F.estado.clear();
       return aplicar(); }
     if (e.target.closest("#fo-pdf")) return exportarPDF();
     if (e.target.closest("#fo-anul")) { F.sinAnul = !F.sinAnul; return aplicar(); }
@@ -686,7 +690,8 @@ export function renderDetalle(root, v, embebido) {
             <span class="step-l">${e.label}</span>
             <span class="step-d">${fechaK ? fechaCorta(fechaK) : "—"}${(k === "peritado" || k === "turnado") && v.fechas?.[k] && horaDe(v, k) ? `<br>${horaDe(v, k)}` : ""}</span>
             ${hecho && k === "rep" && CARAS[v.conformidad] ? `<span class="step-cara" style="--c:${CARAS[v.conformidad][1]}" title="${CARAS[v.conformidad][0]}">${cara(v.conformidad)}</span>` : ""}
-            ${k === "turnado" && est === "turnado" ? `<span class="step-conf ${v.turnoConfirmado === true ? "ok" : ""}">${v.turnoConfirmado === true ? "Confirmado" : v.turnoConfirmado === "cambio" ? "Pide otra fecha" : "Esperando confirmación"}</span>` : ""}</button></li>`;
+            ${k === "turnado" && est === "turnado" ? `<span class="step-conf ${v.turnoConfirmado === true ? "ok" : ""}">${v.turnoConfirmado === true ? "Confirmado" : v.turnoConfirmado === "cambio" ? "Pide otra fecha" : "Esperando confirmación"}</span>` : ""}
+            ${aus ? `<span class="step-conf ${v.turnoConfirmado === true ? "ok" : ""}">${v.turnoConfirmado === true ? "Turno confirmado" : "Turnado sin confirmar"}</span>` : ""}</button></li>`;
         }).join("")}
       </ol>
       ${anulado ? `<p class="muted small">${ESTADO[est].label} el ${fechaCorta(v.fechas?.[est])}</p>` : ""}

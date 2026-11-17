@@ -115,6 +115,7 @@ export default {
     // 10:00 UTC = 07:00 Argentina: turnos del día
     if (ev.cron === "0 10 * * *") return ctx.waitUntil(enviarDiarios(env, "turnos").catch(e => console.error("turnos", e?.stack || e)));
     ctx.waitUntil(vaciarPapelera(env).catch(e => console.error("papelera", e?.stack || e)));
+    ctx.waitUntil(marcarAusentes(env).catch(e => console.error("ausentes", e?.stack || e)));
     // Respaldo: si no salió a horario, sale en la pasada siguiente (resumen hasta las 23, turnos hasta las 10)
     const horaAR = new Date(Date.now() - 3 * 3600 * 1000).getUTCHours();
     if (horaAR >= 20 && horaAR <= 23) ctx.waitUntil(enviarDiarios(env, "resumen").catch(e => console.error("resumen", e?.stack || e)));
@@ -3330,6 +3331,21 @@ async function borrarCloudinary(env, items) {
 async function purgarVehiculo(env, ruta, v) {
   await borrarCloudinary(env, [...mediaDe(v).values()]);
   await fsDelete(env, ruta);
+}
+// Turnados que no vinieron: pasado un día del turno siguen en Turnado → Ausente (turnoConfirmado queda, así se ve si había confirmado)
+async function marcarAusentes(env) {
+  const ar = d => new Date(Date.now() - 3 * 3600_000 - d * 86400_000).toISOString().slice(0, 10), hoy = ar(0), ayer = ar(1);
+  let n = 0;
+  for (const c of await fsList(env, "companies"))
+    for (const v of await fsQuery(env, `companies/${c.__id}`, "vehicles", { field: "estado", op: "EQUAL", value: "turnado" }, 500).catch(() => [])) {
+      if (v.deleted || !v.fechas?.turnado || v.fechas.turnado >= ayer) continue;
+      const cambios = { estado: "ausente", fechas: { ...v.fechas, ausente: hoy } }, [a, m, d] = hoy.split("-");
+      await fsMerge(env, v.__ruta, cambios);
+      await fsAppend(env, v.__ruta, "historial", { t: Date.now(), uid: "", por: "Desabollito", txt: `Pasó a Ausente (${d}/${m}/${a}): no vino al turno`, ...conDeshacer(v, cambios) }).catch(() => {});
+      n++;
+    }
+  if (n) await registrar(env, { ultimosAusentes: `${new Date().toISOString()} · ${n} vehículo(s)` }).catch(() => {});
+  return n;
 }
 async function vaciarPapelera(env) {
   const vs = [];

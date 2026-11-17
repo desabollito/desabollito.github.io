@@ -277,7 +277,7 @@ export function vistaCalendario(view, selId = null) {
         <a class="vcard" href="#/v/${v.id}" style="--c:${ESTADO[estadoActual(v)].color}">
           <span class="vbody"><span class="vtop"><strong class="vmodel">${esc(v.modelo || "Sin modelo")}</strong>
             ${v.precio ? `<span class="vprice">${money(v.precio)}</span>` : ""}</span>
-          <span class="vmid">${plate(v.patente, "sm")}${estadoPill(v)}${estadoActual(v) === "turnado" ? `<span class="conf-tag ${v.turnoConfirmado === true ? "ok" : ""}">${v.turnoConfirmado === true ? "Confirmado" : v.turnoConfirmado === "cambio" ? "Pide otra fecha" : "Esperando confirmación"}</span>` : ""}</span>
+          <span class="vmid">${plate(v.patente, "sm")}${estadoPill(v)}${estadoActual(v) === "turnado" ? `<span class="conf-tag ${v.turnoConfirmado === true ? "ok" : ""}">${v.turnoConfirmado === true ? "Confirmado" : v.turnoConfirmado === "cambio" ? "Pide otra fecha" : "Esperando confirmación"}</span>` : estadoActual(v) === "ausente" ? `<span class="conf-tag ${v.turnoConfirmado === true ? "ok" : ""}">${v.turnoConfirmado === true ? "Turno confirmado" : "Turnado sin confirmar"}</span>` : ""}</span>
           <span class="vsub"><span class="vcli">${esc(v.compania || "")}</span>${horaDe(v, C.campo) ? `<time>${horaDe(v, C.campo)}</time>` : ""}</span></span></a>`).join("")}</div>`
         : `<p class="muted">Nada agendado este día.</p>`) : ""}
     </section>
