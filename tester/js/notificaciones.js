@@ -4,8 +4,8 @@
 //  dejan historial). Lo último visto se guarda en el perfil (users/{uid}.notifVisto[cid]),
 //  así el puntito se apaga en todos los equipos.
 // ═════════════════════════════════════════════════════════════
-import { db, doc, updateDoc } from "./firebase.js";
-import { S, activos, onChange, chatsSinLeer, chatSinLeer, usaClientes, chatEnMantenimiento, getVehiculo } from "./data.js";
+import { db, doc, updateDoc, onSnapshot } from "./firebase.js";
+import { S, activos, onChange, chatsSinLeer, chatSinLeer, usaClientes, chatEnMantenimiento, getVehiculo, puedeVer } from "./data.js";
 import { estadoActual } from "./domain.js";
 import { $, esc, icon, openSheet, plate, glideMenu, formatoWa, avatarCliente } from "./ui.js";
 import { sonidoNotif } from "./sonidos.js";
@@ -24,8 +24,16 @@ const avisable = txt => !!txt && !/^(Pasó a|Volvió a|Carg[óo] el veh|Mensaje 
 const MIN_CARGA = 30 * 60_000;   // fotos de los primeros 30 min = las de la carga, no se avisan
 // Se recalcula solo cuando llega otra lista de vehículos (cada cambio pedía la lista 2 o 3 veces seguidas)
 let memo = { vs: null, uid: null, t: 0, lista: [] };
+// Órdenes firmadas de Facturación: solo se escuchan (y se avisan) si el usuario puede ver esa planilla
+let fact = {}, factKey = "", factUnsub = null;
+function escucharFactura() {
+  const cid = S.company?.id, k = cid && S.user && !S.invitado && puedeVer("facturacion") ? cid + "|" + S.user.uid : "";
+  if (k === factKey) return;
+  factKey = k; factUnsub?.(); factUnsub = null; fact = {};
+  if (k) factUnsub = onSnapshot(doc(db, "companies", cid, "factura", "docs"), d => { fact = d.data()?.docs || {}; pintarCampana(); revisarSonido(); }, e => console.warn("notif factura", e));
+}
 export function listaNotifs() {
-  if (memo.vs !== S.vehicles || memo.uid !== S.user?.uid || Date.now() - memo.t > 60_000) memo = { vs: S.vehicles, uid: S.user?.uid, t: Date.now(), lista: calcularNotifs() };
+  if (memo.vs !== S.vehicles || memo.f !== fact || memo.uid !== S.user?.uid || Date.now() - memo.t > 60_000) memo = { vs: S.vehicles, f: fact, uid: S.user?.uid, t: Date.now(), lista: calcularNotifs() };
   return memo.lista;
 }
 // desde/hasta: ventana de tiempo (por defecto los últimos DIAS días); "Anteriores" usa desde 0 hasta el inicio de esa ventana
@@ -60,6 +68,9 @@ function calcularNotifs(desde = Date.now() - DIAS * 86400_000, hasta = Infinity,
       x.t = Math.max(x.t, t); x.n++; docs.set(k, x);
     }
     for (const x of docs.values()) out.push({ ...x, txt: x.n === 1 ? `Agregó el documento “${x.nombre || "sin nombre"}”` : `Agregó ${x.n} documentos` });
+    // Orden firmada que cargó otro en Facturación (las viejas sin autor no se avisan)
+    const of = fact[v.id];
+    if (of?.by && of.by !== yo && of.at >= desde && of.at < hasta) out.push({ ...base, t: of.at, por: of.byName || "Alguien", txt: "Cargó la orden firmada", href: "#/facturacion" });
   }
   return out.sort((a, b) => b.t - a.t).slice(0, max);
 }
@@ -108,7 +119,7 @@ function revisarSonido() {
   if (antes !== null && n > antes) sonidoNotif();
   antes = n;
 }
-onChange(e => { if (e === "vehicles" || e === "companies" || e === "perfil" || e === "chats") { pintarCampana(); if (e === "vehicles" || e === "chats") revisarSonido(); } });
+onChange(e => { escucharFactura(); if (e === "vehicles" || e === "companies" || e === "perfil" || e === "chats") { pintarCampana(); if (e === "vehicles" || e === "chats") revisarSonido(); } });
 
 const cuando = t => {
   const d = Date.now() - t, min = Math.round(d / 60_000);
@@ -172,7 +183,7 @@ export function abrirNotifs(verArchivadas = false, pestIni = "") {
     s.body.innerHTML = tabs + (vis.length
       ? `${verArchivadas ? `<p class="muted small notif-sub">Deslizá a la izquierda para sacarla de archivadas</p>` : ""}
         ${nuevas && !verArchivadas ? `<button class="btn btn-ghost notif-todas" type="button">Marcar todas como vistas</button>` : ""}
-        <ul class="notif-list">${vis.map(n => { const k = clave(n); return `<li class="notif-li"><i class="notif-lado l-fijar">${ICO_PIN}</i><i class="notif-lado l-arch">${ICO_ARCH}</i><a href="#/v/${esc(n.vid)}" data-k="${esc(k)}" class="notif-item ${!ab.has(k) && n.t > v0 ? "nueva" : ""} ${fij.has(k) ? "fijada" : ""}" ${n.foto ? `data-foto-url="${esc(n.foto)}" ${n.desm ? "data-desm" : ""}` : ""}>
+        <ul class="notif-list">${vis.map(n => { const k = clave(n); return `<li class="notif-li"><i class="notif-lado l-fijar">${ICO_PIN}</i><i class="notif-lado l-arch">${ICO_ARCH}</i><a href="${esc(n.href || `#/v/${n.vid}`)}" data-k="${esc(k)}" class="notif-item ${!ab.has(k) && n.t > v0 ? "nueva" : ""} ${fij.has(k) ? "fijada" : ""}" ${n.foto ? `data-foto-url="${esc(n.foto)}" ${n.desm ? "data-desm" : ""}` : ""}>
           <span class="notif-veh">${fij.has(k) ? `<i class="notif-pin">${ICO_PIN}</i>` : ""}${plate(n.patente, "sm")}<small>${esc(n.modelo || "")}</small></span>
           <span class="notif-txt">${n.por ? `<b>${esc(n.por)}</b> ${esc(minus(String(n.txt).replace(/ por WhatsApp/g, "")))}` : esc(n.txt)}</span>
           <time>${cuando(n.t)}</time>
@@ -182,7 +193,7 @@ export function abrirNotifs(verArchivadas = false, pestIni = "") {
     // Al final: todo lo anterior a los últimos DIAS días, desde el inicio del operativo (se calcula recién al tocarlo; sin fijar ni archivar)
     if (!verArchivadas) s.body.insertAdjacentHTML("beforeend", !verViejas ? `<button type="button" class="btn btn-ghost btn-block notif-viejas-btn">Anteriores a ${DIAS} días</button>`
       : (() => { const vj = calcularNotifs(0, Date.now() - DIAS * 86400_000, 1000);
-        return `<h3 class="notif-sub notif-viejas-tit">Anteriores a ${DIAS} días</h3>` + (vj.length ? `<ul class="notif-list">${vj.map(n => `<li class="notif-li"><a href="#/v/${esc(n.vid)}" data-k="${esc(clave(n))}" class="notif-item vieja" ${n.foto ? `data-foto-url="${esc(n.foto)}"` : ""}>
+        return `<h3 class="notif-sub notif-viejas-tit">Anteriores a ${DIAS} días</h3>` + (vj.length ? `<ul class="notif-list">${vj.map(n => `<li class="notif-li"><a href="${esc(n.href || `#/v/${n.vid}`)}" data-k="${esc(clave(n))}" class="notif-item vieja" ${n.foto ? `data-foto-url="${esc(n.foto)}"` : ""}>
           <span class="notif-veh">${plate(n.patente, "sm")}<small>${esc(n.modelo || "")}</small></span>
           <span class="notif-txt">${n.por ? `<b>${esc(n.por)}</b> ${esc(minus(String(n.txt).replace(/ por WhatsApp/g, "")))}` : esc(n.txt)}</span>
           <time>${cuando(n.t)}</time></a></li>`).join("")}</ul>` : `<p class="muted small center">No hay notificaciones anteriores.</p>`); })());

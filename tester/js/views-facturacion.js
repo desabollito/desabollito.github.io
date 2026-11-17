@@ -162,7 +162,7 @@ export function vistaFacturacion(view) {
     toast("Subiendo documento…");
     try {
       const r = await subir(file, `${S.company.id}/${vid}/factura`, { tipo: "auto", nombre: file.name });
-      const ok = await guardar({ docs: { [vid]: { url: r.url, publicId: r.publicId, name: file.name, bytes: r.bytes, at: Date.now() } },
+      const ok = await guardar({ docs: { [vid]: { url: r.url, publicId: r.publicId, name: file.name, bytes: r.bytes, at: Date.now(), by: S.user.uid, byName: S.profile?.name || "" } },
         ...(estadoDe(vid) === "impreso" ? { ...conFecha(vid, "firmado"), ...alFinal(vid) } : {}) }, `${patenteDe(vid)}: subió la orden firmada`);   // subir la orden la pasa a Firmado
       if (ok) toast("Documento guardado", "success");
     } catch (err) { toast(mensajeError(err), "error"); }
