@@ -207,7 +207,10 @@ const LOCALIDADES = [
 // Marcas y modelos (con la forma de escribirlos)
 const MARCAS = ["Toyota", "Volkswagen", "VW", "Ford", "Chevrolet", "Fiat", "Renault", "Peugeot", "Citroën", "Nissan", "Honda",
   "Hyundai", "Kia", "Jeep", "RAM", "Mercedes-Benz", "Mercedes", "BMW", "Audi", "Chery", "Suzuki", "Mitsubishi", "DS", "Dodge",
-  "BAIC", "Haval", "JAC", "Great Wall", "Geely", "BYD", "Subaru", "Volvo", "Mini", "Porsche", "Iveco", "Isuzu", "Lifan", "Jetour", "Chevy"];
+  "BAIC", "Haval", "JAC", "Great Wall", "Geely", "BYD", "Subaru", "Volvo", "Mini", "Porsche", "Iveco", "Isuzu", "Lifan", "Jetour", "Chevy",
+  "Alfa Romeo", "Land Rover", "Range Rover", "Lexus", "Mazda", "Smart", "Seat", "Skoda", "Opel", "Daihatsu", "Ssangyong", "Changan",
+  "DFSK", "Dongfeng", "Foton", "Shineray", "GWM", "Omoda", "Jaecoo", "Kaiyi", "Zotye", "Brilliance", "Chrysler",
+  "Cupra", "Infiniti", "Jaguar", "Maserati", "Tesla", "Hafei", "Lada", "MG", "Rover", "Saab", "Scania", "Agrale"];
 const MODELOS = ["Gol", "Gol Trend", "Hilux", "Corolla", "Corolla Cross", "Etios", "Yaris", "SW4", "RAV4", "Amarok", "Vento", "Polo",
   "Virtus", "T-Cross", "Taos", "Nivus", "Saveiro", "Up", "Fox", "Suran", "Voyage", "Tiguan", "Passat", "Golf", "Bora", "Ranger",
   "Ka", "Fiesta", "Focus", "EcoSport", "Territory", "Maverick", "Kuga", "Mondeo", "Bronco", "Onix", "Cruze", "Tracker", "Prisma",
@@ -218,7 +221,23 @@ const MODELOS = ["Gol", "Gol Trend", "Hilux", "Corolla", "Corolla Cross", "Etios
   "Versa", "Sentra", "March", "Note", "X-Trail", "HR-V", "Civic", "City", "Fit", "CR-V", "WR-V", "Tucson", "Creta", "HB20",
   "i10", "Santa Fe", "Renegade", "Compass", "Wrangler", "Commander", "500", "Mustang", "Tiggo", "QQ", "Vitara", "Swift",
   "L200", "Outlander", "Sportage", "Cerato", "Rio", "Picanto", "Seltos", "Sprinter", "Clase A", "Hilux SRV", "Hiace", "Innova",
-  "Camry", "Prius", "Tacoma", "Tundra", "Jolion", "H6", "Poer", "Wingle", "Dolphin", "Song", "Yuan", "Forester", "Outback", "XV"];
+  "Camry", "Prius", "Tacoma", "Tundra", "Jolion", "H6", "Poer", "Wingle", "Dolphin", "Song", "Yuan", "Forester", "Outback", "XV",
+  "Gol Power", "CrossFox", "SpaceFox", "Vento Variant", "Scirocco", "Beetle", "Touareg", "Sharan", "Caddy", "Transporter",
+  "Fusion", "Escape", "Explorer", "F-100", "F-150", "Transit", "Courier", "Cobra", "Aveo", "Sonic", "Vectra", "Astra", "Zafira",
+  "Meriva", "Captiva", "Silverado", "Camaro", "Blazer", "Linea", "Stilo", "Doblo", "Qubo", "Grand Siena",
+  "Uno Way", "Titano", "Tempra", "Duna", "Megane", "Scenic", "Laguna", "Master", "Trafic", "Twingo", "Kardian", 
+  "Sandero Stepway", "Duster Oroch", "106", "107", "205", "306", "307", "405", "406", "407", "508", "Rifter", "Traveller",
+  "C3 Aircross", "C4 Lounge", "C-Elysée", "Xsara", "Picasso", "Jumpy", "Jumper", "Basalt", "Aircross", "NP300", "Pathfinder",
+  "Murano", "Tiida", "Livina", "Qashqai", "Leaf", "Accord", "ZR-V", "Pilot", "Elantra", "i30", "Accent", "Veloster", "Kona",
+  "H1", "Grand i10", "Cherokee", "Grand Cherokee", "Patriot", "Gladiator", "Rampage", "1500", "2500", "Dakota",
+  "Journey", "Caravan", "A1", "A3", "A4", "A5", "A6", "Q2", "Q3", "Q5", "Q7", "Q8", "X1", "X2", "X3", "X4", "X5", "X6",
+  "Serie 1", "Serie 3", "Serie 5", "Clase C", "Clase E", "GLA", "GLC", "GLE", "Vito", "Tiggo 2", "Tiggo 3", "Tiggo 4",
+  "Tiggo 5", "Tiggo 7", "Tiggo 8", "Arrizo", "Fulwin", "Celerio", "Jimny", "Grand Vitara", "Baleno", "S-Cross", 
+  "Montero", "Lancer", "ASX", "Eclipse Cross", "Partner Patagónica", "Kangoo Express", "Etios Cross",
+  "Hilux SW4", "Land Cruiser", "Prado", "Avensis", "Yaris Cross", "C-HR", "Sorento", "Carnival", "Soul", "K2500", "Stonic",
+  "Ranger Raptor", "Kicks Play", "Daily", "Cronos Drive", "Pulse Abarth", "Ka+", "City Hatchback", "Dolphin Mini", 
+  "Mazda 3", "CX-3", "CX-5", "CX-30", "BT-50", "D-Max", "Hover", "H2", "H9", "Dargo", "Tank 300", "Coolray", "Emgrand",
+  "T-Cross Highline", "Polo Track", "Amarok V6", "Saveiro Cross"];
 
 function indice(lista) {
   const m = new Map();
@@ -497,7 +516,7 @@ export function interpretar(texto, extra = {}) {
     }).join(" ");
   }
 
-  // Lo que no se reconoció: completa modelo o asegurado; el resto va a detalles (no se pierde)
+  // Lo que no se reconoció: completa el asegurado; el resto va a detalles (no se pierde). El modelo sale solo de MARCAS/MODELOS
   const grupos = [];
   palabras.forEach((w, i) => {
     if (tipo[i]) return;
@@ -509,13 +528,12 @@ export function interpretar(texto, extra = {}) {
     const pareceNombre = g.length >= 1 && g.length <= 4 && g.every(w => palabraNombre(w) || /^[a-záéíóúñü']{2,}$/i.test(w))
       && !g.some(w => PARTES_RE.has(sinTildes(w)) || /^(falta|faltan|roto|rota|golpe|golpes|rayon|rayado|abollado|cambiar|cambio|sin|con|tiene|viene|hay|para)$/i.test(sinTildes(w)));
     if (!r.asegurado && pareceNombre && r.modelo) { r.asegurado = titulo(t); continue; }
-    if (!r.modelo && g.length <= 3 && !esCharla(t)) r.modelo = titulo(t);
-    else r.otros = (r.otros ? r.otros + " " : "") + t;
+    r.otros = (r.otros ? r.otros + " " : "") + t;
   }
   // Sin conectores sueltos que quedan al sacar paños ("en", "y", "x2")
   // Texto de charla ("a este hay que decirle que traiga…"): no es una carga de datos
   r.charla = esCharla(r.otros) || r.otros.split(/\s+/).filter(Boolean).length >= 6;
-  r.otros = r.otros.split(/\s+/).filter(w => w && !/^(en|y|e|o|de|del|la|el|los|las|con|a|al|x\d)$/i.test(w)).join(" ");
+  r.otros = r.otros.replace(/^[\s\-–—.,:;]+/, "").split(/\s+/).filter(w => w && !/^(en|y|e|o|de|del|la|el|los|las|con|a|al|x\d)$/i.test(w)).join(" ");
   if (r.otros) { r.observaciones = [r.observaciones, r.otros].filter(Boolean).join("\n"); r.otros = ""; }
   return r;
 }
