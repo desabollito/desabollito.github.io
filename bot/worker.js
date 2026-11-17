@@ -1168,7 +1168,7 @@ async function alEditarMensaje(env, e) {
   if (!nombres.length) return;
   const cuenta = await fsGet(env, `bot_numeros/${rec.numero}`).catch(() => null);
   await fsMerge(env, ruta, { ...cambios, updatedBy: `whatsapp:${rec.numero}` });
-  await fsAppend(env, ruta, "historial", { t: Date.now(), uid: cuenta?.uid || "", por: cuenta?.name || rec.numero, txt: `Editó ${nombres.join(", ")} por WhatsApp` }).catch(() => {});
+  await fsAppend(env, ruta, "historial", { t: Date.now(), uid: cuenta?.uid || "", por: cuenta?.name || rec.numero, txt: `Editó ${nombres.join(", ")} por WhatsApp`, ...conDeshacer(v, cambios) }).catch(() => {});
   if (cambios.patente) {
     const s = await leerSesion(env, rec.numero);
     if (s?.vid === rec.vid) await fsMerge(env, `bot_sesiones/${rec.numero}`, { patente: cambios.patente });
@@ -1402,7 +1402,7 @@ async function agregarAVehiculo(env, numero, datos, hora, previa, quien) {
   await abrir(env, numero, { ...e, modelo: nuevos.modelo || v.modelo || "", patente: v.patente }, hora, previa, false);
   if (!nombres.length) return `👌 ${etq} ya tenía esos datos. Si mandás fotos, se suman a ese vehículo.`;
   await fsMerge(env, ruta, { ...nuevos, updatedBy: `whatsapp:${numero}` });
-  await fsAppend(env, ruta, "historial", { t: Date.now(), uid: quien?.uid || "", por: quien?.nombre || "", txt: `Agregó ${nombres.join(", ")} por WhatsApp` }).catch(() => {});
+  await fsAppend(env, ruta, "historial", { t: Date.now(), uid: quien?.uid || "", por: quien?.nombre || "", txt: `Agregó ${nombres.join(", ")} por WhatsApp`, ...conDeshacer(v, nuevos) }).catch(() => {});
   return `✅ Agregué ${nombres.join(", ")} a ${etq}${e.operativo ? ` · ${e.operativo}` : ""}.`;
 }
 
@@ -1430,9 +1430,10 @@ async function actualizarDatos(env, v, datos, quien) {
     v.piezas = nuevos.piezas; nombres.push("paños");
   }
   if (nombres.length) {
+    const prev = await fsGet(env, `companies/${v.cid}/vehicles/${v.vid}`).catch(() => null);
     await fsMerge(env, `companies/${v.cid}/vehicles/${v.vid}`, nuevos);
     await fsAppend(env, `companies/${v.cid}/vehicles/${v.vid}`, "historial",
-      { t: Date.now(), uid: quien?.uid || "", por: quien?.nombre || "", txt: `Actualizó ${nombres.join(", ")} por WhatsApp` }).catch(() => {});
+      { t: Date.now(), uid: quien?.uid || "", por: quien?.nombre || "", txt: `Actualizó ${nombres.join(", ")} por WhatsApp`, ...conDeshacer(prev, nuevos) }).catch(() => {});
   }
   return nombres;
 }
@@ -1938,6 +1939,8 @@ async function fsIncrementar(env, ruta, campo) {
   if (!r.ok) throw new Error(`Firestore increment ${ruta}: ${r.status}`);
 }
 
+// Deshacer desde la web: guarda cómo estaban (prev = el vehículo antes de guardar) y cómo quedaron los campos que cambió
+const conDeshacer = (prev, cambios) => prev ? { antes: Object.fromEntries(Object.keys(cambios).map(k => [k, prev[k] ?? null])), despues: cambios } : {};
 async function fsAppend(env, ruta, campo, elemento) {
   const r = await fs(env, `${base(env)}:commit`, {
     method: "POST",
