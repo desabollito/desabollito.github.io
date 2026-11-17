@@ -723,7 +723,8 @@ export function renderDetalle(root, v, embebido) {
 `}
     </section>`}
 
-    ${v.observaciones ? `<section class="d-sec"><h3>Observaciones</h3><p class="prose">${esc(v.observaciones)}</p></section>` : ""}
+    ${soloVer && !v.observaciones ? "" : `<section class="d-sec d-post"><h3>Observaciones</h3>
+      <textarea class="post-rep" data-campo="observaciones" rows="1" ${soloVer ? "readonly" : ""} placeholder="Detalles adicionales">${esc(v.observaciones || "")}</textarea></section>`}
     ${chipsSec("Repuestos", v, "repuestos", soloVer)}
     ${chipsSec("Pintura", v, "pintura", soloVer)}
 
@@ -756,14 +757,13 @@ export function renderDetalle(root, v, embebido) {
 
   $(".d-adic", root)?.addEventListener("toggle", e => { adicCerrado = e.target.open ? null : v.id; });
   // Adicionales post-reparación: una línea que crece sola; se guarda al dejar de escribir
-  const post = $(".post-rep", root);
-  if (post) {
+  for (const post of $$(".post-rep", root)) {   // razón de la anulación o notas post-reparación, y observaciones
     const crecer = () => { post.style.height = "auto"; post.style.height = post.scrollHeight + 2 + "px"; };
     requestAnimationFrame(crecer);
     let reloj = null;
     const guardar = () => {
       clearTimeout(reloj);
-      const txt = post.value.trim(), campo = post.dataset.campo, nombre = campo === "razonAnulacion" ? "la razón de la anulación" : "notas post-reparación";
+      const txt = post.value.trim(), campo = post.dataset.campo, nombre = { razonAnulacion: "la razón de la anulación", observaciones: "las observaciones" }[campo] || "notas post-reparación";
       if (txt === String(v[campo] || "").trim()) return;
       v[campo] = txt;
       actualizarVehiculo(v.id, { [campo]: txt }, txt ? `Anotó ${nombre}` : `Borró ${nombre}`)

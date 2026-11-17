@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.48.1", items: ["Vehículo: las Observaciones se escriben directo en el detalle, como la razón de la anulación (se guardan solas al dejar de escribir), sin entrar a Editar."] },
   { v: "4.48.0", items: ["Facturación: al entrar, las órdenes firmadas que cargaron otros desde tu última visita titilan en amarillo 3 segundos, con un puntito al lado del número. Después quedan como vistas."] },
   { v: "4.47.2", items: ["Buscadores: la cruz blanca de la X se ve también mientras escribís (antes desaparecía hasta tocar afuera)."] },
   { v: "4.47.1", items: ["Calendario → Filtros → Estados: una fila que se desliza al costado, como Compañías; cada estado entra entero sin pisarse."] },
