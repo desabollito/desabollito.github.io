@@ -1518,6 +1518,9 @@ a.g-bar-fijo { text-decoration: none; color: inherit; }
 .tbl-fact { min-width: 0; }
 .tbl-fact th, .tbl-fact th:first-child { padding: 10px 12px; font-size: 13px; font-weight: 700; color: var(--ink-2); white-space: nowrap; background: var(--surface-2); z-index: 2; }
 .tbl-fact tbody tr { cursor: pointer; }
+/* Al llegar desde la notificación de orden firmada: la fila titila 2 s en amarillo suave */
+.tbl-fact tr.f-flash td { animation: f-flash 2s ease-in-out; }
+@keyframes f-flash { 0%, 50%, 100% { background-color: transparent; } 25%, 75% { background-color: rgba(250, 204, 21, .22); } }
 /* Selector de estado (Glide Select) */
 .gs-chip { --c: var(--muted); display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 8px 0 10px; border: 0; border-radius: var(--r); font: inherit; font-size: 13px; font-weight: 600;
   background: color-mix(in srgb, var(--c) 14%, var(--surface)); color: color-mix(in srgb, var(--c) 70%, var(--ink)); cursor: pointer; transition: transform 160ms cubic-bezier(.23,1,.32,1), background-color 100ms; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }

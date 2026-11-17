@@ -29,6 +29,9 @@ export function vistaFacturacion(view) {
     actions: `<button class="btn btn-ghost btn-sm" id="f-todos">${icon("download")}<span class="hide-sm">Descargar todos</span></button>
       ${soyFacturacion() ? "" : `${botonesVersion(F.editando)}<button class="btn btn-sm ${F.editando ? "btn-primary" : "btn-ghost"}" id="f-edit" aria-label="Editar">${icon(F.editando ? "check" : "edit")}${F.editando ? "<span>Listo</span>" : ""}</button>`}` });
   if (soyFacturacion()) F.editando = false;
+  // Se vuelve a dibujar entera cuando cambia un vehículo: queda donde estaba el usuario (se restaura al pintar la tabla)
+  const tw0 = $(".table-wrap", view); if (tw0 && !F.volver) F.volver = { y: scrollY, t: tw0.scrollTop };
+  if (S.irFact) F.q = "";   // llegando desde una notificación: sin búsqueda, para que la fila esté
   if (!puedeVer("facturacion")) { view.innerHTML = `<div class="empty"><p>No tenés acceso a esta planilla.</p></div>`; return; }
   if (!S.company) { view.innerHTML = `<div class="skeleton tall"></div>`; return; }
   const ref = doc(db, "companies", S.company.id, "factura", "docs"), viejo = doc(db, "companies", S.company.id, "planTec", "_factura");
@@ -59,6 +62,8 @@ export function vistaFacturacion(view) {
 
   const pintar = () => {
     const q = norm(F.q), body = $("#f-body", view); if (!body) return;
+    // Repintar no mueve al usuario: se guarda dónde estaba (página y tabla) y se vuelve ahí
+    const tw0 = $(".table-wrap", body), pos = tw0 && { y: scrollY, t: tw0.scrollTop, l: tw0.scrollLeft };
     // Firmados y facturados primero (numerados); los impresos al final, sin número
     const fs = firmados(), elegidos = [...fs, ...activos().filter(v => vids.includes(v.id) && !fs.includes(v))];
     const vs = elegidos.filter(v => !q || norm(v.patente).includes(q) || norm(v.modelo).includes(q));
@@ -72,6 +77,7 @@ export function vistaFacturacion(view) {
             ${d ? `<button type="button" class="btn btn-primary btn-sm" data-act="bajar" aria-label="Descargar">${icon("download")}</button>` : ""}
             ${F.editando ? `<button type="button" class="btn btn-ghost btn-sm" data-act="quitar" aria-label="Quitar de la lista">${icon("x")}</button>` : ""}</td></tr>`; }).join("")}</tbody></table></div>`
       : `<div class="empty small"><p>${q && elegidos.length ? "No hay vehículos con esa patente." : "Agregá los vehículos a facturar con el botón de arriba."}</p></div>`;
+    const tw = pos && $(".table-wrap", body); if (tw) { tw.scrollTop = pos.t; tw.scrollLeft = pos.l; if (scrollY !== pos.y) scrollTo(0, pos.y); }
   };
 
   unsub?.();
@@ -82,6 +88,9 @@ export function vistaFacturacion(view) {
     cargar(real); pintar();
     // Volviendo de un vehículo: la planilla queda donde estaba
     if (F.volver) { const tw = $(".table-wrap", view); if (tw) tw.scrollTop = F.volver.t; scrollTo(0, F.volver.y); F.volver = null; }
+    // Desde la notificación de orden firmada: va a esa fila y titila
+    const fila = S.irFact && view.querySelector(`tr[data-vid="${CSS.escape(S.irFact)}"]`);
+    if (fila) { S.irFact = null; setTimeout(() => { fila.scrollIntoView({ block: "center", behavior: "smooth" }); fila.classList.add("f-flash"); setTimeout(() => fila.classList.remove("f-flash"), 2000); }, 50); }
     // shortcut: migración única desde planTec/_factura, borrar cuando ya no quede ninguno
     if (!d.exists() && !d.metadata.fromCache) getDoc(viejo).then(o => o.exists() && setDoc(ref, o.data()).then(() => deleteDoc(viejo))).catch(() => {});
   }, e => { $("#f-body", view).innerHTML = `<div class="empty"><p>${esc(mensajeError(e))}</p></div>`; });

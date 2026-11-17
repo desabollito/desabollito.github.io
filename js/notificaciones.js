@@ -240,7 +240,9 @@ export function abrirNotifs(verArchivadas = false, pestIni = "") {
     marcar("notifAbiertas", a.dataset.k, lista); s.close();
     // Notificación de fotos: el vehículo se abre directo en esa foto
     S.abrirFoto = a.dataset.fotoUrl ? { vid: a.getAttribute("href").split("/").pop(), url: a.dataset.fotoUrl, desm: a.hasAttribute("data-desm") } : null;
-    location.hash = a.getAttribute("href"); });
+    // Orden firmada: Facturación se abre en esa fila (si ya estás ahí, se repinta igual)
+    const href = a.getAttribute("href"); S.irFact = href === "#/facturacion" ? a.dataset.k.split("|")[0] : null;
+    if (location.hash === href) dispatchEvent(new HashChangeEvent("hashchange")); else location.hash = href; });
   // Deslizar con el dedo: más de 90 px suelta la acción
   let g = null;
   s.body.addEventListener("pointerdown", e => { const a = e.target.closest(".notif-item:not(.vieja)"); g = a && e.pointerType !== "mouse" ? { a, x0: e.clientX, y0: e.clientY, dx: 0, on: false } : null; });

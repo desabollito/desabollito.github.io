@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.46.1", items: ["Facturación: tocar la notificación de orden firmada lleva a esa fila y la hace titilar en amarillo.", "Facturación: al cargar una orden o cambiar algo, la planilla se queda donde estabas (ya no vuelve arriba)."] },
   { v: "4.46.0", items: ["Facturación: cuando alguien carga una orden firmada, avisa en Notificaciones solo a los que tienen acceso a Facturación. Tocarla abre la planilla."] },
   { v: "4.45.1", items: ["3D: el oscurecido y «Hacé click para entrar» quedan solo en el visor (había un error en los estilos que lo extendía a toda la página)."] },
   { v: "4.45.0", items: ["Filtros inversos: mantené apretado cualquier filtro (estados, compañías como Particular, grado, pintura, repuestos, adicionales) y queda delineado en rojo y tachado: saca esos vehículos en lugar de dejarlos solos. Tocarlo de nuevo lo vuelve normal. Abajo del buscador aparece como «Sin …».", "Avisar por privado (al marcar Contactado) deja el vehículo marcado como contactado y avisado, igual que desde el chat."] },
