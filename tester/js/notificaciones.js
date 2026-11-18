@@ -5,7 +5,7 @@
 //  así el puntito se apaga en todos los equipos.
 // ═════════════════════════════════════════════════════════════
 import { db, doc, updateDoc, onSnapshot } from "./firebase.js";
-import { S, activos, onChange, chatsSinLeer, chatSinLeer, usaClientes, chatEnMantenimiento, getVehiculo, puedeVer } from "./data.js";
+import { S, activos, onChange, chatsSinLeer, chatSinLeer, marcarChatVisto, usaClientes, chatEnMantenimiento, getVehiculo, puedeVer } from "./data.js";
 import { estadoActual } from "./domain.js";
 import { $, esc, icon, openSheet, plate, glideMenu, formatoWa, avatarCliente } from "./ui.js";
 import { sonidoNotif } from "./sonidos.js";
@@ -132,6 +132,7 @@ const cuando = t => {
 const minus = t => t.charAt(0).toLowerCase() + t.slice(1);
 const ICO_PIN = `<svg class="ic" viewBox="0 0 24 24"><path d="M12 17v5M9 3h6l-1 6 4 4H6l4-4z"/></svg>`;
 const ICO_ARCH = `<svg class="ic" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="5" rx="1"/><path d="M5 9v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9M10 13h4"/></svg>`;
+const ICO_LEIDO = `<svg class="ic" viewBox="0 0 24 24"><path d="M2 12l5 5L18 6M12 16l1 1L24 6"/></svg>`;
 // Deslizar a la derecha fija arriba, a la izquierda archiva (en computadora, con los botones que aparecen al pasar el mouse)
 export function abrirNotifs(verArchivadas = false, pestIni = "") {
   const s = openSheet({ title: verArchivadas ? (pestIni === "chat" ? "Chats archivados" : "Archivadas") : "Notificaciones", onClose: () => off() });
@@ -172,10 +173,11 @@ export function abrirNotifs(verArchivadas = false, pestIni = "") {
       else $(".notif-tabs", s.body)?.replaceWith(Object.assign(document.createElement("template"), { innerHTML: tabs }).content);
       $(".chat-lista", s.body).innerHTML = (fTurno ? `<p class="muted small notif-sub">${fTurno === "si" ? "Turnos confirmados" : "Turnos sin confirmar"} · <button type="button" class="link-btn small" data-sin-turno>Ver todos</button></p>` : "")
         + (vc.length ? `${verArchivadas ? `<p class="muted small notif-sub">Deslizá a la izquierda para sacarlo de archivados</p>` : ""}
+        ${deEste.some(chatSinLeer) ? `<button class="btn btn-ghost notif-todas chat-todos" type="button">Marcar todos como leídos</button>` : ""}
         <ul class="notif-list">${vc.map(c => `<li class="notif-li"><i class="notif-lado l-fijar">${ICO_PIN}</i><i class="notif-lado l-arch">${ICO_ARCH}</i><a href="#" data-chat="${esc(c.tel)}" data-k="${esc(c.tel)}" data-ka="${esc(chatK(c))}" class="notif-item ${chatSinLeer(c) ? "nueva" : ""} ${fijC.has(c.tel) ? "fijada" : ""}">
         <span class="notif-veh chat-veh">${fijC.has(c.tel) ? `<i class="notif-pin">${ICO_PIN}</i>` : ""}${avatarCliente(c)}<strong class="chat-cab-nom">${esc(c.nombre || c.modelo || "Cliente")}</strong>${plate(c.patente, "sm")}</span>
         <span class="notif-txt">${formatoWa(c.ult || "")}</span><time>${cuando(c.t)}</time>
-        <span class="notif-acc">${verArchivadas ? "" : `<button type="button" class="icon-btn sm" data-acc="fijar" aria-label="${fijC.has(c.tel) ? "Desfijar" : "Fijar arriba"}">${ICO_PIN}</button>`}<button type="button" class="icon-btn sm" data-acc="archivar" aria-label="${verArchivadas ? "Sacar de archivados" : "Archivar"}">${ICO_ARCH}</button></span></a></li>`).join("")}</ul>`
+        <span class="notif-acc">${verArchivadas ? "" : `<button type="button" class="icon-btn sm" data-acc="fijar" aria-label="${fijC.has(c.tel) ? "Desfijar" : "Fijar arriba"}">${ICO_PIN}</button>`}${chatSinLeer(c) ? `<button type="button" class="icon-btn sm" data-acc="leido" aria-label="Marcar como leído">${ICO_LEIDO}</button>` : ""}<button type="button" class="icon-btn sm" data-acc="archivar" aria-label="${verArchivadas ? "Sacar de archivados" : "Archivar"}">${ICO_ARCH}</button></span></a></li>`).join("")}</ul>`
         : `<div class="empty small">${icon("chat")}<p>${q || fTurno ? "Ningún chat coincide." : verArchivadas ? "No hay chats archivados." : "Todavía no hay chats. Aparecen cuando le escribís a un cliente desde el número de la empresa."}</p></div>`);
       if (!verArchivadas && nArchC) $(".chat-lista", s.body).insertAdjacentHTML("beforeend", `<button type="button" class="link-btn notif-ver-arch">${ICO_ARCH}Archivados (${nArchC})</button>`);
       return lista;
@@ -203,7 +205,8 @@ export function abrirNotifs(verArchivadas = false, pestIni = "") {
   const accion = (a, que) => {
     const k = a.dataset.k;
     if (a.dataset.chat) {
-      if (que === "fijar") marcarChat("chatFijados", k, marcadas("chatFijados").includes(k));
+      if (que === "leido") { const c = S.chats.find(c => c.tel === k); if (c) marcarChatVisto(c.tel, c.t); }
+      else       if (que === "fijar") marcarChat("chatFijados", k, marcadas("chatFijados").includes(k));
       else { marcarChat("chatArchivados", a.dataset.ka, verArchivadas); marcarChat("chatFijados", k, true); }
       lista = pintar(); return;
     }
@@ -212,6 +215,7 @@ export function abrirNotifs(verArchivadas = false, pestIni = "") {
     lista = pintar();
   };
   s.el.addEventListener("click", e => {
+    if (e.target.closest(".chat-todos")) { S.chats.filter(c => chatSinLeer(c) && chatArch(c) === verArchivadas).forEach(c => marcarChatVisto(c.tel, c.t)); lista = pintar(); return; }
     if (e.target.closest(".notif-todas")) { guardarPerfil("notifVisto", Date.now()); lista = pintar(); return; }
     if (e.target.closest(".notif-ver-arch")) { s.close(); abrirNotifs(true, pest); return; }
     if (e.target.closest(".notif-viejas-btn")) { verViejas = true; lista = pintar(); return; }
