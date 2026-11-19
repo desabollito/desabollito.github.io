@@ -3102,20 +3102,23 @@ const okDiario = v => !v.deleted && !["anular", "anulado"].includes(v.estado) &&
 async function textoResumenDiario(env, uid, hoy, cfg = { todos: true }) {
   const ops = (await listaOperativos(env, uid, { cargar: false })).filter(o => cfg.todos !== false || (cfg.cids || []).includes(o.cid));
   const bloques = [];
-  let total = 0, totalEnt = 0;
+  let total = 0, totalCon = 0, totalEnt = 0;
+  const n = (k, uno, varios) => `${k} ${k === 1 ? uno : varios}`;
   for (const o of ops) {
-    const [vs, ent] = await Promise.all([
+    // Contactados: los que están hoy en Contactado (no los que se contactaron hoy)
+    const [vs, con, ent] = await Promise.all([
       fsQuery(env, `companies/${o.cid}`, "vehicles", { field: "fechas.peritado", op: "EQUAL", value: hoy }, 300).catch(() => []),
+      fsQuery(env, `companies/${o.cid}`, "vehicles", { field: "estado", op: "EQUAL", value: "llamado" }, 300).catch(() => []),
       fsQuery(env, `companies/${o.cid}`, "vehicles", { field: "fechas.entregado", op: "EQUAL", value: hoy }, 300).catch(() => [])]);
-    const nPer = vs.filter(okDiario).length, nEnt = ent.filter(okDiario).length;
-    if (!nPer && !nEnt) continue;
-    total += nPer; totalEnt += nEnt;
-    bloques.push(`*${o.operativo}* · ${nPer} ${nPer === 1 ? "peritado" : "peritados"} · ${nEnt} ${nEnt === 1 ? "entregado" : "entregados"}`);
+    const nPer = vs.filter(okDiario).length, nCon = con.filter(okDiario).length, nEnt = ent.filter(okDiario).length;
+    if (!nPer && !nCon && !nEnt) continue;
+    total += nPer; totalCon += nCon; totalEnt += nEnt;
+    bloques.push(`*${o.operativo}* · ${n(nPer, "peritado", "peritados")} · ${n(nCon, "contactado", "contactados")} · ${n(nEnt, "entregado", "entregados")}`);
   }
   const tit = `📋 *Resumen del día · ${fechaCortaAR(hoy)}*`;
-  if (!total && !totalEnt) return `${tit}\n\nHoy no se peritaron ni se entregaron vehículos.`;
+  if (!total && !totalCon && !totalEnt) return `${tit}\n\nHoy no se peritaron ni se entregaron vehículos, y no hay contactados.`;
   // Un solo operativo: los totales ya lo dicen todo
-  return `${tit}\nPeritados: *${total}* · Entregados: *${totalEnt}*` + (bloques.length > 1 ? "\n\n" + bloques.join("\n") : "");
+  return `${tit}\nPeritados: *${total}*\nContactados: *${totalCon}*\nEntregados: *${totalEnt}*` + (bloques.length > 1 ? "\n\n" + bloques.join("\n") : "");
 }
 // Turnos del día: auto y patente; precio y detalles adicionales solo si tienen
 async function textoTurnosDiario(env, uid, hoy, cfg = { todos: true }) {
