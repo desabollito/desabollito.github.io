@@ -1267,7 +1267,7 @@ async function ofrecerAvisoCliente(v) {
   // Elegir cómo avisar: desde el chat en vivo (o el teléfono de la empresa) o por privado (WhatsApp propio, mismo texto ya escrito)
   const como = await new Promise(listo => {
     let r = null;
-    const s = openSheet({ title: "¿Avisarle al cliente?", onClose: () => listo(r), body: `<div class="stack">
+    const s = openSheet({ title: "¿Avisarle al cliente?", cancelar: false, onClose: () => listo(r), body: `<div class="stack">
       <p class="muted">Se le avisará ${esc(v.asegurado ? "a " + v.asegurado : "al cliente")} que está listo su vehículo.</p>
       ${S.config?.chatAvisos !== false ? `<button type="button" class="btn btn-primary btn-block" data-como="empresa">${icon("chat")}${chat ? "Avisar desde chat en vivo" : "Avisar desde el teléfono de la empresa"}</button>` : ""}
       <button type="button" class="btn ${S.config?.chatAvisos !== false ? "btn-ghost" : "btn-primary"} btn-block" data-como="privado">${S.config?.chatAvisos !== false ? `${icon("share")}Avisar por privado` : `${icon("chat")}Avisar por WhatsApp`}</button></div>` });
@@ -1344,7 +1344,7 @@ function conectarDeshacer(s, v, e) {
 export function elegirFechaEstado(v, estado, enChat) {
   const e = ESTADO[estado], paso = estadoActual(v) === estado && pasoDeshacible(v, [estado]);
   // Sin título ni X: se cierra tocando afuera. Deshacer: botón de historial arriba a la derecha (pide confirmar)
-  const s = openSheet({
+  const s = openSheet({ cancelar: estado !== "turnado",   // avisar turno: sin Cancelar, entra mejor en pantallas angostas
     body: `<form class="stack"><div class="fecha-est">
       <label class="field"><span>${estado === "turnado" ? "Fecha del turno" : "Fecha"}</span>
         <input type="date" name="f" value="${v.fechas?.[estado] || hoyISO()}" required></label>

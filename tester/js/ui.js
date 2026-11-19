@@ -135,7 +135,7 @@ export function toast(msg, type = "info") {
 
 // ── Hojas (bottom sheet en teléfono, diálogo centrado en pantalla grande)
 let sheetStack = [];
-export function openSheet({ title = "", body = "", wide = false, onClose } = {}) {
+export function openSheet({ title = "", body = "", wide = false, onClose, cancelar = true } = {}) {
   const wrap = document.createElement("div");
   wrap.className = "sheet-backdrop";
   wrap.innerHTML = `
@@ -149,7 +149,7 @@ export function openSheet({ title = "", body = "", wide = false, onClose } = {})
   if (typeof body === "string") bodyEl.innerHTML = body; else bodyEl.appendChild(body);
   // Pie fijo igual en todas las hojas: la acción principal del final abajo a la derecha, con Cancelar a la izquierda
   const ult = bodyEl.firstElementChild?.lastElementChild;
-  if (ult?.matches(".btn-primary.btn-block:not([data-close])")) {
+  if (cancelar && ult?.matches(".btn-primary.btn-block:not([data-close])")) {   // cancelar: false = sin Cancelar (se cierra tocando afuera)
     const pie = document.createElement("div"); pie.className = "sheet-pie";
     ult.before(pie); ult.classList.remove("btn-block", "btn-lg");
     pie.innerHTML = `<button type="button" class="btn btn-ghost" data-close>Cancelar</button>`; pie.append(ult);
