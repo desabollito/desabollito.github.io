@@ -1255,7 +1255,7 @@ async function ofrecerAvisoCliente(v) {
     const s = openSheet({ title: "¿Avisarle al cliente?", onClose: () => listo(r), body: `<div class="stack">
       <p class="muted">Se le avisará ${esc(v.asegurado ? "a " + v.asegurado : "al cliente")} que está listo su vehículo.</p>
       ${S.config?.chatAvisos !== false ? `<button type="button" class="btn btn-primary btn-block" data-como="empresa">${icon("chat")}${chat ? "Avisar desde chat en vivo" : "Avisar desde el teléfono de la empresa"}</button>` : ""}
-      <button type="button" class="btn ${S.config?.chatAvisos !== false ? "btn-ghost" : "btn-primary"} btn-block" data-como="privado">${icon("share")}Avisar por privado</button></div>` });
+      <button type="button" class="btn ${S.config?.chatAvisos !== false ? "btn-ghost" : "btn-primary"} btn-block" data-como="privado">${S.config?.chatAvisos !== false ? `${icon("share")}Avisar por privado` : `${icon("chat")}Avisar por WhatsApp`}</button></div>` });
     s.el.classList.add("sheet-centro");
     s.el.addEventListener("click", e => { const b = e.target.closest("[data-como]"); if (b) { r = b.dataset.como; s.close(); } });
   });
