@@ -43,10 +43,13 @@ function calcularNotifs(desde = Date.now() - DIAS * 86400_000, hasta = Infinity,
   for (const v of activos()) {
     const base = { vid: v.id, patente: v.patente, modelo: v.modelo };
     const t0h = Math.min(...(v.historial || []).map(e => e.t || Infinity)), tc = ms(v.createdAt) || (Number.isFinite(t0h) ? t0h : 0);
+    let prev = null;
     for (const e of v.historial || []) {
       if (!e.t || e.t < desde || e.t >= hasta || e.uid === yo) continue;
       if (!avisable(e.txt)) continue;
-      out.push(/^Le avisó al cliente/.test(e.txt || "") ? { ...base, t: e.t, por: e.por || "", txt: e.por ? "Contactó al cliente" : "Cliente contactado" } : { ...base, t: e.t, por: e.por || "Alguien", txt: e.txt || "Modificó el vehículo" });
+      const n = /^Le avisó al cliente/.test(e.txt || "") ? { ...base, t: e.t, por: e.por || "", txt: e.por ? "Contactó al cliente" : "Cliente contactado" } : { ...base, t: e.t, por: e.por || "Alguien", txt: e.txt || "Modificó el vehículo" };
+      if (prev?.txt === n.txt && prev.por === n.por) { prev.t = Math.max(prev.t, n.t); continue; }   // la misma seguida (observaciones que se guardan solas mientras se escribe): una sola vez
+      out.push(prev = n);
     }
     // Fotos que subió otro: una línea por persona y por tanda (10 min)
     const tandas = new Map();

@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.51.3", items: ["Notificaciones: la misma acción repetida seguida en un vehículo (por ejemplo «anotó las observaciones») sale una sola vez."] },
   { v: "4.51.2", items: ["Con el chat en vivo apagado, al turnar dice «Turnar por WhatsApp» con el ícono de WhatsApp."] },
   { v: "4.51.1", items: ["Con el chat en vivo apagado, el aviso al cliente dice «Avisar por WhatsApp» con el ícono de WhatsApp."] },
   { v: "4.51.0", items: ["Panel del creador: el interruptor «Chat en vivo» lo apaga en toda la app. Apagado, Contactar vuelve a ser como antes: WhatsApp y Llamar."] },
