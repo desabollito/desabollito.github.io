@@ -668,7 +668,8 @@ export function renderDetalle(root, v, embebido) {
         <button class="btn btn-ghost" data-act="contactar" aria-haspopup="true" aria-expanded="false">${icon("phone")}Contactar</button>
         <div class="d-menu" hidden>
           ${(usaClientes() || chatEnMantenimiento()) && !soyLector() ? `<a role="button" data-act="chat">${icon("chat")}Chat en vivo</a>` : ""}
-          <a ${soySacabollos() ? `role="button"` : `href="${waLink(v.telefono, soyLector() ? "" : mensajeWa(v))}" target="_blank" rel="noopener"`}>${icon("share")}Contactar por privado</a>   <!-- Sacabollos: se puede tocar pero no hace nada -->
+          <a ${soySacabollos() ? `role="button"` : `href="${waLink(v.telefono, soyLector() ? "" : mensajeWa(v))}" target="_blank" rel="noopener"`}>${S.config?.chatAvisos !== false ? `${icon("share")}Contactar por privado` : `${icon("chat")}WhatsApp`}</a>
+          ${S.config?.chatAvisos !== false ? "" : `<a href="tel:${esc(v.telefono)}">${icon("phone")}Llamar</a>`}   <!-- Sacabollos: se puede tocar pero no hace nada -->
         </div></div>` : ""}
     </div>
 

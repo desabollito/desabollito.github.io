@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.51.0", items: ["Panel del creador: el interruptor «Chat en vivo» lo apaga en toda la app. Apagado, Contactar vuelve a ser como antes: WhatsApp y Llamar."] },
   { v: "4.50.2", items: ["Panel del creador: interruptor «Turnar y avisar desde chat en vivo». Apagado, al turnar y al contactar queda solo «por privado»; el chat en vivo sigue en Notificaciones y en Contactar."] },
   { v: "4.50.1", items: ["Contactado: si al cliente ya se le avisó, pregunta con una alerta si querés volver a avisarle."] },
   { v: "4.50.0", items: ["Chat en vivo: dentro de cada mensaje que mandás, como en WhatsApp, se ve si llegó: reloj (enviando), tilde (enviado), doble tilde (entregado), doble tilde celeste (visto) o alerta roja (no salió). Se anima al cambiar y dice el estado 2 segundos; tocándolo también.", "Al responder, los mensajes del cliente quedan en visto en su WhatsApp."] },
