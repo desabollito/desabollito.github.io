@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { interpretar } from "../bot/worker.js";
 
 test("texto suelto va a adicionales, no al modelo", () => {
-  for (const [t, obs] of [["AH337VT  - OT ENVIADA", "OT ENVIADA"], ["AC821ND \n1136810075\nREPUESTOS AVISAR", "REPUESTOS AVISAR"], ["STRO 02-01-02461774\nBAGUETAS DE TECHO\nHZO339", "BAGUETAS\nSiniestro 02-01-02461774"]]) {
+  for (const [t, obs] of [["AH337VT  - OT ENVIADA", "OT ENVIADA"], ["AC821ND \n1136810075\nREPUESTOS AVISAR", "REPUESTOS AVISAR"], ["STRO 02-01-02461774\nBAGUETAS DE TECHO\nHZO339", "BAGUETAS TECHO\nSiniestro 02-01-02461774"]]) {
     const r = interpretar(t);
     assert.equal(r.modelo, "", t);
     assert.equal(r.observaciones, obs, t);
@@ -20,4 +20,13 @@ test("siniestro no se toma como teléfono", () => {
     assert.equal(r.telefono, tel, t);
     assert.equal(r.siniestro, stro, t);
   }
+});
+
+test("paño después de «de» es un repuesto, no un paño dañado", () => {
+  const r = interpretar("STRO 02-01-02461774\nBAGUETAS DE TECHO\nHZO339");
+  assert.deepEqual(r.piezas, {});
+  assert.match(r.observaciones, /BAGUETAS TECHO/);
+  assert.deepEqual(interpretar("AB123CD golpe de techo y capot").piezas, { techo: true, capot: true });
+  assert.ok(interpretar("AB123CD manija de puerta del izq, techo").piezas.techo);
+  assert.ok(!interpretar("AB123CD manija de puerta del izq, techo").piezas.pd_izq);
 });

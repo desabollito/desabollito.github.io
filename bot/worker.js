@@ -286,6 +286,9 @@ function sacarPanos(texto) {
     re.lastIndex = 0;
     let m;
     while ((m = re.exec(norm))) {
+      // "baguetas de techo", "manija de puerta": el paño nombra un repuesto, no está dañado (va a adicionales). "golpe de techo" sí cuenta
+      const antes = /([a-zñ]+)\s+del?\s+$/.exec(norm.slice(0, m.index));
+      if (antes && !/^(golpes?|bollos?|abolladuras?|danos?|granizo|rayon(es)?|reparacion|arreglo|todo|toda)$/.test(antes[1])) continue;
       fn(m).forEach(k => { piezas[k] = true; });
       const blanco = " ".repeat(m[0].length);
       norm = norm.slice(0, m.index) + blanco + norm.slice(m.index + m[0].length);
