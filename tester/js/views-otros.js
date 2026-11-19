@@ -379,22 +379,22 @@ export function vistaEmpresa(view) {
           <small class="muted">La dirección del taller es el título de la vista previa. Después de cambiarla, guardá y tocá «Actualizar vista previa» (tarda 1 o 2 minutos).</small></div>
         <label class="field"><span>Mensaje de turno <small class="muted">(se puede cambiar antes de cada envío en Mensajes y turnos)</small></span>
           <textarea name="turno" rows="12" maxlength="2000">${esc(c.mensajes?.turno || TXT_TURNO)}</textarea></label>
-        <label class="toggle"><input type="checkbox" name="encTurno" ${c.mensajes?.encTurno ? "checked" : ""}>
+        <div class="stack" ${S.config?.chatAvisos === false ? "hidden" : ""}><!-- encuestas y respuestas: solo con chat en vivo --><label class="toggle"><input type="checkbox" name="encTurno" ${c.mensajes?.encTurno ? "checked" : ""}>
           <span>Después del mensaje de turno, mandar la encuesta</span></label>
         ${campoEncuesta(c, "turno")}
         <label class="field"><span>Si elige otra fecha, se le contesta <small class="muted">(vacío: no se manda nada)</small></span>
           <textarea name="cambioFecha" rows="3" maxlength="1000">${esc(c.mensajes?.cambioFecha ?? CAMBIO_FECHA_DEF)}</textarea></label>
         <div class="field"><span>Encuesta de «Enviar nueva fecha» <small class="muted">(desde el chat, cuando pidió cambiarla)</small></span></div>
-        ${campoEncuesta(c, "reprogramar")}
+        ${campoEncuesta(c, "reprogramar")}</div>
         <label class="field"><span>Mensaje de contactado <small class="muted">(al marcar Contactado y en «Contactar por privado»)</small></span>
           <textarea name="contactado" rows="6" maxlength="2000">${esc(c.mensajes?.contactado || S.config?.mensajeWa || "")}</textarea></label>
-        <label class="toggle"><input type="checkbox" name="encRetiro" ${c.mensajes?.encRetiro ? "checked" : ""}>
+        <div class="stack" ${S.config?.chatAvisos === false ? "hidden" : ""}><label class="toggle"><input type="checkbox" name="encRetiro" ${c.mensajes?.encRetiro ? "checked" : ""}>
           <span>Después del mensaje de contactado, mandar la encuesta</span></label>
-        ${campoEncuesta(c, "retiro")}
+        ${campoEncuesta(c, "retiro")}</div>
         <p class="muted small">Datos que se completan solos: {Saludo} {Asegurado} {Vehiculo} {Patente} {Operativo} {Turno} {Hora} {Direccion} {Mapa} {Compania}. Un renglón sin dato (por ejemplo, sin hora) no se manda. El link del mapa sale con vista previa.</p>
         <button type="button" class="link-btn" id="msj-def">Volver al mensaje original</button>
         <button class="btn btn-primary">Guardar mensajes</button>
-        <div class="field msj-prueba"><span>Probar el chat en vivo</span>
+        <div class="field msj-prueba" ${S.config?.chatAvisos === false ? "hidden" : ""}><span>Probar el chat en vivo</span>
           <small class="muted">Usa el «Vehículo de prueba» (AAA000) con este número: mandale el turno, votá las encuestas y respondé como si fueras el cliente.</small>
           <input name="telPrueba" type="tel" inputmode="numeric" placeholder="2936401097" value="${esc(String(S.profile?.whatsapp || "").replace(/^549/, ""))}">
           <span class="row-btns"><button type="button" class="btn btn-ghost btn-sm" data-prueba="chat">${icon("chat")}Abrir chat</button>

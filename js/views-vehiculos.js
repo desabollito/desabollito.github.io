@@ -593,7 +593,7 @@ function waLink(tel, texto = "") {
   if (!d) return "";
   if (!d.startsWith("54")) d = "549" + d;
   else if (!d.startsWith("549")) d = "549" + d.slice(2);
-  return `https://wa.me/${d}${texto ? "?text=" + encodeURIComponent(texto) : ""}`;
+  return `https://api.whatsapp.com/send?phone=${d}${texto ? "&text=" + encodeURIComponent(texto) : ""}`;   // wa.me redirige y rompe los emojis (salen «?»)
 }
 
 // "capot y techo, puerta" → ["Capot y techo", "Puerta"] (se separa solo con comas)
@@ -1295,7 +1295,7 @@ async function ofrecerAvisoCliente(v) {
   } catch (e) { espera.close();
     if (await confirmar({ title: "No se pudo enviar desde el número de la empresa", message: `${e.message}. ¿Abrir WhatsApp para mandarlo vos?`, ok: "Abrir WhatsApp", centro: true })) {
       const tel = String(v.telefono).replace(/\D/g, "").replace(/^0/, "");
-      open(`https://wa.me/${tel.startsWith("54") ? tel : "549" + tel}?text=${encodeURIComponent(textoAviso(v))}`, "_blank");
+      open(waLink(tel, textoAviso(v)), "_blank");
     }
   }
 }
@@ -1358,6 +1358,7 @@ export function elegirFechaEstado(v, estado, enChat) {
       <button class="btn btn-ghost btn-block">Guardar fecha sin avisar</button>` : `<button class="btn btn-primary btn-block" style="--btn:${e.color}">Guardar</button>`}</form>`
   });
   $(".sheet", s.el).setAttribute("aria-label", `Marcar como ${e.label.toLowerCase()}`);
+  s.el.classList.add("sheet-centro");
   $("#t-deshacer", s.el)?.addEventListener("click", async () => {
     if (!(await confirmar({ title: "¿Deshacer?", message: `Se deshace: “${sinPaso(paso.txt)}”.`, ok: "Deshacer" }))) return;
     s.close();

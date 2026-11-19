@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.53.0", items: ["Turnos: el popup para elegir la fecha sale centrado.", "Turnar, avisar y contactar por WhatsApp: los emojis del mensaje ahora salen bien (antes salía «?»).", "Con el chat en vivo apagado, en Mensajes al cliente quedan solo los mensajes que se mandan por WhatsApp: sin encuestas ni «Probar el chat en vivo»."] },
   { v: "4.52.1", items: ["Contactar: en pantallas angostas el menú ya no se sale de costado."] },
   { v: "4.52.0", items: ["Historial: cuando alguien cambia o borra algo, al lado sale una lupa. Pasando el mouse o tocándola se ve cómo estaba antes."] },
   { v: "4.51.3", items: ["Notificaciones: la misma acción repetida seguida en un vehículo (por ejemplo «anotó las observaciones») sale una sola vez."] },
