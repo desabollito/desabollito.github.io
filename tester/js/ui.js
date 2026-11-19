@@ -188,12 +188,13 @@ document.addEventListener("keydown", e => {
   if (!e.target.closest?.("input, textarea, select, [contenteditable]")) document.getElementById("tb-back")?.click();
 });
 
-export function confirmar({ title, message = "", ok = "Confirmar", danger = false, centro = false }) {
+export function confirmar({ title, message = "", ok = "Confirmar", danger = false, centro = false, alerta = false }) {
   return new Promise(resolve => {
     let done = false;
     const s = openSheet({
       body: `
         <div class="confirm">
+          ${alerta ? `<svg class="confirm-alerta" viewBox="0 0 48 44" aria-hidden="true"><path d="M24 4 45 40H3z"/><path d="M24 17v11M24 33.5v.5"/></svg>` : ""}
           <h2>${esc(title)}</h2>
           ${message ? `<p>${esc(message)}</p>` : ""}
           <div class="row-btns">

@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.50.1", items: ["Contactado: si al cliente ya se le avisó, pregunta con una alerta si querés volver a avisarle."] },
   { v: "4.50.0", items: ["Chat en vivo: dentro de cada mensaje que mandás, como en WhatsApp, se ve si llegó: reloj (enviando), tilde (enviado), doble tilde (entregado), doble tilde celeste (visto) o alerta roja (no salió). Se anima al cambiar y dice el estado 2 segundos; tocándolo también.", "Al responder, los mensajes del cliente quedan en visto en su WhatsApp."] },
   { v: "4.49.0", items: ["Chat en vivo: doble tilde al lado de archivar para marcar un chat como leído (vuelve a azul solo si el cliente escribe de nuevo), y botón «Marcar todos como leídos» arriba de la lista."] },
   { v: "4.48.1", items: ["Vehículo: las Observaciones se escriben directo en el detalle, como la razón de la anulación (se guardan solas al dejar de escribir), sin entrar a Editar."] },

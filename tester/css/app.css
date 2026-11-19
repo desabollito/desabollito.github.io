@@ -503,6 +503,8 @@ fieldset.card legend + * { clear: both; }
 }
 .confirm { display: flex; flex-direction: column; gap: 10px; padding-top: 6px; }
 .confirm p { color: var(--muted); }
+.confirm-alerta { align-self: center; width: 56px; height: 52px; fill: none; stroke: #f5a524; stroke-width: 3.4; stroke-linecap: round; stroke-linejoin: round; animation: ce-pop .35s ease-out; }
+.confirm:has(.confirm-alerta) { text-align: center; }
 .confirm .row-btns { margin-top: 10px; }
 .viewer img { width: 100%; max-height: 72dvh; object-fit: contain; border-radius: var(--r); background: #000; touch-action: pan-y; }
 .viewer-bar { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; font-weight: 600; color: var(--muted); }

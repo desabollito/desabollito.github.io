@@ -2644,14 +2644,14 @@ export function telefonoAR(t) {
 }
 
 // Aviso al cliente cuando su auto queda reparado (una sola vez por vehículo)
-async function avisarCliente(env, { idToken, cid, vid, por, texto: propio }) {
+async function avisarCliente(env, { idToken, cid, vid, por, texto: propio, otraVez }) {
   if (!(await miembroDe(env, idToken, cid))) return json({ ok: false, error: "No autorizado. Actualizá la app y probá de nuevo." }, 403);
   if (!/^[A-Za-z0-9_-]{1,60}$/.test(cid || "") || !/^[A-Za-z0-9_-]{1,60}$/.test(vid || "")) return json({ ok: false, error: "Datos inválidos" }, 400);
   const ruta = `companies/${cid}/vehicles/${vid}`;
   const v = await fsGet(env, ruta);
   if (!v || v.deleted) return json({ ok: false, error: "No encontré el vehículo" }, 404);
   if (!["reparado", "llamado"].includes(v.estado)) return json({ ok: false, error: "El vehículo no está en revisión ni contactado" });
-  if (v.avisoReparado) return json({ ok: false, error: "Al cliente ya se le avisó" });
+  if (v.avisoReparado && otraVez !== true) return json({ ok: false, error: "Al cliente ya se le avisó" });   // volver a avisar: solo si se confirmó en la app
   if ((await fsGet(env, "config/app").catch(() => null))?.avisoReparado === false) return json({ ok: false, error: "El aviso al cliente está desactivado" });
   const tel = telefonoAR(v.telefono);
   if (!tel) return json({ ok: false, error: "El teléfono del cliente no parece un celular válido" });

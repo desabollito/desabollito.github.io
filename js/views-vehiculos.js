@@ -1243,8 +1243,10 @@ function textoAviso(v) {
 async function ofrecerAvisoCliente(v) {
   v = getVehiculo(v.id) || v;
   // Si no se puede avisar, se dice por qué (antes no pasaba nada y parecía roto)
-  const no = S.config?.avisoReparado === false ? "El aviso al cliente está apagado en el panel del creador" : !v.telefono ? "Sin teléfono: no se le puede avisar al cliente" : v.avisoReparado ? "A este cliente ya se le avisó" : "";
+  const no = S.config?.avisoReparado === false ? "El aviso al cliente está apagado en el panel del creador" : !v.telefono ? "Sin teléfono: no se le puede avisar al cliente" : "";
   if (no) return toast(no);
+  const otraVez = !!v.avisoReparado;
+  if (otraVez && !(await confirmar({ title: "A este cliente ya se le avisó", message: "¿Querés volver a avisarle que está listo su vehículo?", ok: "Volver a avisar", alerta: true, centro: true }))) return;
   const chat = usaClientes() && !!telWa(v.telefono);
   // Elegir cómo avisar: desde el chat en vivo (o el teléfono de la empresa) o por privado (WhatsApp propio, mismo texto ya escrito)
   const como = await new Promise(listo => {
@@ -1269,7 +1271,7 @@ async function ofrecerAvisoCliente(v) {
   espera.el.classList.add("sheet-centro");   // en el celular, al medio como la pregunta de antes
   try {
     const r = await fetch(`${BOT_API}/avisar`, { method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ idToken: await S.user.getIdToken(), cid: S.company.id, vid: v.id, por: S.profile?.name || "", texto: textoAviso(v) }) }).finally(() => espera.close());
+      body: JSON.stringify({ idToken: await S.user.getIdToken(), cid: S.company.id, vid: v.id, por: S.profile?.name || "", texto: textoAviso(v), otraVez }) }).finally(() => espera.close());
     const d = await r.json().catch(() => ({}));
     if (!r.ok || !d.ok) throw new Error(d.error || "No se pudo enviar");
     toast("Aviso enviado al cliente", "success");
