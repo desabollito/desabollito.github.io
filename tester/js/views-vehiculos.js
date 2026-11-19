@@ -5,7 +5,7 @@ import {
   solicitarEliminacion, cargadoPor, esDeWhatsApp, puedoEditar, esMioV, crearSolicitud, yaPedi,
   nuevoIdVehiculo, soyAdmin, mensajeError, deshaciblesDe, deshacerCambio, aseguradoDePadron,
   soyDesmontaje, agregarDesmontaje, elegirDesmontador, borrarMedia, soyLector, linkVehiculo, soloVer, soySacabollos, usaClientes, chatEnMantenimiento, soyFacturacion,
-  onChange, chatSinLeer, chatDeTel
+  onChange, chatSinLeer, chatDeTel, CAMPOS_HIST
 } from "./data.js";
 import { ESTADOS, ESTADO, SECUENCIA, PASO_REP, PIEZA, ORDEN_PIEZAS, estadoActual, esAnulado, piezasMarcadas } from "./domain.js";
 import {
@@ -231,6 +231,8 @@ function abrirHistorial(v0) {
   const s = openSheet({ title: "Historial", body: `${lista.length ? `<details class="hist-undo-op"><summary class="btn btn-ghost btn-block hist-undo">${icon("rotate")}Eliminar cambios</summary>
     <div class="stack hist-undo-lista">${lista.map((e, i) => `<button type="button" class="btn btn-ghost btn-block hist-undo-item" data-deshacer="${i}">${icon("x")}<span>${esc(sinPaso(e.txt))}</span><small class="muted">${fechaHora(e.t)}</small></button>`).join("")}</div></details>` : ""}${historialHTML(v)}` });
   s.el.addEventListener("click", async e => {
+    const lupa = e.target.closest(".hist-antes");
+    if (lupa) { const t = lupa.nextElementSibling; t.hidden = !t.hidden; lupa.setAttribute("aria-expanded", !t.hidden); return; }
     const b = e.target.closest("[data-deshacer]"); if (!b) return;
     const elegido = lista[+b.dataset.deshacer];
     if (!(await confirmar({ title: "¿Estás seguro?", message: `Se deshace: “${sinPaso(elegido.txt)}”.`, ok: "Deshacer" }))) return;
@@ -252,6 +254,19 @@ function colorHist(txt = "") {
   return "";
 }
 
+// Lo que había antes de un cambio o un borrado (lo guarda cada entrada para deshacer), legible
+const NOMBRE_CAMPO = { ...CAMPOS_HIST, precio: "el precio", grado: "el grado", piezas: "los paños", archivos: "los documentos", razonAnulacion: "la razón de la anulación", postRep: "las notas post-reparación" };
+function antesHTML(e) {
+  if (!/^(Cambi|Borr|Elimin|Quit|Anot|Edit|Sac)/.test(e.txt || "")) return "";
+  return Object.entries(e.antes || {}).map(([k, x]) => {
+    const val = k.includes("|") ? "" : k === "piezas" && x && typeof x === "object" ? Object.keys(x).filter(p => x[p]).map(p => PIEZA[p]?.label || p).join(", ")
+      : Array.isArray(x) ? x.map(y => y?.name ?? y).filter(y => y != null && typeof y !== "object").join(", ")
+      : typeof x === "boolean" ? (x ? "Sí" : "No") : x != null && typeof x !== "object" ? String(x) : "";
+    const n = (NOMBRE_CAMPO[k] || k).replace(/^(el|la|los|las) /, "");
+    return val ? `<b>${esc(n[0].toUpperCase() + n.slice(1))}:</b> ${esc(val)}` : "";
+  }).filter(Boolean).join("<br>");
+}
+
 function historialHTML(v) {
   const h = [...(v.historial || [])];
   if (!h.some(e => /^Carg/.test(e.txt))) {
@@ -262,7 +277,7 @@ function historialHTML(v) {
   const cuando = t => t ? new Date(t).toLocaleString("es-AR", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" }) : "";
   // Firmas del cliente que se borraron o se reemplazaron (se guardan al cambiar la firma)
   const firmas = h.filter(e => /^data:image\//.test(e.firmaAnterior || ""));
-  return `<ol class="hist">${h.map(e => `<li class="${colorHist(e.txt) ? "hc" : ""}" style="${colorHist(e.txt) ? `--c:${colorHist(e.txt)}` : ""}"><span class="hist-txt"><strong>${esc(e.por || "Alguien")}</strong> ${esc(sinPaso(e.txt).replace(/ por WhatsApp/g, ""))}</span><time>${cuando(e.t)}</time></li>`).join("")}</ol>`
+  return `<ol class="hist">${h.map(e => `<li class="${colorHist(e.txt) ? "hc" : ""}" style="${colorHist(e.txt) ? `--c:${colorHist(e.txt)}` : ""}"><span class="hist-txt"><strong>${esc(e.por || "Alguien")}</strong> ${esc(sinPaso(e.txt).replace(/ por WhatsApp/g, ""))}${antesHTML(e) ? `<button type="button" class="icon-btn sm hist-antes" aria-label="Ver cómo estaba antes" aria-expanded="false">${icon("search")}</button><span class="hist-antes-txt" hidden>${antesHTML(e)}</span>` : ""}</span><time>${cuando(e.t)}</time></li>`).join("")}</ol>`
     + (firmas.length ? `<section class="hist-firmas"><h4>Firmas anteriores</h4>${firmas.map(e => `<figure><img class="firma-img" src="${esc(e.firmaAnterior)}" alt="Firma anterior del cliente">
       <figcaption class="muted small">${esc(e.por || "Alguien")} la ${/^Elimin/.test(e.txt) ? "eliminó" : "reemplazó"} · ${cuando(e.t)}</figcaption></figure>`).join("")}</section>` : "");
 }

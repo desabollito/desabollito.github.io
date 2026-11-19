@@ -559,7 +559,7 @@ export async function deshacerCambio(v, e) {
     historial: arrayUnion({ ...entrada(`Deshizo: ${e.txt}`, antesDe(ahora, valores)), deshace: e.t }), updatedAt: serverTimestamp(), updatedBy: S.user.uid });
 }
 const plata = n => "$" + Number(n || 0).toLocaleString("es-AR");
-const CAMPOS_HIST = { modelo: "el modelo", patente: "la patente", asegurado: "el asegurado", telefono: "el teléfono",
+export const CAMPOS_HIST = { modelo: "el modelo", patente: "la patente", asegurado: "el asegurado", telefono: "el teléfono",
   compania: "la compañía", localidad: "la localidad", observaciones: "las observaciones", repuestos: "los repuestos", pintura: "la pintura" };
 function cambiosDe(viejo, nuevo) {
   if (!viejo) return [];

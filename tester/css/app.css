@@ -982,6 +982,11 @@ label.logo-prev { cursor: pointer; }
 .hist li::before { content: ""; position: absolute; left: -20px; top: 6px; width: 10px; height: 10px; border-radius: 50%; background: var(--surface); border: 2px solid var(--primary); }
 .hist-txt { color: var(--ink-2); min-width: 0; }
 .hist-txt strong { color: var(--ink); }
+.hist-antes { vertical-align: middle; margin-left: 4px; color: var(--muted); }
+.hist-antes .ic { width: 15px; height: 15px; }
+.hist-antes-txt { display: block; margin-top: 4px; padding: 6px 8px; border-radius: 8px; background: var(--surface-2); font-size: 13px; white-space: pre-wrap; }
+.hist-antes-txt[hidden] { display: none; }
+@media (hover: hover) { .hist-txt:has(.hist-antes:hover) .hist-antes-txt { display: block; } }   /* con mouse: se ve al pasar por la lupa */
 .hist time { flex-shrink: 0; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .confirm p { white-space: pre-line; }
 
