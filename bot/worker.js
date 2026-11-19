@@ -626,7 +626,7 @@ const ESTADO_TXT = { peritado: "Peritado", turnado: "Turnado", enreparacion: "Re
 const fechaTxt = iso => { const [a, mm, d] = String(iso || "").split("-"); return d ? `${d}/${mm}/${a.slice(2)}` : ""; };
 // Ficha del vehículo por escrito (para "localizá")
 function detalleVehiculo(v, operativo) {
-  const est = v.fechas?.anulado ? "anulado" : ["ausente", "enreparacion", "anular"].includes(v.estado) ? v.estado : ["facturado", "entregado", "llamado", "reparado", "turnado", "peritado"].find(k => v.fechas?.[k]) || v.estado || "peritado";
+  const est = ["anulado", "ausente", "enreparacion", "anular"].includes(v.estado) ? v.estado : ["facturado", "entregado", "llamado", "reparado", "turnado", "peritado"].find(k => v.fechas?.[k]) || v.estado || "peritado";
   const cuando = k => v.fechas?.[k] ? `${fechaTxt(v.fechas[k])}${v.horas?.[k] ? " " + v.horas[k] : ""}` : "";
   const panos = Object.keys(v.piezas || {}).filter(k => v.piezas[k]);
   const filas = [
@@ -657,7 +657,7 @@ const claveRep = x => sinTildes(String(x)).replace(/[^a-z0-9]+/g, "_").replace(/
 const faseDe = (v, x) => FASES_REP.find(f => f[0] === v.etapasRepuestos?.[claveRep(x)]) || FASES_REP[0];
 const RE_PIDE_REP = /^(?:localiz\w*\s+)?repuestos?\s+(\S+(?:\s+\S+)?)$/i;
 function textoRepuestos(v, operativo) {
-  const est = v.fechas?.anulado ? "anulado" : ["ausente", "enreparacion", "anular"].includes(v.estado) ? v.estado : ["facturado", "entregado", "llamado", "reparado", "turnado", "peritado"].find(k => v.fechas?.[k]) || "peritado";
+  const est = ["anulado", "ausente", "enreparacion", "anular"].includes(v.estado) ? v.estado : ["facturado", "entregado", "llamado", "reparado", "turnado", "peritado"].find(k => v.fechas?.[k]) || "peritado";
   const items = itemsRep(v.repuestos);
   return [`🚗 *${v.modelo || "Sin modelo"}* · ${v.patente || ""}`,
     v.compania ? `🛡 ${v.compania}` : null,
@@ -1372,7 +1372,7 @@ async function textoTurnosHoy(env, numero, uid) {
   const lista = [];
   for (const o of ops) {
     const vs = await fsQuery(env, `companies/${o.cid}`, "vehicles", { field: "fechas.turnado", op: "EQUAL", value: hoy }, 100).catch(() => []);
-    vs.filter(v => !v.deleted && !v.fechas?.anulado && !["anular", "anulado"].includes(v.estado)).forEach(v => lista.push({ ...v, operativo: o.operativo }));
+    vs.filter(okDiario).forEach(v => lista.push({ ...v, operativo: o.operativo }));
   }
   if (!lista.length) return `📅 Hoy no hay turnos en *${fijo.operativo}*.`;
   lista.sort((a, b) => String(a.horaTurno || "99").localeCompare(String(b.horaTurno || "99")));
@@ -3098,7 +3098,8 @@ async function elegirResumenDiario(env, m, quien, texto, menu) {
   return responder(env, dest(m), `✅ Listo: todos los días a las *${d.hora}* mando acá ${d.nombre} de *${elegidos ? elegidos.map(o => o.operativo).join(", ") : "todos tus operativos"}*.`);
 }
 const fechaCortaAR = iso => iso.split("-").reverse().slice(0, 2).join("/");
-const okDiario = v => !v.deleted && !["anular", "anulado"].includes(v.estado) && !v.fechas?.anulado;
+// Anulado según el estado actual, como la app: un auto anulado y después reactivado conserva fechas.anulado y tiene que contar
+const okDiario = v => !v.deleted && !["anular", "anulado"].includes(v.estado);
 async function textoResumenDiario(env, uid, hoy, cfg = { todos: true }) {
   const ops = (await listaOperativos(env, uid, { cargar: false })).filter(o => cfg.todos !== false || (cfg.cids || []).includes(o.cid));
   const bloques = [];
