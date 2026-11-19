@@ -1338,7 +1338,7 @@ export function elegirFechaEstado(v, estado, enChat) {
         <button type="button" class="switch ${v.turnoConfirmado === true ? "on" : ""}" id="t-conf" role="switch" aria-checked="${v.turnoConfirmado === true}">
           <span class="sw-txt sw-si">Sí</span><span class="sw-txt sw-no">No</span><i class="sw-bola"></i></button></div>` : ""}
       ${!enChat && estado === "turnado" && usaClientes() && S.config?.chatAvisos !== false && telWaOk(v) ? `<button type="button" class="btn btn-ghost btn-block" id="t-avisar">${icon("chat")}Turnar desde chat en vivo</button>` : ""}
-      ${!enChat && estado === "turnado" && v.telefono ? `<button type="button" class="btn btn-ghost btn-block" id="t-privado">${icon("share")}Turnar por privado</button>` : ""}
+      ${!enChat && estado === "turnado" && v.telefono ? `<button type="button" class="btn btn-ghost btn-block" id="t-privado">${S.config?.chatAvisos !== false ? `${icon("share")}Turnar por privado` : `${icon("chat")}Turnar por WhatsApp`}</button>` : ""}
       ${enChat ? `<button class="btn btn-primary btn-block" style="--btn:${e.color}" data-avisar>${icon("chat")}Enviar nueva fecha</button>
       <button class="btn btn-ghost btn-block">Guardar fecha sin avisar</button>` : `<button class="btn btn-primary btn-block" style="--btn:${e.color}">Guardar</button>`}</form>`
   });
