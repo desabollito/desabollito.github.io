@@ -1464,6 +1464,15 @@ export function telWa(t) {
 }
 console.assert(telWa("351 15 123-4567") === "5493511234567" && telWa("11 3770 9755") === "5491137709755" && telWa("123") === null, "telWa");
 // Íconos del reproductor de audio del chat
+// Íconos del estado de entrega (viewBox 16×12): reloj con aguja que gira, tilde, doble tilde y alerta
+const svgEst = x => `<svg viewBox="0 0 16 12" aria-hidden="true">${x}</svg>`;
+const ICO_EST = {
+  PENDING: svgEst(`<circle cx="8" cy="6" r="5"/><path d="M8 6V3.4"/><path class="ce-aguja" d="M8 6h2.4"/>`),
+  SERVER_ACK: svgEst(`<path class="ce-t" d="M3.5 6.5l2.6 2.6L12 3.2"/>`),
+  DELIVERY_ACK: svgEst(`<path class="ce-t" d="M1 6.5l2.6 2.6L9.5 3.2"/><path class="ce-t ce-t2" d="M6.6 8.6l.6.5L13.6 3.2"/>`),
+  ERROR: svgEst(`<circle cx="8" cy="6" r="5"/><path d="M8 3.4v3.2M8 8.6v.1"/>`)
+};
+const EST_TXT = { PENDING: "Enviando", SERVER_ACK: "Enviado", DELIVERY_ACK: "Entregado", READ: "Visto", PLAYED: "Visto", ERROR: "No salió" };
 const ICO_PLAY = `<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M8 5v14l11-7z" fill="currentColor"/></svg>`;
 const ICO_PAUSA = `<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M7 5h4v14H7zM13 5h4v14h-4z" fill="currentColor"/></svg>`;
 // Chat en vivo desde un vehículo (Contactar)
@@ -1521,6 +1530,12 @@ function abrirChat(cid, tel, alCerrar, v = null) {
     const bar = e.target.closest(".ca-bar"); if (!bar) return;
     const a = $("audio", bar.parentElement); if (isFinite(a.duration)) a.currentTime = bar.value / 1000 * a.duration;
   });
+  // Tocar el estado de entrega dice qué es
+  const estPrevio = new Map();
+  caja.addEventListener("click", e => {
+    const b = e.target.closest(".chat-est"); if (!b) return;
+    b.classList.remove("nuevo", "ver"); void b.offsetWidth; b.classList.add("ver");
+  });
   caja.addEventListener("click", e => {
     const b = e.target.closest(".ca-play"); if (!b) return;
     const a = $("audio", b.parentElement);
@@ -1546,11 +1561,14 @@ function abrirChat(cid, tel, alCerrar, v = null) {
       : m.doc ? `<a class="chat-doc" href="${esc(m.doc.url)}" target="_blank" rel="noopener">${icon("file")}<span>${esc(m.doc.nombre || "Documento")}</span></a>`
       : m.geo ? `<a href="https://maps.google.com/?q=${Number(m.geo.lat)},${Number(m.geo.lng)}" target="_blank" rel="noopener">📍 Ubicación enviada</a>`
       : formatoWa(m.txt);
-    // Entrega en WhatsApp (los mensajes viejos no tienen estado)
-    const estChat = e => !e ? "" : e === "ERROR" ? ` <b style="color:var(--danger)" title="WhatsApp no lo entregó">⚠️ No salió</b>`
-      : ` <span title="${{ PENDING: "Enviando", SERVER_ACK: "Enviado", DELIVERY_ACK: "Entregado" }[e] || "Visto"}"${["READ", "PLAYED"].includes(e) ? ` style="color:#34b7f1"` : ""}>${{ PENDING: "🕓", SERVER_ACK: "✓" }[e] || "✓✓"}</span>`;
+    // Entrega en WhatsApp dentro de la burbuja (los mensajes viejos no tienen estado). Solo se anima lo que cambió con el chat abierto
+    const estChat = (m, e) => {
+      if (!EST_TXT[e]) return "";
+      const id = m.key?.id || m.t, antes = estPrevio.get(id); estPrevio.set(id, e);
+      return `<button type="button" class="chat-est est-${e.toLowerCase()}${antes && antes !== e ? " nuevo" : ""}" aria-label="${EST_TXT[e]}">${ICO_EST[e] || ICO_EST.DELIVERY_ACK}<span class="chat-est-txt">${EST_TXT[e]}</span></button>`;
+    };
     caja.innerHTML = (c.msgs || []).slice().sort((a, b) => a.t - b.t).map(m => `<div class="chat-msg ${m.yo ? "yo" : ""}" data-t="${m.t}">${m.cita ? `<div class="chat-cita">${formatoWa(m.cita.txt)}</div>` : ""}${media(m)}
-      <small>${m.yo && m.por ? esc(m.por) + " · " : ""}${horaChat(m.t)}${m.yo ? estChat(c.est?.[m.key?.id] || m.est) : ""}</small>${m.reac ? `<span class="chat-reac">${esc(m.reac)}</span>` : ""}${m.yo ? "" : `<button type="button" class="chat-resp-btn" data-resp aria-label="Opciones del mensaje" aria-haspopup="listbox">${icon("dots")}</button>`}</div>`).join("") || `<p class="muted small center">Sin mensajes.</p>`;
+      <small>${m.yo && m.por ? esc(m.por) + " · " : ""}${horaChat(m.t)}${m.yo ? estChat(m, c.est?.[m.key?.id] || m.est) : ""}</small>${m.reac ? `<span class="chat-reac">${esc(m.reac)}</span>` : ""}${m.yo ? "" : `<button type="button" class="chat-resp-btn" data-resp aria-label="Opciones del mensaje" aria-haspopup="listbox">${icon("dots")}</button>`}</div>`).join("") || `<p class="muted small center">Sin mensajes.</p>`;
     // Al entrar (o si ya estaba abajo) baja al último; se repite al siguiente cuadro porque la barra del turno y la ventana todavía cambian de alto
     if (abajo || !caja.dataset.listo) { pintarTurno(); const bajar = () => { caja.scrollTop = caja.scrollHeight; }; bajar(); requestAnimationFrame(() => requestAnimationFrame(bajar)); setTimeout(bajar, 260); caja.dataset.listo = "1"; }
     else pintarTurno();

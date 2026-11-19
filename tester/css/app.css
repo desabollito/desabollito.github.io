@@ -2524,6 +2524,25 @@ button.aj-item:hover, a.aj-item:hover { background: var(--surface-2); }
 .chat-msg.yo { align-self: flex-end; border-radius: 12px 12px 3px 12px; background: #1f5c4a; border-color: transparent; color: #e9f5ef; }
 [data-theme="light"] .chat-msg.yo { background: #dcf8c6; color: #10251a; }
 .chat-msg small { display: block; margin-top: 3px; text-align: right; font-size: 11px; opacity: .65; }
+/* Estado de entrega dentro de la burbuja: reloj → tilde → doble tilde (celeste al verlo) o ⚠ No salió. Al cambiar o al tocarlo dice qué es 2 s */
+.chat-est { all: unset; display: inline-flex; align-items: center; gap: 3px; margin-left: 4px; vertical-align: -2px; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.chat-est svg { width: 16px; height: 12px; overflow: visible; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.chat-est.est-read, .chat-est.est-played { color: #34b7f1; }
+.chat-est.est-error { color: var(--danger); }
+.chat-est-txt { display: inline-block; max-width: 0; overflow: hidden; opacity: 0; white-space: nowrap; font-size: 10.5px; }
+.chat-est.nuevo .chat-est-txt, .chat-est.ver .chat-est-txt { animation: ce-txt 2s ease forwards; }
+@keyframes ce-txt { 0% { max-width: 0; opacity: 0; } 12%, 85% { max-width: 90px; opacity: 1; } 100% { max-width: 0; opacity: 0; } }
+.chat-est .ce-aguja { transform-origin: 8px 6px; animation: ce-gira 1.6s linear infinite; }
+@keyframes ce-gira { to { transform: rotate(360deg); } }
+.chat-est.nuevo svg { animation: ce-pop .35s ease-out; }
+@keyframes ce-pop { 0% { transform: scale(.4); } 70% { transform: scale(1.2); } 100% { transform: scale(1); } }
+.chat-est.nuevo .ce-t { stroke-dasharray: 14; stroke-dashoffset: 14; animation: ce-trazo .35s ease-out forwards; }
+.chat-est.nuevo .ce-t2 { animation-delay: .2s; }
+@keyframes ce-trazo { to { stroke-dashoffset: 0; } }
+.chat-est.nuevo.est-error svg { animation: ce-sacude .45s ease-in-out; }
+@keyframes ce-sacude { 25% { transform: translateX(-2px); } 50% { transform: translateX(2px); } 75% { transform: translateX(-1px); } }
+/* Sin animaciones igual se lee el estado 2 s */
+@media (prefers-reduced-motion: reduce) { .chat-est.nuevo .chat-est-txt, .chat-est.ver .chat-est-txt { animation: ce-txt 2s step-end forwards !important; } }
 .chat-form { display: flex; align-items: flex-end; gap: 8px; }
 .chat-form textarea { flex: 1; min-height: 44px; max-height: 140px; padding: 10px 12px; border-radius: var(--r-lg); border: 1px solid var(--line-2); background: var(--surface); font-size: 16px; line-height: 1.4; resize: none; }
 .chat-form textarea:focus { outline: none; border-color: var(--primary); }
