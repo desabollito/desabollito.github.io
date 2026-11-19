@@ -1546,8 +1546,11 @@ function abrirChat(cid, tel, alCerrar, v = null) {
       : m.doc ? `<a class="chat-doc" href="${esc(m.doc.url)}" target="_blank" rel="noopener">${icon("file")}<span>${esc(m.doc.nombre || "Documento")}</span></a>`
       : m.geo ? `<a href="https://maps.google.com/?q=${Number(m.geo.lat)},${Number(m.geo.lng)}" target="_blank" rel="noopener">📍 Ubicación enviada</a>`
       : formatoWa(m.txt);
+    // Entrega en WhatsApp (los mensajes viejos no tienen estado)
+    const estChat = e => !e ? "" : e === "ERROR" ? ` <b style="color:var(--danger)" title="WhatsApp no lo entregó">⚠️ No salió</b>`
+      : ` <span title="${{ PENDING: "Enviando", SERVER_ACK: "Enviado", DELIVERY_ACK: "Entregado" }[e] || "Visto"}"${["READ", "PLAYED"].includes(e) ? ` style="color:#34b7f1"` : ""}>${{ PENDING: "🕓", SERVER_ACK: "✓" }[e] || "✓✓"}</span>`;
     caja.innerHTML = (c.msgs || []).slice().sort((a, b) => a.t - b.t).map(m => `<div class="chat-msg ${m.yo ? "yo" : ""}" data-t="${m.t}">${m.cita ? `<div class="chat-cita">${formatoWa(m.cita.txt)}</div>` : ""}${media(m)}
-      <small>${m.yo && m.por ? esc(m.por) + " · " : ""}${horaChat(m.t)}</small>${m.reac ? `<span class="chat-reac">${esc(m.reac)}</span>` : ""}${m.yo ? "" : `<button type="button" class="chat-resp-btn" data-resp aria-label="Opciones del mensaje" aria-haspopup="listbox">${icon("dots")}</button>`}</div>`).join("") || `<p class="muted small center">Sin mensajes.</p>`;
+      <small>${m.yo && m.por ? esc(m.por) + " · " : ""}${horaChat(m.t)}${m.yo ? estChat(c.est?.[m.key?.id] || m.est) : ""}</small>${m.reac ? `<span class="chat-reac">${esc(m.reac)}</span>` : ""}${m.yo ? "" : `<button type="button" class="chat-resp-btn" data-resp aria-label="Opciones del mensaje" aria-haspopup="listbox">${icon("dots")}</button>`}</div>`).join("") || `<p class="muted small center">Sin mensajes.</p>`;
     // Al entrar (o si ya estaba abajo) baja al último; se repite al siguiente cuadro porque la barra del turno y la ventana todavía cambian de alto
     if (abajo || !caja.dataset.listo) { pintarTurno(); const bajar = () => { caja.scrollTop = caja.scrollHeight; }; bajar(); requestAnimationFrame(() => requestAnimationFrame(bajar)); setTimeout(bajar, 260); caja.dataset.listo = "1"; }
     else pintarTurno();
