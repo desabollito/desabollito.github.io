@@ -1253,8 +1253,8 @@ async function ofrecerAvisoCliente(v) {
     let r = null;
     const s = openSheet({ title: "¿Avisarle al cliente?", onClose: () => listo(r), body: `<div class="stack">
       <p class="muted">Se le avisará ${esc(v.asegurado ? "a " + v.asegurado : "al cliente")} que está listo su vehículo.</p>
-      <button type="button" class="btn btn-primary btn-block" data-como="empresa">${icon("chat")}${chat ? "Avisar desde chat en vivo" : "Avisar desde el teléfono de la empresa"}</button>
-      <button type="button" class="btn btn-ghost btn-block" data-como="privado">${icon("share")}Avisar por privado</button></div>` });
+      ${S.config?.chatAvisos !== false ? `<button type="button" class="btn btn-primary btn-block" data-como="empresa">${icon("chat")}${chat ? "Avisar desde chat en vivo" : "Avisar desde el teléfono de la empresa"}</button>` : ""}
+      <button type="button" class="btn ${S.config?.chatAvisos !== false ? "btn-ghost" : "btn-primary"} btn-block" data-como="privado">${icon("share")}Avisar por privado</button></div>` });
     s.el.classList.add("sheet-centro");
     s.el.addEventListener("click", e => { const b = e.target.closest("[data-como]"); if (b) { r = b.dataset.como; s.close(); } });
   });
@@ -1336,7 +1336,7 @@ export function elegirFechaEstado(v, estado, enChat) {
       ${estado === "turnado" ? `<div class="turno-conf"><span>¿Confirmó el turno?</span>
         <button type="button" class="switch ${v.turnoConfirmado === true ? "on" : ""}" id="t-conf" role="switch" aria-checked="${v.turnoConfirmado === true}">
           <span class="sw-txt sw-si">Sí</span><span class="sw-txt sw-no">No</span><i class="sw-bola"></i></button></div>` : ""}
-      ${!enChat && estado === "turnado" && usaClientes() && telWaOk(v) ? `<button type="button" class="btn btn-ghost btn-block" id="t-avisar">${icon("chat")}Turnar desde chat en vivo</button>` : ""}
+      ${!enChat && estado === "turnado" && usaClientes() && S.config?.chatAvisos !== false && telWaOk(v) ? `<button type="button" class="btn btn-ghost btn-block" id="t-avisar">${icon("chat")}Turnar desde chat en vivo</button>` : ""}
       ${!enChat && estado === "turnado" && v.telefono ? `<button type="button" class="btn btn-ghost btn-block" id="t-privado">${icon("share")}Turnar por privado</button>` : ""}
       ${enChat ? `<button class="btn btn-primary btn-block" style="--btn:${e.color}" data-avisar>${icon("chat")}Enviar nueva fecha</button>
       <button class="btn btn-ghost btn-block">Guardar fecha sin avisar</button>` : `<button class="btn btn-primary btn-block" style="--btn:${e.color}">Guardar</button>`}</form>`

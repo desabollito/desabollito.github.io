@@ -2652,7 +2652,8 @@ async function avisarCliente(env, { idToken, cid, vid, por, texto: propio, otraV
   if (!v || v.deleted) return json({ ok: false, error: "No encontré el vehículo" }, 404);
   if (!["reparado", "llamado"].includes(v.estado)) return json({ ok: false, error: "El vehículo no está en revisión ni contactado" });
   if (v.avisoReparado && otraVez !== true) return json({ ok: false, error: "Al cliente ya se le avisó" });   // volver a avisar: solo si se confirmó en la app
-  if ((await fsGet(env, "config/app").catch(() => null))?.avisoReparado === false) return json({ ok: false, error: "El aviso al cliente está desactivado" });
+  const cfg = await fsGet(env, "config/app").catch(() => null);
+  if (cfg?.avisoReparado === false || cfg?.chatAvisos === false) return json({ ok: false, error: "El aviso al cliente está desactivado" });
   const tel = telefonoAR(v.telefono);
   if (!tel) return json({ ok: false, error: "El teléfono del cliente no parece un celular válido" });
   const c = await fsGet(env, `companies/${cid}`);
@@ -3516,7 +3517,7 @@ async function copiarMensajesParana(env) {
     .map(o => fsMerge(env, `companies/${o.__id}`, { mensajes: { ...modelo, ...(o.mensajes || {}) } })));
 }
 
-const CONFIG_CLAVES = ["avisoReparado", "documentos", "fechaVista", "etapasPdf", "planillaVeh", "mensajesTurnos"];   // interruptores del creador (todos arrancan encendidos, salvo etapasPdf)
+const CONFIG_CLAVES = ["avisoReparado", "documentos", "fechaVista", "etapasPdf", "planillaVeh", "mensajesTurnos", "chatAvisos"];   // interruptores del creador (todos arrancan encendidos, salvo etapasPdf)
 async function adminConfig(env, body) {
   if (!(await soloCreador(env, body.idToken))) return json({ ok: false, error: "No autorizado" }, 403);
   const cambios = Object.fromEntries(CONFIG_CLAVES.filter(k => typeof body[k] === "boolean").map(k => [k, body[k]]));

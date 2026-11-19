@@ -980,6 +980,8 @@ export async function panelCreador() {
           <span>Planilla de vehículos</span></label>
         <label class="toggle"><input type="checkbox" data-config="mensajesTurnos" ${datos.config?.mensajesTurnos !== false ? "checked" : ""}>
           <span>Botón «Mensajes y turnos»</span></label>
+        <label class="toggle"><input type="checkbox" data-config="chatAvisos" ${datos.config?.chatAvisos !== false ? "checked" : ""}>
+          <span>Turnar y avisar desde chat en vivo <small class="muted">(apagado: solo por privado)</small></span></label>
       </div>
       <div class="adm-toggles adm-sonido">
         <span><b>Sonido al actualizar la app</b> <small class="muted">(lo escuchan todos)</small></span>
@@ -1114,7 +1116,7 @@ export async function panelCreador() {
       const r = await llamarAdmin("config", { [clave]: on });
       datos.config = r.config; S.config = { ...S.config, ...r.config };
       if (clave === "mensajesTurnos") pintar();   // muestra u oculta el botón de acá arriba
-      toast(`${{ documentos: "Documentos", fechaVista: "Elegir fecha", etapasPdf: "Estado en los PDF", planillaVeh: "Planilla de vehículos", mensajesTurnos: "Mensajes y turnos" }[clave] || "Aviso al cliente"} ${on ? "activado" : "desactivado"}`, "success");
+      toast(`${{ documentos: "Documentos", fechaVista: "Elegir fecha", etapasPdf: "Estado en los PDF", planillaVeh: "Planilla de vehículos", mensajesTurnos: "Mensajes y turnos", chatAvisos: "Turnar y avisar desde chat en vivo" }[clave] || "Aviso al cliente"} ${on ? "activado" : "desactivado"}`, "success");
     } catch (err) { e.target.checked = !on; toast(err.message, "error"); }
     e.target.disabled = false;
   });
