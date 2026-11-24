@@ -1870,6 +1870,8 @@ function compartir(v) {
     title: "Compartir presupuesto",
     body: `<div class="stack">
       ${hayFotos ? `<label class="toggle"><input type="checkbox" id="con-fotos"><span>Incluir las ${v.fotos.length} fotos</span></label>` : ""}
+      ${v.pintura || v.repuestos ? `<label class="toggle"><input type="checkbox" id="con-pintrep"><span>Incluir pintura y repuestos</span></label>` : ""}
+      ${v.observaciones ? `<label class="toggle"><input type="checkbox" id="con-obs"><span>Incluir observaciones</span></label>` : ""}
       ${puedeCompartirArchivos() ? `<button class="btn btn-primary btn-block btn-lg" data-m="share">${icon("share")}Compartir PDF</button>` : ""}
       <button class="btn ${puedeCompartirArchivos() ? "btn-ghost" : "btn-primary btn-lg"} btn-block" data-m="save">${icon("download")}Descargar PDF</button>
       ${soyDesmontaje() ? "" : `<button class="btn btn-ghost btn-block" data-link>${icon("car")}Link de seguimiento</button>`}</div>`
@@ -1884,7 +1886,8 @@ function compartir(v) {
     const conFotos = $("#con-fotos", s.el)?.checked || false;
     const mio = ++turno;
     listo = null; error = null;
-    preparando = presupuestoPDF(v, S.company, { conFotos, etapa: S.config?.etapasPdf ? (tipo, x) => etapaItem(v, tipo, x) : null })
+    const conPintRep = $("#con-pintrep", s.el)?.checked || false, conObs = $("#con-obs", s.el)?.checked || false;
+    preparando = presupuestoPDF(v, S.company, { conFotos, conPintRep, conObs, etapa: S.config?.etapasPdf ? (tipo, x) => etapaItem(v, tipo, x) : null })
       .then(doc => {
         if (mio !== turno) return;
         const blob = doc.output("blob");
@@ -1894,7 +1897,7 @@ function compartir(v) {
     return preparando;
   };
   preparar();
-  $("#con-fotos", s.el)?.addEventListener("change", preparar);
+  ["#con-fotos", "#con-pintrep", "#con-obs"].forEach(id => $(id, s.el)?.addEventListener("change", preparar));
 
   const descargar = blob => {
     const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = nombre; a.click();

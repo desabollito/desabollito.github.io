@@ -138,7 +138,7 @@ function titulo(doc, txt, x, y, w) {
   doc.setDrawColor(...LINEA); doc.setLineWidth(0.3); doc.line(x, y + 1.8, x + w, y + 1.8);   // línea finita gris
 }
 
-export async function presupuestoPDF(v, empresa, { conFotos = false, onProgreso, etapa = null } = {}) {
+export async function presupuestoPDF(v, empresa, { conFotos = false, conPintRep = true, conObs = true, onProgreso, etapa = null } = {}) {
   acento(empresa);
   const doc = nuevoDoc();
   const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), M = 16, CW = W - M * 2;
@@ -194,7 +194,7 @@ export async function presupuestoPDF(v, empresa, { conFotos = false, onProgreso,
   }
 
   // Observaciones y repuestos
-  const bloques = [["Pintura", v.pintura], ["Repuestos", v.repuestos], ["Observaciones", v.observaciones]].filter(b => b[1]);
+  const bloques = [...(conPintRep ? [["Pintura", v.pintura], ["Repuestos", v.repuestos]] : []), ...(conObs ? [["Observaciones", v.observaciones]] : [])].filter(b => b[1]);
   // Una fila por sección (de lado a lado de la hoja): el nombre a la izquierda y los ítems uno al lado del otro
   if (bloques.length) {
     const LX = M + 56 * 240 / 422 + 10, LW = CW - (LX - M);   // mismos puntos que los paños (lado izq./der.)
