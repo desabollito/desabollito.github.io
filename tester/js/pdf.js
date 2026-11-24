@@ -195,39 +195,49 @@ export async function presupuestoPDF(v, empresa, { conFotos = false, conPintRep 
 
   // Observaciones y repuestos
   const bloques = [...(conPintRep ? [["Pintura", v.pintura], ["Repuestos", v.repuestos]] : []), ...(conObs ? [["Observaciones", v.observaciones]] : [])].filter(b => b[1]);
-  // Una fila por sección (de lado a lado de la hoja): el nombre a la izquierda y los ítems uno al lado del otro
+  // Cada sección: el nombre como subtítulo y abajo los ítems a todo el ancho (los largos bajan de renglón)
   if (bloques.length) {
-    const LX = M + 56 * 240 / 422 + 10, LW = CW - (LX - M);   // mismos puntos que los paños (lado izq./der.)
+    const LH = 4.6, CWI = CW / 2 - 6;   // alto de renglón y ancho del texto de cada columna
+    const salto = alto => { if (y + alto > H - 25) { doc.addPage(); y = 20; } };   // lo que no entra arranca en la hoja siguiente
     doc.setDrawColor(...LINEA); doc.setLineWidth(0.3); doc.line(M, y - 4, M + CW, y - 4); y += 2.5;
     // Línea fina entre Pintura, Repuestos y Observaciones (no después de la última)
     let n = 0;
     const sep = () => { if (++n < bloques.length) { y += 2.5; doc.setDrawColor(...LINEA); doc.setLineWidth(0.3); doc.line(M, y - 4, M + CW, y - 4); y += 4.5; } };
     bloques.forEach(([t, txt]) => {
+      salto(12);
       doc.setFont("helvetica", "bold"); doc.setFontSize(9.5); doc.setTextColor(...C_TIT);
-      doc.text(t, M, y);
+      doc.text(t, M, y); y += 6;
       doc.setFont("helvetica", "normal"); doc.setFontSize(9.5); doc.setTextColor(40, 52, 70);
       if (t === "Observaciones") {
-        const lineas = doc.splitTextToSize(txt, LW);
-        doc.text(lineas, LX, y);
-        y += lineas.length * 4.6 + 3;
-        sep();
+        doc.splitTextToSize(txt, CW).forEach(l => { salto(LH); doc.text(l, M, y); y += LH; });
+        y += 3;
       } else {
-        // Dos columnas, alineadas con "Lado izquierdo" y "Lado derecho" de los paños
-        let iy = y;
-        String(txt).split(/\n|,/).map(x => x.trim()).filter(Boolean).forEach((item, i) => {
-          if (i && i % 2 === 0) iy += 6.5;
-          const ix = LX + (i % 2) * 62;
-          doc.setFillColor(...C_PUNTOS); doc.circle(ix + 1.1, iy - 1.2, 1.1, "F");
-          // Con el estado (Recibido, Pintado…) a la derecha si el dueño lo activó en Ajustes
+        // Dos columnas; cada fila toma el alto del ítem más largo
+        const items = String(txt).split(/\n|,/).map(x => x.trim()).filter(Boolean).map(item => {
+          // Con el estado (Recibido, Pintado…) al final si el dueño lo activó en Ajustes
           const [, est, color] = etapa ? etapa(t.toLowerCase(), item) : [];
-          const ancho = est ? doc.getTextWidth(" · " + est) : 0;
-          const nombre = doc.splitTextToSize(item, 56 - ancho)[0];
-          doc.text(nombre, ix + 4, iy);
-          if (est) { doc.setTextColor(color); doc.text(" · " + est, ix + 4 + doc.getTextWidth(nombre), iy); doc.setTextColor(40, 52, 70); }
+          const lineas = doc.splitTextToSize(item, CWI);
+          const entra = est && doc.getTextWidth(lineas.at(-1) + " · " + est) <= CWI;
+          return { lineas, est, color, entra, alto: (lineas.length + (est && !entra ? 1 : 0)) * LH };
         });
-        y = iy + 7;
-        sep();
+        for (let i = 0; i < items.length; i += 2) {
+          const fila = items.slice(i, i + 2), alto = Math.max(...fila.map(it => it.alto));
+          salto(alto);
+          fila.forEach((it, c) => {
+            const ix = M + c * CW / 2;
+            doc.setFillColor(...C_PUNTOS); doc.circle(ix + 1.1, y - 1.2, 1.1, "F");
+            doc.text(it.lineas, ix + 4, y, { lineHeightFactor: LH / (9.5 * 0.353) });
+            if (it.est) {
+              const ly = y + (it.lineas.length - (it.entra ? 1 : 0)) * LH;
+              const lx = ix + 4 + (it.entra ? doc.getTextWidth(it.lineas.at(-1)) : 0);
+              doc.setTextColor(it.color); doc.text((it.entra ? " · " : "") + it.est, lx, ly); doc.setTextColor(40, 52, 70);
+            }
+          });
+          y += alto + 1.9;
+        }
+        y += 2;
       }
+      sep();
     });
     y += 2;
   }

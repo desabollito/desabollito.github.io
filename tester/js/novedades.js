@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.54.1", items: ["PDF del presupuesto: Pintura, Repuestos y Observaciones salen como subtítulo con los ítems abajo a todo el ancho. Los repuestos largos ya no se cortan: bajan de renglón, y si no entran siguen en la hoja siguiente."] },
   { v: "4.54.0", items: ["Compartir presupuesto: además de las fotos, elegís si el PDF lleva pintura y repuestos y si lleva observaciones. Todo viene apagado por defecto."] },
   { v: "4.53.2", items: ["Planilla de técnicos: los autos particulares entran en $0 por defecto (en la planilla y en la descarga). Se puede cambiar a mano.", "Planilla de técnicos: el buscador también filtra por seguro (escribí «particular» o el nombre de la compañía)."] },
   { v: "4.53.1", items: ["Turnar y avisar al cliente: sin botón Cancelar, para que entren mejor en pantallas angostas (se cierran tocando afuera)."] },
