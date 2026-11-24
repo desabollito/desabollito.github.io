@@ -84,7 +84,8 @@ export function vistaTecnicos(view) {
     creando = true;
     const activosTec = cfg.tecnicos.filter(t => t.activo !== false).map(t => t.id);
     const b = writeBatch(db);
-    faltan.forEach(v => b.set(doc(col, v.id), { valor: Number(cfg.valorDefault) || 0, tecs: activosTec, creado: Date.now(), fecha: fechaRep(v) }));
+    // Particulares arrancan en $0 (se puede cambiar a mano)
+    faltan.forEach(v => b.set(doc(col, v.id), { valor: /^particular$/i.test(String(v.compania || "").trim()) ? 0 : Number(cfg.valorDefault) || 0, tecs: activosTec, creado: Date.now(), fecha: fechaRep(v) }));
     sinFecha.forEach(v => b.update(doc(col, v.id), { fecha: fechaRep(v) }));
     b.commit().catch(e => toast(mensajeError(e), "error")).finally(() => { creando = false; });
   };
@@ -99,7 +100,7 @@ export function vistaTecnicos(view) {
 
   const estructura = () => {
     view.innerHTML = `<div class="tec-page">
-      <label class="search">${icon("search")}<input type="search" id="t-q" placeholder="Buscar patente" value="${esc(T.q)}" autocomplete="off" autocapitalize="characters"></label>
+      <label class="search">${icon("search")}<input type="search" id="t-q" placeholder="Buscar patente o seguro" value="${esc(T.q)}" autocomplete="off" autocapitalize="characters"></label>
       <div class="seg seg-sm tec-tabs" id="t-tabs">${[["autos", "Sacabollos"], ["sueldos", "Sueldos"], ["cierre", "Cierre"]].filter(([k]) => !(sinSueldos && k === "sueldos")).map(([k, t]) =>
         `<button type="button" class="seg-btn ${T.tab === k ? "on" : ""}" data-tab="${k}">${t}</button>`).join("")}</div>
       <div id="t-body"></div></div>`;
@@ -118,7 +119,9 @@ export function vistaTecnicos(view) {
 
   const pintar = () => {
     const body = $("#t-body", view); if (!body) return;
-    const rows = lista(), q = T.q.toUpperCase().replace(/[^A-Z0-9]/g, "");
+    // Busca por patente o por seguro (sin acentos ni espacios: "la segunda" = "La Segunda")
+    const norm = s => String(s || "").normalize("NFD").toUpperCase().replace(/[^A-Z0-9]/g, "");
+    const rows = lista(), q = norm(T.q);
     if (!cfg.tecnicos.length) {
       body.innerHTML = `<div class="empty small"><p>Primero agregá los técnicos (solo nombres, no tienen que estar en la app).</p>
         <button class="btn btn-primary" data-act="tecnicos">${icon("plus")}Agregar técnicos</button></div>`;
@@ -128,7 +131,7 @@ export function vistaTecnicos(view) {
     if (T.tab === "autos") {
       // Al repintar (por ej. al tocar un técnico) la tabla queda donde estaba deslizada
       const tw = $(".table-wrap", body), sx = tw?.scrollLeft || 0, sy = tw?.scrollTop || 0;
-      body.innerHTML = pintarAutos(q ? rows.filter(r => (r.v.patente || "").toUpperCase().replace(/[^A-Z0-9]/g, "").includes(q)) : rows); conectarAnchos(body);
+      body.innerHTML = pintarAutos(q ? rows.filter(r => norm(r.v.patente).includes(q) || norm(r.v.compania).includes(q)) : rows); conectarAnchos(body);
       const nw = $(".table-wrap", body); if (nw && tw) { nw.scrollLeft = sx; nw.scrollTop = sy; }
       // Volviendo de un vehículo: la planilla queda donde estaba
       if (nw && T.volver) { nw.scrollLeft = T.volver.x; nw.scrollTop = T.volver.t; scrollTo(0, T.volver.y); T.volver = null; }
@@ -142,7 +145,7 @@ export function vistaTecnicos(view) {
   // Las columnas se pueden ensanchar o achicar arrastrando el borde del título (se recuerda en este equipo).
   const anchos = () => { try { return JSON.parse(localStorage.getItem("tecCols") || "{}"); } catch { return {}; } };
   const pintarAutos = rows => {
-    if (!rows.length) return `<div class="empty small"><p>${T.q ? "No hay autos con esa patente." : "Todavía no hay autos en reparación ni entregados."}</p></div>`;
+    if (!rows.length) return `<div class="empty small"><p>${T.q ? "No hay autos con esa patente o seguro." : "Todavía no hay autos en reparación ni entregados."}</p></div>`;
     const ed = T.editando, tecs = cfg.tecnicos, nc = 4 + tecs.length + (ed ? 1 : 0), w = anchos();
     // Entre Importe y los técnicos va una columna vacía de separación
     // shortcut: el ancho del nombre se estima por letra, si una fuente nueva no entra subir el 10
