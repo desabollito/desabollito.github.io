@@ -616,21 +616,17 @@ const etapaItem = (v, tipo, x) => ETAPAS[tipo].find(e => e[0] === v[CAMPO_ETAPAS
 const grillaFotos = (fotos, campo, soloVer) => {
   const max = soloVer ? 8 : 7, ver = fotos.length > max ? fotos.slice(0, max - 1) : fotos, resto = fotos.length - ver.length;
   const cuadro = (f, extra = "") => `<button type="button" data-pfoto="${esc(f.url)}" data-campo="${campo}"><img src="${esc(thumb(f.url, 200))}" alt="" loading="lazy">${extra}</button>`;
-  return `<div class="desm-fotos">${ver.map(f => cuadro(f)).join("")}${resto ? cuadro(fotos[ver.length], `<span class="ft-resto">+${resto}</span>`) : ""}${soloVer ? "" : `<button type="button" class="ft-mas" data-fsec="${campo}" aria-label="Agregar fotos">${icon("plus")}</button>`}</div>`;
+  return `<div class="desm-fotos">${ver.map(f => cuadro(f)).join("")}${resto ? cuadro(fotos[ver.length], `<span class="ft-resto">+${resto}</span>`) : ""}${soloVer ? "" : `<button type="button" class="ft-mas" data-fsec="${campo}" aria-label="Agregar fotos" title="Agregar fotos">${icon("camera")}</button>`}</div>`;
 };
-// Box «Repuestos y pintura»: cada ítem es una fila con su estado; «+ Agregar» suma una fila (también se cargan desde Editar)
-const grupoSec = (titulo, v, tipo, soloVer) => {
+// Repuestos y Pintura: secciones como las demás; el + del título suma una fila (también se cargan desde Editar) y el cuadro + de fotos está aunque no haya ninguna
+const chipsSec = (titulo, v, tipo, soloVer) => {
   const items = itemsTexto(v[tipo]), campo = tipo === "pintura" ? "fotosPintura" : "fotosRepuestos", fotos = v[campo] || [];
   if (soloVer && !items.length && !fotos.length) return "";
-  return `<div class="pr-grupo"><h4>${titulo}${fotos.length ? ` <small>${fotos.length} ${fotos.length === 1 ? "foto" : "fotos"}</small>` : ""}</h4>
+  return `<section class="d-sec d-pintrep"><div class="sec-head"><h3>${titulo}${fotos.length ? ` <small>${fotos.length} ${fotos.length === 1 ? "foto" : "fotos"}</small>` : ""}</h3>
+    ${soloVer ? "" : `<button type="button" class="icon-btn sm" data-pr-add="${tipo}" aria-label="Agregar ${tipo === "pintura" ? "pintura" : "repuesto"}" title="Agregar">${icon("plus")}</button>`}</div>
   ${items.length ? `<ul class="piezas-list pintura-list etapas">${items.map(x => { const [, label, color] = etapaItem(v, tipo, x);
     return `<li><button type="button" class="etapa-item" data-tipo="${tipo}" data-item="${esc(x)}" style="--c:${color}"><span>${esc(x)}</span><small>${label}</small></button></li>`; }).join("")}</ul>` : ""}
-  ${soloVer ? "" : `<button type="button" class="link-btn pr-add" data-pr-add="${tipo}">${icon("plus")}Agregar ${tipo === "pintura" ? "pintura" : "repuesto"}</button>`}
-  ${fotos.length ? grillaFotos(fotos, campo, soloVer) : ""}</div>`;
-};
-const secPintRep = (v, soloVer) => {
-  const g = grupoSec("Repuestos", v, "repuestos", soloVer) + grupoSec("Pintura", v, "pintura", soloVer);
-  return g ? `<section class="d-sec d-pintrep"><div class="sec-head"><h3>Repuestos y pintura</h3></div>${g}</section>` : "";
+  ${fotos.length || !soloVer ? grillaFotos(fotos, campo, soloVer) : ""}</section>`;
 };
 // Guarda la lista de un tipo con el estado de cada ítem acompañándolo (renombrar no lo pierde)
 const guardarItems = (v, tipo, viejos, nuevos, hist) => actualizarVehiculo(v.id, {
@@ -766,7 +762,8 @@ export function renderDetalle(root, v, embebido) {
 
     ${soloVer && !v.observaciones ? "" : `<section class="d-sec d-post"><h3>Observaciones</h3>
       <textarea class="post-rep" data-campo="observaciones" rows="1" ${soloVer ? "readonly" : ""} placeholder="Detalles adicionales">${esc(v.observaciones || "")}</textarea></section>`}
-    ${secPintRep(v, soloVer)}
+    ${chipsSec("Repuestos", v, "repuestos", soloVer)}
+    ${chipsSec("Pintura", v, "pintura", soloVer)}
 
     ${(() => {
       // Adicionales: con una sola cosa (ej. la firma) va directo, sin desplegable

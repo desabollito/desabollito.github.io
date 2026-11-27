@@ -2872,10 +2872,6 @@ button.aj-item:hover, a.aj-item:hover { background: var(--surface-2); }
 #ver-como .btn { flex: none; background: rgb(0 0 0 / .25); color: #fff; border: 0; }
 @media (min-width: 900px) { #ver-como { bottom: 18px; } }
 
-/* Box «Repuestos y pintura»: un grupo por tipo con sus filas y «+ Agregar» */
-.d-pintrep .pr-grupo + .pr-grupo { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
-.d-pintrep h4 { font-size: 13px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
-.d-pintrep h4 small { text-transform: none; letter-spacing: 0; font-weight: 600; }
-.d-pintrep .pr-add { display: inline-flex; align-items: center; gap: 6px; margin-top: 8px; font-weight: 700; }
-.d-pintrep .pr-add .ic { width: 16px; height: 16px; }
+/* Repuestos y Pintura: + al lado del título; fotos debajo de las filas */
 .d-pintrep .desm-fotos { margin-top: 8px; }
+.d-pintrep .sec-head { justify-content: flex-start; gap: 6px; }

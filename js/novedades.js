@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.55.1", items: ["Repuestos y Pintura vuelven a ser dos secciones con el título igual que las demás y un + al lado para agregar una fila. El cuadro con la cámara agrega fotos aunque todavía no haya ninguna."] },
   { v: "4.55.0", items: ["Vehículo: box «Repuestos y pintura» con «+ Agregar» para sumar de a uno. Tocando un ítem, además del estado, se puede renombrar o quitar; el estado no se pierde al renombrar ni al editar la lista desde Editar.", "Fotos: la foto entera se cierra con una X arriba a la derecha (ya no se confunde con la flecha de anterior); sin botón de girar; sin la barrita de arriba en el celular; Cámara y Galería quedan fijos abajo, así no se mueve la pantalla al agregar.", "«Limpiar filtros» también borra la búsqueda."] },
   { v: "4.54.1", items: ["PDF del presupuesto: Pintura, Repuestos y Observaciones salen como subtítulo con los ítems abajo a todo el ancho. Los repuestos largos ya no se cortan: bajan de renglón, y si no entran siguen en la hoja siguiente."] },
   { v: "4.54.0", items: ["Compartir presupuesto: además de las fotos, elegís si el PDF lleva pintura y repuestos y si lleva observaciones. Todo viene apagado por defecto."] },
