@@ -1086,7 +1086,6 @@ details.vform-det .field + .field { margin-top: 12px; }
 .viewer-ov { position: absolute; background: rgba(10,20,32,.55); color: #fff; border-radius: 50%; -webkit-touch-callout: none; user-select: none; }
 .viewer-ov:hover { background: rgba(10,20,32,.8); }
 .viewer-dl { top: 10px; right: 10px; }
-.viewer-rot { top: 10px; left: 10px; }
 .viewer-prev, .viewer-next { top: 50%; transform: translateY(-50%); }
 .viewer-prev { left: 4px; } .viewer-next { right: 4px; }
 .viewer-bar { justify-content: space-between; }
@@ -2092,6 +2091,8 @@ body[data-ruta="checkform"] .main { padding-bottom: calc(90px + var(--safe-b)); 
 .viewer-pint { top: 10px; left: 64px; }
 .viewer-add-fila { display: flex; align-items: center; gap: 8px; }
 .viewer-add-fila .hold-del { flex: 0 0 auto; width: 44px; height: 44px; }
+.viewer-add-fila .foto-btns { flex: 1; min-width: 0; }
+.sheet-visor .sheet-grip { display: none; }   /* visor a pantalla completa: sin la barrita de arrastrar arriba */
 .vw-centro { flex: 1; display: flex; justify-content: center; }
 /* Foto a pantalla completa: fondo de vidrio (como la barra de volver) en vez de negro */
 .zoom-foto { background: rgb(10 14 22 / .55); -webkit-backdrop-filter: blur(24px) saturate(140%); backdrop-filter: blur(24px) saturate(140%); }
@@ -2202,8 +2203,8 @@ body[data-facturacion="1"] .step:not([data-estado="facturado"]) { pointer-events
   .cd-ev i { width: 6px; height: 6px; flex: none; }
   .cd-ev i.more { position: static; padding: 0; margin: 0 0 0 1px; background: none; color: var(--muted); font-size: 9.5px; font-weight: 700; line-height: 1; }
 }
-/* Foto grande: "Volver" es una flechita flotante arriba a la izquierda (no tapa la foto) */
-.zoom-foto .zoom-x { top: calc(12px + var(--safe-t, 0px)); left: 12px; right: auto; width: 44px; height: 44px; padding: 0; border-radius: 50%;
+/* Foto grande: X para cerrar arriba a la derecha, donde está la X del visor (las flechas de abajo pasan de foto) */
+.zoom-foto .zoom-x { top: calc(18px + var(--safe-t, 0px)); right: 10px; left: auto; width: 44px; height: 44px; padding: 0; border-radius: 50%;
   border: 1px solid color-mix(in srgb, var(--line) 60%, transparent); }
 .zoom-foto .zoom-x .ic { position: static; transform: none; }
 /* Dos flechas flotantes juntas, abajo al centro (en celular también se puede deslizar) */
@@ -2870,3 +2871,11 @@ button.aj-item:hover, a.aj-item:hover { background: var(--surface-2); }
 #ver-como span { min-width: 0; }
 #ver-como .btn { flex: none; background: rgb(0 0 0 / .25); color: #fff; border: 0; }
 @media (min-width: 900px) { #ver-como { bottom: 18px; } }
+
+/* Box «Repuestos y pintura»: un grupo por tipo con sus filas y «+ Agregar» */
+.d-pintrep .pr-grupo + .pr-grupo { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+.d-pintrep h4 { font-size: 13px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.d-pintrep h4 small { text-transform: none; letter-spacing: 0; font-weight: 600; }
+.d-pintrep .pr-add { display: inline-flex; align-items: center; gap: 6px; margin-top: 8px; font-weight: 700; }
+.d-pintrep .pr-add .ic { width: 16px; height: 16px; }
+.d-pintrep .desm-fotos { margin-top: 8px; }

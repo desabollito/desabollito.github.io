@@ -148,3 +148,16 @@ export function repartirTurnos(grados, { desde, hasta = "", porDia = 0, porGrado
   });
   return out;
 }
+
+// Estado de cada repuesto / paño de pintura (etapasRepuestos / etapasPintura): la clave es el nombre normalizado
+export const claveItem = x => String(x).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "").slice(0, 60) || "item";
+// Al editar la lista cada ítem conserva su estado; uno renombrado en el mismo lugar se queda con el del nombre anterior
+export function etapasTrasEditar(viejos, nuevos, etapas = {}) {
+  const claves = new Set(nuevos.map(claveItem)), r = {};
+  nuevos.forEach((x, i) => {
+    const k = claveItem(x), ant = i < viejos.length ? claveItem(viejos[i]) : null;
+    const e = etapas?.[k] ?? (ant && !claves.has(ant) ? etapas?.[ant] : undefined);
+    if (e) r[k] = e;
+  });
+  return r;
+}

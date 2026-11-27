@@ -7,10 +7,10 @@ import {
   soyDesmontaje, agregarDesmontaje, elegirDesmontador, borrarMedia, soyLector, linkVehiculo, soloVer, soySacabollos, usaClientes, chatEnMantenimiento, soyFacturacion,
   onChange, chatSinLeer, chatDeTel, CAMPOS_HIST
 } from "./data.js";
-import { ESTADOS, ESTADO, SECUENCIA, PASO_REP, PIEZA, ORDEN_PIEZAS, estadoActual, esAnulado, piezasMarcadas } from "./domain.js";
+import { ESTADOS, ESTADO, SECUENCIA, PASO_REP, PIEZA, ORDEN_PIEZAS, estadoActual, esAnulado, piezasMarcadas, claveItem, etapasTrasEditar } from "./domain.js";
 import {
   $, $$, esc, money, fechaCorta, fechaLarga, hoyISO, plate, estadoPill, icon, toast, openSheet,
-  confirmar, busy, debounce, marcarError, horaDe, glideMenu } from "./ui.js";
+  confirmar, pedirTexto, busy, debounce, marcarError, horaDe, glideMenu } from "./ui.js";
 import { carMapSVG, montarMapa, pulsar } from "./carmap.js";
 import { contar } from "./efectos.js";
 import { subir, comprimir, borrarConToken, thumb, grande, cloudinaryListo, esVideo, videoURL } from "./media.js";
@@ -499,7 +499,7 @@ export function vistaVehiculos(view, selId = null) {
     box.innerHTML = html;
     box.classList.toggle("lista-anim", animar);
     if (animar) [...box.children].forEach((c, i) => c.style.setProperty("--i", i));
-    $("#limpiar", box)?.addEventListener("click", () => { F.estado.clear(); F.mios = false; F.sinAnul = false; F.cias.clear(); F.grado.clear(); F.repuestos.clear(); F.pintura.clear(); F.cliente.clear(); F.cargado.clear(); Object.values(F.no).forEach(s => s.clear()); marcarBoton(); pintar(); });
+    $("#limpiar", box)?.addEventListener("click", () => { F.q = ""; if ($("#q")) $("#q").value = ""; F.estado.clear(); F.mios = false; F.sinAnul = false; F.cias.clear(); F.grado.clear(); F.repuestos.clear(); F.pintura.clear(); F.cliente.clear(); F.cargado.clear(); Object.values(F.no).forEach(s => s.clear()); marcarBoton(); pintar(); });
   };
 
   // Computadora: tocar de nuevo el vehículo marcado lo desmarca y cierra el detalle
@@ -610,8 +610,6 @@ const ETAPAS = {
   pintura: [["pendiente", "Sin cargar", "#e5484d"], ["pedido", "Pedido", "#e0a526"], ["turnado", "Turnado", "#4f8ff7"], ["pintado", "Pintado", "#22b07d"]]
 };
 const CAMPO_ETAPAS = { repuestos: "etapasRepuestos", pintura: "etapasPintura" };
-const claveItem = x => sinTildesJS(x).toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "").slice(0, 60) || "item";
-const sinTildesJS = t => String(t).normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 const etapaItem = (v, tipo, x) => ETAPAS[tipo].find(e => e[0] === v[CAMPO_ETAPAS[tipo]]?.[claveItem(x)]) || ETAPAS[tipo][0];
 // Con las fotos de esa sección (fotosRepuestos / fotosPintura) abajo de los ítems
 // Misma grilla de fotos que el resto: si no entran, el último cuadro dice "+N" (abre el visor) y al final va el cuadro "+" para agregar
@@ -620,20 +618,47 @@ const grillaFotos = (fotos, campo, soloVer) => {
   const cuadro = (f, extra = "") => `<button type="button" data-pfoto="${esc(f.url)}" data-campo="${campo}"><img src="${esc(thumb(f.url, 200))}" alt="" loading="lazy">${extra}</button>`;
   return `<div class="desm-fotos">${ver.map(f => cuadro(f)).join("")}${resto ? cuadro(fotos[ver.length], `<span class="ft-resto">+${resto}</span>`) : ""}${soloVer ? "" : `<button type="button" class="ft-mas" data-fsec="${campo}" aria-label="Agregar fotos">${icon("plus")}</button>`}</div>`;
 };
-const chipsSec = (titulo, v, tipo, soloVer) => {
+// Box «Repuestos y pintura»: cada ítem es una fila con su estado; «+ Agregar» suma una fila (también se cargan desde Editar)
+const grupoSec = (titulo, v, tipo, soloVer) => {
   const items = itemsTexto(v[tipo]), campo = tipo === "pintura" ? "fotosPintura" : "fotosRepuestos", fotos = v[campo] || [];
-  if (!items.length && !fotos.length) return "";
-  return `<section class="d-sec"><div class="sec-head"><h3>${titulo}${fotos.length ? ` <small>${fotos.length} ${fotos.length === 1 ? "foto" : "fotos"}</small>` : ""}</h3></div>
+  if (soloVer && !items.length && !fotos.length) return "";
+  return `<div class="pr-grupo"><h4>${titulo}${fotos.length ? ` <small>${fotos.length} ${fotos.length === 1 ? "foto" : "fotos"}</small>` : ""}</h4>
   ${items.length ? `<ul class="piezas-list pintura-list etapas">${items.map(x => { const [, label, color] = etapaItem(v, tipo, x);
     return `<li><button type="button" class="etapa-item" data-tipo="${tipo}" data-item="${esc(x)}" style="--c:${color}"><span>${esc(x)}</span><small>${label}</small></button></li>`; }).join("")}</ul>` : ""}
-  ${fotos.length ? grillaFotos(fotos, campo, soloVer) : ""}</section>`;
+  ${soloVer ? "" : `<button type="button" class="link-btn pr-add" data-pr-add="${tipo}">${icon("plus")}Agregar ${tipo === "pintura" ? "pintura" : "repuesto"}</button>`}
+  ${fotos.length ? grillaFotos(fotos, campo, soloVer) : ""}</div>`;
 };
-
+const secPintRep = (v, soloVer) => {
+  const g = grupoSec("Repuestos", v, "repuestos", soloVer) + grupoSec("Pintura", v, "pintura", soloVer);
+  return g ? `<section class="d-sec d-pintrep"><div class="sec-head"><h3>Repuestos y pintura</h3></div>${g}</section>` : "";
+};
+// Guarda la lista de un tipo con el estado de cada ítem acompañándolo (renombrar no lo pierde)
+const guardarItems = (v, tipo, viejos, nuevos, hist) => actualizarVehiculo(v.id, {
+  [tipo]: nuevos.join(", "), [CAMPO_ETAPAS[tipo]]: etapasTrasEditar(viejos, nuevos, v[CAMPO_ETAPAS[tipo]]) }, hist).catch(err => toast(mensajeError(err), "error"));
+async function agregarItem(v, tipo) {
+  const nom = tipo === "pintura" ? "pintura" : "repuesto";
+  const t = await pedirTexto({ title: `Agregar ${nom}`, label: tipo === "pintura" ? "Paño" : "Repuesto", placeholder: tipo === "pintura" ? "Ej: Capot" : "Ej: Espejo derecho", ok: "Agregar" });
+  const nuevos = itemsTexto(t); if (!nuevos.length) return;
+  const cur = getVehiculo(v.id) || v, viejos = itemsTexto(cur[tipo]);
+  guardarItems(cur, tipo, viejos, [...viejos, ...nuevos], `Agregó ${nom}: ${nuevos.join(", ")}`);
+}
 function elegirEtapa(v, tipo, item) {
   const actual = etapaItem(v, tipo, item)[0];
   const s = openSheet({ title: item, body: `<div class="stack etapa-opciones">${ETAPAS[tipo].map(([k, label, color]) =>
-    `<button type="button" class="btn btn-block etapa-op ${k === actual ? "on" : ""}" data-k="${k}" style="--c:${color}"><i></i>${label}</button>`).join("")}</div>` });
-  s.el.addEventListener("click", e => {
+    `<button type="button" class="btn btn-block etapa-op ${k === actual ? "on" : ""}" data-k="${k}" style="--c:${color}"><i></i>${label}</button>`).join("")}
+    <div class="row-btns"><button type="button" class="btn btn-ghost" data-ren>${icon("edit")}Renombrar</button><button type="button" class="btn btn-ghost danger" data-quitar>${icon("trash")}Quitar</button></div></div>` });
+  s.el.addEventListener("click", async e => {
+    // Renombrar / quitar: el estado sigue con el ítem
+    const ren = e.target.closest("[data-ren]"), quitar = e.target.closest("[data-quitar]");
+    if (ren || quitar) {
+      s.close();
+      const cur = getVehiculo(v.id) || v, viejos = itemsTexto(cur[tipo]), i = viejos.indexOf(item);
+      if (i < 0) return;
+      if (quitar) return guardarItems(cur, tipo, viejos, viejos.filter((_, k) => k !== i), `Quitó ${item}`);
+      const nuevo = itemsTexto(await pedirTexto({ title: "Renombrar", label: tipo === "pintura" ? "Paño" : "Repuesto", value: item }))[0];
+      if (!nuevo || nuevo === item) return;
+      return guardarItems(cur, tipo, viejos, viejos.map((x, k) => k === i ? nuevo : x), `Renombró ${item} → ${nuevo}`);
+    }
     const b = e.target.closest("[data-k]"); if (!b) return;
     s.close();
     if (b.dataset.k === actual) return;
@@ -741,8 +766,7 @@ export function renderDetalle(root, v, embebido) {
 
     ${soloVer && !v.observaciones ? "" : `<section class="d-sec d-post"><h3>Observaciones</h3>
       <textarea class="post-rep" data-campo="observaciones" rows="1" ${soloVer ? "readonly" : ""} placeholder="Detalles adicionales">${esc(v.observaciones || "")}</textarea></section>`}
-    ${chipsSec("Repuestos", v, "repuestos", soloVer)}
-    ${chipsSec("Pintura", v, "pintura", soloVer)}
+    ${secPintRep(v, soloVer)}
 
     ${(() => {
       // Adicionales: con una sola cosa (ej. la firma) va directo, sin desplegable
@@ -902,6 +926,8 @@ export function renderDetalle(root, v, embebido) {
     }
     const et = t.closest(".etapa-item");
     if (et) return elegirEtapa(v, et.dataset.tipo, et.dataset.item);
+    const pa = t.closest("[data-pr-add]");
+    if (pa && !soloVer) return agregarItem(v, pa.dataset.prAdd);
     const act = t.closest("[data-act]")?.dataset.act;
     if (act === "pdf" && soySacabollos()) {
       // Sin permiso: el ícono se sacude como el de Contactar y vibra, sin abrir nada
@@ -1492,7 +1518,7 @@ async function quitarAdjunto(v, campo, idx, confirmado = false) {
 function zoomFoto(url, previa, mover = null) {
   const el = document.createElement("div");
   el.className = "zoom-foto";
-  el.innerHTML = `<img alt=""><button class="zoom-x" aria-label="Volver" title="Volver">${icon("back")}</button>
+  el.innerHTML = `<img alt=""><button class="zoom-x" aria-label="Cerrar" title="Cerrar">${icon("x")}</button>
     ${mover ? `<div class="zoom-bar"><button class="icon-btn" data-zd="-1" aria-label="Foto anterior">${icon("back")}</button><button class="icon-btn" data-zd="1" aria-label="Foto siguiente">${icon("next")}</button></div>` : ""}`;
   document.body.appendChild(el);
   const im = $("img", el);
@@ -1565,13 +1591,12 @@ function visor(fotos = [], inicio = 0, v = null, campo = "fotos") {   // campo: 
   if (!fotos.length) return;
   // Mantener para borrar: solo en las fotos del vehículo y si el usuario puede editarlo
   const borrable = !!v && fotos === v[campo] && puedoEditar(v) && !soloVer();
-  fotos = fotos.slice();   // copia: borrar/girar acá no toca la lista del estado
+  fotos = fotos.slice();   // copia: borrar acá no toca la lista del estado
   let i = inicio;
   const s = openSheet({
     wide: true,
     body: `<div class="viewer">
       <div class="viewer-foto ${fotos.length > 1 ? "depth" : ""}"><img class="vw-lado vw-ant" alt="" aria-hidden="true"><img class="vw-lado vw-sig" alt="" aria-hidden="true"><img id="vw-img" alt=""><video id="vw-vid" controls playsinline preload="metadata" hidden></video><span class="viewer-carga" hidden><span class="spin"></span></span>
-        ${v && campo === "fotos" && puedoEditar(v) ? `<button class="icon-btn viewer-ov viewer-rot" id="vw-rot" aria-label="Girar foto" title="Girar">${icon("rotate")}</button>` : ""}
         <button class="icon-btn viewer-ov viewer-x" data-close aria-label="Cerrar">${icon("x")}</button>
         <button class="icon-btn viewer-ov viewer-dl" id="vw-dl" aria-label="Descargar" title="Descargar">${icon("download")}</button>
 </div>
@@ -1580,10 +1605,9 @@ function visor(fotos = [], inicio = 0, v = null, campo = "fotos") {   // campo: 
         <div class="vw-centro"><span id="vw-n"></span></div>
         <button class="icon-btn" data-n aria-label="Siguiente" ${fotos.length > 1 ? "" : "disabled"}>${icon("next")}</button>
       </div>
-      ${v ? `<div class="viewer-add"><div class="viewer-add-fila">${(campo === "fotos" || FOTOS_SEC[campo]) && puedoEditar(v) ? `<button type="button" class="icon-btn viewer-pint-fila" id="vw-pint" aria-label="Mover foto a otra sección" title="Asignar a…">${ASIGNAR}</button>` : ""}${campo === "fotos" ? `<button type="button" class="btn btn-ghost btn-block" id="vw-mas">${icon("plus")}Añadir más fotos</button>` : ""}
+      ${v ? `<div class="viewer-add"><div class="viewer-add-fila">${(campo === "fotos" || FOTOS_SEC[campo]) && puedoEditar(v) ? `<button type="button" class="icon-btn viewer-pint-fila" id="vw-pint" aria-label="Mover foto a otra sección" title="Asignar a…">${ASIGNAR}</button>` : ""}${campo === "fotos" ? botonesFotos({ id: "vw-add" }) : ""}
         ${borrable ? `<button type="button" class="hold-del" id="vw-del" aria-label="Mantené apretado para borrar esta foto" title="Mantené apretado para borrar">
-          <svg class="anillo" viewBox="0 0 36 36" aria-hidden="true"><circle class="base" cx="18" cy="18" r="16" pathLength="100"/><circle cx="18" cy="18" r="16" pathLength="100"/></svg>${icon("trash")}</button>` : ""}</div>
-        <div class="viewer-mas" id="vw-mas-op" hidden>${botonesFotos({ id: "vw-add" })}</div></div>` : ""}
+          <svg class="anillo" viewBox="0 0 36 36" aria-hidden="true"><circle class="base" cx="18" cy="18" r="16" pathLength="100"/><circle cx="18" cy="18" r="16" pathLength="100"/></svg>${icon("trash")}</button>` : ""}</div></div>` : ""}
       </div>`
   });
   $(".sheet", s.el).classList.add("sheet-visor");
@@ -1622,7 +1646,6 @@ function visor(fotos = [], inicio = 0, v = null, campo = "fotos") {   // campo: 
     // Video: se reproduce en el visor (sin girar)
     const video = esVideo(fotos[i]);
     vid.hidden = !video; img0.hidden = video;
-    $("#vw-rot", s.el)?.toggleAttribute("hidden", video);
     if (video) {
       const src = videoURL(fotos[i].url);
       if (vid.getAttribute("src") !== src) { vid.poster = url; vid.src = src; }
@@ -1639,10 +1662,6 @@ function visor(fotos = [], inicio = 0, v = null, campo = "fotos") {   // campo: 
     }
     $("#vw-n", s.el).textContent = `${i + 1} de ${fotos.length}`;
   };
-  // "Añadir más fotos": abre la elección Cámara / Galería
-  $("#vw-mas", s.el)?.addEventListener("click", e => {
-    const op = $("#vw-mas-op", s.el); op.hidden = !op.hidden; e.currentTarget.hidden = !op.hidden;
-  });
   // Nombre: PATENTE_01.jpg, PATENTE_02.jpg…
   const nombreFoto = n => `${String(v?.patente || v?.modelo || "foto").toUpperCase().replace(/[^A-Z0-9]+/g, "_")}_${String(n + 1).padStart(2, "0")}.${esVideo(fotos[n]) ? "mp4" : "jpg"}`;
   const origen = f => esVideo(f) ? videoURL(f.url) : grande(f.url, 0, f.rot).replace("f_auto", "f_jpg");
@@ -1770,18 +1789,6 @@ function visor(fotos = [], inicio = 0, v = null, campo = "fotos") {   // campo: 
     if (!files.length) return;
     s.close();
     subirAdjuntos(getVehiculo(v.id) || v, files, "foto", document);
-  });
-  // Girar 90°: queda guardado en el vehículo y se aplica en la app y en el PDF
-  $("#vw-rot", s.el)?.addEventListener("click", () => {
-    const f = fotos[i];
-    const lista = [...(getVehiculo(v.id)?.fotos || [])];
-    const idx = lista.findIndex(x => x.url === f.url);
-    if (idx < 0) return;
-    const rot = ((f.rot || 0) + 90) % 360;
-    fotos[i] = { ...f, rot };
-    lista[idx] = { ...lista[idx], rot };
-    show();
-    actualizarVehiculo(v.id, { fotos: lista }).catch(e => toast(mensajeError(e), "error"));
   });
   // Asignar: mueve esta foto entre las principales, las de pintura y las de repuestos del vehículo
   $("#vw-pint", s.el)?.addEventListener("click", () => {
@@ -2190,7 +2197,9 @@ export function vistaFormulario(view, id = null) {
       grado
     };
     const nuevoId = vid;
-    if (!v) data.fechas = { peritado: hoyISO() };   // la fecha de peritaje es la del día de carga
+    if (!v) data.fechas = { peritado: hoyISO() };
+    // Editar la lista no borra el estado de cada repuesto / paño (renombrado en el mismo lugar, conserva el suyo)
+    if (v) for (const tipo of ["repuestos", "pintura"]) { const cur = getVehiculo(vid) || v; data[CAMPO_ETAPAS[tipo]] = etapasTrasEditar(itemsTexto(cur[tipo]), itemsTexto(data[tipo]), cur[CAMPO_ETAPAS[tipo]]); }   // la fecha de peritaje es la del día de carga
     if (pendientes.size) {
       const b = $("button[type=submit]", form);
       busy(b, true, "Subiendo archivos…");
