@@ -3134,7 +3134,7 @@ async function textoTurnosDiario(env, uid, hoy, cfg = { todos: true }) {
     if (!vs.length) continue;
     total += vs.length;
     vs.sort((a, b) => String(a.horaTurno || "99").localeCompare(String(b.horaTurno || "99")));
-    const adic = vs.filter(det).map(v => `\`${v.patente || v.modelo || "Sin patente"}\` ${det(v)}`);
+    const adic = vs.filter(det).map(v => `> \`${v.patente || v.modelo || "Sin patente"}\` ${det(v).replace(/\s*\n\s*/g, " ")}`);   // cita de WhatsApp, en una línea
     bloques.push({ cab: `*${o.operativo}* · ${vs.length} ${vs.length === 1 ? "turno" : "turnos"}`,
       cuerpo: vs.map(linea).join("\n\n") + (adic.length ? "\n\n*Adicionales*\n" + adic.join("\n") : "") });
   }
