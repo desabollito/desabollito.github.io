@@ -962,10 +962,10 @@ export async function panelCreador() {
     const sac = ["", "tecnico"].includes(m.rol);
     // Vos (creador): sin tildar, todas; lo que te destildes, se te oculta
     if (datos.usuarios.find(u => u.uid === m.uid)?.username === "gzmatte")
-      return Object.fromEntries(["planilla", "tecnicos", "gastos", "fijos", "facturacion", "cierre"].map(k => [k, e[k] ?? true]));
+      return Object.fromEntries(["planilla", "tecnicos", "gastos", "fijos", "facturacion", "cierre", "repuestos"].map(k => [k, e[k] ?? true]));
     // Facturación: sin tildar, solo la planilla de Facturación
-    if (m.rol === "facturacion") return { planilla: e.planilla ?? false, tecnicos: e.tecnicos ?? false, gastos: e.gastos ?? false, fijos: e.fijos ?? false, facturacion: e.facturacion ?? true, cierre: e.cierre ?? false };
-    return { planilla: e.planilla ?? true, tecnicos: e.tecnicos ?? (adm || sac), gastos: e.gastos ?? !sac, fijos: e.fijos ?? (adm || sac), facturacion: e.facturacion ?? adm, cierre: e.cierre ?? e.gastos ?? adm }; };
+    if (m.rol === "facturacion") return { planilla: e.planilla ?? false, tecnicos: e.tecnicos ?? false, gastos: e.gastos ?? false, fijos: e.fijos ?? false, facturacion: e.facturacion ?? true, cierre: e.cierre ?? false, repuestos: e.repuestos ?? false };
+    return { planilla: e.planilla ?? true, tecnicos: e.tecnicos ?? (adm || sac), gastos: e.gastos ?? !sac, fijos: e.fijos ?? (adm || sac), facturacion: e.facturacion ?? adm, cierre: e.cierre ?? e.gastos ?? adm, repuestos: e.repuestos ?? true }; };
   const nVeh = n => n === null || n === undefined ? "" : `${n} ${n === 1 ? "vehículo" : "vehículos"}`;
   const pintar = () => {
     const { operativos, usuarios } = datos;
@@ -1030,15 +1030,15 @@ export async function panelCreador() {
         <small class="muted">Los sacabollos y desmontadores ya lo tienen. Tildá a quien más quieras que lo vea en Ajustes.</small>
       </details>
       <details class="adm-toggles adm-accesos" ${accAbierto ? "open" : ""}>
-        <summary><b>Quién ve las planillas</b> <small class="muted">Vehículos · Técnicos · Gastos · Fijos · Facturación · Cierre</small></summary>
+        <summary><b>Quién ve las planillas</b> <small class="muted">Vehículos · Técnicos · Gastos · Fijos · Facturación · Cierre · Repuestos</small></summary>
         ${(() => { const op = opAcc(); if (!op) return `<small class="muted">No hay operativos.</small>`;
         if (!("accesosOp" in (datos.config || {}))) return `<small class="muted">Falta publicar el bot nuevo para elegir por operativo.</small>`;   // el bot viejo pisaría las tildes de los demás
         return `<label class="field"><span>Operativo</span><select id="adm-acc-op">${operativos.map(o => `<option value="${esc(o.id)}" ${o.id === op.id ? "selected" : ""}>${esc(o.name)}</option>`).join("")}</select></label>
-        <div class="adm-acc-head"><span></span><small>Vehíc.</small><small>Técnicos</small><small>Gastos</small><small>Fijos</small><small>Factura</small><small>Cierre</small></div>
+        <div class="adm-acc-head"><span></span><small>Vehíc.</small><small>Técnicos</small><small>Gastos</small><small>Fijos</small><small>Factura</small><small>Cierre</small><small>Repuestos</small></div>
         ${op.miembros.map(m => { const a = accesoDe(op, m), u = usuarios.find(x => x.uid === m.uid);   // vos también: podés ocultarte las planillas que no usás
           return `<div class="adm-acc-fila" data-acc="${esc(m.uid)}"><span><b>${esc(u?.name || "Sin nombre")}</b> <small class="muted">${esc(u ? "@" + u.username : m.quien)}</small></span>
-            ${["planilla", "tecnicos", "gastos", "fijos", "facturacion", "cierre"].map(k => `<input type="checkbox" data-acc-sec="${k}" ${a[k] ? "checked" : ""} aria-label="${k}">`).join("")}</div>`; }).join("")}`; })()}
-        <small class="muted">Sin tocar: Técnicos, Fijos y Facturación los ven los administradores; Vehículos todos; Gastos todos menos Sacabollos (que ve Técnicos y Fijos); Cierre igual que Gastos si está tildado, si no los administradores. Vale solo para este operativo. Vos siempre ves todo.</small>
+            ${["planilla", "tecnicos", "gastos", "fijos", "facturacion", "cierre", "repuestos"].map(k => `<input type="checkbox" data-acc-sec="${k}" ${a[k] ? "checked" : ""} aria-label="${k}">`).join("")}</div>`; }).join("")}`; })()}
+        <small class="muted">Sin tocar: Técnicos, Fijos y Facturación los ven los administradores; Vehículos y Repuestos todos; Gastos todos menos Sacabollos (que ve Técnicos y Fijos); Cierre igual que Gastos si está tildado, si no los administradores. Vale solo para este operativo. Vos siempre ves todo.</small>
       </details>
       <div class="seg seg-sm adm-tabs">
         <button type="button" class="seg-btn ${tab === "operativos" ? "on" : ""}" data-tab="operativos">Operativos <small>${operativos.length}</small></button>
