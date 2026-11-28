@@ -14,7 +14,8 @@ export function vistaRepuestos(view) {
   setTopbar({ title: "Repuestos", sub: S.company?.name, back: "#/planillas" });
   if (!puedeVer("repuestos")) { view.innerHTML = `<div class="empty"><p>No tenés acceso a esta planilla.</p></div>`; return; }
   const filas = activos().flatMap(v => itemsTexto(v.repuestos).map(x => ({ v, x, e: etapaItem(v, "repuestos", x) })));
-  const cuenta = k => filas.filter(f => f.e[0] === k).length;
+  // Por vehículo: cuántos autos tienen algún repuesto en ese estado
+  const cuenta = k => { const fs = filas.filter(f => f.e[0] === k); return R.autos ? new Set(fs.map(f => f.v)).size : fs.length; };
   const q = norm(R.q);
   const vs = filas.filter(f => (!R.est.size || R.est.has(f.e[0])) && (!q || norm(f.v.patente).includes(q) || norm(f.v.modelo).includes(q) || norm(f.x).includes(q)))
     .sort((a, b) => String(a.v.turnoRep || "9").localeCompare(String(b.v.turnoRep || "9")) || String(a.v.patente || "").localeCompare(String(b.v.patente || "")));
