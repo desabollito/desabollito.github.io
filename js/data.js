@@ -826,6 +826,7 @@ export function marcarChatVisto(tel, t) {
 // Quién ve cada planilla: lo elige el creador por operativo (config/app.accesosOp[cid][uid][seccion]).
 // Sin elegir: Técnicos y Gastos fijos los ven los administradores; Gastos, todos los miembros. Las reglas de Firestore piden lo mismo.
 export const puedeVer = sec => {
+  if (sec === "repuestos") { if (S.invitado) return false; sec = "planilla"; }   // Repuestos la ve quien ve la planilla de vehículos
   if (S.invitado) return S.invitado.tecnicos ? sec === "tecnicos" : sec === "planilla";
   if (sec === "planilla" && S.config?.planillaVeh === false) return false;   // el creador la apagó para todos
   // Hasta que el bot copie los accesos viejos (globales) a Paraná, valen esos

@@ -113,12 +113,12 @@ async function abrirCamara_() {
 
   return new Promise(resolve => {
     const fotos = [];          // { file, url }
-    let flash = false, cerrado = false, zoom2 = false, zoomNativo = false;
+    let flash = false, cerrado = false, z = 1, zMax = 4, zoomNativo = false, caps = {};
 
     const el = document.createElement("div");
     el.className = "cam";
     el.innerHTML = `
-      <div class="cam-visor"><div class="cam-cuadro"><video playsinline muted autoplay></video></div><div class="cam-flashfx"></div></div>
+      <div class="cam-visor"><div class="cam-cuadro"><video playsinline muted autoplay></video></div><div class="cam-flashfx"></div><span class="cam-foco" hidden></span></div>
       <header class="cam-top">
         <button class="cam-ic" data-cerrar aria-label="Cerrar">${icon("x")}</button>
         <span class="cam-titulo cam-n"></span>
@@ -140,22 +140,54 @@ async function abrirCamara_() {
     const ajustarCuadro = () => { if (video.videoWidth) $(".cam-cuadro").style.setProperty("--ar", video.videoWidth / video.videoHeight); };
     video.addEventListener("loadedmetadata", ajustarCuadro); video.addEventListener("resize", ajustarCuadro);
 
-    // Flash si el celular lo tiene; zoom 2x nativo si existe, si no, digital (se recorta al centro)
+    // Flash si el celular lo tiene; zoom nativo si existe, si no, digital (se recorta al centro)
     const prepararControles = () => {
-      const caps = track.getCapabilities?.() || {};
+      caps = track.getCapabilities?.() || {};
       const puedeFlash = !!caps.torch;
       $("[data-flash]").hidden = !puedeFlash; $(".cam-ic.vacio").hidden = puedeFlash;
       zoomNativo = !!(caps.zoom && caps.zoom.max >= 2);
+      if (zoomNativo) zMax = Math.min(caps.zoom.max, 10);
     };
+    let zPend = false;
     const aplicarZoom = () => {
-      $("[data-zoom]").textContent = zoom2 ? "2x" : "1x";
-      $("[data-zoom]").classList.toggle("on", zoom2);
-      if (zoomNativo) {
-        const min = track.getCapabilities().zoom.min;
-        track.applyConstraints({ advanced: [{ zoom: zoom2 ? 2 : Math.max(1, min) }] }).catch(() => {});
-        video.style.transform = "";
-      } else video.style.transform = zoom2 ? "scale(2)" : "";
+      z = Math.min(zMax, Math.max(1, z));
+      $("[data-zoom]").textContent = (Math.round(z * 10) / 10) + "x";
+      $("[data-zoom]").classList.toggle("on", z > 1.05);
+      if (!zoomNativo) { video.style.transform = z > 1 ? `scale(${z})` : ""; return; }
+      if (zPend) return; zPend = true;   // con los dedos llegan muchos cambios: uno por cuadro
+      requestAnimationFrame(() => { zPend = false;
+        track.applyConstraints({ advanced: [{ zoom: Math.max(z, caps.zoom.min || 1) }] }).catch(() => {}); });
     };
+    // Dos dedos: zoom de la cámara (no de la página)
+    let pinza = null;
+    const dist = t => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+    el.addEventListener("touchstart", e => { if (e.touches.length === 2) pinza = { d: dist(e.touches), z }; }, { passive: true });
+    el.addEventListener("touchmove", e => {
+      if (e.touches.length < 2) return;
+      e.preventDefault();
+      if (pinza) { z = pinza.z * dist(e.touches) / pinza.d; aplicarZoom(); }
+    }, { passive: false });
+    el.addEventListener("touchend", e => { if (e.touches.length < 2) pinza = null; });
+    el.addEventListener("gesturestart", e => e.preventDefault());   // Safari
+    // Tocar la imagen: enfoca en ese punto (si el celular lo permite) y muestra el cuadrito de foco
+    $(".cam-visor").addEventListener("click", e => {
+      if (e.target.closest("button")) return;
+      const r = video.getBoundingClientRect(), x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
+      if (x < 0 || x > 1 || y < 0 || y > 1) return;
+      const f = $(".cam-foco"), vr = $(".cam-visor").getBoundingClientRect();
+      f.style.left = (e.clientX - vr.left) + "px"; f.style.top = (e.clientY - vr.top) + "px";
+      f.hidden = false; f.classList.remove("on"); void f.offsetWidth; f.classList.add("on");
+      clearTimeout(f._t); f._t = setTimeout(() => { f.hidden = true; }, 1200);
+      const modos = caps.focusMode || [], c = {};
+      if (caps.pointsOfInterest || "pointsOfInterest" in (track.getSettings?.() || {})) c.pointsOfInterest = [{ x, y }];
+      if (modos.includes("single-shot")) c.focusMode = "single-shot";
+      else if (modos.includes("continuous")) c.focusMode = "continuous";
+      if (!Object.keys(c).length) return;
+      track.applyConstraints({ advanced: [c] })
+        // después vuelve al foco automático continuo
+        .then(() => modos.includes("continuous") && c.focusMode !== "continuous" && setTimeout(() => !cerrado && track.applyConstraints({ advanced: [{ focusMode: "continuous" }] }).catch(() => {}), 2500))
+        .catch(() => {});
+    });
 
     const pintar = () => {
       $(".cam-n").textContent = fotos.length ? `${fotos.length} ${fotos.length === 1 ? "foto" : "fotos"}` : "";
@@ -182,9 +214,10 @@ async function abrirCamara_() {
         if (!video.videoWidth) return;
         const c = document.createElement("canvas");
         const vw = video.videoWidth, vh = video.videoHeight;
-        if (zoom2 && !zoomNativo) {          // zoom digital: se guarda la mitad central
-          c.width = vw / 2; c.height = vh / 2;
-          c.getContext("2d").drawImage(video, vw / 4, vh / 4, vw / 2, vh / 2, 0, 0, vw / 2, vh / 2);
+        if (z > 1 && !zoomNativo) {          // zoom digital: se guarda el centro
+          const w = Math.round(vw / z), h = Math.round(vh / z);
+          c.width = w; c.height = h;
+          c.getContext("2d").drawImage(video, (vw - w) / 2, (vh - h) / 2, w, h, 0, 0, w, h);
         } else {
           c.width = vw; c.height = vh;
           c.getContext("2d").drawImage(video, 0, 0);
@@ -197,7 +230,7 @@ async function abrirCamara_() {
           fotos.push({ file, url: URL.createObjectURL(b) }); pintar();
         }, "image/jpeg", 0.92);
       }
-      else if (t.matches("[data-zoom]")) { zoom2 = !zoom2; aplicarZoom(); }
+      else if (t.matches("[data-zoom]")) { z = z > 1.05 ? 1 : 2; aplicarZoom(); }
       else if (t.matches("[data-quitar]")) { const [f] = fotos.splice(+t.dataset.quitar, 1); URL.revokeObjectURL(f.url); pintar(); }
       else if (t.matches("[data-ok]")) terminar({ fotos: fotos.map(f => f.file), patente: null });
       else if (t.matches("[data-flash]")) {

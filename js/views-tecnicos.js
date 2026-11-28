@@ -19,6 +19,7 @@ export function vistaPlanillas(view) {
     ${puedeVer("tecnicos") ? `<a class="hub-btn" href="#/tecnicos">${icon("team")}<span><strong>Planilla de técnicos</strong><small>Sacabollos, sueldos y cierre</small></span></a>` : ""}
     ${puedeVer("gastos") || puedeVer("fijos") ? `<a class="hub-btn" href="#/${puedeVer("gastos") ? "gastos" : "fijos"}">${icon("money")}<span><strong>Planilla de gastos</strong><small>Gastos del operativo y fijos (viandas y alquiler)</small></span></a>` : ""}
     ${puedeVer("facturacion") || puedeVer("cierre") ? `<a class="hub-btn" href="#/${puedeVer("facturacion") ? "facturacion" : "cierre"}">${icon("sign")}<span><strong>Facturación</strong><small>Órdenes firmadas y cierre operativo</small></span></a>` : ""}
+    ${puedeVer("repuestos") ? `<a class="hub-btn" href="#/repuestos">${icon("tool")}<span><strong>Repuestos</strong><small>Estado de cada repuesto y turno para colocarlo</small></span></a>` : ""}
   </div>`;
 }
 

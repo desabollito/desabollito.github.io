@@ -573,18 +573,23 @@ const VARS_WA = {
 // Link del taller: el corto con vista previa linda (chapisteriaomar.com/mapN) si el operativo ya lo tiene; si no, el de Maps tal cual
 export const linkMapa = () => { const m = S.company?.mensajes || {}; return !m.mapa ? "" : m.mapaN ? `https://chapisteriaomar.com/map${m.mapaN}` : m.mapa; };
 const claveVar = t => t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z]/g, "");
-export function textoWa(plantilla, v) {
+// Los sábados «mañana» es domingo y no se trabaja: se cambia esa parte (Operativo → Mensajes al cliente)
+export const SAB_DE = "mañana a partir de las 9hs", SAB_POR = "el lunes a partir de las 9hs";
+export function textoWa(plantilla, v, hoy = new Date()) {
   let t = String(plantilla || "").trim();
   const q = t.match(/[?&]text=([\s\S]*)$/i);   // se puede pegar el link entero (wa.me/numero?text=…)
   if (q) { t = q[1]; try { t = decodeURIComponent(t.replace(/\+/g, " ")); } catch { /* texto ya legible */ } }
   else if (/^(https?:\/\/)?(wa\.me|api\.whatsapp\.com)\//i.test(t)) t = "";
+  const sab = S.company?.mensajes || {}, de = sab.sabadoDe ?? SAB_DE;
+  if (hoy.getDay() === 6 && de) t = t.split(de).join(sab.sabadoPor ?? SAB_POR);
   // Un renglón tipo "⏰ Hora: {Hora}" sin dato se saca entero (no queda la etiqueta sola)
   return t.split("\n").map(l => { let hay = false, lleno = false;
     const r = l.replace(/\{([^{}]+)\}/g, (m, k) => { const f = VARS_WA[claveVar(k)]; if (!f) return m; hay = true; const x = String(f(v) ?? "").trim(); if (x) lleno = true; return x; });
     return hay && !lleno && /:[*_\s]*$/.test(r) ? null : r; }).filter(l => l !== null).join("\n")
     .replace(/[ \t]{2,}/g, " ").replace(/\n{3,}/g, "\n\n").trim();
 }
-console.assert(textoWa("A\n⏰ *Hora:* {Hora}\nB {Patente}", { patente: "AB123CD" }) === "A\nB AB123CD" && textoWa("Hola {Asegurado}!", {}) === "Hola !", "textoWa");
+console.assert(textoWa("A\n⏰ *Hora:* {Hora}\nB {Patente}", { patente: "AB123CD" }) === "A\nB AB123CD" && textoWa("Hola {Asegurado}!", {}) === "Hola !"
+  && textoWa("hoy o mañana a partir de las 9hs", {}, new Date(2026, 10, 28)) === "hoy o el lunes a partir de las 9hs", "textoWa");
 // Solo con el vehículo reparado; antes, el WhatsApp abre sin texto
 const mensajeWa = v => ["reparado", "llamado"].includes(estadoActual(v)) ? textoWa(S.company?.mensajes?.contactado || S.config?.mensajeWa, v) : "";
 
@@ -602,15 +607,15 @@ const listaProlija = t => itemsTexto(t).join(", ");
 // Cada ítem: primera letra mayúscula, el resto en minúscula (salvo siglas como ABS o palabras con números) y sin punto final
 const prolijo = x => x.trim().replace(/[.;:\s]+$/, "").split(/\s+/)
   .map((w, i) => /\d/.test(w) || (/^[A-ZÁÉÍÓÚÑ]{2,4}$/.test(w)) ? w : (i ? w.toLowerCase() : w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())).join(" ");
-const itemsTexto = t => String(t || "").split(/\n|,/).map(prolijo).filter(Boolean);
+export const itemsTexto = t => String(t || "").split(/\n|,/).map(prolijo).filter(Boolean);
 
 // Estado de cada repuesto y de cada paño de pintura: se toca el ítem y se elige
-const ETAPAS = {
+export const ETAPAS = {
   repuestos: [["sinpedir", "Sin cargar", "#e5484d"], ["pedido", "Pedido", "#e0a526"], ["recibido", "Recibido", "#4f8ff7"], ["colocado", "Colocado", "#22b07d"]],
   pintura: [["pendiente", "Sin cargar", "#e5484d"], ["pedido", "Pedido", "#e0a526"], ["turnado", "Turnado", "#4f8ff7"], ["pintado", "Pintado", "#22b07d"]]
 };
 const CAMPO_ETAPAS = { repuestos: "etapasRepuestos", pintura: "etapasPintura" };
-const etapaItem = (v, tipo, x) => ETAPAS[tipo].find(e => e[0] === v[CAMPO_ETAPAS[tipo]]?.[claveItem(x)]) || ETAPAS[tipo][0];
+export const etapaItem = (v, tipo, x) => ETAPAS[tipo].find(e => e[0] === v[CAMPO_ETAPAS[tipo]]?.[claveItem(x)]) || ETAPAS[tipo][0];
 // Con las fotos de esa sección (fotosRepuestos / fotosPintura) abajo de los ítems
 // Misma grilla de fotos que el resto: si no entran, el último cuadro dice "+N" (abre el visor) y al final va el cuadro "+" para agregar
 const grillaFotos = (fotos, campo, soloVer) => {
@@ -622,7 +627,7 @@ const grillaFotos = (fotos, campo, soloVer) => {
 const chipsSec = (titulo, v, tipo, soloVer) => {
   const items = itemsTexto(v[tipo]), campo = tipo === "pintura" ? "fotosPintura" : "fotosRepuestos", fotos = v[campo] || [];
   if (soloVer && !items.length && !fotos.length) return "";
-  return `<section class="d-sec d-pintrep"><div class="sec-head"><h3>${titulo}${fotos.length ? ` <small>${fotos.length} ${fotos.length === 1 ? "foto" : "fotos"}</small>` : ""}</h3>
+  return `<section class="d-sec d-pintrep"><div class="sec-head"><h3>${titulo}</h3>
     ${soloVer ? "" : `<button type="button" class="icon-btn sm" data-pr-add="${tipo}" aria-label="Agregar ${tipo === "pintura" ? "pintura" : "repuesto"}" title="Agregar">${icon("plus")}</button>`}</div>
   ${items.length ? `<ul class="piezas-list pintura-list etapas">${items.map(x => { const [, label, color] = etapaItem(v, tipo, x);
     return `<li><button type="button" class="etapa-item" data-tipo="${tipo}" data-item="${esc(x)}" style="--c:${color}"><span>${esc(x)}</span><small>${label}</small></button></li>`; }).join("")}</ul>` : ""}
@@ -638,7 +643,7 @@ async function agregarItem(v, tipo) {
   const cur = getVehiculo(v.id) || v, viejos = itemsTexto(cur[tipo]);
   guardarItems(cur, tipo, viejos, [...viejos, ...nuevos], `Agregó ${nom}: ${nuevos.join(", ")}`);
 }
-function elegirEtapa(v, tipo, item) {
+export function elegirEtapa(v, tipo, item) {
   const actual = etapaItem(v, tipo, item)[0];
   const s = openSheet({ title: item, body: `<div class="stack etapa-opciones">${ETAPAS[tipo].map(([k, label, color]) =>
     `<button type="button" class="btn btn-block etapa-op ${k === actual ? "on" : ""}" data-k="${k}" style="--c:${color}"><i></i>${label}</button>`).join("")}
@@ -745,10 +750,11 @@ export function renderDetalle(root, v, embebido) {
     <section class="d-sec d-grid">
       ${[["Asegurado", v.asegurado], ["Teléfono", v.telefono], ["Compañía de seguro", v.compania], ["Localidad", v.localidad]]
         .map(([l, x]) => `<div class="kv"><span>${l}</span><strong>${esc(x || "—")}</strong></div>`).join("")}
+      ${v.grado ? `<div class="kv kv-grado"><strong>Paños afectados</strong>${gradoTag(v)}</div>` : ""}
     </section>
 
-    ${!marcadas.length ? (v.grado ? `<section class="d-sec d-piezas"><div class="sec-head"><h3>Paños afectados</h3>${gradoTag(v)}</div></section>` : "") : `<section class="d-sec d-piezas">
-      <div class="sec-head"><h3>Paños afectados ${todos ? "<small>todos</small>" : marcadas.length ? `<small>${marcadas.length}</small>` : ""}</h3>${gradoTag(v)}</div>
+    ${!marcadas.length ? "" : `<section class="d-sec d-piezas">
+      <div class="sec-head"><h3>Paños afectados ${todos ? "<small>todos</small>" : marcadas.length ? `<small>${marcadas.length}</small>` : ""}</h3></div>
       ${!marcadas.length ? `<p class="muted sin-panos">Sin paños marcados</p>` : `
       <div class="piezas-view">
         <div class="map-col">${carMapSVG(v.piezas || {}, { size: "carmap-sm" })}</div>
@@ -1353,15 +1359,16 @@ const botonDeshacer = e => e ? `<label class="tira-deshacer"><input type="range"
   <span>${icon("rotate")}Deslizá para deshacer: ${esc(sinPaso(e.txt))}</span></label>` : "";
 function conectarDeshacer(s, v, e) {
   const r = $("[data-deshacer-estado]", s.el); if (!r) return;
+  conectarTira(r, () => { s.close();
+    deshacerCambio(v, e).then(() => toast("Estado deshecho", "success")).catch(err => toast(mensajeError(err), "error")); });
+}
+// Tira para deslizar hasta el final: recién ahí corre alFinal
+function conectarTira(r, alFinal) {
   let antes = 0;
   const poner = x => { r.value = x; antes = x; r.style.setProperty("--p", x + "%"); };
   // Tocar la tira hace saltar el control: un salto grande se ignora, solo cuenta arrastrar
   r.addEventListener("input", () => { if (r.value - antes > 25) r.value = antes; poner(+r.value); });
-  r.addEventListener("change", () => {
-    if (+r.value < 92) return poner(0);
-    s.close();
-    deshacerCambio(v, e).then(() => toast("Estado deshecho", "success")).catch(err => toast(mensajeError(err), "error"));
-  });
+  r.addEventListener("change", () => { if (+r.value < 92) return poner(0); alFinal(); });
 }
 // enChat: abierto con «Elegir nueva fecha» del chat en vivo: el botón principal manda solo la encuesta de la fecha nueva
 export function elegirFechaEstado(v, estado, enChat) {
@@ -1596,15 +1603,15 @@ function visor(fotos = [], inicio = 0, v = null, campo = "fotos") {   // campo: 
       <div class="viewer-foto ${fotos.length > 1 ? "depth" : ""}"><img class="vw-lado vw-ant" alt="" aria-hidden="true"><img class="vw-lado vw-sig" alt="" aria-hidden="true"><img id="vw-img" alt=""><video id="vw-vid" controls playsinline preload="metadata" hidden></video><span class="viewer-carga" hidden><span class="spin"></span></span>
         <button class="icon-btn viewer-ov viewer-x" data-close aria-label="Cerrar">${icon("x")}</button>
         <button class="icon-btn viewer-ov viewer-dl" id="vw-dl" aria-label="Descargar" title="Descargar">${icon("download")}</button>
+        ${v && (campo === "fotos" || FOTOS_SEC[campo]) && puedoEditar(v) ? `<button type="button" class="icon-btn viewer-ov viewer-mover" id="vw-pint" aria-label="Mover foto a otra sección" title="Asignar a…">${ASIGNAR}</button>` : ""}
 </div>
       <div class="viewer-bar">
         <button class="icon-btn" data-p aria-label="Anterior" ${fotos.length > 1 ? "" : "disabled"}>${icon("back")}</button>
         <div class="vw-centro"><span id="vw-n"></span></div>
         <button class="icon-btn" data-n aria-label="Siguiente" ${fotos.length > 1 ? "" : "disabled"}>${icon("next")}</button>
       </div>
-      ${v ? `<div class="viewer-add"><div class="viewer-add-fila">${(campo === "fotos" || FOTOS_SEC[campo]) && puedoEditar(v) ? `<button type="button" class="icon-btn viewer-pint-fila" id="vw-pint" aria-label="Mover foto a otra sección" title="Asignar a…">${ASIGNAR}</button>` : ""}${campo === "fotos" ? botonesFotos({ id: "vw-add" }) : ""}
-        ${borrable ? `<button type="button" class="hold-del" id="vw-del" aria-label="Mantené apretado para borrar esta foto" title="Mantené apretado para borrar">
-          <svg class="anillo" viewBox="0 0 36 36" aria-hidden="true"><circle class="base" cx="18" cy="18" r="16" pathLength="100"/><circle cx="18" cy="18" r="16" pathLength="100"/></svg>${icon("trash")}</button>` : ""}</div></div>` : ""}
+      ${v ? `<div class="viewer-add"><div class="viewer-add-fila">${campo === "fotos" ? botonesFotos({ id: "vw-add" }) : ""}
+        ${borrable ? `<button type="button" class="hold-del" id="vw-del" aria-label="Eliminar esta foto" title="Eliminar">${icon("trash")}</button>` : ""}</div></div>` : ""}
       </div>`
   });
   $(".sheet", s.el).classList.add("sheet-visor");
@@ -1752,15 +1759,12 @@ function visor(fotos = [], inicio = 0, v = null, campo = "fotos") {   // campo: 
     acum += e.deltaX;
     if (Math.abs(acum) > 40) { gesto = true; ir(acum > 0 ? 1 : -1); }
   }, { passive: false });
-  // Mantener apretado 1,2 s para borrar esta foto (Enter/Espacio: pide confirmación)
+  // Borrar: pregunta y se confirma deslizando la tira hasta el final
   const del = $("#vw-del", s.el);
   if (del) {
-    let reloj = null;
-    const soltar = () => { clearTimeout(reloj); del.classList.remove("cargando"); };
-    const borrarActual = async conf => {
+    const borrarActual = () => {
       const f = fotos[i], idx = (getVehiculo(v.id)?.[campo] || []).findIndex(x => x.url === f.url);
       if (idx < 0) return;
-      if (!conf && !(await confirmar({ title: "¿Quitar esta foto?", message: "Se quita del vehículo y del PDF.", ok: "Quitar", danger: true }))) return;
       quitarAdjunto(getVehiculo(v.id), campo, idx, true);
       navigator.vibrate?.([15, 40, 15]);
       fotos.splice(i, 1);
@@ -1768,14 +1772,12 @@ function visor(fotos = [], inicio = 0, v = null, campo = "fotos") {   // campo: 
       i = Math.min(i, fotos.length - 1); show(1);
       toast("Foto eliminada");
     };
-    del.addEventListener("pointerdown", e => {
-      e.preventDefault(); del.setPointerCapture?.(e.pointerId);
-      del.classList.add("cargando"); navigator.vibrate?.(8);
-      reloj = setTimeout(() => { soltar(); borrarActual(true); }, 1200);
+    del.addEventListener("click", () => {
+      const h = openSheet({ title: "¿Eliminar esta foto?", body: `<div class="stack"><p class="muted">Se quita del vehículo y del PDF.</p>
+        <label class="tira-deshacer"><input type="range" min="0" max="100" value="0" aria-label="Deslizá hasta el final para eliminar la foto">
+        <span>${icon("trash")}Deslizá para eliminar</span></label></div>` });
+      conectarTira($("input", h.el), () => { h.close(); borrarActual(); });
     });
-    ["pointerup", "pointercancel", "lostpointercapture"].forEach(ev => del.addEventListener(ev, soltar));
-    del.addEventListener("contextmenu", e => e.preventDefault());
-    del.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); borrarActual(false); } });
   }
   // Tocar la foto: se abre a pantalla completa con zoom
   // shortcut: un video en la foto grande se ve como imagen fija; para reproducirlo se vuelve al visor

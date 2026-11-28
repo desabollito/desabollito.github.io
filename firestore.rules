@@ -154,7 +154,7 @@ service cloud.firestore {
           && (!esFacturacion(cid) || request.resource.data.get('firma', null) == resource.data.get('firma', null))
           && (esDueno(cid) || esFacturacion(cid) || uid() in resource.data.get('editores', [])
               || (request.resource.data.diff(resource.data).affectedKeys()
-                    .hasOnly(['estado', 'fechas', 'horas', 'etapasRepuestos', 'etapasPintura', 'postReparacion', 'razonAnulacion', 'turnoConfirmado', 'horaTurno', 'conformidad', 'avisoReparado', 'fotos', 'archivos', 'firma', 'historial', 'desFotos', 'desNotas', 'desmontador', 'checkIn', 'checkOut', 'fotosPintura', 'fotosRepuestos', 'updatedAt', 'updatedBy'])
+                    .hasOnly(['estado', 'fechas', 'horas', 'etapasRepuestos', 'etapasPintura', 'postReparacion', 'razonAnulacion', 'turnoConfirmado', 'horaTurno', 'conformidad', 'avisoReparado', 'fotos', 'archivos', 'firma', 'historial', 'desFotos', 'desNotas', 'desmontador', 'checkIn', 'checkOut', 'fotosPintura', 'fotosRepuestos', 'turnoRep', 'turnoRepOk', 'updatedAt', 'updatedBy'])
                   && request.resource.data.get('fotos', []).size() >= resource.data.get('fotos', []).size()
                   && request.resource.data.get('archivos', []).size() >= resource.data.get('archivos', []).size()));
         // Se borran de verdad solo desde el bot (papelera de 48 h, "eliminar para siempre" o mover de operativo)

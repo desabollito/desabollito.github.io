@@ -70,7 +70,7 @@ function calcularNotifs(desde = Date.now() - DIAS * 86400_000, hasta = Infinity,
       const x = docs.get(k) || { ...base, t: 0, por: d.byName || "Alguien", n: 0, nombre: d.name || "" };
       x.t = Math.max(x.t, t); x.n++; docs.set(k, x);
     }
-    for (const x of docs.values()) out.push({ ...x, txt: x.n === 1 ? `Agregó el documento “${x.nombre || "sin nombre"}”` : `Agregó ${x.n} documentos` });
+    for (const x of docs.values()) out.push({ ...x, txt: x.n === 1 ? "Agregó un documento" : `Agregó ${x.n} documentos` });
     // Orden firmada que cargó otro en Facturación (las viejas sin autor no se avisan)
     const of = fact[v.id];
     if (of?.by && of.by !== yo && of.at >= desde && of.at < hasta) out.push({ ...base, t: of.at, por: of.byName || "Alguien", txt: "Cargó la orden firmada", href: "#/facturacion" });

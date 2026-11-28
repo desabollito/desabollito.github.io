@@ -2875,3 +2875,27 @@ button.aj-item:hover, a.aj-item:hover { background: var(--surface-2); }
 /* Repuestos y Pintura: + al lado del título; fotos debajo de las filas */
 .d-pintrep .desm-fotos { margin-top: 8px; }
 .d-pintrep .sec-head { justify-content: flex-start; gap: 6px; }
+
+/* Repuestos: una fila por repuesto (vehículo, estado y turno para colocarlo) */
+.rep-list { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.rep-list li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 10px; align-items: center; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--r); background: var(--surface); }
+.rep-veh { display: flex; align-items: center; gap: 8px; min-width: 0; color: inherit; text-decoration: none; grid-column: 1 / -1; }
+.rep-veh small { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rep-list .etapa-item { justify-self: start; max-width: 100%; }
+
+/* Grado dentro del box del asegurado, a lo ancho */
+.kv.kv-grado { grid-column: 1 / -1; flex-direction: row; align-items: center; gap: 8px; }
+.kv-grado .d-grado-tag { margin: 0; }
+
+/* Visor: mover a otra sección arriba a la izquierda (con fondo, como descargar); abajo Galería a la izquierda y Cámara a lo largo */
+.viewer-mover { top: 10px; left: 10px; }
+.viewer-add-fila .foto-gal { order: -1; flex: 0 0 48px; padding: 0; }
+.viewer-add-fila .foto-gal .gal-txt { display: none; }
+.viewer-add-fila .foto-btns [data-camara] { flex: 1 1 auto; }
+
+/* Cámara: los dedos hacen zoom de la cámara, no de la página; cuadrito de foco donde se toca */
+.cam { touch-action: none; }
+.cam-foco { position: absolute; width: 64px; height: 64px; margin: -32px 0 0 -32px; border: 2px solid #ffd60a; border-radius: 8px; pointer-events: none; z-index: 2; }
+.cam-foco.on { animation: cam-foco .35s var(--ease); }
+@keyframes cam-foco { from { transform: scale(1.4); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.cam-tiras { touch-action: pan-x; }

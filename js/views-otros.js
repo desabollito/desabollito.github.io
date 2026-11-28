@@ -18,7 +18,7 @@ import { planillaPDF } from "./pdf.js";
 import { exportarExcel } from "./excel.js";
 import { setTopbar, go, logoOperativo, pintarLateral } from "./shell.js";
 import { APP_VERSION, WHATSAPP_BOT, BOT_API } from "./config.js";
-import { renderDetalle, textoWa, abrirFiltros, botonFiltros, filtrarCalendario, linkMapa, elegirFechaEstado } from "./views-vehiculos.js";
+import { renderDetalle, textoWa, SAB_DE, SAB_POR, abrirFiltros, botonFiltros, filtrarCalendario, linkMapa, elegirFechaEstado } from "./views-vehiculos.js";
 
 // ═════════════════════════════════════════════════════════════
 //  PLANILLA
@@ -388,6 +388,9 @@ export function vistaEmpresa(view) {
         ${campoEncuesta(c, "reprogramar")}</div>
         <label class="field"><span>Mensaje de contactado <small class="muted">(al marcar Contactado y en «Contactar por privado»)</small></span>
           <textarea name="contactado" rows="6" maxlength="2000">${esc(c.mensajes?.contactado || S.config?.mensajeWa || "")}</textarea></label>
+        <div class="grid-2"><label class="field"><span>Los sábados cambiar <small class="muted">(los domingos no se trabaja)</small></span>
+          <input name="sabadoDe" maxlength="200" value="${esc(c.mensajes?.sabadoDe ?? SAB_DE)}"></label>
+          <label class="field"><span>Por</span><input name="sabadoPor" maxlength="200" value="${esc(c.mensajes?.sabadoPor ?? SAB_POR)}"></label></div>
         <div class="stack" ${S.config?.chatAvisos === false ? "hidden" : ""}><label class="toggle"><input type="checkbox" name="encRetiro" ${c.mensajes?.encRetiro ? "checked" : ""}>
           <span>Después del mensaje de contactado, mandar la encuesta</span></label>
         ${campoEncuesta(c, "retiro")}</div>
@@ -501,7 +504,7 @@ export function vistaEmpresa(view) {
     try {
       const encuestas = Object.fromEntries(["turno", "retiro", "reprogramar"].map(k => [k, leerEncuesta(f, k)]));
       if (Object.values(encuestas).some(x => x === false)) return toast("Cada encuesta necesita una pregunta y al menos 2 opciones", "error");
-      await guardarMensajesCliente({ direccion: f.direccion.value.trim(), mapa, turno: turno === TXT_TURNO ? "" : turno, contactado: f.contactado.value.trim(), cambioFecha: f.cambioFecha.value.trim(), encTurno: f.encTurno.checked, encRetiro: f.encRetiro.checked,
+      await guardarMensajesCliente({ direccion: f.direccion.value.trim(), mapa, turno: turno === TXT_TURNO ? "" : turno, contactado: f.contactado.value.trim(), sabadoDe: f.sabadoDe.value.trim(), sabadoPor: f.sabadoPor.value.trim(), cambioFecha: f.cambioFecha.value.trim(), encTurno: f.encTurno.checked, encRetiro: f.encRetiro.checked,
         encuestas, mapaN: S.company?.mensajes?.mapaN || null, mapaImg });   // el número lo pone el bot: se lee del operativo al momento de guardar
       // Con link de Maps: el bot le da al operativo su link corto (chapisteriaomar.com/mapN), con la vista previa linda
       if (mapa && !S.company?.mensajes?.mapaN) { const j = await llamarBot("mapa-numero", { cid: c.id }); if (!j.ok) toast(j.error || "No se pudo crear el link corto", "error"); }
