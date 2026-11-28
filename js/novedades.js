@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.56.5", items: ["Repuestos por Vehículo: filtrando un estado, cada auto muestra también sus otros repuestos."] },
   { v: "4.56.4", items: ["Repuestos: en la vista por Vehículo los números de los estados cuentan autos (con algún repuesto en ese estado)."] },
   { v: "4.56.3", items: ["Repuestos: el botón Repuesto / Vehículo va a la derecha, a la altura de los estados."] },
   { v: "4.56.2", items: ["Repuestos: botón Repuesto / Vehículo para ver la lista de a un repuesto o agrupada por auto."] },

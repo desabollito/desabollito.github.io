@@ -22,7 +22,8 @@ export function vistaRepuestos(view) {
   const chip = ({ v, x, e: [, label, color] }) => `<button type="button" class="etapa-item" data-vid="${esc(v.id)}" data-item="${esc(x)}" style="--c:${color}"><span>${esc(x)}</span><small>${label}</small></button>`;
   const veh = v => `<a href="#/v/${esc(v.id)}" class="rep-veh">${plate(v.patente)}<small>${esc(v.modelo || "")}</small></a>`;
   const turno = v => `<button type="button" class="btn btn-sm ${v.turnoRepOk ? "btn-primary" : "btn-ghost"}" data-turno="${esc(v.id)}">${icon(v.turnoRepOk ? "check" : "calendar")}${v.turnoRep ? fechaCorta(v.turnoRep) : "Turno"}</button>`;
-  const porAuto = [...vs.reduce((m, f) => m.set(f.v, [...(m.get(f.v) || []), f]), new Map())];   // sin Map.groupBy: celulares viejos
+  // Por vehículo: los autos con algún repuesto que coincide, cada uno con todos sus repuestos
+  const porAuto = [...new Set(vs.map(f => f.v))].map(v => [v, filas.filter(f => f.v === v)]);
   view.innerHTML = `<div class="tec-page">
     <label class="search">${icon("search")}<input type="search" id="r-q" placeholder="Buscar patente, modelo o repuesto" value="${esc(R.q)}" autocomplete="off"></label>
     <div class="rep-fila">
