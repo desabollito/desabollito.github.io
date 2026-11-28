@@ -7,7 +7,7 @@ import { $, esc, icon, toast, plate, openSheet, fechaCorta } from "./ui.js";
 import { setTopbar } from "./shell.js";
 import { ETAPAS, etapaItem, itemsTexto, elegirEtapa } from "./views-vehiculos.js";
 
-const R = { est: new Set(), q: "" };
+const R = { est: new Set(), q: "", autos: false };   // autos: una fila por vehículo con sus repuestos
 const norm = t => String(t || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
 
 export function vistaRepuestos(view) {
@@ -18,14 +18,18 @@ export function vistaRepuestos(view) {
   const q = norm(R.q);
   const vs = filas.filter(f => (!R.est.size || R.est.has(f.e[0])) && (!q || norm(f.v.patente).includes(q) || norm(f.v.modelo).includes(q) || norm(f.x).includes(q)))
     .sort((a, b) => String(a.v.turnoRep || "9").localeCompare(String(b.v.turnoRep || "9")) || String(a.v.patente || "").localeCompare(String(b.v.patente || "")));
+  const chip = ({ v, x, e: [, label, color] }) => `<button type="button" class="etapa-item" data-vid="${esc(v.id)}" data-item="${esc(x)}" style="--c:${color}"><span>${esc(x)}</span><small>${label}</small></button>`;
+  const veh = v => `<a href="#/v/${esc(v.id)}" class="rep-veh">${plate(v.patente)}<small>${esc(v.modelo || "")}</small></a>`;
+  const turno = v => `<button type="button" class="btn btn-sm ${v.turnoRepOk ? "btn-primary" : "btn-ghost"}" data-turno="${esc(v.id)}">${icon(v.turnoRepOk ? "check" : "calendar")}${v.turnoRep ? fechaCorta(v.turnoRep) : "Turno"}</button>`;
+  const porAuto = [...vs.reduce((m, f) => m.set(f.v, [...(m.get(f.v) || []), f]), new Map())];   // sin Map.groupBy: celulares viejos
   view.innerHTML = `<div class="tec-page">
+    <div class="seg seg-sm"><button type="button" class="seg-btn ${R.autos ? "" : "on"}" data-autos="">Repuesto</button><button type="button" class="seg-btn ${R.autos ? "on" : ""}" data-autos="1">Vehículo</button></div>
     <label class="search">${icon("search")}<input type="search" id="r-q" placeholder="Buscar patente, modelo o repuesto" value="${esc(R.q)}" autocomplete="off"></label>
     <div class="estado-strip" role="tablist" aria-label="Filtrar por estado">${ETAPAS.repuestos.map(([k, label, color]) =>
       `<button class="est ${R.est.has(k) ? "on" : ""}" data-e="${k}" style="--c:${color}"><b>${cuenta(k)}</b><span>${label}</span></button>`).join("")}</div>
-    ${vs.length ? `<ul class="rep-list">${vs.map(({ v, x, e: [, label, color] }) => `<li>
-      <a href="#/v/${esc(v.id)}" class="rep-veh">${plate(v.patente)}<small>${esc(v.modelo || "")}</small></a>
-      <button type="button" class="etapa-item" data-vid="${esc(v.id)}" data-item="${esc(x)}" style="--c:${color}"><span>${esc(x)}</span><small>${label}</small></button>
-      <button type="button" class="btn btn-sm ${v.turnoRepOk ? "btn-primary" : "btn-ghost"}" data-turno="${esc(v.id)}">${icon(v.turnoRepOk ? "check" : "calendar")}${v.turnoRep ? fechaCorta(v.turnoRep) : "Turno"}</button></li>`).join("")}</ul>`
+    ${vs.length ? `<ul class="rep-list">${R.autos
+      ? porAuto.map(([v, fs]) => `<li>${veh(v)}<div class="rep-chips">${fs.map(chip).join("")}</div>${turno(v)}</li>`).join("")
+      : vs.map(f => `<li>${veh(f.v)}${chip(f)}${turno(f.v)}</li>`).join("")}</ul>`
       : `<div class="empty small"><p>${filas.length ? "No hay repuestos con ese filtro." : "Ningún vehículo tiene repuestos cargados."}</p></div>`}</div>`;
 
   $("#r-q", view).addEventListener("input", e => { R.q = e.target.value; const p = e.target.selectionStart; vistaRepuestos(view); const i = $("#r-q", view); i.focus(); i.setSelectionRange(p, p); });
@@ -34,6 +38,7 @@ export function vistaRepuestos(view) {
     R.est.has(b.dataset.e) ? R.est.delete(b.dataset.e) : R.est.add(b.dataset.e); vistaRepuestos(view);
   });
   view.querySelector(".tec-page").addEventListener("click", e => {
+    const a = e.target.closest("[data-autos]"); if (a) { R.autos = !!a.dataset.autos; return vistaRepuestos(view); }
     const et = e.target.closest(".etapa-item[data-vid]");
     if (et) return elegirEtapa(activos().find(v => v.id === et.dataset.vid), "repuestos", et.dataset.item);
     const t = e.target.closest("[data-turno]"); if (t) turnoColocacion(activos().find(v => v.id === t.dataset.turno));

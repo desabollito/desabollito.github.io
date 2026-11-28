@@ -2899,3 +2899,5 @@ button.aj-item:hover, a.aj-item:hover { background: var(--surface-2); }
 .cam-foco.on { animation: cam-foco .35s var(--ease); }
 @keyframes cam-foco { from { transform: scale(1.4); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 .cam-tiras { touch-action: pan-x; }
+.rep-chips { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
+.tec-page > .seg { margin-bottom: 10px; }
