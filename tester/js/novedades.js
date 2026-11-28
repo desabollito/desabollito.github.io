@@ -1,5 +1,6 @@
 // Registro de novedades (Ajustes → Novedades), la más nueva arriba. Agregar una entrada con cada versión que valga la pena contar.
 export const NOVEDADES = [
+  { v: "4.56.3", items: ["Repuestos: el botón Repuesto / Vehículo va a la derecha, a la altura de los estados."] },
   { v: "4.56.2", items: ["Repuestos: botón Repuesto / Vehículo para ver la lista de a un repuesto o agrupada por auto."] },
   { v: "4.56.1", items: ["Repuestos es una planilla aparte: tiene su propia columna en «Quién ve las planillas» (sin tocar la ven todos menos Facturación)."] },
   { v: "4.56.0", items: ["Planillas → Repuestos: todos los repuestos con filtros Sin cargar, Pedido, Recibido y Colocado, y el día del turno para colocarlos (y si está confirmado).", "Mensaje de contactado: los sábados «mañana a partir de las 9hs» se cambia solo por «el lunes a partir de las 9hs» (se edita en Operativo → Mensajes al cliente).", "Cámara: tocá la imagen para enfocar y usá dos dedos para hacer zoom.", "Visor: mover a otra sección arriba a la izquierda; abajo Galería y Cámara a lo largo. Eliminar una foto pide confirmación deslizando.", "Vehículo: «Paños afectados Grado N» dentro del box del asegurado. Las notificaciones dicen «Agregó un documento»."] },

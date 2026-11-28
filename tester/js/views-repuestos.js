@@ -23,10 +23,12 @@ export function vistaRepuestos(view) {
   const turno = v => `<button type="button" class="btn btn-sm ${v.turnoRepOk ? "btn-primary" : "btn-ghost"}" data-turno="${esc(v.id)}">${icon(v.turnoRepOk ? "check" : "calendar")}${v.turnoRep ? fechaCorta(v.turnoRep) : "Turno"}</button>`;
   const porAuto = [...vs.reduce((m, f) => m.set(f.v, [...(m.get(f.v) || []), f]), new Map())];   // sin Map.groupBy: celulares viejos
   view.innerHTML = `<div class="tec-page">
-    <div class="seg seg-sm"><button type="button" class="seg-btn ${R.autos ? "" : "on"}" data-autos="">Repuesto</button><button type="button" class="seg-btn ${R.autos ? "on" : ""}" data-autos="1">Vehículo</button></div>
     <label class="search">${icon("search")}<input type="search" id="r-q" placeholder="Buscar patente, modelo o repuesto" value="${esc(R.q)}" autocomplete="off"></label>
+    <div class="rep-fila">
     <div class="estado-strip" role="tablist" aria-label="Filtrar por estado">${ETAPAS.repuestos.map(([k, label, color]) =>
       `<button class="est ${R.est.has(k) ? "on" : ""}" data-e="${k}" style="--c:${color}"><b>${cuenta(k)}</b><span>${label}</span></button>`).join("")}</div>
+      <div class="seg seg-sm"><button type="button" class="seg-btn ${R.autos ? "" : "on"}" data-autos="">Repuesto</button><button type="button" class="seg-btn ${R.autos ? "on" : ""}" data-autos="1">Vehículo</button></div>
+    </div>
     ${vs.length ? `<ul class="rep-list">${R.autos
       ? porAuto.map(([v, fs]) => `<li>${veh(v)}<div class="rep-chips">${fs.map(chip).join("")}</div>${turno(v)}</li>`).join("")
       : vs.map(f => `<li>${veh(f.v)}${chip(f)}${turno(f.v)}</li>`).join("")}</ul>`

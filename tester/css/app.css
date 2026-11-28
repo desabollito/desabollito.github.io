@@ -2900,4 +2900,6 @@ button.aj-item:hover, a.aj-item:hover { background: var(--surface-2); }
 @keyframes cam-foco { from { transform: scale(1.4); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 .cam-tiras { touch-action: pan-x; }
 .rep-chips { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
-.tec-page > .seg { margin-bottom: 10px; }
+.rep-fila { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+.rep-fila .estado-strip { flex: 1; min-width: 0; margin: 0; padding: 0; }
+.rep-fila .seg { flex: none; }
